@@ -17,8 +17,9 @@ export class AuthService {
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
-        name: dto.name,
-        password: hashedPassword,
+        firstName: dto.name.split(' ')[0] || dto.name,
+        lastName: dto.name.split(' ').slice(1).join(' ') || '',
+        passwordHash: hashedPassword,
         role: 'FELLOW',
       },
     });
@@ -31,7 +32,7 @@ export class AuthService {
       where: { email: dto.email },
     });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -39,26 +40,35 @@ export class AuthService {
   }
 
   async validateUser(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
       },
     });
+
+    if (!user) return null;
+
+    return {
+      ...user,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+    };
   }
 
   private generateTokens(user: any): AuthResponseDto {
     const payload = { sub: user.id, email: user.email, role: user.role };
+    const name = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim();
     
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name,
         role: user.role,
       },
     };

@@ -13,10 +13,9 @@ export class UsersService {
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
-        bio: true,
-        points: true,
         cohortId: true,
         createdAt: true,
       },
@@ -26,22 +25,36 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return {
+      ...user,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateUserDto) {
-    return this.prisma.user.update({
+    const updateData: any = {};
+    if (dto.name) {
+      const parts = dto.name.split(' ');
+      updateData.firstName = parts[0] || dto.name;
+      updateData.lastName = parts.slice(1).join(' ') || '';
+    }
+
+    const user = await this.prisma.user.update({
       where: { id: userId },
-      data: dto,
+      data: updateData,
       select: {
         id: true,
         email: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
-        bio: true,
-        points: true,
       },
     });
+
+    return {
+      ...user,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+    };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -53,7 +66,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const isValid = await bcrypt.compare(dto.currentPassword, user.password);
+    const isValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!isValid) {
       throw new BadRequestException('Current password is incorrect');
     }
@@ -61,26 +74,26 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { passwordHash: hashedPassword },
     });
 
     return { message: 'Password changed successfully' };
   }
 
   async getUserStats(userId: string): Promise<UserStatsDto> {
-    const [resourcesCompleted, discussionsPosted, quizzesTaken, user] = await Promise.all([
+    const [resourcesCompleted, discussionsPosted, quizzesTaken, pointsData] = await Promise.all([
       this.prisma.resourceProgress.count({
         where: { userId, state: 'COMPLETED' },
       }),
       this.prisma.discussion.count({
-        where: { authorId: userId },
+        where: { userId: userId },
       }),
       this.prisma.quizResponse.count({
         where: { userId },
       }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { points: true },
+      this.prisma.pointsLog.aggregate({
+        where: { userId },
+        _sum: { points: true },
       }),
     ]);
 
@@ -88,7 +101,7 @@ export class UsersService {
       resourcesCompleted,
       discussionsPosted,
       quizzesTaken,
-      totalPoints: user?.points || 0,
+      totalPoints: pointsData._sum.points || 0,
       currentStreak: 0, // TODO: Calculate based on engagement events
     };
   }

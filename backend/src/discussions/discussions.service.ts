@@ -11,11 +11,13 @@ export class DiscussionsService {
       data: {
         title: dto.title,
         content: dto.content,
-        authorId: userId,
+        userId: userId,
+        cohortId: dto.cohortId || '',
+        resourceId: dto.resourceId || '',
       },
       include: {
-        author: {
-          select: { id: true, name: true, email: true },
+        user: {
+          select: { id: true, firstName: true, lastName: true },
         },
       },
     });
@@ -45,11 +47,11 @@ export class DiscussionsService {
         take: limit,
         orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         include: {
-          author: {
-            select: { id: true, name: true, email: true },
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true },
           },
           _count: {
-            select: { comments: true, likes: true },
+            select: { comments: true },
           },
         },
       }),
@@ -69,11 +71,11 @@ export class DiscussionsService {
     const discussion = await this.prisma.discussion.findUnique({
       where: { id },
       include: {
-        author: {
-          select: { id: true, name: true, email: true },
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
         },
         _count: {
-          select: { comments: true, likes: true },
+          select: { comments: true },
         },
       },
     });
@@ -86,23 +88,8 @@ export class DiscussionsService {
   }
 
   async likeDiscussion(discussionId: string, userId: string) {
-    const existing = await this.prisma.discussionLike.findUnique({
-      where: {
-        userId_discussionId: { userId, discussionId },
-      },
-    });
-
-    if (existing) {
-      await this.prisma.discussionLike.delete({
-        where: { id: existing.id },
-      });
-      return { liked: false };
-    }
-
-    await this.prisma.discussionLike.create({
-      data: { userId, discussionId },
-    });
-    return { liked: true };
+    // Likes not implemented in current schema
+    return { message: 'Likes feature not available' };
   }
 
   async getComments(discussionId: string) {
@@ -110,8 +97,8 @@ export class DiscussionsService {
       where: { discussionId },
       orderBy: { createdAt: 'asc' },
       include: {
-        author: {
-          select: { id: true, name: true, email: true },
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
         },
       },
     });
@@ -129,12 +116,12 @@ export class DiscussionsService {
     return this.prisma.discussionComment.create({
       data: {
         content: dto.content,
-        authorId: userId,
+        userId: userId,
         discussionId,
       },
       include: {
-        author: {
-          select: { id: true, name: true, email: true },
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
         },
       },
     });
@@ -149,7 +136,7 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
-    if (discussion.authorId !== userId && userRole !== 'ADMIN') {
+    if (discussion.userId !== userId && userRole !== 'ADMIN') {
       throw new ForbiddenException('You can only delete your own discussions');
     }
 

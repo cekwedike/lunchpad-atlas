@@ -10,6 +10,14 @@ export class CreateDiscussionDto {
   @IsNotEmpty()
   @MinLength(20)
   content: string;
+
+  @IsOptional()
+  @IsString()
+  cohortId?: string;
+
+  @IsOptional()
+  @IsString()
+  resourceId?: string;
 }
 
 export class CreateCommentDto {

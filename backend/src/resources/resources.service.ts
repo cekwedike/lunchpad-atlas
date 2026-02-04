@@ -57,11 +57,6 @@ export class ResourcesService {
         progress: {
           where: { userId },
         },
-        quiz: {
-          include: {
-            questions: true,
-          },
-        },
       },
     });
 
@@ -71,8 +66,8 @@ export class ResourcesService {
 
     return {
       ...resource,
-      state: resource.progress[0]?.state || 'LOCKED',
-      completedAt: resource.progress[0]?.completedAt,
+      state: 'UNLOCKED',
+      completedAt: null,
     };
   }
 
@@ -109,7 +104,7 @@ export class ResourcesService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        points: { increment: resource.pointsValue },
+        lastLoginAt: new Date(),
       },
     });
 
@@ -117,8 +112,8 @@ export class ResourcesService {
     await this.prisma.pointsLog.create({
       data: {
         userId,
-        points: resource.pointsValue,
-        source: 'RESOURCE_COMPLETE',
+        points: resource.pointValue,
+        eventType: 'RESOURCE_COMPLETE',
         description: `Completed: ${resource.title}`,
       },
     });

@@ -10,7 +10,7 @@ export class QuizzesService {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id },
       include: {
-        resource: {
+        session: {
           select: { id: true, title: true },
         },
       },
@@ -30,10 +30,8 @@ export class QuizzesService {
       select: {
         id: true,
         quizId: true,
-        questionText: true,
-        questionType: true,
+        question: true,
         options: true,
-        points: true,
         order: true,
       },
     });
@@ -44,13 +42,12 @@ export class QuizzesService {
   async getQuizAttempts(quizId: string, userId: string) {
     return this.prisma.quizResponse.findMany({
       where: { quizId, userId },
-      orderBy: { attemptNumber: 'desc' },
+      orderBy: { completedAt: 'desc' },
       select: {
         id: true,
-        attemptNumber: true,
         score: true,
         passed: true,
-        pointsEarned: true,
+        pointsAwarded: true,
         completedAt: true,
       },
     });
@@ -72,13 +69,11 @@ export class QuizzesService {
 
     // Calculate score
     let correctCount = 0;
-    let totalPoints = 0;
 
     for (const question of questions) {
       const userAnswer = dto.answers[question.id];
       if (userAnswer === question.correctAnswer) {
         correctCount++;
-        totalPoints += question.points;
       }
     }
 
@@ -90,22 +85,15 @@ export class QuizzesService {
       where: { quizId, userId },
     });
 
-    const attemptNumber = previousAttempts + 1;
-
     // Award points only on first completion if passed
-    const pointsEarned = passed && attemptNumber === 1 ? totalPoints : 0;
+    const pointsAwarded = passed && previousAttempts === 0 ? quiz.pointValue : 0;
 
-    if (pointsEarned > 0) {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { points: { increment: pointsEarned } },
-      });
-
+    if (pointsAwarded > 0) {
       await this.prisma.pointsLog.create({
         data: {
           userId,
-          points: pointsEarned,
-          reason: 'QUIZ_COMPLETE',
+          points: pointsAwarded,
+          eventType: 'QUIZ_SUBMIT',
           description: `Completed quiz: ${quiz.title || 'Quiz'}`,
         },
       });
@@ -119,9 +107,7 @@ export class QuizzesService {
         answers: dto.answers,
         score,
         passed,
-        pointsEarned,
-        attemptNumber,
-        startedAt: new Date(),
+        pointsAwarded,
         completedAt: new Date(),
       },
     });
@@ -132,8 +118,7 @@ export class QuizzesService {
       quizId: response.quizId,
       score: response.score,
       passed: response.passed,
-      pointsEarned: response.pointsEarned,
-      attemptNumber: response.attemptNumber,
+      pointsAwarded: response.pointsAwarded,
       completedAt: response.completedAt,
     };
   }

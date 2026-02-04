@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService } from '../prisma.service';
 import { LeaderboardFilterDto } from './dto/leaderboard.dto';
 
 @Injectable()
@@ -68,10 +68,10 @@ export class LeaderboardService {
           where: { id: entry.userId },
           select: {
             id: true,
-            name: true,
+            firstName: true,
+            lastName: true,
             email: true,
             cohortId: true,
-            points: true,
           },
         });
 
@@ -80,7 +80,7 @@ export class LeaderboardService {
 
         return {
           userId: entry.userId,
-          userName: user?.name || 'Unknown',
+          userName: user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown',
           email: user?.email || '',
           cohortId: user?.cohortId,
           points: entry._sum.points || 0,
