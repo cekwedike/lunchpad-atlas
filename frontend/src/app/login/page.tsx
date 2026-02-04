@@ -1,24 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { LogIn, ArrowLeft } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { LogIn, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLogin } from "@/hooks/api/useAuth";
+import { loginSchema } from "@/lib/validations/auth";
+import type { LoginRequest } from "@/types/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
+  const [showPassword, setShowPassword] = useState(false);
+  const { enterGuestMode } = useAuth();
+  const { mutate: login, isPending } = useLogin();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // TODO: Implement actual authentication
-    setTimeout(() => {
-      setIsLoading(false);
-      router.push("/dashboard/fellow");
-    }, 1000);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginRequest>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = (data: LoginRequest) => {
+    login(data, {
+      onSuccess: () => {
+        router.push(redirect || "/dashboard/fellow");
+      },
+    });
+  };
+
+  const handleGuestMode = () => {
+    enterGuestMode();
+    router.push("/dashboard/fellow");
   };
 
   return (
@@ -35,23 +57,7 @@ export default function LoginPage() {
       {/* Login Card */}
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-[#0b0b45] font-bold text-2xl">A</span>
-            </div>
-            <span className="text-white font-bold text-2xl">ATLAS</span>
-          </div>
-        </div>
-
-        {/* Login Form */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20">
-          <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-white/70 text-sm">Sign in to continue your learning journey</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex justify-c(onSubmit)} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-white/90 text-sm font-medium mb-2">
                 Email Address
@@ -59,33 +65,71 @@ export default function LoginPage() {
               <input
                 type="email"
                 id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                {...register("email")}
                 className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
                 placeholder="you@example.com"
-                required
+                disabled={isPending}
               />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-300">{errors.email.message}</p>
+              )}
             </div>
 
             <div>
               <label htmlFor="password" className="block text-white/90 text-sm font-medium mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
-                placeholder="Enter your password"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  {...register("password")}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/50 pr-12"
+                  placeholder="Enter your password"
+                  disabled={isPending}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-300">{errors.password.message}</p>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isPending}
               className="w-full px-4 py-3 bg-white text-[#0b0b45] rounded-lg font-semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Signing in...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  <span>Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={handleGuestMode}
+              className="text-white/70 hover:text-white text-sm transition-colors"
+              disabled={isPending}semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span>Signing in...</span>
