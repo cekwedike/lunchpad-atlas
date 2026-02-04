@@ -1,3 +1,5 @@
+import { Target, MessageCircle, BarChart3 } from "lucide-react";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b0b45] via-[#1a1a6e] to-[#0b0b45] flex flex-col items-center justify-center p-8">
@@ -32,21 +34,27 @@ export default function Home() {
         {/* Features Grid */}
         <div className="grid md:grid-cols-3 gap-6 mt-12">
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-            <div className="text-3xl mb-3">🎯</div>
+            <div className="flex justify-center mb-3">
+              <Target className="w-10 h-10 text-white" />
+            </div>
             <h3 className="text-white font-semibold mb-2">Gamified Learning</h3>
             <p className="text-white/70 text-sm">
               Earn points, unlock achievements, and compete on leaderboards
             </p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-            <div className="text-3xl mb-3">💬</div>
+            <div className="flex justify-center mb-3">
+              <MessageCircle className="w-10 h-10 text-white" />
+            </div>
             <h3 className="text-white font-semibold mb-2">Social Learning</h3>
             <p className="text-white/70 text-sm">
               Engage in discussions, chat with peers, and learn together
             </p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-            <div className="text-3xl mb-3">📊</div>
+            <div className="flex justify-center mb-3">
+              <BarChart3 className="w-10 h-10 text-white" />
+            </div>
             <h3 className="text-white font-semibold mb-2">Track Progress</h3>
             <p className="text-white/70 text-sm">
               Monitor your learning journey with detailed analytics
@@ -61,6 +69,12 @@ export default function Home() {
             className="px-8 py-4 bg-white text-[#0b0b45] rounded-lg font-semibold hover:bg-white/90 transition-colors shadow-lg"
           >
             Sign In
+          </a>
+          <a
+            href="/dashboard/fellow"
+            className="px-8 py-4 bg-white/20 text-white rounded-lg font-semibold hover:bg-white/30 transition-colors border border-white/40"
+          >
+            Continue as Guest
           </a>
           <a
             href="/about"
@@ -79,7 +93,7 @@ export default function Home() {
 
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 p-6 text-center text-white/60 text-sm">
-        <p>© 2026 THRiVE Hub. Built with ❤️ for the next generation of African talent.</p>
+        <p>Built with care for the next generation of African talent.</p>
       </div>
     </div>
   );
