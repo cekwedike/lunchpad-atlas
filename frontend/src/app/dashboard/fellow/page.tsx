@@ -190,7 +190,21 @@ export default function FellowDashboard() {
                       <p className="text-sm text-gray-600 mt-1">Session 1 - Ownership Mindset</p>
                     </button>
                     <button
-                      onClick={() => router.push("/resources/2")}Browse All Resources</h3>
+                      onClick={() => router.push("/resources/2")}
+                      className="w-full border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <h4 className="font-semibold text-gray-900">Ownership Mindset</h4>
+                      <p className="text-sm text-gray-600 mt-1">Session 1 - Ownership Mindset</p>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "resources" && (
+              <div className="text-center py-12">
+                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Browse All Resources</h3>
                 <p className="text-gray-600 mb-4">91 curated resources across 16 sessions</p>
                 <button
                   onClick={() => router.push("/resources")}
