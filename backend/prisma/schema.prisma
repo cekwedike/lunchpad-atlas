@@ -75,6 +75,7 @@ model User {
   resourceProgress   ResourceProgress[]
   discussions        Discussion[]
   comments           DiscussionComment[]
+  discussionLikes    DiscussionLike[]
   pointsLog          PointsLog[]
   userAchievements   UserAchievement[]
   leaderboardEntries LeaderboardEntry[]
@@ -196,6 +197,7 @@ model Discussion {
   cohort   Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments DiscussionComment[]
+  likes    DiscussionLike[]
 
   @@index([resourceId])
   @@index([cohortId])
@@ -218,6 +220,22 @@ model DiscussionComment {
   @@index([discussionId])
   @@index([userId])
   @@map("discussion_comments")
+}
+
+model DiscussionLike {
+  id           String   @id @default(uuid())
+  discussionId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId])
+  @@index([discussionId])
+  @@index([userId])
+  @@map("discussion_likes")
 }
 
 // ==================== GAMIFICATION ====================

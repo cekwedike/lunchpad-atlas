@@ -169,33 +169,59 @@ export class LeaderboardService {
   }
 
   private async calculateStreak(userId: string): Promise<number> {
-    // Get all point logs ordered by date
-    const logs = await this.prisma.pointsLog.findMany({
-      where: { userId },
+    // Get engagement events ordered by date (resource completions, quiz submissions, discussions)
+    const events = await this.prisma.pointsLog.findMany({
+      where: {
+        userId,
+        eventType: {
+          in: ['RESOURCE_COMPLETE', 'QUIZ_SUBMIT', 'DISCUSSION_POST'],
+        },
+      },
       orderBy: { createdAt: 'desc' },
       select: { createdAt: true },
     });
 
-    if (logs.length === 0) return 0;
+    if (events.length === 0) return 0;
+
+    // Group events by day
+    const uniqueDays = new Set<string>();
+    events.forEach((event) => {
+      const date = new Date(event.createdAt);
+      date.setHours(0, 0, 0, 0);
+      uniqueDays.add(date.toISOString().split('T')[0]);
+    });
+
+    const sortedDays = Array.from(uniqueDays).sort().reverse();
+    
+    if (sortedDays.length === 0) return 0;
 
     let streak = 0;
-    let currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    for (const log of logs) {
-      const logDate = new Date(log.createdAt);
-      logDate.setHours(0, 0, 0, 0);
+    // Check if user was active today or yesterday
+    if (sortedDays[0] !== todayStr && sortedDays[0] !== yesterdayStr) {
+      return 0; // Streak broken
+    }
 
+    // Count consecutive days
+    let expectedDate = new Date(sortedDays[0]);
+    for (const dayStr of sortedDays) {
+      const currentDay = new Date(dayStr);
+      
       const diffDays = Math.floor(
-        (currentDate.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24),
+        (expectedDate.getTime() - currentDay.getTime()) / (1000 * 60 * 60 * 24),
       );
 
-      // If log is from today or yesterday, continue streak
-      if (diffDays === 0 || diffDays === 1) {
-        if (diffDays === 1) {
-          streak++;
-          currentDate = logDate;
-        }
+      if (diffDays === 0) {
+        streak++;
+        expectedDate = new Date(currentDay);
+        expectedDate.setDate(expectedDate.getDate() - 1);
       } else {
         break;
       }

@@ -51,7 +51,7 @@ export class DiscussionsService {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
           _count: {
-            select: { comments: true },
+            select: { comments: true, likes: true },
           },
         },
       }),
@@ -75,7 +75,7 @@ export class DiscussionsService {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
         _count: {
-          select: { comments: true },
+          select: { comments: true, likes: true },
         },
       },
     });
@@ -88,8 +88,23 @@ export class DiscussionsService {
   }
 
   async likeDiscussion(discussionId: string, userId: string) {
-    // Likes not implemented in current schema
-    return { message: 'Likes feature not available' };
+    const existing = await this.prisma.discussionLike.findUnique({
+      where: {
+        discussionId_userId: { discussionId, userId },
+      },
+    });
+
+    if (existing) {
+      await this.prisma.discussionLike.delete({
+        where: { id: existing.id },
+      });
+      return { liked: false };
+    }
+
+    await this.prisma.discussionLike.create({
+      data: { discussionId, userId },
+    });
+    return { liked: true };
   }
 
   async getComments(discussionId: string) {
