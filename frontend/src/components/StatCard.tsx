@@ -5,13 +5,23 @@ interface StatCardProps {
   icon: LucideIcon;
   label: string;
   value: string | number;
+  isLoading?: boolean;
   trend?: {
     value: number;
     isPositive: boolean;
   };
 }
 
-export function StatCard({ icon: Icon, label, value, trend }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, isLoading, trend }: StatCardProps) {
+  if (isLoading) {
+    return (
+      <Card className="p-6 animate-pulse">
+        <div className="h-6 bg-gray-200 rounded mb-2"></div>
+        <div className="h-8 bg-gray-200 rounded"></div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-2">
