@@ -11,14 +11,19 @@
     "shared"
   ],
   "scripts": {
-    "dev": "echo 'Run dev servers individually:\n  Frontend: cd frontend && pnpm dev\n  Backend: cd backend && pnpm start:dev'",
+    "dev": "concurrently -n \"FRONTEND,BACKEND\" -c \"cyan,magenta\" \"pnpm dev:frontend\" \"pnpm dev:backend\"",
+    "dev:frontend": "cd frontend && pnpm dev",
+    "dev:backend": "cd backend && pnpm start:dev",
     "build": "pnpm -r build",
+    "build:frontend": "cd frontend && pnpm build",
+    "build:backend": "cd backend && pnpm build",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,md}'",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "prettier": "^3.2.5",
     "typescript": "^5.6.3"
   },

@@ -1,93 +1,36 @@
-# Frontend - ATLAS Platform
-
-Next.js frontend application for the ATLAS gamified learning platform.
-
-## Tech Stack
-
-- **Next.js 14+** with App Router
-- **TypeScript** - Type-safe development
-- **React Query** - Server state management
-- **Zustand** - Client state management
-- **Tailwind CSS** - Styling
-- **Shadcn UI** - Component library
-- **Radix UI** - Accessible primitives
-
-## Directory Structure
-
-```
-frontend/
-├── app/                    # Next.js App Router
-│   ├── (auth)/            # Auth routes (login, register)
-│   ├── dashboard/
-│   │   ├── fellow/       # Fellow dashboard
-│   │   ├── facilitator/  # Facilitator dashboard
-│   │   └── admin/        # Admin dashboard
-│   ├── resources/        # Resource viewer pages
-│   ├── leaderboard/      # Leaderboard page
-│   ├── discussions/      # Discussion threads
-│   └── layout.tsx        # Root layout
-├── components/            # React components
-│   ├── ui/               # Shadcn UI components
-│   ├── dashboard/        # Dashboard-specific components
-│   ├── resources/        # Resource viewer components
-│   └── shared/           # Shared components
-├── lib/                   # Utilities
-│   ├── api/              # API client functions
-│   ├── utils.ts          # Helper functions
-│   └── constants.ts      # Constants
-├── hooks/                 # Custom React hooks
-│   ├── useAuth.ts        # Authentication hook
-│   ├── useResources.ts   # Resource management
-│   └── useGamefication.ts # Points/achievements
-├── stores/                # Zustand stores
-│   ├── authStore.ts      # Auth state
-│   └── uiStore.ts        # UI state
-├── types/                 # TypeScript types
-└── public/                # Static assets
-```
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
+First, run the development server:
+
 ```bash
-# Install dependencies
-pnpm install
-
-# Set up environment variables
-cp .env.example .env.local
-
-# Run development server
+npm run dev
+# or
+yarn dev
+# or
 pnpm dev
-
-# Build for production
-pnpm build
-
-# Start production server
-pnpm start
+# or
+bun dev
 ```
 
-## Environment Variables
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Features to Implement
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-- [ ] Authentication UI (login/register)
-- [ ] Role-based routing (Fellow/Facilitator/Admin)
-- [ ] Fellow Dashboard (resources, progress, leaderboard)
-- [ ] Resource viewer with engagement tracking
-- [ ] Discussion threads with word counter
-- [ ] Live quiz interface with countdown
-- [ ] Leaderboard with monthly rankings
-- [ ] Chat interface
-- [ ] Admin dashboard (cohort/user/resource management)
-- [ ] Facilitator dashboard (session analytics)
-- [ ] Session analytics interface
+## Learn More
 
-## Design System
+To learn more about Next.js, take a look at the following resources:
 
-- **Primary Color**: #0b0b45 (ATLAS Navy)
-- **Font**: Montserrat (headings), Inter (body)
-- **Theme**: Professional, modern, mission-driven
-- **Responsive**: Tablet and laptop optimized
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
