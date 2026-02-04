@@ -29,10 +29,19 @@ export default function FellowDashboard() {
               <span className="font-bold text-xl">ATLAS</span>
             </div>
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push("/leaderboard")}
+                className="flex items-center gap-2 hover:bg-white/10 px-3 py-2 rounded-lg transition-colors"
+              >
                 <Trophy className="w-5 h-5 text-yellow-400" />
                 <span className="font-semibold">2,450 pts</span>
-              </div>
+              </button>
+              <button
+                onClick={() => router.push("/profile")}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <User className="w-5 h-5" />
+              </button>
               <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                 <LogOut className="w-5 h-5" />
               </button>
@@ -163,28 +172,60 @@ export default function FellowDashboard() {
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">Recent Resources</h3>
-                  <div className="space-y-3">
-                    <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                      <h4 className="font-semibold text-gray-900">Setting SMART Goals</h4>
-                      <p className="text-sm text-gray-600 mt-1">Week 1 - Professional Development</p>
-                    </div>
-                    <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                      <h4 className="font-semibold text-gray-900">Building Your Personal Brand</h4>
-                      <p className="text-sm text-gray-600 mt-1">Week 2 - Career Readiness</p>
-                    </div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-lg font-bold text-gray-900">Recent Resources</h3>
+                    <button
+                      onClick={() => router.push("/resources")}
+                      className="text-sm text-[#0b0b45] hover:underline font-medium"
+                    >
+                      View All
+                    </button>
                   </div>
-                </div>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => router.push("/resources/1")}
+                      className="w-full border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <h4 className="font-semibold text-gray-900">360° Leadership</h4>
+                      <p className="text-sm text-gray-600 mt-1">Session 1 - Ownership Mindset</p>
+                    </button>
+                    <button
+                      onClick={() => router.push("/resources/2")}Browse All Resources</h3>
+                <p className="text-gray-600 mb-4">91 curated resources across 16 sessions</p>
+                <button
+                  onClick={() => router.push("/resources")}
+                  className="px-6 py-3 bg-[#0b0b45] text-white rounded-lg font-semibold hover:bg-[#0b0b45]/90 transition-colors"
+                >
+                  Go to Resources
+                </button>
               </div>
             )}
 
-            {activeTab === "resources" && (
+            {activeTab === "discussions" && (
               <div className="text-center py-12">
-                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Resources Coming Soon</h3>
-                <p className="text-gray-600">91 curated resources will be available here</p>
+                <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Join the Conversation</h3>
+                <p className="text-gray-600 mb-4">Engage with your cohort and share insights</p>
+                <button
+                  onClick={() => router.push("/discussions")}
+                  className="px-6 py-3 bg-[#0b0b45] text-white rounded-lg font-semibold hover:bg-[#0b0b45]/90 transition-colors"
+                >
+                  Go to Discussions
+                </button>
               </div>
             )}
+
+            {activeTab === "leaderboard" && (
+              <div className="text-center py-12">
+                <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Monthly Rankings</h3>
+                <p className="text-gray-600 mb-4">See how you rank against your peers</p>
+                <button
+                  onClick={() => router.push("/leaderboard")}
+                  className="px-6 py-3 bg-[#0b0b45] text-white rounded-lg font-semibold hover:bg-[#0b0b45]/90 transition-colors"
+                >
+                  View Leaderboard
+                </button
 
             {activeTab === "discussions" && (
               <div className="text-center py-12">
