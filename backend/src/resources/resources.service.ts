@@ -80,6 +80,17 @@ export class ResourcesService {
       throw new NotFoundException('Resource not found');
     }
 
+    // Check if already completed
+    const existingProgress = await this.prisma.resourceProgress.findFirst({
+      where: {
+        userId,
+        resourceId,
+        state: 'COMPLETED',
+      },
+    });
+
+    const alreadyCompleted = !!existingProgress;
+
     // Update or create progress
     const progress = await this.prisma.resourceProgress.upsert({
       where: {
@@ -100,23 +111,25 @@ export class ResourcesService {
       },
     });
 
-    // Award points
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        lastLoginAt: new Date(),
-      },
-    });
+    // Award points only if not already completed
+    if (!alreadyCompleted) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          lastLoginAt: new Date(),
+        },
+      });
 
-    // Log points
-    await this.prisma.pointsLog.create({
-      data: {
-        userId,
-        points: resource.pointValue,
-        eventType: 'RESOURCE_COMPLETE',
-        description: `Completed: ${resource.title}`,
-      },
-    });
+      // Log points
+      await this.prisma.pointsLog.create({
+        data: {
+          userId,
+          points: resource.pointValue,
+          eventType: 'RESOURCE_COMPLETE',
+          description: `Completed: ${resource.title}`,
+        },
+      });
+    }
 
     return progress;
   }

@@ -20,6 +20,9 @@ describe('ResourcesService', () => {
     pointsLog: {
       create: jest.fn(),
     },
+    user: {
+      update: jest.fn(),
+    },
     $transaction: jest.fn((callback) => callback(mockPrismaService)),
   };
 

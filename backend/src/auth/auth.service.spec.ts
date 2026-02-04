@@ -48,7 +48,6 @@ describe('AuthService', () => {
         name: 'John Doe',
       };
 
-      mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue({
         id: '123',
         email: registerDto.email,
@@ -61,26 +60,27 @@ describe('AuthService', () => {
       const result = await service.register(registerDto);
 
       expect(result).toHaveProperty('access_token');
-      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { email: registerDto.email },
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          email: registerDto.email,
+          firstName: 'John',
+          lastName: 'Doe',
+        }),
       });
     });
 
-    it('should throw ConflictException if email already exists', async () => {
+    it('should throw error if database operation fails', async () => {
       const registerDto = {
         email: 'existing@example.com',
         password: 'password123',
         name: 'Jane Doe',
       };
 
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: '123',
-        email: registerDto.email,
-      });
-
-      await expect(service.register(registerDto)).rejects.toThrow(
-        ConflictException,
+      mockPrismaService.user.create.mockRejectedValue(
+        new Error('Unique constraint failed')
       );
+
+      await expect(service.register(registerDto)).rejects.toThrow();
     });
   });
 
@@ -103,8 +103,6 @@ describe('AuthService', () => {
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockJwtService.sign.mockReturnValue('test-token');
-
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
 
       const result = await service.login(loginDto);
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { User, Award, Settings, FileText, MessageSquare, ClipboardCheck, Calendar, Lock, Trophy, Edit2, Save, X } from "lucide-react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
