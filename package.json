@@ -1,0 +1,29 @@
+{
+  "name": "atlas-platform",
+  "version": "2.0.0-alpha",
+  "description": "ATLAS - THRiVE Hub LaunchPad Fellowship gamified LMS platform",
+  "author": "THRiVE Hub",
+  "license": "PROPRIETARY",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "echo 'Run dev servers individually:\n  Frontend: cd frontend && pnpm dev\n  Backend: cd backend && pnpm start:dev'",
+    "build": "pnpm -r build",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,md}'",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
