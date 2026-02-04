@@ -59,7 +59,7 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto);
 
-      expect(result).toHaveProperty('access_token');
+      expect(result).toHaveProperty('accessToken');
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           email: registerDto.email,
@@ -106,8 +106,8 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDto);
 
-      expect(result).toHaveProperty('access_token');
-      expect(result.access_token).toBe('test-token');
+      expect(result).toHaveProperty('accessToken');
+      expect(result.accessToken).toBe('test-token');
     });
 
     it('should throw UnauthorizedException with invalid credentials', async () => {

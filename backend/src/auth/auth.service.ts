@@ -64,7 +64,7 @@ export class AuthService {
     const name = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim();
     
     return {
-      access_token: this.jwtService.sign(payload),
+      accessToken: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,

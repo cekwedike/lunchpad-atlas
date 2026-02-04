@@ -2,7 +2,7 @@ import { Controller, Get, Post, Param, Query, UseGuards, Request } from '@nestjs
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ResourcesService } from './resources.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ResourceFilterDto } from './dto/resource.dto';
+import { ResourceQueryDto } from './dto/resource.dto';
 
 @ApiTags('resources')
 @Controller('resources')
