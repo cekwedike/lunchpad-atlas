@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Home, 
   BookOpen, 
@@ -15,6 +16,7 @@ import {
 
 export default function FellowDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const router = useRouter();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -239,21 +241,7 @@ export default function FellowDashboard() {
                   className="px-6 py-3 bg-[#0b0b45] text-white rounded-lg font-semibold hover:bg-[#0b0b45]/90 transition-colors"
                 >
                   View Leaderboard
-                </button
-
-            {activeTab === "discussions" && (
-              <div className="text-center py-12">
-                <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Discussions Coming Soon</h3>
-                <p className="text-gray-600">Engage with your cohort here</p>
-              </div>
-            )}
-
-            {activeTab === "leaderboard" && (
-              <div className="text-center py-12">
-                <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Leaderboard Coming Soon</h3>
-                <p className="text-gray-600">See how you rank against your peers</p>
+                </button>
               </div>
             )}
           </div>
