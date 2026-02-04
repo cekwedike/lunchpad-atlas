@@ -1,0 +1,416 @@
+// Prisma schema for ATLAS - Gamified LMS Platform
+// Database: PostgreSQL 14+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  FELLOW // Program participant
+  FACILITATOR // Cohort facilitator/mentor
+  ADMIN // Platform administrator
+}
+
+enum ResourceType {
+  VIDEO
+  ARTICLE
+  EXERCISE
+  QUIZ
+}
+
+enum ResourceState {
+  LOCKED // Not yet accessible
+  UNLOCKED // Available to access
+  IN_PROGRESS // Started but not completed
+  COMPLETED // Fully completed
+}
+
+enum CohortState {
+  PENDING // Not yet started
+  ACTIVE // Currently running
+  COMPLETED // Finished
+  ARCHIVED // Historical record
+}
+
+enum EventType {
+  RESOURCE_VIEW
+  RESOURCE_COMPLETE
+  DISCUSSION_POST
+  DISCUSSION_COMMENT
+  QUIZ_SUBMIT
+  CHAT_MESSAGE
+  SESSION_ATTEND
+}
+
+enum AchievementType {
+  MILESTONE // Completion-based (e.g., complete 10 resources)
+  STREAK // Consistency-based (e.g., 7-day streak)
+  SOCIAL // Engagement-based (e.g., 5 discussion posts)
+  LEADERBOARD // Ranking-based (e.g., top 3 in month)
+}
+
+// ==================== CORE TABLES ====================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole  @default(FELLOW)
+  cohortId     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  // Relations
+  cohort             Cohort?             @relation(fields: [cohortId], references: [id])
+  resourceProgress   ResourceProgress[]
+  discussions        Discussion[]
+  comments           DiscussionComment[]
+  pointsLog          PointsLog[]
+  userAchievements   UserAchievement[]
+  leaderboardEntries LeaderboardEntry[]
+  quizResponses      QuizResponse[]
+  engagementEvents   EngagementEvent[]
+  facilitatedCohorts Cohort[]            @relation("FacilitatorCohorts")
+
+  @@index([email])
+  @@index([cohortId])
+  @@map("users")
+}
+
+model Cohort {
+  id            String      @id @default(uuid())
+  name          String // e.g., "April 2026 Cohort A"
+  startDate     DateTime
+  endDate       DateTime
+  state         CohortState @default(PENDING)
+  facilitatorId String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  facilitator  User?                @relation("FacilitatorCohorts", fields: [facilitatorId], references: [id])
+  fellows      User[]
+  sessions     Session[]
+  discussions  Discussion[]
+  leaderboards MonthlyLeaderboard[]
+
+  @@index([facilitatorId])
+  @@index([state])
+  @@map("cohorts")
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  cohortId      String
+  sessionNumber Int // 1-16
+  title         String // e.g., "Week 1: Career Foundations"
+  description   String?
+  scheduledDate DateTime
+  unlockDate    DateTime // 8 days before scheduledDate
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  cohort           Cohort             @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  resources        Resource[]
+  quizzes          Quiz[]
+  sessionAnalytics SessionAnalytics[]
+
+  @@unique([cohortId, sessionNumber])
+  @@index([cohortId])
+  @@index([scheduledDate])
+  @@map("sessions")
+}
+
+model Resource {
+  id          String       @id @default(uuid())
+  sessionId   String
+  type        ResourceType
+  title       String
+  description String?
+  url         String // Link to video/article
+  duration    Int? // Minutes for video, estimated read time for article
+  pointValue  Int          @default(100)
+  order       Int // Display order within session
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  session     Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  progress    ResourceProgress[]
+  discussions Discussion[]
+
+  @@index([sessionId])
+  @@index([type])
+  @@map("resources")
+}
+
+model ResourceProgress {
+  id            String        @id @default(uuid())
+  userId        String
+  resourceId    String
+  state         ResourceState @default(LOCKED)
+  timeSpent     Int           @default(0) // Seconds
+  completedAt   DateTime?
+  pointsAwarded Int           @default(0)
+  validatedAt   DateTime? // AI validation timestamp
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceId])
+  @@index([userId])
+  @@index([resourceId])
+  @@index([state])
+  @@map("resource_progress")
+}
+
+// ==================== SOCIAL LEARNING ====================
+
+model Discussion {
+  id         String   @id @default(uuid())
+  resourceId String
+  cohortId   String
+  userId     String // Original poster
+  title      String
+  content    String
+  isPinned   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  resource Resource            @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  cohort   Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments DiscussionComment[]
+
+  @@index([resourceId])
+  @@index([cohortId])
+  @@index([userId])
+  @@map("discussions")
+}
+
+model DiscussionComment {
+  id           String   @id @default(uuid())
+  discussionId String
+  userId       String
+  content      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([discussionId])
+  @@index([userId])
+  @@map("discussion_comments")
+}
+
+// ==================== GAMIFICATION ====================
+
+model PointsLog {
+  id          String    @id @default(uuid())
+  userId      String
+  eventType   EventType
+  points      Int
+  description String // e.g., "Completed: Setting SMART Goals"
+  metadata    Json? // Additional context
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("points_log")
+}
+
+model Achievement {
+  id          String          @id @default(uuid())
+  name        String
+  description String
+  type        AchievementType
+  iconUrl     String?
+  pointValue  Int             @default(0)
+  criteria    Json // Flexible criteria (e.g., {resourceCount: 10})
+  createdAt   DateTime        @default(now())
+
+  // Relations
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(uuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
+
+model MonthlyLeaderboard {
+  id        String   @id @default(uuid())
+  cohortId  String
+  month     Int // 1-12
+  year      Int
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+
+  // Relations
+  cohort  Cohort             @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  entries LeaderboardEntry[]
+
+  @@unique([cohortId, month, year])
+  @@index([cohortId])
+  @@map("monthly_leaderboards")
+}
+
+model LeaderboardEntry {
+  id            String   @id @default(uuid())
+  leaderboardId String
+  userId        String
+  rank          Int
+  totalPoints   Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  leaderboard MonthlyLeaderboard @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardId, userId])
+  @@index([leaderboardId])
+  @@index([userId])
+  @@index([rank])
+  @@map("leaderboard_entries")
+}
+
+// ==================== QUIZZES ====================
+
+model Quiz {
+  id           String   @id @default(uuid())
+  sessionId    String
+  title        String
+  description  String?
+  timeLimit    Int // Minutes
+  passingScore Int // Percentage
+  pointValue   Int      @default(200)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  session   Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  responses QuizResponse[]
+
+  @@index([sessionId])
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            String   @id @default(uuid())
+  quizId        String
+  question      String
+  options       Json // Array of options
+  correctAnswer String
+  order         Int
+  createdAt     DateTime @default(now())
+
+  // Relations
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
+  @@map("quiz_questions")
+}
+
+model QuizResponse {
+  id            String   @id @default(uuid())
+  quizId        String
+  userId        String
+  answers       Json // User's answers
+  score         Int
+  passed        Boolean
+  pointsAwarded Int      @default(0)
+  completedAt   DateTime @default(now())
+
+  // Relations
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
+  @@index([userId])
+  @@map("quiz_responses")
+}
+
+// ==================== ANALYTICS & TRACKING ====================
+
+model EngagementEvent {
+  id        String    @id @default(uuid())
+  userId    String
+  eventType EventType
+  metadata  Json // Flexible event data
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("engagement_events")
+}
+
+model SessionAnalytics {
+  id                    String   @id @default(uuid())
+  sessionId             String
+  totalFellows          Int
+  fellowsAttended       Int
+  avgResourcesCompleted Float
+  avgPoints             Float
+  createdAt             DateTime @default(now())
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("session_analytics")
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  adminId    String // User ID of admin
+  action     String // e.g., "CREATE_USER", "UPDATE_COHORT"
+  entityType String // e.g., "User", "Cohort"
+  entityId   String?
+  changes    Json? // Before/after values
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
