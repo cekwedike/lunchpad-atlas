@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface Notification {
   id: string;
@@ -94,6 +94,13 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'ui-storage',
+      storage: createJSONStorage(() => 
+        typeof window !== 'undefined' ? localStorage : {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        }
+      ),
       partialize: (state) => ({
         theme: state.theme,
         sidebarOpen: state.sidebarOpen,
