@@ -57,7 +57,23 @@ export default function LoginPage() {
       {/* Login Card */}
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="flex justify-c(onSubmit)} className="space-y-4">
+        <div className="flex justify-center mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
+              <span className="text-[#0b0b45] font-bold text-2xl">A</span>
+            </div>
+            <span className="text-white font-bold text-2xl">ATLAS</span>
+          </div>
+        </div>
+
+        {/* Login Form */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
+            <p className="text-white/70 text-sm">Sign in to continue your learning journey</p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-white/90 text-sm font-medium mb-2">
                 Email Address
@@ -129,23 +145,7 @@ export default function LoginPage() {
             <button
               onClick={handleGuestMode}
               className="text-white/70 hover:text-white text-sm transition-colors"
-              disabled={isPending}semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <span>Signing in...</span>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  <span>Sign In</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => router.push("/dashboard/fellow")}
-              className="text-white/70 hover:text-white text-sm transition-colors"
+              disabled={isPending}
             >
               Continue as Guest
             </button>

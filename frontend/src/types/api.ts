@@ -50,6 +50,7 @@ export interface User {
   name: string;
   role: UserRole;
   cohortId: string | null;
+  points: number; // Alias for totalPoints for convenience
   totalPoints: number;
   currentStreak: number;
   longestStreak: number;
