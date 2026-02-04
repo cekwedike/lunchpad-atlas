@@ -1,14 +1,19 @@
 import { Controller, Get, Put, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateUserDto, ChangePasswordDto } from './dto/user.dto';
 
+@ApiTags('users')
 @Controller('users')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get('me')
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved' })
   getMyProfile(@Request() req) {
     return this.usersService.getProfile(req.user.id);
   }

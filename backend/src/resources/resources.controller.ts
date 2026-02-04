@@ -1,10 +1,13 @@
 import { Controller, Get, Post, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ResourcesService } from './resources.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ResourceQueryDto } from './dto/resource.dto';
+import { ResourceFilterDto } from './dto/resource.dto';
 
+@ApiTags('resources')
 @Controller('resources')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class ResourcesController {
   constructor(private resourcesService: ResourcesService) {}
 

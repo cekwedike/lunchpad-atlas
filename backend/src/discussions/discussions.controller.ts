@@ -1,10 +1,13 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { DiscussionsService } from './discussions.service';
 import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dto/discussion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('discussions')
 @Controller('discussions')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class DiscussionsController {
   constructor(private discussionsService: DiscussionsService) {}
 
