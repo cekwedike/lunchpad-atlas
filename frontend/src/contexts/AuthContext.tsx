@@ -52,9 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requiresAuth: false,
       });
 
-      // Store tokens
+      // Store tokens in localStorage
       localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      if (response.refreshToken) {
+        localStorage.setItem('refreshToken', response.refreshToken);
+      }
+      
+      // Store token in cookies for middleware
+      document.cookie = `accessToken=${response.accessToken}; path=/; max-age=604800`; // 7 days
+      
       apiClient.setToken(response.accessToken);
 
       // Update store
@@ -74,9 +80,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requiresAuth: false,
       });
 
-      // Store tokens
+      // Store tokens in localStorage
       localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      if (response.refreshToken) {
+        localStorage.setItem('refreshToken', response.refreshToken);
+      }
+      
+      // Store token in cookies for middleware
+      document.cookie = `accessToken=${response.accessToken}; path=/; max-age=604800`; // 7 days
+      
       apiClient.setToken(response.accessToken);
 
       // Update store
@@ -101,6 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       apiClient.clearTokens();
       storeLogout();
       
+      // Clear cookies
+      document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+      document.cookie = 'isGuestMode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+      
       toast.info('Logged out', 'See you next time!');
       router.push('/login');
     }
@@ -108,6 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const enterGuestMode = () => {
     setGuestMode(true);
+    // Set guest mode cookie for middleware
+    document.cookie = 'isGuestMode=true; path=/; max-age=604800'; // 7 days
     toast.info('Guest mode', 'Limited features available');
     router.push('/dashboard/fellow');
   };

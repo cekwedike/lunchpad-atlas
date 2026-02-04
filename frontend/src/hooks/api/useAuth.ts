@@ -15,9 +15,15 @@ export function useLogin() {
       });
     },
     onSuccess: (data) => {
-      // Store tokens
+      // Store tokens in localStorage
       localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+      
+      // Store token in cookies for middleware
+      document.cookie = `accessToken=${data.accessToken}; path=/; max-age=604800`; // 7 days
+      
       apiClient.setToken(data.accessToken);
       
       // Update store
@@ -45,9 +51,15 @@ export function useRegister() {
       });
     },
     onSuccess: (data) => {
-      // Store tokens
+      // Store tokens in localStorage
       localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+      
+      // Store token in cookies for middleware
+      document.cookie = `accessToken=${data.accessToken}; path=/; max-age=604800`; // 7 days
+      
       apiClient.setToken(data.accessToken);
       
       // Update store
@@ -75,9 +87,13 @@ export function useLogout() {
       });
     },
     onSettled: () => {
-      // Clear tokens and store
+      // Clear tokens from localStorage and store
       apiClient.clearTokens();
       storeLogout();
+      
+      // Clear cookies
+      document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+      document.cookie = 'isGuestMode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
       
       // Clear all queries
       queryClient.clear();
