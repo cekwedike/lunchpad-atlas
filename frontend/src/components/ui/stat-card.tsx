@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface StatCardProps {
   title: string;
@@ -9,10 +10,25 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
+  isLoading?: boolean;
   className?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, trend, className }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, trend, isLoading, className }: StatCardProps) {
+  if (isLoading) {
+    return (
+      <div className={cn('bg-white rounded-lg border border-gray-200 p-6', className)}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+          <Skeleton className="h-12 w-12 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('bg-white rounded-lg border border-gray-200 p-6', className)}>
       <div className="flex items-start justify-between">
