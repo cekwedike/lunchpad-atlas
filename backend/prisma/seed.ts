@@ -1,331 +1,410 @@
-import { PrismaClient, UserRole, ResourceType, CohortState, AchievementType } from '@prisma/client';
+import { PrismaClient, UserRole, ResourceType, CohortState, EventType, AchievementType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting database seed...');
+  console.log('🌱 Starting seed...');
 
-  // Create Admin User
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  // Clear existing data in correct order
+  await prisma.adminAuditLog.deleteMany();
+  await prisma.sessionAnalytics.deleteMany();
+  await prisma.engagementEvent.deleteMany();
+  await prisma.quizResponse.deleteMany();
+  await prisma.quizQuestion.deleteMany();
+  await prisma.quiz.deleteMany();
+  await prisma.leaderboardEntry.deleteMany();
+  await prisma.monthlyLeaderboard.deleteMany();
+  await prisma.userAchievement.deleteMany();
+  await prisma.achievement.deleteMany();
+  await prisma.pointsLog.deleteMany();
+  await prisma.discussionComment.deleteMany();
+  await prisma.discussion.deleteMany();
+  await prisma.resourceProgress.deleteMany();
+  await prisma.resource.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.cohort.deleteMany();
+
+  console.log('✅ Cleared existing data');
+
+  // Hashed password for all test users
+  const hashedPassword = await bcrypt.hash('password123', 10);
+
+  // Create cohort
+  const cohort = await prisma.cohort.create({
+    data: {
+      name: 'Atlas Fellows 2024',
+      startDate: new Date('2024-01-15'),
+      endDate: new Date('2024-06-15'),
+      state: CohortState.ACTIVE,
+    },
+  });
+
+  console.log('✅ Created cohort');
+
+  // Create users
+  const fellow1 = await prisma.user.create({
+    data: {
+      email: 'fellow@atlas.com',
+      passwordHash: hashedPassword,
+      firstName: 'John',
+      lastName: 'Fellow',
+      role: UserRole.FELLOW,
+      cohortId: cohort.id,
+    },
+  });
+
+  const fellow2 = await prisma.user.create({
+    data: {
+      email: 'jane@atlas.com',
+      passwordHash: hashedPassword,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      role: UserRole.FELLOW,
+      cohortId: cohort.id,
+    },
+  });
+
+  const facilitator = await prisma.user.create({
+    data: {
+      email: 'facilitator@atlas.com',
+      passwordHash: hashedPassword,
+      firstName: 'Sarah',
+      lastName: 'Smith',
+      role: UserRole.FACILITATOR,
+      cohortId: cohort.id,
+    },
+  });
+
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@thrivehub.com',
-      passwordHash: adminPassword,
+      email: 'admin@atlas.com',
+      passwordHash: hashedPassword,
       firstName: 'Admin',
       lastName: 'User',
       role: UserRole.ADMIN,
     },
   });
-  console.log('✓ Created admin user');
 
-  // Create Facilitator
-  const facilitatorPassword = await bcrypt.hash('facilitator123', 10);
-  const facilitator = await prisma.user.create({
+  console.log('✅ Created 4 users');
+
+  // Create sessions
+  const session1 = await prisma.session.create({
     data: {
-      email: 'facilitator@thrivehub.com',
-      passwordHash: facilitatorPassword,
-      firstName: 'Jane',
-      lastName: 'Facilitator',
-      role: UserRole.FACILITATOR,
+      cohortId: cohort.id,
+      sessionNumber: 1,
+      title: 'Introduction to Career Planning',
+      description: 'Learn the basics of career planning and goal setting',
+      scheduledDate: new Date('2024-02-01'),
+      unlockDate: new Date('2024-01-24'),
     },
   });
-  console.log('✓ Created facilitator user');
 
-  // Create Cohort
-  const cohort = await prisma.cohort.create({
+  const session2 = await prisma.session.create({
     data: {
-      name: 'April 2026 Cohort A',
-      startDate: new Date('2026-04-04'),
-      endDate: new Date('2026-07-25'),
-      state: CohortState.PENDING,
-      facilitatorId: facilitator.id,
+      cohortId: cohort.id,
+      sessionNumber: 2,
+      title: 'Resume Building Workshop',
+      description: 'Master the art of crafting effective resumes',
+      scheduledDate: new Date('2024-02-08'),
+      unlockDate: new Date('2024-01-31'),
     },
   });
-  console.log('✓ Created cohort');
 
-  // Create Test Fellows
-  for (let i = 1; i <= 3; i++) {
-    const password = await bcrypt.hash('fellow123', 10);
-    await prisma.user.create({
-      data: {
-        email: `fellow${i}@example.com`,
-        passwordHash: password,
-        firstName: `Fellow`,
-        lastName: `${i}`,
-        role: UserRole.FELLOW,
-        cohortId: cohort.id,
-      },
-    });
-  }
-  console.log('✓ Created 3 test fellows');
+  console.log('✅ Created sessions');
 
-  // Create 16 Sessions (4 months, 4 sessions each)
-  const sessions = [
-    { num: 1, title: 'Ownership Mindset & Leadership at Work', date: '2026-04-04' },
-    { num: 2, title: 'Goal Setting & Time Management', date: '2026-04-11' },
-    { num: 3, title: 'Effective Communication Skills', date: '2026-04-18' },
-    { num: 4, title: 'Storytelling - Leading Early: Growth Without a Title', date: '2026-04-25' },
-    { num: 5, title: 'Building Professional Networks', date: '2026-05-02' },
-    { num: 6, title: 'Personal Branding Basics', date: '2026-05-09' },
-    { num: 7, title: 'LinkedIn & Online Presence', date: '2026-05-16' },
-    { num: 8, title: 'Career Development Planning', date: '2026-05-23' },
-    { num: 9, title: 'Technical Skills Assessment', date: '2026-06-06' },
-    { num: 10, title: 'Project Management Fundamentals', date: '2026-06-13' },
-    { num: 11, title: 'Problem Solving & Critical Thinking', date: '2026-06-20' },
-    { num: 12, title: 'Financial Literacy for Professionals', date: '2026-06-27' },
-    { num: 13, title: 'Interview Preparation', date: '2026-07-04' },
-    { num: 14, title: 'Negotiation Skills', date: '2026-07-11' },
-    { num: 15, title: 'Workplace Ethics & Professionalism', date: '2026-07-18' },
-    { num: 16, title: 'Next Steps: Career Transition', date: '2026-07-25' },
-  ];
-
-  for (const sess of sessions) {
-    const scheduledDate = new Date(sess.date);
-    const unlockDate = new Date(scheduledDate);
-    unlockDate.setDate(unlockDate.getDate() - 8); // 8 days before
-
-    await prisma.session.create({
-      data: {
-        cohortId: cohort.id,
-        sessionNumber: sess.num,
-        title: sess.title,
-        description: `Session ${sess.num} of the LaunchPad Fellowship`,
-        scheduledDate,
-        unlockDate,
-      },
-    });
-  }
-  console.log('✓ Created 16 sessions');
-
-  // Create Sample Resources for Session 1
-  const session1 = await prisma.session.findFirst({
-    where: { cohortId: cohort.id, sessionNumber: 1 },
-  });
-
-  if (session1) {
-    const session1Resources = [
-      {
-        type: ResourceType.ARTICLE,
-        title: '360° Leadership: The Art of Influence Without Authority',
-        description: 'Learn how to lead effectively without formal authority',
-        url: 'https://medium.com/@contact.jitendra07/360-leadership-the-art-of-influence-without-authority-3ace7b3e1a9b',
-        duration: 10,
-        pointValue: 100,
-        order: 1,
-      },
-      {
-        type: ResourceType.ARTICLE,
-        title: 'Developing an ownership mindset early in your career',
-        description: 'Build an ownership mindset from the start of your career',
-        url: 'https://www.indeed.com/career-advice/career-development/ownership-mindset',
-        duration: 8,
-        pointValue: 100,
-        order: 2,
-      },
-      {
-        type: ResourceType.ARTICLE,
-        title: 'Ownership Mindset',
-        description: 'How leaders build an ownership mindset in their teams',
-        url: 'https://www.atlassian.com/blog/leadership/how-leaders-build-ownership-mindset',
-        duration: 12,
-        pointValue: 100,
-        order: 3,
-      },
-      {
-        type: ResourceType.VIDEO,
-        title: 'Leadership Vs. Authority',
-        description: 'Simon Sinek explains the difference between leadership and authority',
-        url: 'https://www.youtube.com/watch?v=pkclW79ZoZU',
-        duration: 15,
-        pointValue: 150,
-        order: 4,
-      },
-      {
-        type: ResourceType.VIDEO,
-        title: 'What ownership mindset looks like in real workplaces',
-        description: 'Develop an ownership mindset at work',
-        url: 'https://youtu.be/ORlTz8lJL7k?si=ugc7Vd76qeRjWMp7',
-        duration: 20,
-        pointValue: 150,
-        order: 5,
-      },
-      {
-        type: ResourceType.ARTICLE,
-        title: 'Building influence without formal power',
-        description: 'Learn to influence others without formal authority',
-        url: 'https://online.hbs.edu/blog/post/influence-without-authority',
-        duration: 15,
-        pointValue: 50,
-        order: 6,
-      },
-      {
-        type: ResourceType.VIDEO,
-        title: 'Leadership Without Authority TEDx',
-        description: 'TEDx talk on leading without authority',
-        url: 'https://www.youtube.com/watch?v=LZ6EXX3hLLg',
-        duration: 18,
-        pointValue: 50,
-        order: 7,
-      },
-    ];
-
-    for (const resource of session1Resources) {
-      await prisma.resource.create({
-        data: {
-          ...resource,
-          sessionId: session1.id,
-        },
-      });
-    }
-    console.log('✓ Created 7 resources for Session 1');
-  }
-
-  // Create Achievements
-  const achievements = [
-    {
-      name: 'First Steps',
-      description: 'Complete your first resource',
-      type: AchievementType.MILESTONE,
-      pointValue: 50,
-      criteria: { resourceCount: 1 },
-    },
-    {
-      name: 'Getting Started',
-      description: 'Complete 5 resources',
-      type: AchievementType.MILESTONE,
+  // Create resources
+  const resource1 = await prisma.resource.create({
+    data: {
+      sessionId: session1.id,
+      type: ResourceType.VIDEO,
+      title: 'Career Planning 101 Video',
+      description: 'Comprehensive video guide on career planning fundamentals',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      duration: 20,
       pointValue: 100,
-      criteria: { resourceCount: 5 },
+      order: 1,
     },
-    {
-      name: 'On a Roll',
-      description: 'Complete 10 resources',
-      type: AchievementType.MILESTONE,
-      pointValue: 200,
-      criteria: { resourceCount: 10 },
+  });
+
+  const resource2 = await prisma.resource.create({
+    data: {
+      sessionId: session1.id,
+      type: ResourceType.ARTICLE,
+      title: 'Goal Setting Framework',
+      description: 'Article on SMART goals and career objectives',
+      url: 'https://example.com/goal-setting',
+      duration: 10,
+      pointValue: 50,
+      order: 2,
     },
-    {
-      name: 'Halfway Hero',
-      description: 'Complete 50% of all resources',
-      type: AchievementType.MILESTONE,
-      pointValue: 500,
-      criteria: { resourceCount: 45 },
-    },
-    {
-      name: 'Marathon Runner',
-      description: 'Complete all 91 resources',
-      type: AchievementType.MILESTONE,
-      pointValue: 1000,
-      criteria: { resourceCount: 91 },
-    },
-    {
-      name: 'Consistent Learner',
-      description: 'Complete resources for 7 days in a row',
-      type: AchievementType.STREAK,
-      pointValue: 300,
-      criteria: { streakDays: 7 },
-    },
-    {
-      name: 'Discussion Starter',
-      description: 'Start 5 discussions',
-      type: AchievementType.SOCIAL,
+  });
+
+  const resource3 = await prisma.resource.create({
+    data: {
+      sessionId: session2.id,
+      type: ResourceType.VIDEO,
+      title: 'Resume Writing Workshop Recording',
+      description: 'Full workshop on crafting compelling resumes',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      duration: 30,
       pointValue: 150,
-      criteria: { discussionCount: 5 },
+      order: 1,
     },
-    {
-      name: 'Helpful Helper',
-      description: 'Post 20 comments helping others',
-      type: AchievementType.SOCIAL,
-      pointValue: 200,
-      criteria: { commentCount: 20 },
-    },
-    {
-      name: 'Top Performer',
-      description: 'Finish in top 3 of monthly leaderboard',
-      type: AchievementType.LEADERBOARD,
-      pointValue: 500,
-      criteria: { leaderboardRank: 3 },
-    },
-    {
-      name: 'Champion',
-      description: 'Finish #1 on monthly leaderboard',
-      type: AchievementType.LEADERBOARD,
-      pointValue: 1000,
-      criteria: { leaderboardRank: 1 },
-    },
-  ];
+  });
 
-  for (const achievement of achievements) {
-    await prisma.achievement.create({ data: achievement });
-  }
-  console.log('✓ Created 10 achievements');
+  console.log('✅ Created resources');
 
-  // Create Sample Quiz for Session 1
-  if (session1) {
-    const quiz = await prisma.quiz.create({
-      data: {
-        sessionId: session1.id,
-        title: 'Ownership Mindset Assessment',
-        description: 'Test your understanding of ownership mindset and leadership',
-        timeLimit: 15,
-        passingScore: 70,
-        pointValue: 200,
-      },
-    });
-
-    const quizQuestions = [
+  // Create resource progress
+  await prisma.resourceProgress.createMany({
+    data: [
       {
-        question: 'What is the key difference between leadership and authority?',
+        userId: fellow1.id,
+        resourceId: resource1.id,
+        state: 'COMPLETED',
+        timeSpent: 1200,
+        completedAt: new Date('2024-01-20'),
+        pointsAwarded: 100,
+      },
+      {
+        userId: fellow1.id,
+        resourceId: resource2.id,
+        state: 'COMPLETED',
+        timeSpent: 600,
+        completedAt: new Date('2024-01-21'),
+        pointsAwarded: 50,
+      },
+      {
+        userId: fellow2.id,
+        resourceId: resource1.id,
+        state: 'COMPLETED',
+        timeSpent: 1150,
+        completedAt: new Date('2024-01-20'),
+        pointsAwarded: 100,
+      },
+    ],
+  });
+
+  console.log('✅ Created resource progress');
+
+  // Create quiz
+  const quiz1 = await prisma.quiz.create({
+    data: {
+      sessionId: session1.id,
+      title: 'Career Planning Fundamentals Quiz',
+      description: 'Test your knowledge of career planning basics',
+      timeLimit: 15,
+      passingScore: 70,
+      pointValue: 200,
+    },
+  });
+
+  await prisma.quizQuestion.createMany({
+    data: [
+      {
+        quizId: quiz1.id,
+        question: 'What does SMART stand for in goal setting?',
         options: JSON.stringify([
-          'Leadership requires a formal title',
-          'Leadership is about influence, authority is about position',
-          'Authority is more important than leadership',
-          'There is no difference',
+          'Simple, Measurable, Achievable, Relevant, Timely',
+          'Specific, Measurable, Achievable, Relevant, Time-bound',
+          'Strategic, Meaningful, Actionable, Realistic, Trackable',
         ]),
-        correctAnswer: 'Leadership is about influence, authority is about position',
+        correctAnswer: 'Specific, Measurable, Achievable, Relevant, Time-bound',
         order: 1,
       },
       {
-        question: 'Which characteristic best describes an ownership mindset?',
+        quizId: quiz1.id,
+        question: 'How often should you review your career goals?',
         options: JSON.stringify([
-          'Waiting for instructions before acting',
-          'Taking responsibility for outcomes',
-          'Blaming others when things go wrong',
-          'Only caring about your own tasks',
+          'Once a year',
+          'Every 5 years',
+          'Quarterly or bi-annually',
+          'Never',
         ]),
-        correctAnswer: 'Taking responsibility for outcomes',
+        correctAnswer: 'Quarterly or bi-annually',
         order: 2,
       },
+    ],
+  });
+
+  console.log('✅ Created quiz with questions');
+
+  // Create quiz responses
+  await prisma.quizResponse.createMany({
+    data: [
       {
-        question: 'How can you demonstrate leadership without formal authority?',
-        options: JSON.stringify([
-          'By demanding others follow you',
-          'By taking initiative and influencing through example',
-          'By avoiding responsibility',
-          'By waiting for a promotion',
-        ]),
-        correctAnswer: 'By taking initiative and influencing through example',
-        order: 3,
+        quizId: quiz1.id,
+        userId: fellow1.id,
+        answers: JSON.stringify({ '1': 'Specific, Measurable, Achievable, Relevant, Time-bound', '2': 'Quarterly or bi-annually' }),
+        score: 100,
+        passed: true,
+        pointsAwarded: 200,
+        completedAt: new Date('2024-01-20'),
       },
-    ];
+    ],
+  });
 
-    for (const question of quizQuestions) {
-      await prisma.quizQuestion.create({
-        data: {
-          ...question,
-          quizId: quiz.id,
-        },
-      });
-    }
-    console.log('✓ Created quiz with 3 questions for Session 1');
-  }
+  console.log('✅ Created quiz responses');
 
-  console.log('\n✨ Database seeding completed successfully!');
-  console.log('\nTest Credentials:');
-  console.log('Admin: admin@thrivehub.com / admin123');
-  console.log('Facilitator: facilitator@thrivehub.com / facilitator123');
-  console.log('Fellow: fellow1@example.com / fellow123');
+  // Create discussions
+  const discussion1 = await prisma.discussion.create({
+    data: {
+      resourceId: resource1.id,
+      cohortId: cohort.id,
+      userId: fellow1.id,
+      title: 'How do you stay motivated during job search?',
+      content: 'Job searching can be really tough. What are your strategies for staying positive and motivated throughout the process?',
+      isPinned: true,
+    },
+  });
+
+  const discussion2 = await prisma.discussion.create({
+    data: {
+      resourceId: resource1.id,
+      cohortId: cohort.id,
+      userId: fellow2.id,
+      title: 'Best resources for learning technical skills?',
+      content: 'I want to improve my technical skills, especially in data analysis. What online courses do you recommend?',
+      isPinned: false,
+    },
+  });
+
+  console.log('✅ Created discussions');
+
+  // Create discussion comments
+  await prisma.discussionComment.createMany({
+    data: [
+      {
+        discussionId: discussion1.id,
+        userId: fellow2.id,
+        content: 'Great question! I set small daily goals and celebrate tiny wins.',
+      },
+      {
+        discussionId: discussion1.id,
+        userId: facilitator.id,
+        content: 'Remember that job searching is a marathon, not a sprint. Take breaks and practice self-care.',
+      },
+      {
+        discussionId: discussion2.id,
+        userId: fellow1.id,
+        content: "I've been using Coursera and DataCamp. Both have great courses!",
+      },
+    ],
+  });
+
+  console.log('✅ Created discussion comments');
+
+  // Create points logs
+  await prisma.pointsLog.createMany({
+    data: [
+      {
+        userId: fellow1.id,
+        eventType: EventType.RESOURCE_COMPLETE,
+        points: 100,
+        description: 'Completed: Career Planning 101 Video',
+        createdAt: new Date('2024-01-20'),
+      },
+      {
+        userId: fellow1.id,
+        eventType: EventType.RESOURCE_COMPLETE,
+        points: 50,
+        description: 'Completed: Goal Setting Framework',
+        createdAt: new Date('2024-01-21'),
+      },
+      {
+        userId: fellow1.id,
+        eventType: EventType.QUIZ_SUBMIT,
+        points: 200,
+        description: 'Passed: Career Planning Fundamentals Quiz (100%)',
+        createdAt: new Date('2024-01-20'),
+      },
+      {
+        userId: fellow2.id,
+        eventType: EventType.RESOURCE_COMPLETE,
+        points: 100,
+        description: 'Completed: Career Planning 101 Video',
+        createdAt: new Date('2024-01-20'),
+      },
+    ],
+  });
+
+  console.log('✅ Created points logs');
+
+  // Create achievements
+  const achievement1 = await prisma.achievement.create({
+    data: {
+      name: 'First Steps',
+      description: 'Completed your first resource',
+      type: AchievementType.MILESTONE,
+      iconUrl: '🎯',
+      pointValue: 50,
+      criteria: JSON.stringify({ resourceCount: 1 }),
+    },
+  });
+
+  const achievement2 = await prisma.achievement.create({
+    data: {
+      name: 'Quiz Master',
+      description: 'Scored 100% on a quiz',
+      type: AchievementType.MILESTONE,
+      iconUrl: '🏆',
+      pointValue: 100,
+      criteria: JSON.stringify({ quizPerfectScore: true }),
+    },
+  });
+
+  console.log('✅ Created achievements');
+
+  // Unlock achievements for users
+  await prisma.userAchievement.createMany({
+    data: [
+      {
+        userId: fellow1.id,
+        achievementId: achievement1.id,
+        unlockedAt: new Date('2024-01-20'),
+      },
+      {
+        userId: fellow1.id,
+        achievementId: achievement2.id,
+        unlockedAt: new Date('2024-01-20'),
+      },
+      {
+        userId: fellow2.id,
+        achievementId: achievement1.id,
+        unlockedAt: new Date('2024-01-20'),
+      },
+    ],
+  });
+
+  console.log('✅ Unlocked achievements for users');
+
+  console.log('\n🎉 Seed completed successfully!');
+  console.log('\n📊 Summary:');
+  console.log(`   - Cohorts: 1`);
+  console.log(`   - Users: 4 (2 fellows, 1 facilitator, 1 admin)`);
+  console.log(`   - Sessions: 2`);
+  console.log(`   - Resources: 3`);
+  console.log(`   - Quizzes: 1 (with 2 questions)`);
+  console.log(`   - Discussions: 2`);
+  console.log(`   - Comments: 3`);
+  console.log(`   - Points Logs: 4`);
+  console.log(`   - Achievements: 2`);
+  console.log('\n🔑 Test Credentials:');
+  console.log(`   Fellow 1: fellow@atlas.com / password123`);
+  console.log(`   Fellow 2: jane@atlas.com / password123`);
+  console.log(`   Facilitator: facilitator@atlas.com / password123`);
+  console.log(`   Admin: admin@atlas.com / password123`);
 }
+
+main()
+  .catch((e) => {
+    console.error('❌ Error during seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
 
 main()
   .catch((e) => {
