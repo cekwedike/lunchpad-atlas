@@ -1,10 +1,75 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
+import { AchievementsService } from '../achievements/achievements.service';
 
 @Injectable()
 export class ResourcesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private achievementsService: AchievementsService
+  ) {}
+
+  /**
+   * Helper function to award points with monthly cap enforcement
+   * Returns true if points were awarded, false if cap reached
+   */
+  private async awardPoints(
+    userId: string,
+    points: number,
+    eventType: string,
+    description: string
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        currentMonthPoints: true,
+        monthlyPointsCap: true,
+        lastPointReset: true,
+      },
+    });
+
+    if (!user) return false;
+
+    // Check if monthly reset is needed
+    const now = new Date();
+    const lastReset = user.lastPointReset;
+    const needsReset = !lastReset || 
+      lastReset.getMonth() !== now.getMonth() || 
+      lastReset.getFullYear() !== now.getFullYear();
+
+    let currentMonthPoints = user.currentMonthPoints;
+    if (needsReset) {
+      currentMonthPoints = 0;
+    }
+
+    // Check if user would exceed monthly cap
+    if (currentMonthPoints + points > user.monthlyPointsCap) {
+      return false; // Cap reached, no points awarded
+    }
+
+    // Award points
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalPoints: { increment: points },
+        currentMonthPoints: needsReset ? points : { increment: points },
+        lastPointReset: needsReset ? now : undefined,
+      },
+    });
+
+    // Log points
+    await this.prisma.pointsLog.create({
+      data: {
+        userId,
+        points,
+        eventType: eventType as any,
+        description,
+      },
+    });
+
+    return true;
+  }
 
   /**
    * Calculate if a resource is unlocked based on session unlock date
@@ -244,24 +309,23 @@ export class ResourcesService {
       );
       const totalPoints = resource.pointValue + qualityBonus;
 
-      // Update user totalPoints
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          totalPoints: { increment: totalPoints },
-          currentMonthPoints: { increment: totalPoints },
-        },
-      });
+      // Award points with monthly cap enforcement
+      const awarded = await this.awardPoints(
+        userId,
+        totalPoints,
+        'RESOURCE_COMPLETE',
+        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}`
+      );
 
-      // Log points with quality bonus
-      await this.prisma.pointsLog.create({
-        data: {
-          userId,
-          points: totalPoints,
-          eventType: 'RESOURCE_COMPLETE',
-          description: `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}`,
-        },
-      });
+      // Check and award achievements
+      const newAchievements = await this.achievementsService.checkAndAwardAchievements(userId);
+
+      return {
+        ...progress,
+        pointsAwarded: awarded ? totalPoints : 0,
+        cappedMessage: awarded ? null : 'Monthly point cap reached - no points awarded',
+        newAchievements: newAchievements.length > 0 ? newAchievements : undefined,
+      };
     }
 
     return progress;

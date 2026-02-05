@@ -1,10 +1,75 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
+import { AchievementsService } from '../achievements/achievements.service';
 
 @Injectable()
 export class QuizzesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private achievementsService: AchievementsService
+  ) {}
+
+  /**
+   * Helper function to award points with monthly cap enforcement
+   * Returns true if points were awarded, false if cap reached
+   */
+  private async awardPoints(
+    userId: string,
+    points: number,
+    eventType: string,
+    description: string
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        currentMonthPoints: true,
+        monthlyPointsCap: true,
+        lastPointReset: true,
+      },
+    });
+
+    if (!user) return false;
+
+    // Check if monthly reset is needed
+    const now = new Date();
+    const lastReset = user.lastPointReset;
+    const needsReset = !lastReset || 
+      lastReset.getMonth() !== now.getMonth() || 
+      lastReset.getFullYear() !== now.getFullYear();
+
+    let currentMonthPoints = user.currentMonthPoints;
+    if (needsReset) {
+      currentMonthPoints = 0;
+    }
+
+    // Check if user would exceed monthly cap
+    if (currentMonthPoints + points > user.monthlyPointsCap) {
+      return false; // Cap reached, no points awarded
+    }
+
+    // Award points
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalPoints: { increment: points },
+        currentMonthPoints: needsReset ? points : { increment: points },
+        lastPointReset: needsReset ? now : undefined,
+      },
+    });
+
+    // Log points
+    await this.prisma.pointsLog.create({
+      data: {
+        userId,
+        points,
+        eventType: eventType as any,
+        description,
+      },
+    });
+
+    return true;
+  }
 
   async getQuiz(id: string) {
     const quiz = await this.prisma.quiz.findUnique({
@@ -80,26 +145,53 @@ export class QuizzesService {
     const score = Math.round((correctCount / questions.length) * 100);
     const passed = score >= quiz.passingScore;
 
-    // Check previous attempts
-    const previousAttempts = await this.prisma.quizResponse.count({
-      where: { quizId, userId },
-    });
+    // Calculate time bonus (faster completion = more points)
+    // Formula: if completed in <50% of time limit, +20% bonus
+    //          if completed in 50-75% of time limit, +10% bonus
+    //          if completed in 75-100% of time limit, 0% bonus
+    let timeBonus = 0;
+    const timeTaken = dto.timeTaken || 0;
+    const timeLimitSeconds = quiz.timeLimit * 60;
 
-    // Award points only on first completion if passed
-    const pointsAwarded = passed && previousAttempts === 0 ? quiz.pointValue : 0;
-
-    if (pointsAwarded > 0) {
-      await this.prisma.pointsLog.create({
-        data: {
-          userId,
-          points: pointsAwarded,
-          eventType: 'QUIZ_SUBMIT',
-          description: `Completed quiz: ${quiz.title || 'Quiz'}`,
-        },
-      });
+    if (timeTaken > 0 && timeTaken < timeLimitSeconds) {
+      const timePercentage = timeTaken / timeLimitSeconds;
+      if (timePercentage < 0.5) {
+        timeBonus = Math.round(quiz.pointValue * 0.2); // 20% bonus
+      } else if (timePercentage < 0.75) {
+        timeBonus = Math.round(quiz.pointValue * 0.1); // 10% bonus
+      }
     }
 
-    // Save response
+    // Apply quiz multiplier
+    const basePoints = passed ? quiz.pointValue : 0;
+    const multipliedPoints = Math.round(basePoints * (quiz.multiplier || 1.0));
+    const totalPoints = multipliedPoints + (passed ? timeBonus : 0);
+
+    // Check previous attempts - only award points on first successful attempt
+    const previousAttempts = await this.prisma.quizResponse.count({
+      where: { quizId, userId, passed: true },
+    });
+
+    let pointsAwarded = 0;
+    let cappedMessage: string | null = null;
+
+    if (passed && previousAttempts === 0 && totalPoints > 0) {
+      // Award points with monthly cap enforcement
+      const awarded = await this.awardPoints(
+        userId,
+        totalPoints,
+        'QUIZ_SUBMIT',
+        `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}`
+      );
+
+      if (awarded) {
+        pointsAwarded = totalPoints;
+      } else {
+        cappedMessage = 'Monthly point cap reached - no points awarded';
+      }
+    }
+
+    // Save response with time tracking
     const response = await this.prisma.quizResponse.create({
       data: {
         quizId,
@@ -108,9 +200,17 @@ export class QuizzesService {
         score,
         passed,
         pointsAwarded,
+        timeTaken: dto.timeTaken || 0,
+        timeBonus,
         completedAt: new Date(),
       },
     });
+
+    // Check and award achievements if quiz was passed
+    let newAchievements = [];
+    if (passed) {
+      newAchievements = await this.achievementsService.checkAndAwardAchievements(userId);
+    }
 
     return {
       id: response.id,
@@ -118,8 +218,15 @@ export class QuizzesService {
       quizId: response.quizId,
       score: response.score,
       passed: response.passed,
-      pointsAwarded: response.pointsAwarded,
+      basePoints: passed ? quiz.pointValue : 0,
+      multiplier: quiz.multiplier || 1.0,
+      timeBonus,
+      totalPoints,
+      pointsAwarded,
+      cappedMessage,
+      timeTaken: response.timeTaken,
       completedAt: response.completedAt,
+      newAchievements: newAchievements.length > 0 ? newAchievements : undefined,
     };
   }
 }

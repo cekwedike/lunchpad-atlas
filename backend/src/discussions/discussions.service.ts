@@ -6,8 +6,69 @@ import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dt
 export class DiscussionsService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Helper function to award points with monthly cap enforcement
+   * Returns true if points were awarded, false if cap reached
+   */
+  private async awardPoints(
+    userId: string,
+    points: number,
+    eventType: string,
+    description: string
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        currentMonthPoints: true,
+        monthlyPointsCap: true,
+        lastPointReset: true,
+      },
+    });
+
+    if (!user) return false;
+
+    // Check if monthly reset is needed (check if last reset was in a different month)
+    const now = new Date();
+    const lastReset = user.lastPointReset;
+    const needsReset = !lastReset || 
+      lastReset.getMonth() !== now.getMonth() || 
+      lastReset.getFullYear() !== now.getFullYear();
+
+    let currentMonthPoints = user.currentMonthPoints;
+    if (needsReset) {
+      currentMonthPoints = 0;
+    }
+
+    // Check if user would exceed monthly cap
+    if (currentMonthPoints + points > user.monthlyPointsCap) {
+      return false; // Cap reached, no points awarded
+    }
+
+    // Award points
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalPoints: { increment: points },
+        currentMonthPoints: needsReset ? points : { increment: points },
+        lastPointReset: needsReset ? now : undefined,
+      },
+    });
+
+    // Log points
+    await this.prisma.pointsLog.create({
+      data: {
+        userId,
+        points,
+        eventType: eventType as any,
+        description,
+      },
+    });
+
+    return true;
+  }
+
   async createDiscussion(userId: string, dto: CreateDiscussionDto) {
-    return this.prisma.discussion.create({
+    const discussion = await this.prisma.discussion.create({
       data: {
         title: dto.title,
         content: dto.content,
@@ -21,6 +82,20 @@ export class DiscussionsService {
         },
       },
     });
+
+    // Award 5 points for creating a discussion (with monthly cap enforcement)
+    const awarded = await this.awardPoints(
+      userId,
+      5,
+      'DISCUSSION_POST',
+      `Posted discussion: ${dto.title}`
+    );
+
+    return {
+      ...discussion,
+      pointsAwarded: awarded ? 5 : 0,
+      cappedMessage: awarded ? null : 'Monthly point cap reached',
+    };
   }
 
   async getDiscussions(filters: DiscussionFilterDto) {
@@ -128,7 +203,7 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
-    return this.prisma.discussionComment.create({
+    const comment = await this.prisma.discussionComment.create({
       data: {
         content: dto.content,
         userId: userId,
@@ -140,6 +215,20 @@ export class DiscussionsService {
         },
       },
     });
+
+    // Award 2 points for replying to a discussion (with monthly cap enforcement)
+    const awarded = await this.awardPoints(
+      userId,
+      2,
+      'DISCUSSION_REPLY',
+      `Replied to discussion: ${discussion.title}`
+    );
+
+    return {
+      ...comment,
+      pointsAwarded: awarded ? 2 : 0,
+      cappedMessage: awarded ? null : 'Monthly point cap reached',
+    };
   }
 
   async deleteDiscussion(id: string, userId: string, userRole: string) {

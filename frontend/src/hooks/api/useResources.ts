@@ -69,3 +69,37 @@ export function useUpdateResourceProgress(resourceId: string) {
     },
   });
 }
+
+export interface TrackEngagementRequest {
+  scrollDepth?: number;
+  watchPercentage?: number;
+  timeSpent?: number;
+  eventType?: 'scroll' | 'video_progress' | 'time_update' | 'interaction';
+  metadata?: string;
+}
+
+export interface TrackEngagementResponse {
+  message: string;
+  progress: ResourceProgress;
+  canComplete: boolean;
+}
+
+export function useTrackEngagement(resourceId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: TrackEngagementRequest) =>
+      apiClient.post<TrackEngagementResponse>(`/resources/${resourceId}/track`, data),
+    onSuccess: (response) => {
+      queryClient.setQueryData(['resource', resourceId], (oldData: any) => ({
+        ...oldData,
+        progress: response.progress,
+        canComplete: response.canComplete,
+      }));
+    },
+    onError: () => {
+      // Silent fail for tracking - don't disrupt user experience
+    },
+  });
+}
+

@@ -11,6 +11,7 @@ import { DiscussionsModule } from './discussions/discussions.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { AdminModule } from './admin/admin.module';
+import { AchievementsModule } from './achievements/achievements.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AdminModule } from './admin/admin.module';
     QuizzesModule,
     LeaderboardModule,
     AdminModule,
+    AchievementsModule,
   ],
   controllers: [AppController],
   providers: [

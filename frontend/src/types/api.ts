@@ -160,13 +160,21 @@ export interface QuizResponse {
   id: string;
   userId: string;
   quizId: string;
-  attemptNumber: number;
-  answers: Record<string, string>;
+  attemptNumber?: number;
+  answers?: Record<string, string>;
   score: number;
   passed: boolean;
-  pointsEarned: number;
-  startedAt: Date;
+  pointsEarned?: number; // Deprecated - use pointsAwarded
+  pointsAwarded?: number;
+  basePoints?: number;
+  multiplier?: number;
+  timeBonus?: number;
+  totalPoints?: number;
+  cappedMessage?: string | null;
+  timeTaken?: number;
+  startedAt?: Date;
   completedAt: Date;
+  newAchievements?: any[];
 }
 
 export interface Achievement {
@@ -260,6 +268,7 @@ export interface UpdateProfileRequest {
 
 export interface SubmitQuizRequest {
   answers: Record<string, string>;
+  timeTaken?: number; // Time taken in seconds
 }
 
 export interface MarkResourceCompleteRequest {

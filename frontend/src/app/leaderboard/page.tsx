@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Trophy, Medal, Award, Crown, Search, TrendingUp, TrendingDown } from "lucide-react";
+import { Trophy, Medal, Award, Crown, Search, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { useLeaderboard, useLeaderboardRank } from "@/hooks/api/useLeaderboard";
 import { useProfile } from "@/hooks/api/useProfile";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +18,15 @@ export default function LeaderboardPage() {
   const { data: profile } = useProfile();
   const { data: leaderboard, isLoading, error, refetch } = useLeaderboard(undefined, selectedMonth);
   const { data: userRank } = useLeaderboardRank(profile?.id || "");
+
+  // Auto-refresh every 30 seconds for live updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   if (error) {
     return (
@@ -59,6 +68,15 @@ export default function LeaderboardPage() {
             <h1 className="text-3xl font-bold">Leaderboard</h1>
             <p className="text-muted-foreground mt-1">See how you rank among your cohort</p>
           </div>
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
         </div>
 
         {/* User's Current Rank */}

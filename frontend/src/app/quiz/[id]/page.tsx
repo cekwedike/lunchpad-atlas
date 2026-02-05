@@ -22,14 +22,33 @@ export default function QuizPage({ params }: { params: { id: string } }) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [startTime, setStartTime] = useState<number>(0);
   const [quizResult, setQuizResult] = useState<any>(null);
 
   // Initialize timer when quiz starts
   useEffect(() => {
     if (started && quiz?.timeLimit) {
       setTimeRemaining(quiz.timeLimit * 60); // Convert minutes to seconds
+      setStartTime(Date.now());
     }
   }, [started, quiz?.timeLimit]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!questions) return;
+
+    // Calculate time taken in seconds
+    const timeTaken = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+
+    try {
+      const result = await submitQuizMutation.mutateAsync({
+        answers,
+        timeTaken,
+      });
+      setQuizResult(result);
+    } catch (error) {
+      console.error('Failed to submit quiz:', error);
+    }
+  }, [answers, questions, submitQuizMutation, startTime]);
 
   // Timer countdown
   useEffect(() => {
@@ -46,7 +65,7 @@ export default function QuizPage({ params }: { params: { id: string } }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [started, timeRemaining]);
+  }, [started, timeRemaining, handleSubmit]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -73,19 +92,6 @@ export default function QuizPage({ params }: { params: { id: string } }) {
       setCurrentQuestion(currentQuestion - 1);
     }
   };
-
-  const handleSubmit = useCallback(async () => {
-    if (!questions) return;
-
-    try {
-      const result = await submitQuizMutation.mutateAsync({
-        answers,
-      });
-      setQuizResult(result);
-    } catch (error) {
-      console.error('Failed to submit quiz:', error);
-    }
-  }, [answers, questions, submitQuizMutation]);
 
   const isLoading = isLoadingQuiz || isLoadingQuestions;
   const error = quizError || questionsError;
@@ -138,6 +144,9 @@ export default function QuizPage({ params }: { params: { id: string } }) {
 
   if (quizResult) {
     const passed = quizResult.passed;
+    const hasTimeBonus = quizResult.timeBonus && quizResult.timeBonus > 0;
+    const hasMultiplier = quizResult.multiplier && quizResult.multiplier !== 1.0;
+    
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto">
@@ -174,10 +183,78 @@ export default function QuizPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            {passed && (
-              <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-900 font-semibold">
-                  +{quizResult.pointsEarned} points earned!
+            {passed && quizResult.pointsAwarded > 0 && (
+              <div className="mb-8 space-y-4">
+                {/* Points Breakdown */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-semibold text-blue-900 mb-3">Points Breakdown</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700">Base Points:</span>
+                      <span className="font-semibold text-gray-900">{quizResult.basePoints}</span>
+                    </div>
+                    {hasMultiplier && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700">Multiplier ({quizResult.multiplier}x):</span>
+                        <span className="font-semibold text-gray-900">
+                          {Math.round(quizResult.basePoints * quizResult.multiplier)}
+                        </span>
+                      </div>
+                    )}
+                    {hasTimeBonus && (
+                      <div className="flex justify-between items-center text-green-700">
+                        <span>Time Bonus:</span>
+                        <span className="font-semibold">+{quizResult.timeBonus}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-blue-300 pt-2 mt-2 flex justify-between items-center">
+                      <span className="font-bold text-blue-900">Total Points:</span>
+                      <span className="font-bold text-blue-900">{quizResult.totalPoints}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Final Award */}
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-900 font-semibold text-lg">
+                    🎉 +{quizResult.pointsAwarded} points earned!
+                  </p>
+                  {quizResult.timeTaken && (
+                    <p className="text-sm text-green-700 mt-1">
+                      Completed in {Math.floor(quizResult.timeTaken / 60)}:{(quizResult.timeTaken % 60).toString().padStart(2, '0')}
+                    </p>
+                  )}
+                </div>
+
+                {/* New Achievements */}
+                {quizResult.newAchievements && quizResult.newAchievements.length > 0 && (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <h3 className="font-semibold text-purple-900 mb-2">🏆 New Achievements Unlocked!</h3>
+                    <div className="space-y-1">
+                      {quizResult.newAchievements.map((achievement: any) => (
+                        <p key={achievement.id} className="text-sm text-purple-700">
+                          {achievement.title} (+{achievement.pointsValue} points)
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Monthly Cap Warning */}
+                {quizResult.cappedMessage && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-yellow-900 text-sm">
+                      ⚠️ {quizResult.cappedMessage}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {passed && quizResult.pointsAwarded === 0 && !quizResult.cappedMessage && (
+              <div className="mb-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-gray-700 text-sm">
+                  No points awarded - you've already passed this quiz before.
                 </p>
               </div>
             )}
@@ -196,6 +273,7 @@ export default function QuizPage({ params }: { params: { id: string } }) {
                     setStarted(false);
                     setCurrentQuestion(0);
                     setAnswers({});
+                    setStartTime(0);
                   }}
                   variant="outline"
                 >

@@ -1,8 +1,12 @@
-import { IsNotEmpty, IsArray, IsString } from 'class-validator';
+import { IsNotEmpty, IsArray, IsString, IsNumber, IsOptional } from 'class-validator';
 
 export class SubmitQuizDto {
   @IsNotEmpty()
   answers: Record<string, string>; // { questionId: selectedAnswer }
+
+  @IsOptional()
+  @IsNumber()
+  timeTaken?: number; // Time taken in seconds
 }
 
 export class QuizResponseDto {
