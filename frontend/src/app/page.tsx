@@ -59,9 +59,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950" suppressHydrationWarning>
       {/* Background - Fixed */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0" suppressHydrationWarning>
         <div 
           className="absolute inset-0"
           style={{
@@ -72,7 +72,7 @@ export default function Home() {
             filter: 'brightness(0.4)',
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/80 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/80 to-slate-950" suppressHydrationWarning />
       </div>
 
       {/* Content */}
@@ -94,7 +94,7 @@ export default function Home() {
 
         {/* Hero Section with Login */}
         <section className="min-h-screen flex items-center justify-center px-8 pt-32 pb-20">
-          <div className="max-w-2xl w-full space-y-16">
+          <div className="max-w-2xl w-full space-y-16 overflow-visible">
             <div className="space-y-6 text-center">
               <h1 
                 className="text-7xl md:text-9xl font-black tracking-tighter"
@@ -105,7 +105,7 @@ export default function Home() {
                 <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
                   ATLAS
                 </span>
-              </h1> role-selector
+              </h1>
             </div>
 
             {/* Sign In Card */}
@@ -116,7 +116,7 @@ export default function Home() {
               </div>
 
               {/* Role Selector */}
-              <div className="relative">
+              <div className="relative role-selector">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between hover:bg-white/10 transition-all cursor-pointer"
