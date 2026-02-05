@@ -21,20 +21,23 @@ export function useLogin() {
         localStorage.setItem('refreshToken', data.refreshToken);
       }
       
-      // Store token in cookies for middleware
-      document.cookie = `accessToken=${data.accessToken}; path=/; max-age=604800`; // 7 days
+      // Store token in cookies for middleware with proper settings
+      const expires = new Date();
+      expires.setDate(expires.getDate() + 7); // 7 days
+      document.cookie = `accessToken=${data.accessToken}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
       
       apiClient.setToken(data.accessToken);
       
-      // Update store
+      // Update store - This triggers the query hooks to fetch data
       setUser(data.user);
       
-      // Invalidate queries
+      // Invalidate queries to refresh data
       queryClient.invalidateQueries();
       
       toast.success('Welcome back!', `Logged in as ${data.user.name}`);
     },
     onError: (error: any) => {
+      console.error('Login error:', error);
       toast.error('Login failed', error.message || 'Invalid credentials');
     },
   });

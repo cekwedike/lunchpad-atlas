@@ -38,7 +38,7 @@ ATLAS transforms traditional learning into an engaging, accountable, and measura
 - Session engagement analyzer
 - Discussion quality evaluator
 - Skimming pattern detector
-- OpenAI API integration
+- OpenAI API / Anthropic API integration (Claude 3.5 Haiku support enabled)
 
 **Deployment**
 - Frontend: Vercel
@@ -176,7 +176,14 @@ DATABASE_URL="postgresql://user:password@localhost:5432/atlas"
 REDIS_URL="redis://localhost:6379"
 JWT_SECRET="your-jwt-secret-key"
 JWT_REFRESH_SECRET="your-refresh-secret-key"
-OPENAI_API_KEY="your-openai-api-key"
+
+# AI Configuration (choose one provider)
+AI_MODEL_PROVIDER="anthropic"  # Options: "openai", "anthropic"
+AI_MODEL_NAME="claude-3-5-haiku-20241022"
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+# OR
+# AI_MODEL_PROVIDER="openai"
+# OPENAI_API_KEY="your-openai-api-key"
 ```
 
 **Frontend** (`.env.local` in `/frontend`)

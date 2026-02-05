@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Video, FileText, CheckCircle, Lock, Clock, Search } from "lucide-react";
 import { useResources } from "@/hooks/api/useResources";
 import { useProfile } from "@/hooks/api/useProfile";
+import { useAuthStore } from "@/stores/authStore";
 import { ResourceType } from "@/types/api";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,11 +18,26 @@ export default function ResourcesPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<ResourceType | "all">("all");
+  const { isAuthenticated, isGuestMode, _hasHydrated } = useAuthStore();
 
   const { data: resources, isLoading, error, refetch } = useResources();
   const { data: profile } = useProfile();
 
-  if (error) {
+  // Wait for Zustand to hydrate from localStorage
+  if (!_hasHydrated) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-700 font-medium">Loading resources...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error && !isLoading) {
     return (
       <DashboardLayout>
         <ErrorMessage message="Failed to load resources" onRetry={() => refetch()} />

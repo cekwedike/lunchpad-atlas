@@ -49,7 +49,7 @@ Detects suspicious engagement patterns indicating skimming behavior.
 ## Tech Stack
 
 - **FastAPI** - Python web framework
-- **OpenAI API** - GPT-4 for analysis
+- **OpenAI API / Anthropic API** - GPT-4 or Claude 3.5 Haiku for analysis
 - **LangChain** - LLM orchestration (optional)
 - **Pydantic** - Data validation
 - **Redis** - Caching results
@@ -127,9 +127,18 @@ docker-compose up session-analyzer
 ## Environment Variables
 
 ```env
+# AI Provider Configuration
+AI_MODEL_PROVIDER="anthropic"  # Options: "openai", "anthropic"
+AI_MODEL_NAME="claude-3-5-haiku-20241022"  # For Anthropic: claude-3-5-haiku-20241022, claude-3-5-sonnet-20241022
+
+# API Keys (provide one based on provider)
 OPENAI_API_KEY="your-openai-api-key"
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# Redis
 REDIS_URL="redis://localhost:6379"
-MODEL_NAME="gpt-4"
+
+# Model Parameters
 TEMPERATURE=0.3
 MAX_TOKENS=1000
 ```

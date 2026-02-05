@@ -32,8 +32,13 @@ export default function LoginPage() {
 
   const onSubmit = (data: LoginRequest) => {
     login(data, {
-      onSuccess: () => {
-        router.push(redirect || "/dashboard/fellow");
+      onSuccess: (response) => {
+        // Navigate based on user role
+        const dashboardRoute = `/dashboard/${response.user.role.toLowerCase()}`;
+        // Use replace and add delay to ensure state is updated
+        setTimeout(() => {
+          router.replace(dashboardRoute);
+        }, 150);
       },
     });
   };

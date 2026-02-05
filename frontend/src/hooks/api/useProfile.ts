@@ -4,8 +4,9 @@ import { useAuthStore } from '@/stores/authStore';
 import type { User, UserAchievement } from '@/types/api';
 
 export function useProfile(userId?: string) {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAuthenticated, isGuestMode } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
 
   return useQuery({
     queryKey: ['user', targetUserId || 'me'],
@@ -13,13 +14,15 @@ export function useProfile(userId?: string) {
       const endpoint = userId ? `/users/${userId}` : '/users/me';
       return apiClient.get<User>(endpoint);
     },
-    enabled: !!targetUserId || !userId,
+    enabled: userId ? !!userId : (hasToken && !isGuestMode),
+    retry: false,
   });
 }
 
 export function useUserAchievements(userId?: string) {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAuthenticated, isGuestMode } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
 
   return useQuery({
     queryKey: ['user-achievements', targetUserId],
@@ -29,12 +32,13 @@ export function useUserAchievements(userId?: string) {
         : '/users/me/achievements';
       return apiClient.get<UserAchievement[]>(endpoint);
     },
-    enabled: !!targetUserId || !userId,
+    enabled: userId ? !!userId : (hasToken && !isGuestMode),
+    retry: false,
   });
 }
 
 export function useUserStats(userId?: string) {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAuthenticated } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
 
   return useQuery({
@@ -43,6 +47,7 @@ export function useUserStats(userId?: string) {
       const endpoint = userId ? `/users/${userId}/stats` : '/users/me/stats';
       return apiClient.get(endpoint);
     },
-    enabled: !!targetUserId || !userId,
+    enabled: userId ? !!userId : (isAuthenticated && !!currentUser),
+    retry: false,
   });
 }

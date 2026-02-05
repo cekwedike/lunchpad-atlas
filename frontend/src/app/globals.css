@@ -1,9 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --atlas-navy: #0b0b45;
+  /* Primary Brand Colors - Upgraded to modern, vibrant palette */
+  --atlas-navy: #1e293b; /* Slate-800 - Better contrast, more professional */
+  --atlas-blue: #3b82f6; /* Blue-500 - Vibrant primary blue */
+  --atlas-indigo: #6366f1; /* Indigo-500 - Modern accent */
+  --atlas-purple: #a855f7; /* Purple-500 - Energetic accent */
+  
+  /* Background Colors */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a; /* Slate-900 - Deeper, better readability */
+  
+  /* Semantic Colors */
+  --success: #10b981; /* Emerald-500 */
+  --warning: #f59e0b; /* Amber-500 */
+  --error: #ef4444; /* Red-500 */
+  --info: #3b82f6; /* Blue-500 */
 }
 
 @theme inline {

@@ -3,13 +3,20 @@ import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import type { Resource, ResourceProgress, PaginatedResponse, MarkResourceCompleteRequest } from '@/types/api';
 
+import { useAuthStore } from '@/stores/authStore';
+
 export function useResources(sessionId?: string) {
+  const { isGuestMode } = useAuthStore();
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+  
   return useQuery({
     queryKey: ['resources', sessionId],
     queryFn: async () => {
       const endpoint = sessionId ? `/resources?sessionId=${sessionId}` : '/resources';
       return apiClient.get<Resource[]>(endpoint);
     },
+    enabled: hasToken && !isGuestMode,
+    retry: false,
   });
 }
 
