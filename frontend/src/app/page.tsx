@@ -64,6 +64,7 @@ export default function Home() {
       <div className="fixed inset-0 z-0" suppressHydrationWarning>
         <div 
           className="absolute inset-0"
+          suppressHydrationWarning
           style={{
             backgroundImage: 'url(https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070)',
             backgroundSize: 'cover',
