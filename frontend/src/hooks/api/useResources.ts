@@ -13,7 +13,9 @@ export function useResources(sessionId?: string) {
     queryKey: ['resources', sessionId],
     queryFn: async () => {
       const endpoint = sessionId ? `/resources?sessionId=${sessionId}` : '/resources';
-      return apiClient.get<Resource[]>(endpoint);
+      const response = await apiClient.get<PaginatedResponse<Resource>>(endpoint);
+      // Extract the data array from the paginated response
+      return response.data || [];
     },
     enabled: hasToken && !isGuestMode,
     retry: false,

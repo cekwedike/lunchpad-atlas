@@ -45,7 +45,10 @@ export default function ResourcesPage() {
     );
   }
 
-  const filteredResources = resources?.filter((resource) => {
+  // Ensure resources is always an array
+  const resourcesArray = Array.isArray(resources) ? resources : [];
+
+  const filteredResources = resourcesArray.filter((resource) => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       resource.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === "all" || resource.type === typeFilter;
@@ -53,7 +56,7 @@ export default function ResourcesPage() {
   });
 
   const completedCount = profile?.resourcesCompleted || 0;
-  const totalCount = resources?.length || 91;
+  const totalCount = resourcesArray.length || 91;
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const getResourceIcon = (type: ResourceType) => {
