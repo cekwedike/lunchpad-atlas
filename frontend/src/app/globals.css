@@ -11,16 +11,68 @@
   --background: #ffffff;
   --foreground: #0f172a; /* Slate-900 - Deeper, better readability */
   
+  /* Card Colors */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  
+  /* Popover Colors */
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  
+  /* Primary Colors */
+  --primary: #1e293b;
+  --primary-foreground: #ffffff;
+  
+  /* Secondary Colors */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  
+  /* Muted Colors - Fixed for better contrast */
+  --muted: #f1f5f9;
+  --muted-foreground: #475569; /* Slate-600 - Much darker for readability */
+  
+  /* Accent Colors */
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  
+  /* Destructive Colors */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  
+  /* Border Colors */
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #3b82f6;
+  
   /* Semantic Colors */
   --success: #10b981; /* Emerald-500 */
   --warning: #f59e0b; /* Amber-500 */
   --error: #ef4444; /* Red-500 */
   --info: #3b82f6; /* Blue-500 */
+  
+  --radius: 0.5rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-montserrat);
 }
@@ -29,6 +81,21 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --card: #0f172a;
+    --card-foreground: #ededed;
+    --popover: #0f172a;
+    --popover-foreground: #ededed;
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+    --secondary: #1e293b;
+    --secondary-foreground: #ededed;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #1e293b;
+    --accent-foreground: #ededed;
+    --border: #334155;
+    --input: #334155;
+    --ring: #3b82f6;
   }
 }
 
@@ -40,4 +107,4 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-montserrat), system-ui, -apple-system, sans-serif;
-}
+  color: var(--foreground);
