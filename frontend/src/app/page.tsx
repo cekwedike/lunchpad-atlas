@@ -95,10 +95,10 @@ export default function Home() {
 
         {/* Hero Section with Login */}
         <section className="min-h-screen flex items-center justify-center px-8 pt-32 pb-20">
-          <div className="max-w-2xl w-full space-y-16 overflow-visible">
-            <div className="space-y-6 text-center">
+          <div className="max-w-2xl w-full space-y-16">
+            <div className="space-y-6 text-center px-4">
               <h1 
-                className="text-7xl md:text-9xl font-black tracking-tighter"
+                className="text-6xl md:text-8xl font-black tracking-tight"
                 style={{
                   transform: `translateY(${scrollY * -0.1}px)`,
                 }}
