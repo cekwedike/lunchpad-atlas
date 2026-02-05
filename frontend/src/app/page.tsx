@@ -98,14 +98,22 @@ export default function Home() {
           <div className="max-w-2xl w-full space-y-16">
             <div className="space-y-6 text-center px-4">
               <h1 
-                className="text-6xl md:text-8xl font-black tracking-tight"
+                className="text-7xl md:text-9xl font-black tracking-tight inline-block"
                 style={{
                   transform: `translateY(${scrollY * -0.1}px)`,
                 }}
               >
-                <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent block">
                   ATLAS
                 </span>
+                <div 
+                  className="text-sm md:text-base font-medium text-slate-400 mt-4 uppercase whitespace-nowrap"
+                  style={{
+                    letterSpacing: '0.55em',
+                  }}
+                >
+                  The LaunchPad Fellowship
+                </div>
               </h1>
             </div>
 
