@@ -2,7 +2,7 @@
 
 import { 
   RefreshCw, BookOpen, Target, Award, ArrowRight, 
-  Trophy, Flame, CheckCircle2, TrendingUp, Sparkles
+  Trophy, Flame, TrendingUp, Sparkles, Zap, Calendar, Rocket
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,7 +25,6 @@ export default function FellowDashboard() {
     queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
   };
 
-  // Wait for Zustand to hydrate from localStorage
   if (!_hasHydrated) {
     return (
       <DashboardLayout>
@@ -52,263 +51,296 @@ export default function FellowDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-7xl mx-auto">
-        {/* Header with Welcome */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}! 👋
-            </h1>
-            <p className="text-slate-600 mt-1">
-              Here's what's happening with your learning journey today
-            </p>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh} 
-            disabled={profileLoading}
-            className="border-slate-300 hover:bg-slate-50"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${profileLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-slate-200 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-slate-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-blue-500 rounded-xl shadow-sm">
-                  <BookOpen className="h-6 w-6 text-white" strokeWidth={2.5} />
+      <div className="space-y-6 max-w-[1600px] mx-auto px-6" suppressHydrationWarning>
+        {/* Dynamic Hero Section */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 p-1" suppressHydrationWarning>
+          <div className="bg-slate-950 rounded-[22px] p-8 relative overflow-hidden" suppressHydrationWarning>
+            {/* Animated Background Elements */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" suppressHydrationWarning />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} suppressHydrationWarning />
+            
+            <div className="relative z-10 flex items-center justify-between" suppressHydrationWarning>
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl blur-xl opacity-50"></div>
+                  <div className="relative w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-2xl">
+                    <Rocket className="w-10 h-10 text-white" strokeWidth={2} />
+                  </div>
                 </div>
-                <span className="text-3xl font-bold text-slate-900">{profile?.resourcesCompleted || 0}</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900">Resources Completed</p>
-                <p className="text-xs text-slate-500 mt-0.5">Out of 91 total</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-cyan-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-cyan-500 rounded-xl shadow-sm">
-                  <Sparkles className="h-6 w-6 text-white" strokeWidth={2.5} />
-                </div>
-                <span className="text-3xl font-bold text-slate-900">{profile?.totalPoints || 0}</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900">Total Points</p>
-                <p className="text-xs text-slate-500 mt-0.5">Earned from learning</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-orange-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-orange-500 rounded-xl shadow-sm">
-                  <Flame className="h-6 w-6 text-white" strokeWidth={2.5} />
-                </div>
-                <span className="text-3xl font-bold text-slate-900">{streak}</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900">Day Streak</p>
-                <p className="text-xs text-slate-500 mt-0.5">Keep the momentum!</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 hover:shadow-md transition-shadow bg-gradient-to-br from-white to-emerald-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-emerald-500 rounded-xl shadow-sm">
-                  <Trophy className="h-6 w-6 text-white" strokeWidth={2.5} />
-                </div>
-                <span className="text-3xl font-bold text-slate-900">{achievements?.length || 0}</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900">Achievements</p>
-                <p className="text-xs text-slate-500 mt-0.5">Badges earned</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Learning Progress - Takes 2 columns */}
-          <Card className="lg:col-span-2 border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl flex items-center gap-2 text-slate-900">
-                    <Target className="h-5 w-5 text-blue-500" />
-                    Learning Progress
-                  </CardTitle>
-                  <CardDescription className="text-slate-600">Track your journey to mastery</CardDescription>
-                </div>
-                <Button asChild variant="outline" size="sm" className="border-slate-300 text-slate-700 hover:bg-slate-50">
-                  <Link href="/resources">
-                    View All
-                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-                  </Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Overall Progress Bar */}
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm font-medium text-slate-700">Overall Completion</span>
-                  <span className="text-2xl font-bold text-slate-900">{completionRate}%</span>
-                </div>
-                <div className="relative w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
-                  <div 
-                    className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-1000 ease-out rounded-full"
-                    style={{ width: `${completionRate}%` }} 
-                  />
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  {profile?.resourcesCompleted || 0} of 91 resources completed
-                </p>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 text-blue-600" strokeWidth={2.5} />
-                    <span className="text-xs font-medium text-slate-600">Completed</span>
-                  </div>
-                  <p className="text-2xl font-bold text-slate-900">{profile?.resourcesCompleted || 0}</p>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Flame className="h-4 w-4 text-orange-600" strokeWidth={2.5} />
-                    <span className="text-xs font-medium text-slate-600">Best Streak</span>
-                  </div>
-                  <p className="text-2xl font-bold text-slate-900">{profile?.longestStreak || 0}</p>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-                    <span className="text-xs font-medium text-slate-600">This Week</span>
-                  </div>
-                  <p className="text-2xl font-bold text-slate-900">3</p>
+                  <h1 className="text-4xl font-bold text-white mb-2">
+                    Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}! 👋
+                  </h1>
+                  <p className="text-cyan-200 text-lg">
+                    {streak > 0 ? `🔥 ${streak} day streak! You're on fire!` : "Let's start your learning journey today"}
+                  </p>
                 </div>
               </div>
-
-              {/* Quick Action Button */}
-              <Button asChild className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 h-11 shadow-sm">
-                <Link href="/resources">
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Continue Learning
-                </Link>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleRefresh} 
+                disabled={profileLoading}
+                className="text-white hover:bg-white/10"
+              >
+                <RefreshCw className={`h-4 w-4 ${profileLoading ? 'animate-spin' : ''}`} />
               </Button>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Recent Achievements */}
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-              <CardTitle className="text-xl flex items-center gap-2 text-slate-900">
-                <Trophy className="h-5 w-5 text-emerald-500" />
-                Achievements
-              </CardTitle>
-              <CardDescription className="text-slate-600">Your latest unlocks</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              {achievementsLoading ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 animate-pulse p-3">
-                      <div className="h-12 w-12 rounded-lg bg-slate-200" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-slate-200 rounded w-3/4" />
-                        <div className="h-3 bg-slate-200 rounded w-1/2" />
-                      </div>
-                    </div>
-                  ))}
+            {/* Stats Bar */}
+            <div className="grid grid-cols-4 gap-4 mt-8" suppressHydrationWarning>
+              <div className="relative group" suppressHydrationWarning>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
+                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
+                  <div className="flex items-center justify-between mb-2">
+                    <BookOpen className="w-5 h-5 text-cyan-400" strokeWidth={2.5} />
+                    <span className="text-3xl font-black text-white">{profile?.resourcesCompleted || 0}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white/90">Resources</p>
+                  <p className="text-xs text-cyan-300">of 91 completed</p>
                 </div>
-              ) : achievements && achievements.length > 0 ? (
-                <div className="space-y-3">
-                  {achievements.slice(0, 4).map((achievement, i) => (
-                    <div 
-                      key={achievement.id} 
-                      className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 shadow-sm flex-shrink-0">
-                        <Award className="h-6 w-6 text-white" strokeWidth={2.5} />
+              </div>
+
+              <div className="relative group" suppressHydrationWarning>
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
+                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
+                  <div className="flex items-center justify-between mb-2">
+                    <Sparkles className="w-5 h-5 text-yellow-400" strokeWidth={2.5} />
+                    <span className="text-3xl font-black text-white">{profile?.totalPoints || 0}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white/90">Points</p>
+                  <p className="text-xs text-yellow-300">total earned</p>
+                </div>
+              </div>
+
+              <div className="relative group" suppressHydrationWarning>
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
+                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
+                  <div className="flex items-center justify-between mb-2">
+                    <Flame className="w-5 h-5 text-orange-400" strokeWidth={2.5} />
+                    <span className="text-3xl font-black text-white">{streak}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white/90">Streak</p>
+                  <p className="text-xs text-orange-300">days active</p>
+                </div>
+              </div>
+
+              <div className="relative group" suppressHydrationWarning>
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
+                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
+                  <div className="flex items-center justify-between mb-2">
+                    <Trophy className="w-5 h-5 text-emerald-400" strokeWidth={2.5} />
+                    <span className="text-3xl font-black text-white">{achievements?.length || 0}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white/90">Badges</p>
+                  <p className="text-xs text-emerald-300">achievements</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Progress Section - 2 columns */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Progress Overview */}
+            <Card className="border-0 shadow-xl bg-white overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-2xl flex items-center gap-3 text-slate-900">
+                      <div className="p-2 bg-blue-500 rounded-xl">
+                        <Target className="h-5 w-5 text-white" strokeWidth={2.5} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 truncate text-sm">
-                          {achievement.achievement?.title || 'Achievement'}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(achievement.unlockedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  <Button asChild variant="outline" size="sm" className="w-full mt-2 border-slate-300 text-slate-700 hover:bg-slate-50">
-                    <Link href="/profile#achievements">
-                      View All
-                      <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                      Learning Progress
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 mt-1">Your journey to mastery</CardDescription>
+                  </div>
+                  <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white shadow-md">
+                    <Link href="/resources">
+                      Continue
+                      <ArrowRight className="h-4 w-4 ml-1.5" />
                     </Link>
                   </Button>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <div className="mx-auto w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center mb-3 border border-slate-200">
-                    <Trophy className="h-7 w-7 text-slate-400" />
+              </CardHeader>
+              <CardContent className="p-8">
+                {/* Main Progress Ring/Bar */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Overall Completion</h3>
+                      <p className="text-sm text-slate-600">Track your complete learning path</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-5xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                        {completionRate}%
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">{profile?.resourcesCompleted || 0}/91 resources</p>
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-slate-900 mb-1 text-sm">No achievements yet</h3>
-                  <p className="text-xs text-slate-600 mb-4">
-                    Complete resources to earn your first achievement!
-                  </p>
-                  <Button asChild size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm">
-                    <Link href="/resources">Start Learning</Link>
-                  </Button>
+                  
+                  <div className="relative h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-400 rounded-full shadow-lg transition-all duration-1000 ease-out"
+                      style={{ width: `${completionRate}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Streak Motivation Section */}
-        {streak > 0 && (
-          <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl shadow-sm">
-                    <Flame className="h-7 w-7 text-white" strokeWidth={2.5} />
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="relative group cursor-pointer">
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 hover:shadow-lg transition-all">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-green-500 rounded-xl shadow-md">
+                          <TrendingUp className="w-5 h-5 text-white" strokeWidth={2.5} />
+                        </div>
+                        <span className="text-sm font-bold text-slate-700">Completed</span>
+                      </div>
+                      <p className="text-4xl font-black text-green-600">{profile?.resourcesCompleted || 0}</p>
+                      <p className="text-xs text-green-700 mt-1">resources finished</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">
-                      {streak} Day Streak! 🔥
-                    </h3>
-                    <p className="text-slate-600 text-sm">
-                      Keep it up! Learn something new today to maintain your streak.
-                    </p>
+
+                  <div className="relative group cursor-pointer">
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-2xl p-5 hover:shadow-lg transition-all">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-orange-500 rounded-xl shadow-md">
+                          <Flame className="w-5 h-5 text-white" strokeWidth={2.5} />
+                        </div>
+                        <span className="text-sm font-bold text-slate-700">Best Streak</span>
+                      </div>
+                      <p className="text-4xl font-black text-orange-600">{profile?.longestStreak || 0}</p>
+                      <p className="text-xs text-orange-700 mt-1">consecutive days</p>
+                    </div>
+                  </div>
+
+                  <div className="relative group cursor-pointer">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-5 hover:shadow-lg transition-all">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-purple-500 rounded-xl shadow-md">
+                          <Calendar className="w-5 h-5 text-white" strokeWidth={2.5} />
+                        </div>
+                        <span className="text-sm font-bold text-slate-700">This Week</span>
+                      </div>
+                      <p className="text-4xl font-black text-purple-600">3</p>
+                      <p className="text-xs text-purple-700 mt-1">new completions</p>
+                    </div>
                   </div>
                 </div>
-                <Button asChild className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-sm">
-                  <Link href="/resources">
-                    Keep Going
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+
+            {/* Streak Card */}
+            {streak > 0 && (
+              <Card className="border-0 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl overflow-hidden">
+                <CardContent className="p-6 relative">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                  <div className="relative flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
+                        <Flame className="w-10 h-10 text-white" strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <h3 className="text-3xl font-black mb-1">{streak} Day Streak! 🔥</h3>
+                        <p className="text-white/90 text-sm">You're crushing it! Keep the momentum going</p>
+                      </div>
+                    </div>
+                    <Button asChild className="bg-white text-orange-600 hover:bg-white/90 font-bold shadow-lg">
+                      <Link href="/resources">
+                        Continue
+                        <Zap className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Achievements Sidebar */}
+          <div className="space-y-6">
+            <Card className="border-0 shadow-xl bg-white overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+                <CardTitle className="text-xl flex items-center gap-3 text-slate-900">
+                  <div className="p-2 bg-emerald-500 rounded-xl">
+                    <Trophy className="h-5 w-5 text-white" strokeWidth={2.5} />
+                  </div>
+                  Achievements
+                </CardTitle>
+                <CardDescription className="text-slate-600">Your latest unlocks</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                {achievementsLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                        <div className="h-14 w-14 rounded-xl bg-slate-200" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-slate-200 rounded w-3/4" />
+                          <div className="h-3 bg-slate-200 rounded w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : achievements && achievements.length > 0 ? (
+                  <div className="space-y-3">
+                    {achievements.slice(0, 5).map((achievement) => (
+                      <div 
+                        key={achievement.id} 
+                        className="group relative cursor-pointer"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-xl opacity-0 group-hover:opacity-10 transition-opacity blur-sm"></div>
+                        <div className="relative flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 hover:shadow-lg transition-all">
+                          <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-md">
+                            <Award className="h-6 w-6 text-white" strokeWidth={2.5} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-900 truncate text-sm">
+                              {achievement.achievement?.title || 'Achievement'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {new Date(achievement.unlockedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Button asChild variant="outline" className="w-full mt-4 border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold">
+                      <Link href="/profile#achievements">
+                        View All
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
+                      <Trophy className="h-10 w-10 text-emerald-400" strokeWidth={2} />
+                    </div>
+                    <h3 className="font-bold text-slate-900 mb-2">No achievements yet</h3>
+                    <p className="text-sm text-slate-600 mb-4 px-4">
+                      Start learning to unlock your first badge!
+                    </p>
+                    <Button asChild size="sm" className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg">
+                      <Link href="/resources">
+                        <Rocket className="h-4 w-4 mr-2" />
+                        Get Started
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
