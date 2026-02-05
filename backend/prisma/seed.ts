@@ -34,9 +34,9 @@ async function main() {
   // Create cohort
   const cohort = await prisma.cohort.create({
     data: {
-      name: 'Atlas Fellows 2024',
-      startDate: new Date('2024-01-15'),
-      endDate: new Date('2024-06-15'),
+      name: 'LaunchPad Fellowship April 2026',
+      startDate: new Date('2026-04-11'), // Saturday, April 11, 2026
+      endDate: new Date('2026-08-11'), // 4 months later
       state: CohortState.ACTIVE,
     },
   });
@@ -96,8 +96,8 @@ async function main() {
       sessionNumber: 1,
       title: 'Introduction to Career Planning',
       description: 'Learn the basics of career planning and goal setting',
-      scheduledDate: new Date('2024-02-01'),
-      unlockDate: new Date('2024-01-24'),
+      scheduledDate: new Date('2026-04-17'), // 6 days after cohort start (April 11, 2026)
+      unlockDate: new Date('2026-04-11'), // 6 days before session (cohort start date)
     },
   });
 
@@ -107,8 +107,8 @@ async function main() {
       sessionNumber: 2,
       title: 'Resume Building Workshop',
       description: 'Master the art of crafting effective resumes',
-      scheduledDate: new Date('2024-02-08'),
-      unlockDate: new Date('2024-01-31'),
+      scheduledDate: new Date('2026-04-24'),
+      unlockDate: new Date('2026-04-18'), // 6 days before session
     },
   });
 

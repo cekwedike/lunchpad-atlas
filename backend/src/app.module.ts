@@ -10,6 +10,7 @@ import { ResourcesModule } from './resources/resources.module';
 import { DiscussionsModule } from './discussions/discussions.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
     DiscussionsModule,
     QuizzesModule,
     LeaderboardModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
