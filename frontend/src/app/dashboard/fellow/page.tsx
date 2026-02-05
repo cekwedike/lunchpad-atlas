@@ -69,10 +69,10 @@ export default function FellowDashboard() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold text-white mb-2">
-                    Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}! 👋
+                    Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}!
                   </h1>
                   <p className="text-cyan-200 text-lg">
-                    {streak > 0 ? `🔥 ${streak} day streak! You're on fire!` : "Let's start your learning journey today"}
+                    {streak > 0 ? `${streak} day streak! You're on fire!` : "Let's start your learning journey today"}
                   </p>
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function FellowDashboard() {
                         <Flame className="w-10 h-10 text-white" strokeWidth={2.5} />
                       </div>
                       <div>
-                        <h3 className="text-3xl font-black mb-1">{streak} Day Streak! 🔥</h3>
+                        <h3 className="text-3xl font-black mb-1">{streak} Day Streak!</h3>
                         <p className="text-white/90 text-sm">You're crushing it! Keep the momentum going</p>
                       </div>
                     </div>

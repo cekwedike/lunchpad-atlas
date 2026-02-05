@@ -57,7 +57,7 @@ export default function FellowDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">
-              Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}! 👋
+              Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}!
             </h1>
             <p className="text-slate-600 mt-1">
               Here's what's happening with your learning journey today
@@ -297,7 +297,7 @@ export default function FellowDashboard() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-gray-900">
-                      {streak} Day Streak! 🔥
+                      {streak} Day Streak!
                     </h3>
                     <p className="text-gray-600">
                       Keep it up! Learn something new today to maintain your streak.
