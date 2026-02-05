@@ -143,7 +143,7 @@ export default function ResourceViewPage({ params }: { params: { id: string } })
                   <div className="flex items-center gap-2 mb-2">
                     <CardTitle className="text-2xl">{resource.title}</CardTitle>
                     {isCompleted && (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge className="flex items-center gap-1 bg-green-100 text-green-800 border-green-200">
                         <CheckCircle className="w-3 h-3" />
                         Completed
                       </Badge>

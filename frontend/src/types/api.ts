@@ -89,8 +89,15 @@ export interface Resource {
   type: ResourceType;
   url: string;
   pointsValue: number;
+  pointValue?: number;
   estimatedDuration: number;
+  estimatedMinutes?: number;
+  duration?: number;
   sessionId: string;
+  state?: ResourceState;
+  unlockDate?: Date;
+  completedAt?: Date;
+  isCore?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +110,9 @@ export interface ResourceProgress {
   startedAt: Date | null;
   completedAt: Date | null;
   pointsEarned: number;
+  pointsAwarded?: number;
+  cappedMessage?: string | null;
+  newAchievements?: any[];
   createdAt: Date;
   updatedAt: Date;
 }
