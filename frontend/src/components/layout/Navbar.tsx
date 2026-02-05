@@ -134,21 +134,21 @@ export function Navbar() {
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-atlas-navy text-white">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-2 ring-slate-200 hover:ring-slate-300 transition-all">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-cyan-500 text-white font-bold text-sm">
                       {getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
+                    <p className="text-sm font-bold leading-none text-slate-900">
                       {isGuestMode ? 'Guest Mode' : user?.name}
                     </p>
-                    <p className="text-xs leading-none text-muted-foreground">
+                    <p className="text-xs leading-none text-slate-500 mt-1">
                       {isGuestMode ? 'Exploring ATLAS' : user?.email}
                     </p>
                   </div>
@@ -171,9 +171,12 @@ export function Navbar() {
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                <DropdownMenuItem 
+                  onClick={handleLogout} 
+                  className="cursor-pointer text-red-600 font-semibold hover:text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-700"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
-                  {isGuestMode ? 'Exit Guest Mode' : 'Logout'}
+                  {isGuestMode ? 'Exit Guest Mode' : 'Sign Out'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
