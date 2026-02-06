@@ -28,7 +28,7 @@ interface User {
   joinedDate: string;
   status: "active" | "inactive";
   completedResources: number;
-  points: number;
+  points?: number; // Only Fellows have points
   lastActive: string;
 }
 
@@ -70,7 +70,6 @@ export default function AdminUsersPage() {
       joinedDate: "2023-11-20",
       status: "active",
       completedResources: 78,
-      points: 2340,
       lastActive: "1 day ago"
     },
     {
@@ -92,7 +91,6 @@ export default function AdminUsersPage() {
       joinedDate: "2023-09-10",
       status: "active",
       completedResources: 102,
-      points: 3450,
       lastActive: "30 minutes ago"
     },
     {
@@ -123,7 +121,7 @@ export default function AdminUsersPage() {
       joinedDate: new Date().toISOString().split('T')[0],
       status: "active",
       completedResources: 0,
-      points: 0,
+      ...(formData.role === "FELLOW" && { points: 0 }),
       lastActive: "Just now"
     };
     
@@ -390,10 +388,14 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <Award className="h-4 w-4 text-amber-500" />
-                          <span className="text-sm text-gray-900 font-semibold">{user.points}</span>
-                        </div>
+                        {user.role === "FELLOW" ? (
+                          <div className="flex items-center gap-2">
+                            <Award className="h-4 w-4 text-amber-500" />
+                            <span className="text-sm text-gray-900 font-semibold">{user.points ?? 0}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-500">N/A</span>
+                        )}
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-sm text-gray-600">{user.lastActive}</span>
