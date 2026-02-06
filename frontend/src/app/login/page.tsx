@@ -75,7 +75,7 @@ export default function LoginPage() {
         {/* Login Form */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
           <div className="mb-6 text-center" suppressHydrationWarning>
-            <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
+            <h1 className="text-2xl font-bold text-white mb-2" style={{ color: '#ffffff' }}>Welcome Back</h1>
             <p className="text-white/70 text-sm">Sign in to continue your learning journey</p>
           </div>
 
@@ -162,7 +162,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-white/60 text-center text-sm mt-6">
+        <p className="text-white/60 text-center text-sm mt-6" suppressHydrationWarning>
           Need an account? Contact your program administrator.
         </p>
       </div>

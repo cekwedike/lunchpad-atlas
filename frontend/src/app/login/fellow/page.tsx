@@ -69,7 +69,7 @@ export default function FellowLoginPage() {
         {/* Login Form */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
           <div className="mb-6 text-center" suppressHydrationWarning>
-            <h1 className="text-2xl font-bold text-white mb-2">Welcome Back, Fellow</h1>
+            <h1 className="text-2xl font-bold text-white mb-2" style={{ color: '#ffffff' }}>Welcome Back, Fellow</h1>
             <p className="text-white/90 text-sm">Sign in to continue your learning journey</p>
           </div>
 

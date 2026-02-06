@@ -118,17 +118,18 @@ export default function Home() {
             </div>
 
             {/* Sign In Card */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-6">
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold text-white">Sign In</h2>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-6" suppressHydrationWarning>
+              <div className="text-center space-y-2" suppressHydrationWarning>
+                <h2 className="text-2xl font-bold text-white" style={{ color: '#ffffff' }}>Sign In</h2>
                 <p className="text-white/90 text-sm">Select your role to continue</p>
               </div>
 
               {/* Role Selector */}
-              <div className="relative role-selector">
+              <div className="relative role-selector" suppressHydrationWarning>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between hover:bg-white/10 transition-all cursor-pointer"
+                  suppressHydrationWarning
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${
@@ -148,7 +149,7 @@ export default function Home() {
 
                 {/* Dropdown Menu */}
                 {isDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50" suppressHydrationWarning>
                     {roles.map((role) => {
                       const RoleIcon = role.icon;
                       return (
@@ -161,6 +162,7 @@ export default function Home() {
                           className={`w-full p-4 flex items-center gap-4 hover:bg-white/10 transition-all ${
                             selectedRole === role.id ? 'bg-white/5' : ''
                           }`}
+                          suppressHydrationWarning
                         >
                           <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
                             role.color === 'blue' ? 'from-blue-400 to-blue-600' :
@@ -188,6 +190,7 @@ export default function Home() {
                   currentRole.color === 'cyan' ? 'from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700' :
                   'from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700'
                 }`}
+                suppressHydrationWarning
               >
                 Continue as {currentRole.name}
               </button>
