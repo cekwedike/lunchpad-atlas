@@ -17,6 +17,7 @@ import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SessionAnalyticsModule } from './session-analytics/session-analytics.module';
 import { LiveQuizModule } from './live-quiz/live-quiz.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { LiveQuizModule } from './live-quiz/live-quiz.module';
     NotificationsModule,
     SessionAnalyticsModule,
     LiveQuizModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [
