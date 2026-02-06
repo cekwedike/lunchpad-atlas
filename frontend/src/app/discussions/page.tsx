@@ -41,11 +41,13 @@ export default function DiscussionsPage() {
   );
   const createMutation = useCreateDiscussion();
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<DiscussionForm>({
+  const form = useForm<DiscussionForm>({
     resolver: zodResolver(discussionSchema),
   });
+  
+  const { register, handleSubmit, formState: { errors }, reset } = form;
 
-  const onSubmit = async (data: DiscussionForm) {
+  const onSubmit = async (data: DiscussionForm) => {
     try {
       await createMutation.mutateAsync({
         ...data,

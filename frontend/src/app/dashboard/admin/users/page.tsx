@@ -16,8 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { 
-  Users, Search, Filter, Download, Plus, Edit, Trash2, MoreVertical,
-  Mail, Phone, Calendar, Shield, BookOpen, Award, Eye, EyeOff, Loader2
+  Users, Search, Download, Plus, Edit, Trash2,
+  Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen
 } from "lucide-react";
 
 interface User {
@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
     role: "FELLOW" as User["role"],
   });
 
-  // Mock user data - replace with actual API call
+  // Mock user data - TODO: Replace with actual API calls
   const [users, setUsers] = useState<User[]>([
     {
       id: 1,
@@ -110,7 +110,9 @@ export default function AdminUsersPage() {
 
   const handleAddUser = async () => {
     setIsSubmitting(true);
-    // Simulate API call
+    // TODO: Replace with actual API call to persist user in database
+    // Example: await fetch('/api/admin/users', { method: 'POST', body: JSON.stringify(formData) })
+    
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const newUser: User = {
@@ -134,7 +136,7 @@ export default function AdminUsersPage() {
   const handleEditUser = async () => {
     if (!selectedUser) return;
     setIsSubmitting(true);
-    // Simulate API call
+    // TODO: Replace with actual API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     setUsers(users.map(user =>
@@ -152,7 +154,7 @@ export default function AdminUsersPage() {
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     setIsSubmitting(true);
-    // Simulate API call
+    // TODO: Replace with actual API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     setUsers(users.filter(user => user.id !== selectedUser.id));
@@ -196,20 +198,18 @@ export default function AdminUsersPage() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case "ADMIN":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "FACILITATOR":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-violet-50 text-violet-700 border-violet-200";
       case "FELLOW":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-50 text-blue-700 border-blue-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    return status === "active"
-      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-      : "bg-gray-100 text-gray-800 border-gray-200";
+  const getStatusColor = (status: string) => {
+    return status === "active" ? "text-emerald-600" : "text-gray-400";
   };
 
   const stats = {
@@ -222,20 +222,20 @@ export default function AdminUsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">User Management</h1>
-            <p className="text-gray-600">Manage all platform users and their roles</p>
+            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+            <p className="text-gray-600 mt-1">Manage all platform users and their roles</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline">
+            <Button variant="outline" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
             <Button 
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
               onClick={() => {
                 resetForm();
                 setIsAddDialogOpen(true);
@@ -248,153 +248,163 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
+                <Users className="h-4 w-4 text-gray-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fellows</CardTitle>
-              <BookOpen className="h-4 w-4 text-blue-600" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Fellows</CardTitle>
+                <BookOpen className="h-4 w-4 text-blue-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.fellows}</div>
+              <div className="text-2xl font-bold text-gray-900">{stats.fellows}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Facilitators</CardTitle>
-              <Users className="h-4 w-4 text-purple-600" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Facilitators</CardTitle>
+                <Users className="h-4 w-4 text-violet-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.facilitators}</div>
+              <div className="text-2xl font-bold text-gray-900">{stats.facilitators}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Admins</CardTitle>
-              <Shield className="h-4 w-4 text-green-600" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Admins</CardTitle>
+                <Users className="h-4 w-4 text-emerald-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.admins}</div>
+              <div className="text-2xl font-bold text-gray-900">{stats.admins}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active</CardTitle>
-              <Users className="h-4 w-4 text-emerald-600" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Active</CardTitle>
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeUsers}</div>
+              <div className="text-2xl font-bold text-gray-900">{stats.activeUsers}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filter */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div className="flex-1 w-full md:w-auto">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search by name, email, or role..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-full"
-                  />
-                </div>
-              </div>
-              <Button variant="outline">
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
+        {/* Search Bar */}
+        <Card className="bg-white border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="Search by name, email, or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-500"
+              />
             </div>
-          </CardHeader>
+          </CardContent>
         </Card>
 
         {/* Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Users</CardTitle>
-            <CardDescription>
-              {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
-            </CardDescription>
+        <Card className="bg-white border-gray-200 shadow-sm">
+          <CardHeader className="border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">All Users</CardTitle>
+                <CardDescription className="text-gray-600 mt-1">
+                  {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-gray-50">
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Full Name</th>
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Email</th>
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Role</th>
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Progress</th>
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Points</th>
-                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-900">Last Active</th>
-                    <th className="text-right py-3 px-4 font-semibold text-sm text-gray-900">Actions</th>
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Progress</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Points</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Active</th>
+                    <th className="text-right py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-200">
                   {filteredUsers.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-4">
+                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
                             {user.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <span className="font-medium text-gray-900">{user.name}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-700">{user.email}</span>
-                        </div>
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-gray-600">{user.email}</span>
                       </td>
-                      <td className="py-4 px-4">
-                        <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
+                      <td className="py-4 px-6">
+                        <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} font-medium`}>
                           {user.role}
                         </Badge>
                       </td>
-                      <td className="py-4 px-4">
-                        <Badge variant="outline" className={getStatusBadgeColor(user.status)}>
-                          {user.status}
-                        </Badge>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          {user.status === "active" ? (
+                            <CheckCircle className={`h-4 w-4 ${getStatusColor(user.status)}`} />
+                          ) : (
+                            <XCircle className={`h-4 w-4 ${getStatusColor(user.status)}`} />
+                          )}
+                          <span className={`text-sm font-medium capitalize ${getStatusColor(user.status)}`}>
+                            {user.status}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-700">{user.completedResources}</span>
+                          <span className="text-sm text-gray-900 font-medium">{user.completedResources}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          <Award className="h-4 w-4 text-yellow-500" />
-                          <span className="text-sm font-medium text-gray-900">{user.points}</span>
+                          <Award className="h-4 w-4 text-amber-500" />
+                          <span className="text-sm text-gray-900 font-semibold">{user.points}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-6">
                         <span className="text-sm text-gray-600">{user.lastActive}</span>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-6">
                         <div className="flex justify-end gap-2">
                           <Button 
                             variant="ghost" 
                             size="sm"
                             onClick={() => openEditDialog(user)}
-                            className="hover:bg-blue-50 hover:text-blue-600"
+                            className="h-8 w-8 p-0 text-gray-600 hover:text-blue-600 hover:bg-blue-50"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -402,7 +412,7 @@ export default function AdminUsersPage() {
                             variant="ghost" 
                             size="sm" 
                             onClick={() => openDeleteDialog(user)}
-                            className="hover:bg-red-50 text-red-600 hover:text-red-700"
+                            className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -416,8 +426,9 @@ export default function AdminUsersPage() {
 
             {filteredUsers.length === 0 && (
               <div className="text-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No users found matching your search</p>
+                <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No users found matching your search</p>
+                <p className="text-gray-400 text-sm mt-1">Try adjusting your search criteria</p>
               </div>
             )}
           </CardContent>
@@ -425,43 +436,45 @@ export default function AdminUsersPage() {
 
         {/* Add User Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-white">
             <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription>
-                Create a new user account. An initial password will be generated.
+              <DialogTitle className="text-xl font-semibold text-gray-900">Add New User</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Create a new user account with login credentials. User will be able to sign in immediately.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name" className="text-sm font-medium text-gray-900">Full Name</Label>
                 <Input
                   id="name"
                   placeholder="John Doe"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="bg-gray-50 border-gray-300 text-gray-900"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-900">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="john.doe@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="bg-gray-50 border-gray-300 text-gray-900"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Initial Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-gray-900">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter initial password"
+                    placeholder="Create a secure password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="pr-10"
+                    className="bg-gray-50 border-gray-300 text-gray-900 pr-10"
                   />
                   <button
                     type="button"
@@ -471,14 +484,15 @@ export default function AdminUsersPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500">User will use this password to sign in</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">User Role</Label>
+                <Label htmlFor="role" className="text-sm font-medium text-gray-900">User Role</Label>
                 <select
                   id="role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="FELLOW">Fellow</option>
                   <option value="FACILITATOR">Facilitator</option>
@@ -487,7 +501,12 @@ export default function AdminUsersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsAddDialogOpen(false)} 
+                disabled={isSubmitting}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
                 Cancel
               </Button>
               <Button 
@@ -510,35 +529,37 @@ export default function AdminUsersPage() {
 
         {/* Edit User Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-white">
             <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-xl font-semibold text-gray-900">Edit User</DialogTitle>
+              <DialogDescription className="text-gray-600">
                 Update user information and role assignment.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Full Name</Label>
+                <Label htmlFor="edit-name" className="text-sm font-medium text-gray-900">Full Name</Label>
                 <Input
                   id="edit-name"
                   placeholder="John Doe"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="bg-gray-50 border-gray-300 text-gray-900"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-email">Email Address</Label>
+                <Label htmlFor="edit-email" className="text-sm font-medium text-gray-900">Email Address</Label>
                 <Input
                   id="edit-email"
                   type="email"
                   placeholder="john.doe@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="bg-gray-50 border-gray-300 text-gray-900"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-password">New Password (optional)</Label>
+                <Label htmlFor="edit-password" className="text-sm font-medium text-gray-900">New Password (optional)</Label>
                 <div className="relative">
                   <Input
                     id="edit-password"
@@ -546,7 +567,7 @@ export default function AdminUsersPage() {
                     placeholder="Leave blank to keep current password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="pr-10"
+                    className="bg-gray-50 border-gray-300 text-gray-900 pr-10"
                   />
                   <button
                     type="button"
@@ -558,12 +579,12 @@ export default function AdminUsersPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-role">User Role</Label>
+                <Label htmlFor="edit-role" className="text-sm font-medium text-gray-900">User Role</Label>
                 <select
                   id="edit-role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="FELLOW">Fellow</option>
                   <option value="FACILITATOR">Facilitator</option>
@@ -572,7 +593,12 @@ export default function AdminUsersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)} 
+                disabled={isSubmitting}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
                 Cancel
               </Button>
               <Button 
@@ -595,12 +621,12 @@ export default function AdminUsersPage() {
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] bg-white">
             <DialogHeader>
-              <DialogTitle>Delete User</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete <strong>{selectedUser?.name}</strong>? This action cannot be undone.
-                All user data including progress, points, and submissions will be permanently removed.
+              <DialogTitle className="text-xl font-semibold text-gray-900">Delete User</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Are you sure you want to delete <strong className="text-gray-900">{selectedUser?.name}</strong>? 
+                This action cannot be undone. All user data including progress, points, and submissions will be permanently removed.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex gap-2 sm:gap-0">
@@ -608,6 +634,7 @@ export default function AdminUsersPage() {
                 variant="outline" 
                 onClick={() => setIsDeleteDialogOpen(false)} 
                 disabled={isSubmitting}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </Button>
