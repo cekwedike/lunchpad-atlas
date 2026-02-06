@@ -89,15 +89,15 @@ async function main() {
 
   console.log('✅ Created 4 users');
 
-  // Create sessions
+  // Create sessions (Saturdays starting April 11, 2026)
   const session1 = await prisma.session.create({
     data: {
       cohortId: cohort.id,
       sessionNumber: 1,
-      title: 'Introduction to Career Planning',
-      description: 'Learn the basics of career planning and goal setting',
-      scheduledDate: new Date('2026-04-17'), // 6 days after cohort start (April 11, 2026)
-      unlockDate: new Date('2026-04-11'), // 6 days before session (cohort start date)
+      title: 'Ownership Mindset & Leadership at Work',
+      description: 'Taking responsibility regardless of role or seniority. Initiative, accountability, and influence at work.',
+      scheduledDate: new Date('2026-04-11'), // Saturday, April 11, 2026
+      unlockDate: new Date('2026-04-06'), // 5 days before session
     },
   });
 
@@ -105,26 +105,49 @@ async function main() {
     data: {
       cohortId: cohort.id,
       sessionNumber: 2,
-      title: 'Resume Building Workshop',
-      description: 'Master the art of crafting effective resumes',
-      scheduledDate: new Date('2026-04-24'),
-      unlockDate: new Date('2026-04-18'), // 6 days before session
+      title: 'Goal Setting & Time Management',
+      description: 'Priority management over busyness. Balancing work, learning, and personal commitments.',
+      scheduledDate: new Date('2026-04-18'), // Saturday, April 18, 2026
+      unlockDate: new Date('2026-04-13'), // 5 days before session
+    },
+  });
+
+  const session3 = await prisma.session.create({
+    data: {
+      cohortId: cohort.id,
+      sessionNumber: 3,
+      title: 'Effective Communication Skills',
+      description: 'Professional emails, meetings, and presentations. Communicating clearly and confidently.',
+      scheduledDate: new Date('2026-04-25'), // Saturday, April 25, 2026
+      unlockDate: new Date('2026-04-20'), // 5 days before session
+    },
+  });
+
+  const session4 = await prisma.session.create({
+    data: {
+      cohortId: cohort.id,
+      sessionNumber: 4,
+      title: 'Storytelling: Leading Early - Growth Without a Title',
+      description: 'How professionals grow and stand out early in their careers. Building trust and credibility without seniority.',
+      scheduledDate: new Date('2026-05-02'), // Saturday, May 2, 2026
+      unlockDate: new Date('2026-04-27'), // 5 days before session
     },
   });
 
   console.log('✅ Created sessions');
 
-  // Create resources
+  // Create resources for Session 1: Ownership Mindset & Leadership at Work
   const resource1 = await prisma.resource.create({
     data: {
       sessionId: session1.id,
-      type: ResourceType.VIDEO,
-      title: 'Career Planning 101 Video',
-      description: 'Comprehensive video guide on career planning fundamentals',
-      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      duration: 20,
-      pointValue: 100,
+      type: ResourceType.ARTICLE,
+      title: '360° Leadership: The Art of Influence Without Authority',
+      description: 'Learn how to lead and influence others without formal authority',
+      url: 'https://medium.com/@contact.jitendra07/360-leadership-the-art-of-influence-without-authority-3ace7b3e1a9b',
+      duration: 10,
+      pointValue: 50,
       order: 1,
+      isCore: true,
     },
   });
 
@@ -132,25 +155,140 @@ async function main() {
     data: {
       sessionId: session1.id,
       type: ResourceType.ARTICLE,
-      title: 'Goal Setting Framework',
-      description: 'Article on SMART goals and career objectives',
-      url: 'https://example.com/goal-setting',
-      duration: 10,
+      title: 'Developing an ownership mindset early in your career',
+      description: 'Practical guide to building an ownership mentality at work',
+      url: 'https://www.indeed.com/career-advice/career-development/ownership-mindset',
+      duration: 8,
       pointValue: 50,
       order: 2,
+      isCore: true,
     },
   });
 
   const resource3 = await prisma.resource.create({
     data: {
+      sessionId: session1.id,
+      type: ResourceType.ARTICLE,
+      title: 'How Leaders Build Ownership Mindset',
+      description: 'Insights from Atlassian on cultivating ownership culture',
+      url: 'https://www.atlassian.com/blog/leadership/how-leaders-build-ownership-mindset',
+      duration: 12,
+      pointValue: 50,
+      order: 3,
+      isCore: true,
+    },
+  });
+
+  const resource4 = await prisma.resource.create({
+    data: {
+      sessionId: session1.id,
+      type: ResourceType.VIDEO,
+      title: 'Leadership vs. Authority | Simon Sinek',
+      description: 'Simon Sinek explains the difference between leadership and authority',
+      url: 'https://www.youtube.com/watch?v=pkclW79ZoZU',
+      duration: 15,
+      pointValue: 100,
+      order: 4,
+      isCore: true,
+    },
+  });
+
+  const resource5 = await prisma.resource.create({
+    data: {
+      sessionId: session1.id,
+      type: ResourceType.VIDEO,
+      title: 'DEVELOP AN OWNERSHIP MINDSET AT WORK',
+      description: 'Why you need to take full ownership of your tasks at work',
+      url: 'https://youtu.be/ORlTz8lJL7k',
+      duration: 20,
+      pointValue: 100,
+      order: 5,
+      isCore: true,
+    },
+  });
+
+  const resource6 = await prisma.resource.create({
+    data: {
+      sessionId: session1.id,
+      type: ResourceType.ARTICLE,
+      title: 'Building influence without formal power',
+      description: 'Harvard Business School guide on influencing without authority',
+      url: 'https://online.hbs.edu/blog/post/influence-without-authority',
+      duration: 10,
+      pointValue: 30,
+      order: 6,
+      isCore: false,
+    },
+  });
+
+  const resource7 = await prisma.resource.create({
+    data: {
+      sessionId: session1.id,
+      type: ResourceType.VIDEO,
+      title: 'Leading without authority | TEDx',
+      description: 'Mary Meaney Haynes shares insights on leadership without formal authority',
+      url: 'https://www.youtube.com/watch?v=LZ6EXX3hLLg',
+      duration: 18,
+      pointValue: 50,
+      order: 7,
+      isCore: false,
+    },
+  });
+
+  // Create resources for Session 2: Goal Setting & Time Management
+  const resource8 = await prisma.resource.create({
+    data: {
+      sessionId: session2.id,
+      type: ResourceType.ARTICLE,
+      title: 'SMART goal setting for professionals',
+      description: 'Learn how to write SMART goals that drive results',
+      url: 'https://www.indeed.com/career-advice/career-development/how-to-write-smart-goals',
+      duration: 10,
+      pointValue: 50,
+      order: 1,
+      isCore: true,
+    },
+  });
+
+  const resource9 = await prisma.resource.create({
+    data: {
+      sessionId: session2.id,
+      type: ResourceType.ARTICLE,
+      title: 'Time management strategies for high-performing employees',
+      description: 'Proven strategies to manage your time effectively',
+      url: 'https://www.proofhub.com/articles/time-management-strategies',
+      duration: 12,
+      pointValue: 50,
+      order: 2,
+      isCore: true,
+    },
+  });
+
+  const resource10 = await prisma.resource.create({
+    data: {
       sessionId: session2.id,
       type: ResourceType.VIDEO,
-      title: 'Resume Writing Workshop Recording',
-      description: 'Full workshop on crafting compelling resumes',
-      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      duration: 30,
-      pointValue: 150,
-      order: 1,
+      title: 'SMART Goals Explained',
+      description: 'Specific, Measurable, Attainable, Realistic, Time-Bound goals explained',
+      url: 'https://youtu.be/hj7Kw3fDNaw',
+      duration: 15,
+      pointValue: 100,
+      order: 3,
+      isCore: true,
+    },
+  });
+
+  const resource11 = await prisma.resource.create({
+    data: {
+      sessionId: session2.id,
+      type: ResourceType.VIDEO,
+      title: 'Brian Tracy on Time Management',
+      description: 'Time management strategies from productivity expert Brian Tracy',
+      url: 'https://youtu.be/sJb2qmd5wsk',
+      duration: 25,
+      pointValue: 100,
+      order: 4,
+      isCore: true,
     },
   });
 
@@ -163,25 +301,25 @@ async function main() {
         userId: fellow1.id,
         resourceId: resource1.id,
         state: 'COMPLETED',
-        timeSpent: 1200,
+        timeSpent: 600,
         completedAt: new Date('2024-01-20'),
-        pointsAwarded: 100,
+        pointsAwarded: 50,
       },
       {
         userId: fellow1.id,
-        resourceId: resource2.id,
+        resourceId: resource4.id,
         state: 'COMPLETED',
-        timeSpent: 600,
+        timeSpent: 900,
         completedAt: new Date('2024-01-21'),
-        pointsAwarded: 50,
+        pointsAwarded: 100,
       },
       {
         userId: fellow2.id,
         resourceId: resource1.id,
         state: 'COMPLETED',
-        timeSpent: 1150,
+        timeSpent: 550,
         completedAt: new Date('2024-01-20'),
-        pointsAwarded: 100,
+        pointsAwarded: 50,
       },
     ],
   });
@@ -250,7 +388,7 @@ async function main() {
   // Create discussions
   const discussion1 = await prisma.discussion.create({
     data: {
-      resourceId: resource1.id,
+      resourceId: resource4.id,
       cohortId: cohort.id,
       userId: fellow1.id,
       title: 'How do you stay motivated during job search?',
@@ -261,7 +399,7 @@ async function main() {
 
   const discussion2 = await prisma.discussion.create({
     data: {
-      resourceId: resource1.id,
+      resourceId: resource4.id,
       cohortId: cohort.id,
       userId: fellow2.id,
       title: 'Best resources for learning technical skills?',
@@ -301,15 +439,15 @@ async function main() {
       {
         userId: fellow1.id,
         eventType: EventType.RESOURCE_COMPLETE,
-        points: 100,
-        description: 'Completed: Career Planning 101 Video',
+        points: 50,
+        description: 'Completed: 360° Leadership: The Art of Influence Without Authority',
         createdAt: new Date('2024-01-20'),
       },
       {
         userId: fellow1.id,
         eventType: EventType.RESOURCE_COMPLETE,
-        points: 50,
-        description: 'Completed: Goal Setting Framework',
+        points: 100,
+        description: 'Completed: Leadership vs. Authority | Simon Sinek',
         createdAt: new Date('2024-01-21'),
       },
       {
@@ -322,8 +460,8 @@ async function main() {
       {
         userId: fellow2.id,
         eventType: EventType.RESOURCE_COMPLETE,
-        points: 100,
-        description: 'Completed: Career Planning 101 Video',
+        points: 50,
+        description: 'Completed: 360° Leadership: The Art of Influence Without Authority',
         createdAt: new Date('2024-01-20'),
       },
     ],
@@ -383,8 +521,8 @@ async function main() {
   console.log('\n📊 Summary:');
   console.log(`   - Cohorts: 1`);
   console.log(`   - Users: 4 (2 fellows, 1 facilitator, 1 admin)`);
-  console.log(`   - Sessions: 2`);
-  console.log(`   - Resources: 3`);
+  console.log(`   - Sessions: 4`);
+  console.log(`   - Resources: 11`);
   console.log(`   - Quizzes: 1 (with 2 questions)`);
   console.log(`   - Discussions: 2`);
   console.log(`   - Comments: 3`);

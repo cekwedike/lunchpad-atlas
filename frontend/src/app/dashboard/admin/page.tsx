@@ -41,7 +41,6 @@ export default function AdminDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
-      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -122,8 +121,6 @@ export default function AdminDashboard() {
               </p>
             </CardContent>
           </Card>
-        </div>
-
         </div>
 
         {/* Main Content Grid */}

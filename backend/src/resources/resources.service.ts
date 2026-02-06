@@ -72,8 +72,8 @@ export class ResourcesService {
 
   /**
    * Calculate if a resource is unlocked based on session unlock date
-   * Resources unlock 6 days before session scheduled date
-   * Facilitators get early access (always unlocked)
+   * Resources unlock 5 days before session scheduled date
+   * Facilitators and admins get early access (always unlocked)
    */
   private async calculateResourceState(
     resourceId: string,

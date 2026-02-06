@@ -89,9 +89,14 @@ export function Sidebar() {
       icon: Calendar,
     },
     {
-      title: 'Resources',
-      href: '/resources',
+      title: 'Resource Management',
+      href: '/dashboard/admin/resources',
       icon: BookOpen,
+    },
+    {
+      title: 'Resources (View)',
+      href: '/resources',
+      icon: GraduationCap,
     },
     {
       title: 'Discussions',
@@ -117,14 +122,24 @@ export function Sidebar() {
       icon: Users,
     },
     {
+      title: 'Sessions Management',
+      href: '/dashboard/admin/sessions',
+      icon: Calendar,
+    },
+    {
+      title: 'Resource Management',
+      href: '/dashboard/admin/resources',
+      icon: BookOpen,
+    },
+    {
       title: 'Analytics',
       href: '/dashboard/admin/analytics',
       icon: BarChart3,
     },
     {
-      title: 'Resources',
+      title: 'Resources (View)',
       href: '/resources',
-      icon: BookOpen,
+      icon: GraduationCap,
     },
     {
       title: 'Settings',

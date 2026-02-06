@@ -133,7 +133,7 @@ model Session {
   description   String?
   monthTheme    String? // e.g., "Career Foundations"
   scheduledDate DateTime
-  unlockDate    DateTime // 6 days before scheduledDate (changed from 8 days)
+  unlockDate    DateTime // 5 days before scheduledDate
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

@@ -49,7 +49,7 @@ export class UpdateSessionDto {
   @IsDateString()
   scheduledDate?: string;
 
-  @ApiProperty({ required: false, description: 'If not provided, will auto-calculate as 6 days before scheduledDate' })
+  @ApiProperty({ required: false, description: 'If not provided, will auto-calculate as 5 days before scheduledDate' })
   @IsOptional()
   @IsDateString()
   unlockDate?: string;

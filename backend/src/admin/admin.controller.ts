@@ -1,8 +1,9 @@
-import { Controller, Patch, Body, Get, Param, UseGuards, Request, Query, Put } from '@nestjs/common';
+import { Controller, Patch, Body, Get, Param, UseGuards, Request, Query, Put, Post, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminUserService } from './admin-user.service';
 import { UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
+import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -154,5 +155,76 @@ export class AdminController {
     @Body() body: { userIds: string[]; role: UserRole },
   ) {
     return this.adminUserService.bulkUpdateRole(body.userIds, body.role);
+  }
+
+  // ============ Resource Management Endpoints ============
+
+  @Post('resources')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Create a new resource (Admin/Facilitator)' })
+  @ApiResponse({ status: 201, description: 'Resource created successfully' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin or Facilitator role required' })
+  createResource(@Body() dto: CreateResourceDto, @Request() req) {
+    return this.adminService.createResource(dto, req.user.id);
+  }
+
+  @Get('resources')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Get all resources with optional filters (Admin/Facilitator)' })
+  @ApiQuery({ name: 'sessionId', required: false })
+  @ApiQuery({ name: 'type', required: false, enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'] })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getAllResources(
+    @Query('sessionId') sessionId?: string,
+    @Query('type') type?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.adminService.getAllResources({
+      sessionId,
+      type,
+      search,
+      page,
+      limit,
+    });
+  }
+
+  @Get('sessions/:sessionId/resources')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Get all resources for a session (Admin/Facilitator)' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  getResourcesBySession(@Param('sessionId') sessionId: string) {
+    return this.adminService.getResourcesBySession(sessionId);
+  }
+
+  @Patch('resources/:id')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Update a resource (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Resource ID' })
+  @ApiResponse({ status: 200, description: 'Resource updated successfully' })
+  @ApiResponse({ status: 404, description: 'Resource not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin or Facilitator role required' })
+  updateResource(
+    @Param('id') resourceId: string,
+    @Body() dto: UpdateResourceDto,
+    @Request() req
+  ) {
+    return this.adminService.updateResource(resourceId, dto, req.user.id);
+  }
+
+  @Delete('resources/:id')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Delete a resource (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Resource ID' })
+  @ApiResponse({ status: 200, description: 'Resource deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot delete - users have started this resource' })
+  @ApiResponse({ status: 404, description: 'Resource not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin or Facilitator role required' })
+  deleteResource(@Param('id') resourceId: string, @Request() req) {
+    return this.adminService.deleteResource(resourceId, req.user.id);
   }
 }

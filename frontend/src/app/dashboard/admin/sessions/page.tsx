@@ -119,7 +119,7 @@ export default function SessionManagementPage() {
                 Sessions & Unlock Dates
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Resources unlock <strong>6 days</strong> before each session date
+                Resources unlock <strong>5 days</strong> before each session date
               </p>
             </div>
             <div className="overflow-x-auto">

@@ -1,24 +1,54 @@
 "use client";
 
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card } from "@/components/ui/card";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Clock, Award, ExternalLink, Lock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ErrorMessage } from "@/components/ui/error-message";
-import { Video, FileText, CheckCircle, ExternalLink, ArrowLeft } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useResource, useMarkResourceComplete } from "@/hooks/api/useResources";
-import Link from "next/link";
 import { ResourceType } from "@/types/api";
+import { getVideoEmbedUrl, isYouTubeUrl, isVimeoUrl } from "@/lib/videoUtils";
 
-export default function ResourceViewPage({ params }: { params: { id: string } }) {
+export default function ResourceDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const resourceId = params.id;
-  
+
   const { data: resource, isLoading, error, refetch } = useResource(resourceId);
   const markCompleteMutation = useMarkResourceComplete(resourceId);
+
+  const [startTime, setStartTime] = useState<number>(Date.now());
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
+  // Track time spent
+  useEffect(() => {
+    setStartTime(Date.now());
+  }, [resource?.id]);
+
+  const handleMarkComplete = async () => {
+    if (!resource) return;
+
+    try {
+      await markCompleteMutation.mutateAsync({});
+      router.push("/resources");
+    } catch (error) {
+      console.error("Failed to mark complete:", error);
+    }
+  };
 
   if (error) {
     return (
       <DashboardLayout>
-        <ErrorMessage message="Failed to load resource" onRetry={() => refetch()} />
+        <div className="max-w-4xl mx-auto p-6">
+          <Alert variant="destructive">
+            <AlertDescription>Failed to load resource</AlertDescription>
+          </Alert>
+          <Button variant="outline" onClick={() => refetch()} className="mt-4">
+            Try Again
+          </Button>
+        </div>
       </DashboardLayout>
     );
   }
@@ -26,105 +56,211 @@ export default function ResourceViewPage({ params }: { params: { id: string } })
   if (isLoading || !resource) {
     return (
       <DashboardLayout>
-        <Card className="animate-pulse">
-          <div className="p-6">
-            <div className="h-8 bg-gray-200 rounded w-3/4 mb-4" />
-            <div className="h-4 bg-gray-200 rounded w-full mb-2" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
-          </div>
-        </Card>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
       </DashboardLayout>
     );
   }
 
-  const handleMarkComplete = async () => {
-    try {
-      await markCompleteMutation.mutateAsync({});
-    } catch (error) {
-      console.error("Failed to mark resource as complete:", error);
-    }
-  };
+  // Check if resource is locked (in production, this would check against unlock date)
+  const isLocked = false; // For now, all resources are unlocked
 
-  const getResourceIcon = (type: ResourceType) => {
-    switch (type) {
-      case ResourceType.VIDEO: return <Video className="w-8 h-8 text-purple-600" />;
-      case ResourceType.ARTICLE: return <FileText className="w-8 h-8 text-blue-600" />;
-      case ResourceType.EXERCISE: return <FileText className="w-8 h-8 text-green-600" />;
-      default: return <FileText className="w-8 h-8 text-gray-600" />;
-    }
-  };
+  if (isLocked) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto p-6">
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              This resource will be available closer to the session date.
+            </AlertDescription>
+          </Alert>
+          <Button variant="outline" onClick={() => router.push("/resources")} className="mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Resources
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Resource Info Card */}
-        <Card>
-          <div className="p-6">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                {getResourceIcon(resource.type)}
-              </div>
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{resource.title}</h1>
-                <p className="text-gray-600 mb-3">{resource.description}</p>
-                <div className="flex items-center gap-4 text-sm text-gray-500">
-                  {resource.estimatedDuration && (
-                    <>
-                      <span>{resource.estimatedDuration} min</span>
-                      <span>•</span>
-                    </>
+  // If it's an article, show card with external link
+  if (resource.type === ResourceType.ARTICLE) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto p-6 space-y-6">
+          <Button variant="ghost" onClick={() => router.push("/resources")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Resources
+          </Button>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <CardTitle className="text-2xl">{resource.title}</CardTitle>
+                  {resource.isCore && (
+                    <Badge variant="default" className="w-fit">
+                      Core Resource
+                    </Badge>
                   )}
-                  <span>{resource.pointsValue || 0} points</span>
                 </div>
               </div>
-            </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <p className="text-muted-foreground">{resource.description}</p>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <Button asChild>
-                <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open Resource
-                </a>
-              </Button>
-              {/* Mark Complete button always shown for now */}
-              <Button
-                variant="default"
-                onClick={handleMarkComplete}
-                disabled={markCompleteMutation.isPending}
-              >
+              <div className="flex gap-4 text-sm text-muted-foreground">
+                {resource.estimatedDuration && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    <span>{resource.estimatedDuration} min read</span>
+                  </div>
+                )}
+                {resource.pointsValue !== undefined && (
+                  <div className="flex items-center gap-1">
+                    <Award className="h-4 w-4" />
+                    <span>{resource.pointsValue} points</span>
+                  </div>
+                )}
+              </div>
+
+              <Alert>
+                <ExternalLink className="h-4 w-4" />
+                <AlertDescription>
+                  This article will open in a new tab. Please read the full article and return here to mark it complete.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => window.open(resource.url, "_blank", "noopener,noreferrer")}
+                  className="flex-1"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Article
+                </Button>
+                <Button 
+                  onClick={handleMarkComplete} 
+                  variant="outline" 
+                  className="flex-1"
+                  disabled={markCompleteMutation.isPending}
+                >
                   {markCompleteMutation.isPending ? (
-                    <>Loading...</>
+                    "Marking..."
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
+                      <CheckCircle className="h-4 w-4 mr-2" />
                       Mark as Complete
                     </>
                   )}
                 </Button>
-            </div>
-          </div>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-        {/* About Section */}
+  // If it's a video, embed it
+  const embedUrl = getVideoEmbedUrl(resource.url);
+  const isVideoSupported = isYouTubeUrl(resource.url) || isVimeoUrl(resource.url);
+
+  return (
+    <DashboardLayout>
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <Button variant="ghost" onClick={() => router.push("/resources")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Resources
+        </Button>
+
         <Card>
-          <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">About this Resource</h2>
-            <p className="text-gray-600 mb-4">
-              This resource is part of your learning journey in the ATLAS Leadership Development Program.
-              Complete it to earn points and track your progress.
-            </p>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <CardTitle className="text-2xl">{resource.title}</CardTitle>
+                {resource.isCore && (
+                  <Badge variant="default" className="w-fit">
+                    Core Resource
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-muted-foreground">{resource.description}</p>
+
+            <div className="flex gap-4 text-sm text-muted-foreground">
+              {resource.estimatedDuration && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  <span>{resource.estimatedDuration} min</span>
+                </div>
+              )}
+              {resource.pointsValue !== undefined && (
+                <div className="flex items-center gap-1">
+                  <Award className="h-4 w-4" />
+                  <span>{resource.pointsValue} points</span>
+                </div>
+              )}
+            </div>
+
+            {isVideoSupported && embedUrl ? (
+              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                {!videoLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                  </div>
+                )}
+                <iframe
+                  src={embedUrl}
+                  className="absolute top-0 left-0 w-full h-full rounded-lg"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  onLoad={() => setVideoLoaded(true)}
+                />
+              </div>
+            ) : (
+              <Alert>
+                <ExternalLink className="h-4 w-4" />
+                <AlertDescription>
+                  This video format is not supported for embedding. Please open the link below to watch.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex gap-3">
-              <Button variant="outline" asChild>
-                <Link href="/resources">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Resources
-                </Link>
+              {!isVideoSupported && (
+                <Button
+                  onClick={() => window.open(resource.url, "_blank", "noopener,noreferrer")}
+                  className="flex-1"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Video
+                </Button>
+              )}
+              <Button 
+                onClick={handleMarkComplete} 
+                variant={isVideoSupported ? "default" : "outline"}
+                className="flex-1"
+                disabled={markCompleteMutation.isPending}
+              >
+                {markCompleteMutation.isPending ? (
+                  "Marking..."
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark as Complete
+                  </>
+                )}
               </Button>
             </div>
-          </div>
+          </CardContent>
         </Card>
       </div>
     </DashboardLayout>
   );
 }
+

@@ -94,6 +94,7 @@ export interface Resource {
   estimatedMinutes?: number;
   duration?: number;
   sessionId: string;
+  session?: Session;
   state?: ResourceState;
   unlockDate?: Date;
   completedAt?: Date;
