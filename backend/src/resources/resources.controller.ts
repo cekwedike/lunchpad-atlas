@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Param, Query, UseGuards, Request, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ResourcesService } from './resources.service';
+import { EnhancedEngagementService } from './enhanced-engagement.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
 
 @ApiTags('resources')
@@ -9,7 +12,10 @@ import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ResourcesController {
-  constructor(private resourcesService: ResourcesService) {}
+  constructor(
+    private resourcesService: ResourcesService,
+    private engagementService: EnhancedEngagementService,
+  ) {}
 
   @Get()
   getResources(@Request() req, @Query() query: ResourceQueryDto) {
@@ -40,5 +46,43 @@ export class ResourcesController {
     @Request() req
   ) {
     return this.resourcesService.trackEngagement(id, req.user.id, dto);
+  }
+
+  @Post(':id/track-video')
+  @ApiOperation({ summary: 'Track advanced video engagement metrics' })
+  trackVideoEngagement(
+    @Param('id') id: string,
+    @Body() data: {
+      playbackSpeed?: number;
+      pauseCount?: number;
+      seekCount?: number;
+      attentionScore?: number;
+    },
+    @Request() req,
+  ) {
+    return this.engagementService.trackVideoEngagement(req.user.id, id, data);
+  }
+
+  @Get('engagement/report')
+  @ApiOperation({ summary: 'Get engagement quality report for user' })
+  getEngagementReport(
+    @Request() req,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    return this.engagementService.generateEngagementReport(req.user.id, sessionId);
+  }
+
+  @Get('engagement/alerts')
+  @UseGuards(RolesGuard)
+  @Roles('FACILITATOR', 'ADMIN')
+  @ApiOperation({ summary: 'Get skimming detection alerts' })
+  getSkimmingAlerts(
+    @Query('cohortId') cohortId?: string,
+    @Query('threshold') threshold?: string,
+  ) {
+    return this.engagementService.getSkimmingDetectionAlerts(
+      cohortId,
+      threshold ? parseFloat(threshold) : 0.5,
+    );
   }
 }

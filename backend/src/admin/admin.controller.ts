@@ -1,11 +1,12 @@
-import { Controller, Patch, Body, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Patch, Body, Get, Param, UseGuards, Request, Query, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { AdminUserService } from './admin-user.service';
 import { UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, Role } from '@prisma/client';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -13,7 +14,10 @@ import { UserRole } from '@prisma/client';
 @Roles(UserRole.ADMIN)
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private adminService: AdminService) {}
+  constructor(
+    private adminService: AdminService,
+    private adminUserService: AdminUserService,
+  ) {}
 
   @Patch('cohorts/:id')
   @ApiOperation({ summary: 'Update cohort details (Admin only)' })
@@ -53,6 +57,106 @@ export class AdminController {
     @Query('page') page?: number,
     @Query('limit') limit?: number
   ) {
+    return this.adminService.getAuditLogs(page, limit);
+  }
+
+  // ============ User Management Endpoints ============
+
+  @Get('users')
+  @ApiOperation({ summary: 'Get all users with filters' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
+  @ApiQuery({ name: 'role', required: false, enum: ['FELLOW', 'FACILITATOR', 'ADMIN'] })
+  @ApiQuery({ name: 'cohortId', required: false, description: 'Filter by cohort ID' })
+  @ApiQuery({ name: 'hasActivity', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getAllUsers(
+    @Query('search') search?: string,
+    @Query('role') role?: Role,
+    @Query('cohortId') cohortId?: string,
+    @Query('hasActivity') hasActivity?: boolean,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.adminUserService.getAllUsers({
+      search,
+      role,
+      cohortId,
+      hasActivity,
+      page: page ? +page : 1,
+      limit: limit ? +limit : 50,
+    });
+  }
+
+  @Get('users/:id')
+  @ApiOperation({ summary: 'Get user details by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  getUserById(@Param('id') userId: string) {
+    return this.adminUserService.getUserById(userId);
+  }
+
+  @Get('users/:id/statistics')
+  @ApiOperation({ summary: 'Get user statistics' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  getUserStatistics(@Param('id') userId: string) {
+    return this.adminUserService.getUserStatistics(userId);
+  }
+
+  @Get('users/:id/activity')
+  @ApiOperation({ summary: 'Get user activity timeline' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getUserActivity(
+    @Param('id') userId: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.adminUserService.getUserActivity(userId, limit ? +limit : 50);
+  }
+
+  @Put('users/:id/role')
+  @ApiOperation({ summary: 'Update user role' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  updateUserRole(
+    @Param('id') userId: string,
+    @Body() body: { role: Role },
+  ) {
+    return this.adminUserService.updateUserRole(userId, body.role);
+  }
+
+  @Put('users/:id/cohort')
+  @ApiOperation({ summary: 'Update user cohort' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  updateUserCohort(
+    @Param('id') userId: string,
+    @Body() body: { cohortId: string | null },
+  ) {
+    return this.adminUserService.updateUserCohort(userId, body.cohortId);
+  }
+
+  @Patch('users/:id/reset-points')
+  @ApiOperation({ summary: 'Reset user points to zero' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  resetUserPoints(@Param('id') userId: string) {
+    return this.adminUserService.resetUserPoints(userId);
+  }
+
+  @Put('users/bulk/assign-cohort')
+  @ApiOperation({ summary: 'Bulk assign users to cohort' })
+  bulkAssignCohort(
+    @Body() body: { userIds: string[]; cohortId: string | null },
+  ) {
+    return this.adminUserService.bulkAssignCohort(body.userIds, body.cohortId);
+  }
+
+  @Put('users/bulk/update-role')
+  @ApiOperation({ summary: 'Bulk update user roles' })
+  bulkUpdateRole(
+    @Body() body: { userIds: string[]; role: Role },
+  ) {
+    return this.adminUserService.bulkUpdateRole(body.userIds, body.role);
+  }
+}
+
     return this.adminService.getAuditLogs(page, limit);
   }
 }

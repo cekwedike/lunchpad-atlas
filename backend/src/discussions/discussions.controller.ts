@@ -45,4 +45,19 @@ export class DiscussionsController {
   deleteDiscussion(@Param('id') id: string, @Request() req) {
     return this.discussionsService.deleteDiscussion(id, req.user.id, req.user.role);
   }
+
+  @Post(':id/score-quality')
+  @ApiOperation({ summary: 'AI score discussion quality' })
+  scoreDiscussionQuality(@Param('id') id: string) {
+    return this.discussionsService.scoreDiscussionQuality(id);
+  }
+
+  @Get('quality/top')
+  @ApiOperation({ summary: 'Get high quality discussions' })
+  getHighQualityDiscussions(
+    @Query('cohortId') cohortId?: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.discussionsService.getHighQualityDiscussions(cohortId, limit);
+  }
 }

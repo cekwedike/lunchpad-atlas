@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dto/discussion.dto';
+import { DiscussionScoringService } from './discussion-scoring.service';
 
 @Injectable()
 export class DiscussionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private discussionScoring: DiscussionScoringService,
+  ) {}
 
   /**
    * Helper function to award points
@@ -214,5 +218,74 @@ export class DiscussionsService {
 
     await this.prisma.discussion.delete({ where: { id } });
     return { message: 'Discussion deleted successfully' };
+  }
+
+  // AI Quality Scoring
+  async scoreDiscussionQuality(discussionId: string) {
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+      include: {
+        resource: {
+          select: { title: true, description: true },
+        },
+      },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    // Get AI analysis
+    const resourceContext = discussion.resource 
+      ? `${discussion.resource.title}: ${discussion.resource.description || ''}`
+      : undefined;
+
+    const analysis = await this.discussionScoring.scoreDiscussion(
+      discussion.title,
+      discussion.content,
+      resourceContext,
+    );
+
+    // Update discussion with quality score
+    return await this.prisma.discussion.update({
+      where: { id: discussionId },
+      data: {
+        qualityScore: analysis.score,
+        qualityAnalysis: analysis as any,
+        scoredAt: new Date(),
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  async getHighQualityDiscussions(cohortId?: string, limit: number = 10) {
+    const where: any = {
+      qualityScore: { gte: 70 },
+    };
+
+    if (cohortId) {
+      where.cohortId = cohortId;
+    }
+
+    return await this.prisma.discussion.findMany({
+      where,
+      orderBy: { qualityScore: 'desc' },
+      take: limit,
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        resource: {
+          select: { id: true, title: true },
+        },
+        _count: {
+          select: { comments: true, likes: true },
+        },
+      },
+    });
   }
 }
