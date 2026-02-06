@@ -70,7 +70,7 @@ export default function FacilitatorLoginPage() {
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
           <div className="mb-6 text-center" suppressHydrationWarning>
             <h1 className="text-2xl font-bold text-white mb-2">Welcome Back, Facilitator</h1>
-            <p className="text-white/70 text-sm">Sign in to manage your cohorts</p>
+            <p className="text-white/90 text-sm">Sign in to manage your cohorts</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" suppressHydrationWarning>

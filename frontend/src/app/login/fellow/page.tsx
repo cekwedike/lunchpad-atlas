@@ -70,7 +70,7 @@ export default function FellowLoginPage() {
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
           <div className="mb-6 text-center" suppressHydrationWarning>
             <h1 className="text-2xl font-bold text-white mb-2">Welcome Back, Fellow</h1>
-            <p className="text-white/70 text-sm">Sign in to continue your learning journey</p>
+            <p className="text-white/90 text-sm">Sign in to continue your learning journey</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" suppressHydrationWarning>
