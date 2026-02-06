@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   BarChart3, TrendingUp, Users, BookOpen, Award, Calendar, 
-  Download, Filter, RefreshCw, Activity, MessageSquare 
+  Download, Filter, RefreshCw, Activity, MessageSquare, CheckCircle
 } from "lucide-react";
 
 export default function AdminAnalyticsPage() {
@@ -15,7 +15,6 @@ export default function AdminAnalyticsPage() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate refresh
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsRefreshing(false);
   };
@@ -49,23 +48,31 @@ export default function AdminAnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Platform Analytics</h1>
-            <p className="text-gray-600">Comprehensive insights into platform usage and engagement</p>
+            <h1 className="text-3xl font-bold text-gray-900">Platform Analytics</h1>
+            <p className="text-gray-600 mt-1">Comprehensive insights into platform usage and engagement</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh} 
+              disabled={isRefreshing}
+              className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
               <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-            <Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -73,56 +80,64 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
+                <Users className="h-4 w-4 text-gray-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analyticsData.overview.totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-gray-900">{analyticsData.overview.totalUsers}</div>
+              <p className="text-xs text-gray-500 mt-1">
                 {analyticsData.overview.activeUsers} active this month
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Completion Rate</CardTitle>
+                <CheckCircle className="h-4 w-4 text-gray-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analyticsData.overview.completionRate}%</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-gray-900">{analyticsData.overview.completionRate}%</div>
+              <p className="text-xs text-emerald-600 mt-1">
                 +5% from last month
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Engagement</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Avg Engagement</CardTitle>
+                <TrendingUp className="h-4 w-4 text-gray-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analyticsData.overview.avgEngagement}%</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-gray-900">{analyticsData.overview.avgEngagement}%</div>
+              <p className="text-xs text-gray-500 mt-1">
                 Across all resources
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Points Awarded</CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600">Points Awarded</CardTitle>
+                <Award className="h-4 w-4 text-gray-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-gray-900">
                 {analyticsData.performance.pointsAwarded.toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-500 mt-1">
                 This month
               </p>
             </CardContent>
@@ -130,57 +145,63 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* User Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>User Activity Trends</CardTitle>
-            <CardDescription>Active user engagement across different time periods</CardDescription>
+        <Card className="bg-white border-gray-200 shadow-sm">
+          <CardHeader className="border-b border-gray-200">
+            <CardTitle className="text-lg font-semibold text-gray-900">User Activity Trends</CardTitle>
+            <CardDescription className="text-gray-600">Active user engagement across different time periods</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Daily Active</span>
-                  <Badge variant="secondary">{analyticsData.userActivity.daily}</Badge>
+                  <span className="text-sm font-medium text-gray-900">Daily Active</span>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    {analyticsData.userActivity.daily}
+                  </Badge>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-100 rounded-full h-3">
                   <div 
-                    className="bg-blue-600 h-2 rounded-full" 
+                    className="bg-blue-500 h-3 rounded-full transition-all duration-500" 
                     style={{ width: `${(analyticsData.userActivity.daily / analyticsData.overview.totalUsers) * 100}%` }}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Weekly Active</span>
-                  <Badge variant="secondary">{analyticsData.userActivity.weekly}</Badge>
+                  <span className="text-sm font-medium text-gray-900">Weekly Active</span>
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                    {analyticsData.userActivity.weekly}
+                  </Badge>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-100 rounded-full h-3">
                   <div 
-                    className="bg-green-600 h-2 rounded-full" 
+                    className="bg-emerald-500 h-3 rounded-full transition-all duration-500" 
                     style={{ width: `${(analyticsData.userActivity.weekly / analyticsData.overview.totalUsers) * 100}%` }}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Monthly Active</span>
-                  <Badge variant="secondary">{analyticsData.userActivity.monthly}</Badge>
+                  <span className="text-sm font-medium text-gray-900">Monthly Active</span>
+                  <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">
+                    {analyticsData.userActivity.monthly}
+                  </Badge>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-100 rounded-full h-3">
                   <div 
-                    className="bg-purple-600 h-2 rounded-full" 
+                    className="bg-violet-500 h-3 rounded-full transition-all duration-500" 
                     style={{ width: `${(analyticsData.userActivity.monthly / analyticsData.overview.totalUsers) * 100}%` }}
                   />
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t">
+            <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">User Growth Rate</span>
-                <span className="text-lg font-semibold text-green-600">
+                <span className="text-sm font-medium text-gray-700">User Growth Rate</span>
+                <span className="text-lg font-bold text-emerald-600">
                   +{analyticsData.userActivity.growth}%
                 </span>
               </div>
@@ -191,101 +212,122 @@ export default function AdminAnalyticsPage() {
         {/* Content & Performance */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Content Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Content Statistics</CardTitle>
-              <CardDescription>Resource usage and engagement metrics</CardDescription>
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="border-b border-gray-200">
+              <CardTitle className="text-lg font-semibold text-gray-900">Content Statistics</CardTitle>
+              <CardDescription className="text-gray-600">Resource usage and engagement metrics</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <BookOpen className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium">Total Resources</span>
+            <CardContent className="p-6">
+              <div className="space-y-5">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-100">
+                      <BookOpen className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Total Resources</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.contentStats.totalResources}</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.contentStats.totalResources}</span>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Activity className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium">Completed Resources</span>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-100">
+                      <Activity className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Completed Resources</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.contentStats.completedResources}</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.contentStats.completedResources}</span>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium">Avg Time Spent</span>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-violet-100">
+                      <Calendar className="h-5 w-5 text-violet-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Avg Time Spent</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.contentStats.avgTimeSpent}</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.contentStats.avgTimeSpent}</span>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <MessageSquare className="h-5 w-5 text-orange-600" />
-                  <span className="text-sm font-medium">Discussion Posts</span>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-amber-100">
+                      <MessageSquare className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Discussion Posts</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.contentStats.discussionPosts}</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.contentStats.discussionPosts}</span>
               </div>
             </CardContent>
           </Card>
 
           {/* Performance Metrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
-              <CardDescription>Assessment and achievement tracking</CardDescription>
+          <Card className="bg-white border-gray-200 shadow-sm">
+            <CardHeader className="border-b border-gray-200">
+              <CardTitle className="text-lg font-semibold text-gray-900">Performance Metrics</CardTitle>
+              <CardDescription className="text-gray-600">Assessment and achievement tracking</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium">Quiz Avg Score</span>
+            <CardContent className="p-6">
+              <div className="space-y-5">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-100">
+                      <BarChart3 className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Quiz Avg Score</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.performance.quizAvgScore}%</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.performance.quizAvgScore}%</span>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium">Session Attendance</span>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-100">
+                      <Users className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Session Attendance</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.performance.sessionAttendance}%</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.performance.sessionAttendance}%</span>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Award className="h-5 w-5 text-yellow-600" />
-                  <span className="text-sm font-medium">Achievements Unlocked</span>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-amber-100">
+                      <Award className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Achievements Unlocked</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">{analyticsData.performance.achievementsUnlocked}</span>
                 </div>
-                <span className="text-xl font-bold">{analyticsData.performance.achievementsUnlocked}</span>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium">Points Awarded</span>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-violet-100">
+                      <TrendingUp className="h-5 w-5 text-violet-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Points Awarded</span>
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">
+                    {analyticsData.performance.pointsAwarded.toLocaleString()}
+                  </span>
                 </div>
-                <span className="text-xl font-bold">
-                  {analyticsData.performance.pointsAwarded.toLocaleString()}
-                </span>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Placeholder for future charts */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Engagement Trends</CardTitle>
-            <CardDescription>Detailed engagement analytics coming soon</CardDescription>
+        <Card className="bg-white border-gray-200 shadow-sm">
+          <CardHeader className="border-b border-gray-200">
+            <CardTitle className="text-lg font-semibold text-gray-900">Engagement Trends</CardTitle>
+            <CardDescription className="text-gray-600">Detailed engagement analytics coming soon</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+          <CardContent className="p-6">
+            <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
               <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                <p className="text-gray-500">Chart visualization will be added here</p>
+                <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-600 font-medium">Chart visualization will be added here</p>
+                <p className="text-gray-500 text-sm mt-1">Interactive charts and graphs for detailed analytics</p>
               </div>
             </div>
           </CardContent>
