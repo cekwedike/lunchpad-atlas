@@ -35,7 +35,7 @@ export default function ResourceManagementPage() {
     search: searchQuery || undefined,
   });
   
-  const resources = Array.isArray(resourcesData?.data) ? resourcesData?.data : [] as any[];
+  const resources = Array.isArray(resourcesData) ? resourcesData : [] as any[];
 
   const createResourceMutation = useCreateResource();
   const updateResourceMutation = useUpdateResource();
