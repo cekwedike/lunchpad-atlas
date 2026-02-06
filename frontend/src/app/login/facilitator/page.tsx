@@ -29,6 +29,11 @@ export default function FacilitatorLoginPage() {
   const onSubmit = (data: LoginRequest) => {
     login(data, {
       onSuccess: (response) => {
+        // Validate that user has FACILITATOR role
+        if (response.user.role !== 'FACILITATOR') {
+          alert(`Access denied. This is the Facilitator portal. Please use the ${response.user.role.toLowerCase()} login page.`);
+          return;
+        }
         setTimeout(() => {
           router.replace('/dashboard/facilitator');
         }, 150);

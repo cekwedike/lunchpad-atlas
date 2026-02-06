@@ -29,6 +29,11 @@ export default function AdminLoginPage() {
   const onSubmit = (data: LoginRequest) => {
     login(data, {
       onSuccess: (response) => {
+        // Validate that user has ADMIN role
+        if (response.user.role !== 'ADMIN') {
+          alert(`Access denied. This is the Administrator portal. Please use the ${response.user.role.toLowerCase()} login page.`);
+          return;
+        }
         setTimeout(() => {
           router.replace('/dashboard/admin');
         }, 150);

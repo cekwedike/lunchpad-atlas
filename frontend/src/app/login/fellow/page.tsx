@@ -29,6 +29,11 @@ export default function FellowLoginPage() {
   const onSubmit = (data: LoginRequest) => {
     login(data, {
       onSuccess: (response) => {
+        // Validate that user has FELLOW role
+        if (response.user.role !== 'FELLOW') {
+          alert(`Access denied. This is the Fellow portal. Please use the ${response.user.role.toLowerCase()} login page.`);
+          return;
+        }
         setTimeout(() => {
           router.replace('/dashboard/fellow');
         }, 150);
