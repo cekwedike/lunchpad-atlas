@@ -12,6 +12,8 @@ import { QuizzesModule } from './quizzes/quizzes.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { AdminModule } from './admin/admin.module';
 import { AchievementsModule } from './achievements/achievements.module';
+import { ChatModule } from './chat/chat.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { AchievementsModule } from './achievements/achievements.module';
     LeaderboardModule,
     AdminModule,
     AchievementsModule,
+    ChatModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

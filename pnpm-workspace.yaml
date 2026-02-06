@@ -1,5 +1,14 @@
-# pnpm workspace configuration
 packages:
-  - 'frontend'
-  - 'backend'
-  - 'shared'
+  - frontend
+  - backend
+  - shared
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@scarf/scarf'
+  - bcrypt
+  - prisma
+  - sharp
+  - unrs-resolver

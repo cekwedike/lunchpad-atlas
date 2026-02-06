@@ -85,6 +85,7 @@ model User {
   quizResponses      QuizResponse[]
   engagementEvents   EngagementEvent[]
   facilitatedCohorts Cohort[]            @relation("FacilitatorCohorts")
+  notifications      Notification[]
 
   @@index([email])
   @@index([cohortId])
@@ -107,6 +108,7 @@ model Cohort {
   sessions     Session[]
   discussions  Discussion[]
   leaderboards MonthlyLeaderboard[]
+  channels     Channel[]
 
   @@index([facilitatorId])
   @@index([state])
@@ -446,4 +448,87 @@ model AdminAuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("admin_audit_logs")
+}
+
+// ==================== CHAT SYSTEM ====================
+
+enum ChannelType {
+  COHORT_WIDE // General cohort chat
+  MONTHLY_THEME // Month-specific channels
+  SESSION_SPECIFIC // Per-session channels
+  DIRECT_MESSAGE // 1-on-1 messages (future)
+}
+
+model Channel {
+  id          String      @id @default(uuid())
+  cohortId    String
+  type        ChannelType @default(COHORT_WIDE)
+  name        String // e.g., "General", "Career Foundations"
+  description String?
+  sessionId   String? // For SESSION_SPECIFIC channels
+  isArchived  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  cohort   Cohort        @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([cohortId])
+  @@index([type])
+  @@index([sessionId])
+  @@map("channels")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  channelId String
+  userId    String
+  content   String
+  isDeleted Boolean  @default(false)
+  isFlagged Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// ==================== NOTIFICATIONS ====================
+
+enum NotificationType {
+  RESOURCE_UNLOCK // New resource available
+  QUIZ_REMINDER // Upcoming quiz reminder
+  INCOMPLETE_RESOURCE // Resource nearing deadline
+  ACHIEVEMENT_EARNED // New achievement unlocked
+  DISCUSSION_REPLY // Reply to your discussion/comment
+  SESSION_REMINDER // Upcoming session reminder
+  LEADERBOARD_UPDATE // Moved up in rankings
+  POINT_CAP_WARNING // Approaching monthly point cap
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json? // Additional context (resourceId, achievementId, etc.)
+  isRead    Boolean          @default(false)
+  isDeleted Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }
