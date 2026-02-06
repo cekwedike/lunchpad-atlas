@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
 
 interface AIAnalysisResult {
@@ -23,24 +23,32 @@ interface AIAnalysisResult {
 
 @Injectable()
 export class SessionAnalyticsService {
-  private openai: OpenAI;
+  private genAI: GoogleGenerativeAI;
+  private model: any;
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
-    const apiKey = this.config.get<string>('OPENAI_API_KEY');
+    const apiKey = this.config.get<string>('GEMINI_API_KEY');
     if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.model = this.genAI.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+          temperature: 0.7,
+          responseMimeType: 'application/json',
+        },
+      });
     }
   }
 
   /**
-   * Analyze session transcript using OpenAI
+   * Analyze session transcript using Google Gemini
    */
   async analyzeSessionWithAI(sessionId: string, transcript: string): Promise<AIAnalysisResult> {
-    if (!this.openai) {
-      throw new Error('OpenAI API key not configured');
+    if (!this.model) {
+      throw new Error('Gemini API key not configured');
     }
 
     const prompt = `Analyze this LaunchPad fellowship session transcript and provide detailed insights:
@@ -74,23 +82,17 @@ Consider:
 - Key learning moments
 - Areas for improvement`;
 
-    const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    });
+    const result = await this.model.generateContent([
+      {
+        role: 'user',
+        parts: [{
+          text: `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
+        }],
+      },
+    ]);
 
-    const analysis = JSON.parse(completion.choices[0].message.content);
+    const response = await result.response;
+    const analysis = JSON.parse(response.text());
     
     return {
       engagementScore: analysis.engagementScore,
@@ -237,7 +239,7 @@ Consider:
   async generateCohortInsights(cohortId: string) {
     const cohortData = await this.getCohortAnalytics(cohortId);
 
-    if (!this.openai || cohortData.analyzedSessions === 0) {
+    if (!this.model || cohortData.analyzedSessions === 0) {
       return null;
     }
 
@@ -254,24 +256,20 @@ Provide insights on:
 3. Opportunities for improvement
 4. Specific recommendations for facilitators`;
 
-    const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert education analyst providing cohort-level insights.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-    });
+    const result = await this.model.generateContent([
+      {
+        role: 'user',
+        parts: [{
+          text: `System: You are an expert education analyst providing cohort-level insights.\n\n${prompt}`,
+        }],
+      },
+    ]);
+
+    const response = await result.response;
 
     return {
       ...cohortData,
-      aiInsights: completion.choices[0].message.content,
+      aiInsights: response.text(),
       generatedAt: new Date(),
     };
   }
