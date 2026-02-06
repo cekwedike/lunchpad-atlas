@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma.service';
@@ -14,9 +15,13 @@ import { AdminModule } from './admin/admin.module';
 import { AchievementsModule } from './achievements/achievements.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SessionAnalyticsModule } from './session-analytics/session-analytics.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 seconds
@@ -33,6 +38,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     AchievementsModule,
     ChatModule,
     NotificationsModule,
+    SessionAnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

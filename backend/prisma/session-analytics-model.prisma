@@ -1,0 +1,25 @@
+model SessionAnalytics {
+  id                 String    @id @default(uuid())
+  sessionId          String    @unique
+  cohortId           String
+  transcript         String?
+  engagementScore    Float?    // 0-100
+  participationRate  Float?    // 0-100
+  averageAttention   Float?    // 0-100
+  keyTopics          Json?     // Array of key topics
+  insights           Json?     // AI-generated insights
+  participantCount   Int?
+  questionCount      Int?
+  interactionCount   Int?
+  aiProcessedAt      DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  cohort  Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([cohortId])
+  @@map("session_analytics")
+}

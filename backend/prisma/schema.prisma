@@ -420,18 +420,33 @@ model EngagementEvent {
 }
 
 model SessionAnalytics {
-  id                    String   @id @default(uuid())
+  id                    String    @id @default(uuid())
   sessionId             String
   totalFellows          Int
   fellowsAttended       Int
   avgResourcesCompleted Float
   avgPoints             Float
-  createdAt             DateTime @default(now())
+  
+  // AI-Generated Analytics
+  transcript            String?
+  engagementScore       Float?    // 0-100
+  participationRate     Float?    // 0-100
+  averageAttention      Float?    // 0-100
+  keyTopics             Json?     // Array of key topics extracted by AI
+  insights              Json?     // AI-generated insights and recommendations
+  participantAnalysis   Json?     // Individual participant engagement data
+  questionCount         Int       @default(0)
+  interactionCount      Int       @default(0)
+  aiProcessedAt         DateTime?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Relations
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+  @@index([aiProcessedAt])
   @@map("session_analytics")
 }
 
