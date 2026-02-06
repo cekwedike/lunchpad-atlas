@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, Menu, Trophy, User, LogOut, Settings } from 'lucide-react';
+import { Search, Menu, Trophy, User, LogOut, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -13,18 +13,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { NotificationBell } from '@/components/Notifications';
 
 export function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated, isGuestMode } = useAuthStore();
-  const { notifications, toggleSidebar } = useUIStore();
+  const { toggleSidebar } = useUIStore();
   const { logout } = useAuth();
-
-  const unreadNotifications = notifications.filter((n) => !n.read).length;
 
   const handleLogout = async () => {
     await logout();
@@ -89,45 +87,8 @@ export function Navbar() {
           )}
 
           {/* Notifications */}
-          {isAuthenticated && !isGuestMode && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  {unreadNotifications > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
-                    >
-                      {unreadNotifications}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No notifications
-                  </div>
-                ) : (
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {notifications.slice(0, 5).map((notification) => (
-                      <DropdownMenuItem key={notification.id} className="flex flex-col items-start p-3">
-                        <div className="flex w-full items-start justify-between">
-                          <span className="font-medium text-sm">{notification.title}</span>
-                          {!notification.read && (
-                            <div className="h-2 w-2 rounded-full bg-blue-600" />
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{notification.message}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {isAuthenticated && !isGuestMode && user && (
+            <NotificationBell userId={user.id} />
           )}
 
           {/* User Menu */}

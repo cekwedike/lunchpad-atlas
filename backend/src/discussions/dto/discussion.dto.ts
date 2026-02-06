@@ -38,6 +38,9 @@ export class DiscussionFilterDto {
   authorId?: string;
 
   @IsOptional()
+  resourceId?: string;
+
+  @IsOptional()
   isPinned?: boolean;
 
   @IsOptional()

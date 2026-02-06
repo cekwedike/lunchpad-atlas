@@ -7,15 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { EmptyState } from "@/components/ui/empty-state";
-import { MessageSquare, Plus, Pin, ThumbsUp, MessageCircle, Search } from "lucide-react";
+import { MessageSquare, Plus, Pin, ThumbsUp, MessageCircle, Search, BookOpen } from "lucide-react";
 import { useDiscussions, useCreateDiscussion, useLikeDiscussion } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 const discussionSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
@@ -26,21 +27,30 @@ type DiscussionForm = z.infer<typeof discussionSchema>;
 
 export default function DiscussionsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resourceId = searchParams.get('resourceId');
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "my" | "pinned">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: profile } = useProfile();
-  const { data: discussionsData, isLoading, error, refetch } = useDiscussions();
+  const { data: discussionsData, isLoading, error, refetch } = useDiscussions(
+    undefined,
+    resourceId ? { resourceId } : undefined
+  );
   const createMutation = useCreateDiscussion();
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<DiscussionForm>({
     resolver: zodResolver(discussionSchema),
   });
 
-  const onSubmit = async (data: DiscussionForm) => {
+  const onSubmit = async (data: DiscussionForm) {
     try {
-      await createMutation.mutateAsync(data);
+      await createMutation.mutateAsync({
+        ...data,
+        resourceId: resourceId || undefined,
+      });
       setIsDialogOpen(false);
       reset();
     } catch (error) {
@@ -77,6 +87,22 @@ export default function DiscussionsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {resourceId && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <BookOpen className="h-5 w-5 text-blue-600" />
+            <span className="text-sm">
+              Viewing discussions for a specific resource
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/discussions')}
+              className="ml-auto"
+            >
+              View All Discussions
+            </Button>
+          </div>
+        )}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Discussions</h1>

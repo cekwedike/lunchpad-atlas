@@ -99,7 +99,7 @@ export class DiscussionsService {
   }
 
   async getDiscussions(filters: DiscussionFilterDto) {
-    const { page = 1, limit = 10, search, cohortId, authorId, isPinned } = filters;
+    const { page = 1, limit = 10, search, cohortId, resourceId, authorId, isPinned } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -112,6 +112,7 @@ export class DiscussionsService {
     }
     
     if (cohortId) where.cohortId = cohortId;
+    if (resourceId) where.resourceId = resourceId;
     if (authorId) where.authorId = authorId;
     if (isPinned !== undefined) where.isPinned = isPinned;
 
