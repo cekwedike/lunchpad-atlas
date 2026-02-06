@@ -2,8 +2,8 @@
 
 ## Why Gemini?
 - ✅ **FREE API key** from Google AI Studio
-- ✅ **60 requests/minute** on free tier (more than enough)
-- ✅ **Gemini 1.5 Flash** - Fast, high-quality, JSON support
+- ✅ **15 requests/minute** on free tier (perfect for our needs)
+- ✅ **Gemini 2.5 Flash** - Latest model (released June 2025)
 - ✅ **No credit card required** for free tier
 - ✅ Perfect for session analytics and AI insights
 
