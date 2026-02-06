@@ -16,6 +16,7 @@ import { AchievementsModule } from './achievements/achievements.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SessionAnalyticsModule } from './session-analytics/session-analytics.module';
+import { LiveQuizModule } from './live-quiz/live-quiz.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SessionAnalyticsModule } from './session-analytics/session-analytics.mo
     ChatModule,
     NotificationsModule,
     SessionAnalyticsModule,
+    LiveQuizModule,
   ],
   controllers: [AppController],
   providers: [

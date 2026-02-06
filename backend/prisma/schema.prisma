@@ -74,7 +74,7 @@ model User {
   lastLoginAt        DateTime?
 
   // Relations
-  cohort             Cohort?             @relation(fields: [cohortId], references: [id])
+  cohort             Cohort?                @relation(fields: [cohortId], references: [id])
   resourceProgress   ResourceProgress[]
   discussions        Discussion[]
   comments           DiscussionComment[]
@@ -84,8 +84,9 @@ model User {
   leaderboardEntries LeaderboardEntry[]
   quizResponses      QuizResponse[]
   engagementEvents   EngagementEvent[]
-  facilitatedCohorts Cohort[]            @relation("FacilitatorCohorts")
+  facilitatedCohorts Cohort[]               @relation("FacilitatorCohorts")
   notifications      Notification[]
+  liveQuizParticipants LiveQuizParticipant[]
 
   @@index([email])
   @@index([cohortId])
@@ -132,6 +133,7 @@ model Session {
   resources        Resource[]
   quizzes          Quiz[]
   sessionAnalytics SessionAnalytics[]
+  liveQuizzes      LiveQuiz[]
 
   @@unique([cohortId, sessionNumber])
   @@index([cohortId])
@@ -546,4 +548,100 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@map("notifications")
+}
+
+// ==================== LIVE KAHOOT QUIZZES ====================
+
+enum LiveQuizStatus {
+  PENDING // Not started yet
+  ACTIVE // Currently running
+  COMPLETED // Finished
+  CANCELLED // Cancelled by facilitator
+}
+
+model LiveQuiz {
+  id               String        @id @default(uuid())
+  sessionId        String
+  title            String
+  description      String?
+  totalQuestions   Int           @default(0)
+  timePerQuestion  Int           @default(30) // Seconds per question
+  status           LiveQuizStatus @default(PENDING)
+  currentQuestion  Int           @default(0) // Current question index (0-based)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  session      Session              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questions    LiveQuizQuestion[]
+  participants LiveQuizParticipant[]
+
+  @@index([sessionId])
+  @@index([status])
+  @@map("live_quizzes")
+}
+
+model LiveQuizQuestion {
+  id            String   @id @default(uuid())
+  liveQuizId    String
+  questionText  String
+  options       Json     // Array of 4 options: [{text: string, isCorrect: boolean, color: string}]
+  correctAnswer Int      // Index of correct answer (0-3)
+  orderIndex    Int      // Question order in quiz
+  timeLimit     Int      @default(30) // Seconds to answer
+  pointValue    Int      @default(1000) // Base points for correct answer
+  createdAt     DateTime @default(now())
+
+  // Relations
+  liveQuiz LiveQuiz            @relation(fields: [liveQuizId], references: [id], onDelete: Cascade)
+  answers  LiveQuizAnswer[]
+
+  @@index([liveQuizId])
+  @@index([orderIndex])
+  @@map("live_quiz_questions")
+}
+
+model LiveQuizAnswer {
+  id                String   @id @default(uuid())
+  participantId     String
+  questionId        String
+  selectedAnswer    Int      // Index of selected answer (0-3)
+  isCorrect         Boolean
+  timeToAnswer      Int      // Milliseconds taken to answer
+  pointsEarned      Int      // Points with time bonus
+  answeredAt        DateTime @default(now())
+
+  // Relations
+  participant LiveQuizParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  question    LiveQuizQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, questionId])
+  @@index([participantId])
+  @@index([questionId])
+  @@map("live_quiz_answers")
+}
+
+model LiveQuizParticipant {
+  id            String   @id @default(uuid())
+  liveQuizId    String
+  userId        String
+  displayName   String
+  totalScore    Int      @default(0)
+  correctCount  Int      @default(0)
+  streak        Int      @default(0) // Current correct answer streak
+  rank          Int?     // Final rank (1st, 2nd, 3rd, etc.)
+  joinedAt      DateTime @default(now())
+
+  // Relations
+  liveQuiz LiveQuiz         @relation(fields: [liveQuizId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers  LiveQuizAnswer[]
+
+  @@unique([liveQuizId, userId])
+  @@index([liveQuizId])
+  @@index([userId])
+  @@index([totalScore])
+  @@map("live_quiz_participants")
 }
