@@ -52,7 +52,6 @@ export class ResourcesService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        totalPoints: { increment: points },
         currentMonthPoints: needsReset ? points : { increment: points },
         lastPointReset: needsReset ? now : undefined,
       },
@@ -373,12 +372,14 @@ export class ResourcesService {
     await this.prisma.engagementEvent.create({
       data: {
         userId,
-        resourceId,
-        eventType: dto.eventType || 'interaction',
-        scrollDepth: dto.scrollDepth,
-        watchPercentage: dto.watchPercentage,
-        timeSpent: dto.timeSpent,
-        metadata: dto.metadata,
+        eventType: 'RESOURCE_VIEW',
+        metadata: {
+          resourceId,
+          scrollDepth: dto.scrollDepth,
+          watchPercentage: dto.watchPercentage,
+          timeSpent: dto.timeSpent,
+          customData: dto.metadata || null,
+        },
       },
     });
 

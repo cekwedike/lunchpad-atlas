@@ -129,11 +129,16 @@ Consider:
         throw new Error('Session not found');
       }
 
+      // Count attendance (all attendance records have checkInTime)
+      const attendanceCount = await this.prisma.attendance.count({
+        where: { sessionId },
+      });
+
       analytics = await this.prisma.sessionAnalytics.create({
         data: {
           sessionId,
           totalFellows: session.cohort.fellows.length,
-          fellowsAttended: session.attendanceCount || 0,
+          fellowsAttended: attendanceCount,
           avgResourcesCompleted: 0,
           avgPoints: 0,
           transcript,
@@ -195,12 +200,12 @@ Consider:
     const sessions = await this.prisma.session.findMany({
       where: { cohortId },
       include: {
-        analytics: true,
+        sessionAnalytics: true,
       },
-      orderBy: { date: 'desc' },
+      orderBy: { scheduledDate: 'desc' },
     });
 
-    const analytics = sessions.map((session) => session.analytics).filter((a) => a !== null);
+    const analytics = sessions.flatMap((session) => session.sessionAnalytics);
 
     // Calculate cohort-wide averages
     const avgEngagement = analytics.length > 0
@@ -227,8 +232,8 @@ Consider:
       sessions: sessions.map((s) => ({
         id: s.id,
         title: s.title,
-        date: s.date,
-        analytics: s.analytics,
+        date: s.scheduledDate,
+        analytics: s.sessionAnalytics[0] || null,
       })),
     };
   }

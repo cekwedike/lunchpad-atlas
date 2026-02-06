@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Role } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 export interface UserFilters {
   search?: string;
-  role?: Role;
+  role?: UserRole;
   cohortId?: string;
   hasActivity?: boolean;
   page?: number;
@@ -86,14 +86,14 @@ export class AdminUserService {
           discussions: {
             select: { id: true },
           },
-          quizSubmissions: {
+          quizResponses: {
             select: { id: true },
           },
           _count: {
             select: {
               resourceProgress: true,
               discussions: true,
-              quizSubmissions: true,
+              quizResponses: true,
             },
           },
         },
@@ -133,7 +133,7 @@ export class AdminUserService {
               },
             },
           },
-          orderBy: { lastAccessedAt: 'desc' },
+          orderBy: { updatedAt: 'desc' },
           take: 10,
         },
         discussions: {
@@ -148,15 +148,15 @@ export class AdminUserService {
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
-        quizSubmissions: {
-          orderBy: { submittedAt: 'desc' },
+        quizResponses: {
+          orderBy: { completedAt: 'desc' },
           take: 10,
         },
         _count: {
           select: {
             resourceProgress: true,
             discussions: true,
-            quizSubmissions: true,
+            quizResponses: true,
           },
         },
       },
@@ -172,7 +172,7 @@ export class AdminUserService {
   /**
    * Update user role
    */
-  async updateUserRole(userId: string, role: Role) {
+  async updateUserRole(userId: string, role: UserRole) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -232,7 +232,7 @@ export class AdminUserService {
 
     return this.prisma.user.update({
       where: { id: userId },
-      data: { totalPoints: 0 },
+      data: { currentMonthPoints: 0, lastPointReset: new Date() },
     });
   }
 
@@ -268,7 +268,7 @@ export class AdminUserService {
   /**
    * Bulk update user roles
    */
-  async bulkUpdateRole(userIds: string[], role: Role) {
+  async bulkUpdateRole(userIds: string[], role: UserRole) {
     const result = await this.prisma.user.updateMany({
       where: {
         id: { in: userIds },
@@ -331,7 +331,7 @@ export class AdminUserService {
       }),
 
       // Quiz submission activities
-      this.prisma.quizSubmission.findMany({
+      this.prisma.quizResponse.findMany({
         where: { userId },
         include: {
           quiz: {
@@ -340,7 +340,7 @@ export class AdminUserService {
             },
           },
         },
-        orderBy: { submittedAt: 'desc' },
+        orderBy: { completedAt: 'desc' },
         take: limit,
       }),
     ]);
@@ -358,14 +358,14 @@ export class AdminUserService {
           metadata: {
             resourceId: progress.resourceId,
             pointsAwarded: progress.pointsAwarded,
-            timeSpent: progress.timeSpentMinutes,
+            timeSpent: Math.round(progress.timeSpent / 60),
           },
         });
       }
 
       if (progress.pointsAwarded > 0) {
         activities.push({
-          timestamp: progress.completedAt || progress.lastAccessedAt,
+          timestamp: progress.completedAt || progress.updatedAt,
           type: 'points_awarded',
           description: `Earned ${progress.pointsAwarded} points from "${progress.resource.title}"`,
           metadata: {
@@ -394,13 +394,12 @@ export class AdminUserService {
     // Quiz activities
     quizActivities.forEach((submission) => {
       activities.push({
-        timestamp: submission.submittedAt,
+        timestamp: submission.completedAt,
         type: 'quiz_completed',
-        description: `Completed quiz "${submission.quiz.title}" - Score: ${submission.score}/${submission.totalQuestions} (${Math.round((submission.score / submission.totalQuestions) * 100)}%)`,
+        description: `Completed quiz "${submission.quiz.title}" - Score: ${submission.score}%`,
         metadata: {
           quizId: submission.quizId,
           score: submission.score,
-          totalQuestions: submission.totalQuestions,
           pointsAwarded: submission.pointsAwarded,
         },
       });
@@ -441,10 +440,10 @@ export class AdminUserService {
       this.prisma.discussion.count({
         where: { userId },
       }),
-      this.prisma.quizSubmission.count({
+      this.prisma.quizResponse.count({
         where: { userId },
       }),
-      this.prisma.quizSubmission.aggregate({
+      this.prisma.quizResponse.aggregate({
         where: { userId },
         _avg: {
           score: true,
@@ -453,7 +452,7 @@ export class AdminUserService {
       this.prisma.resourceProgress.aggregate({
         where: { userId },
         _sum: {
-          timeSpentMinutes: true,
+          timeSpent: true,
         },
       }),
     ]);
@@ -464,7 +463,7 @@ export class AdminUserService {
       email: user.email,
       role: user.role,
       cohort: user.cohort?.name || null,
-      totalPoints: user.totalPoints,
+      totalPoints: user.currentMonthPoints,
       completedResources,
       inProgressResources,
       totalDiscussions,
@@ -472,7 +471,7 @@ export class AdminUserService {
       averageQuizScore: averageQuizScore._avg.score
         ? Math.round(averageQuizScore._avg.score * 10) / 10
         : 0,
-      totalTimeSpentMinutes: totalTimeSpent._sum.timeSpentMinutes || 0,
+      totalTimeSpentMinutes: totalTimeSpent._sum.timeSpent ? Math.round(totalTimeSpent._sum.timeSpent / 60) : 0,
     };
   }
 }

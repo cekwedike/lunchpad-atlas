@@ -120,8 +120,8 @@ export default function Home() {
             {/* Sign In Card */}
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 space-y-6">
               <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold text-white">Sign In</h2>
-                <p className="text-slate-400 text-sm">Select your role to continue</p>
+                <h2 className="text-2xl font-bold text-white/95">Sign In</h2>
+                <p className="text-slate-300 text-sm">Select your role to continue</p>
               </div>
 
               {/* Role Selector */}

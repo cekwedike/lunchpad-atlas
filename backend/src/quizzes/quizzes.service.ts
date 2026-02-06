@@ -52,7 +52,6 @@ export class QuizzesService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        totalPoints: { increment: points },
         currentMonthPoints: needsReset ? points : { increment: points },
         lastPointReset: needsReset ? now : undefined,
       },
@@ -207,7 +206,7 @@ export class QuizzesService {
     });
 
     // Check and award achievements if quiz was passed
-    let newAchievements = [];
+    let newAchievements: any[] = [];
     if (passed) {
       newAchievements = await this.achievementsService.checkAndAwardAchievements(userId);
     }

@@ -6,7 +6,7 @@ import { UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole, Role } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -72,7 +72,7 @@ export class AdminController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   getAllUsers(
     @Query('search') search?: string,
-    @Query('role') role?: Role,
+    @Query('role') role?: UserRole,
     @Query('cohortId') cohortId?: string,
     @Query('hasActivity') hasActivity?: boolean,
     @Query('page') page?: number,
@@ -118,7 +118,7 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'User ID' })
   updateUserRole(
     @Param('id') userId: string,
-    @Body() body: { role: Role },
+    @Body() body: { role: UserRole },
   ) {
     return this.adminUserService.updateUserRole(userId, body.role);
   }
@@ -151,7 +151,7 @@ export class AdminController {
   @Put('users/bulk/update-role')
   @ApiOperation({ summary: 'Bulk update user roles' })
   bulkUpdateRole(
-    @Body() body: { userIds: string[]; role: Role },
+    @Body() body: { userIds: string[]; role: UserRole },
   ) {
     return this.adminUserService.bulkUpdateRole(body.userIds, body.role);
   }
