@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Response } from 'express';
+import type * as express from 'express';
+
 import { SessionAnalyticsService } from './session-analytics.service';
 import { AnalyticsExportService } from './analytics-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -49,7 +50,7 @@ export class SessionAnalyticsController {
   @Get('export/session/:sessionId/csv')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Export session analytics as CSV' })
-  async exportSessionCSV(@Param('sessionId') sessionId: string, @Res() res: Response) {
+  async exportSessionCSV(@Param('sessionId') sessionId: string, @Res() res: express.Response) {
     const csv = await this.analyticsExportService.exportSessionAnalyticsToCSV(sessionId);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=session-${sessionId}-analytics.csv`);
@@ -59,7 +60,7 @@ export class SessionAnalyticsController {
   @Get('export/cohort/:cohortId/csv')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Export cohort analytics as CSV' })
-  async exportCohortCSV(@Param('cohortId') cohortId: string, @Res() res: Response) {
+  async exportCohortCSV(@Param('cohortId') cohortId: string, @Res() res: express.Response) {
     const csv = await this.analyticsExportService.exportCohortAnalyticsToCSV(cohortId);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=cohort-${cohortId}-analytics.csv`);
@@ -69,7 +70,7 @@ export class SessionAnalyticsController {
   @Get('export/resource-progress/:sessionId/csv')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Export resource progress as CSV' })
-  async exportResourceProgressCSV(@Param('sessionId') sessionId: string, @Res() res: Response) {
+  async exportResourceProgressCSV(@Param('sessionId') sessionId: string, @Res() res: express.Response) {
     const csv = await this.analyticsExportService.exportResourceProgressToCSV(sessionId);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=resource-progress-${sessionId}.csv`);
@@ -81,9 +82,9 @@ export class SessionAnalyticsController {
   @ApiOperation({ summary: 'Export leaderboard as CSV' })
   async exportLeaderboardCSV(
     @Param('cohortId') cohortId: string,
+    @Res() res: express.Response,
     @Query('month') month?: string,
     @Query('year') year?: string,
-    @Res() res: Response,
   ) {
     const csv = await this.analyticsExportService.exportLeaderboardToCSV(
       cohortId,

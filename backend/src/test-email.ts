@@ -54,7 +54,7 @@ async function testEmail() {
         totalParticipants: 30,
         upcomingSession: {
           title: 'Week 5: Networking Strategies',
-          scheduledDate: new Date('2026-04-29T10:00:00Z'),
+          date: new Date('2026-04-29'),
         },
       }
     );

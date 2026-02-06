@@ -14,7 +14,7 @@ interface LiveQuizLeaderboardProps {
   showTopOnly?: number;
 }
 
-const MEDAL_ICONS = {
+const MEDAL_ICONS: Record<number, React.ReactElement> = {
   1: <Trophy className="w-8 h-8 text-yellow-500" />,
   2: <Medal className="w-7 h-7 text-gray-400" />,
   3: <Award className="w-6 h-6 text-amber-700" />,

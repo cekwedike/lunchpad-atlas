@@ -91,7 +91,7 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Get comprehensive attendance report for session (Facilitator/Admin only)' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'Attendance report generated' })
-  async getSessionReport(@Param('sessionId') sessionId: string) {
+  async getSessionReport(@Param('sessionId') sessionId: string): Promise<any> {
     return this.attendanceService.generateSessionReport(sessionId);
   }
 

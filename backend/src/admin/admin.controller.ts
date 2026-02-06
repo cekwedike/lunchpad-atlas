@@ -156,7 +156,3 @@ export class AdminController {
     return this.adminUserService.bulkUpdateRole(body.userIds, body.role);
   }
 }
-
-    return this.adminService.getAuditLogs(page, limit);
-  }
-}

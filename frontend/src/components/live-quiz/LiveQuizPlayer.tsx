@@ -24,7 +24,7 @@ const KAHOOT_COLORS = {
   green: 'bg-green-500 hover:bg-green-600 border-green-600',
 };
 
-const ANSWER_SHAPES = {
+const ANSWER_SHAPES: Record<number, string> = {
   0: '▲', // Triangle - Red
   1: '◆', // Diamond - Blue
   2: '●', // Circle - Yellow

@@ -36,7 +36,6 @@ export function ResourceDiscussions({ resourceId, resourceTitle }: ResourceDiscu
   });
   
   const createMutation = useCreateDiscussion();
-  const likeMutation = useLikeDiscussion();
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<DiscussionForm>({
     resolver: zodResolver(discussionSchema),
@@ -58,7 +57,8 @@ export function ResourceDiscussions({ resourceId, resourceTitle }: ResourceDiscu
 
   const handleLike = async (discussionId: string) => {
     try {
-      await likeMutation.mutateAsync(discussionId);
+      const likeMutation = useLikeDiscussion(discussionId);
+      await likeMutation.mutateAsync();
       refetch();
     } catch (error) {
       console.error('Failed to like discussion:', error);

@@ -183,11 +183,6 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
                       <h4 className="font-semibold text-sm text-gray-900">
                         {exportItem.title}
                       </h4>
-                      {exportItem.isJson && (
-                        <Badge variant="outline" className="text-xs">
-                          JSON
-                        </Badge>
-                      )}
                     </div>
                     <p className="text-xs text-gray-600 mb-3">
                       {exportItem.description}
@@ -207,7 +202,7 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
                       ) : (
                         <>
                           <FileSpreadsheet className="h-3 w-3 mr-2" />
-                          Download {exportItem.isJson ? 'JSON' : 'CSV'}
+                          Download CSV
                         </>
                       )}
                     </Button>
