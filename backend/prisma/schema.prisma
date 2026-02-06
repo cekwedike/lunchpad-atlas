@@ -73,6 +73,13 @@ model User {
   updatedAt          DateTime  @updatedAt
   lastLoginAt        DateTime?
 
+  // Email preferences
+  emailNotifications Boolean   @default(true) // General notifications
+  weeklyDigest       Boolean   @default(true) // Weekly summary emails
+  marketingEmails    Boolean   @default(false) // Marketing communications
+  unsubscribeToken   String?   @unique // Token for unsubscribe links
+  unsubscribedAt     DateTime? // When user unsubscribed from all emails
+
   // Relations
   cohort             Cohort?                @relation(fields: [cohortId], references: [id])
   resourceProgress   ResourceProgress[]
@@ -91,6 +98,7 @@ model User {
 
   @@index([email])
   @@index([cohortId])
+  @@index([unsubscribeToken])
   @@map("users")
 }
 

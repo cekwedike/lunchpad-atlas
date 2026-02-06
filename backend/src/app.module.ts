@@ -18,6 +18,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SessionAnalyticsModule } from './session-analytics/session-analytics.module';
 import { LiveQuizModule } from './live-quiz/live-quiz.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { AttendanceModule } from './attendance/attendance.module';
     SessionAnalyticsModule,
     LiveQuizModule,
     AttendanceModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [
