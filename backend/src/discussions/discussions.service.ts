@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma.service';
 import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dto/discussion.dto';
 import { DiscussionScoringService } from './discussion-scoring.service';
+import { DiscussionsGateway } from './discussions.gateway';
 
 @Injectable()
 export class DiscussionsService {
   constructor(
     private prisma: PrismaService,
     private discussionScoring: DiscussionScoringService,
+    private discussionsGateway: DiscussionsGateway,
   ) {}
 
   /**
@@ -61,6 +63,9 @@ export class DiscussionsService {
       'DISCUSSION_POST',
       `Posted discussion: ${dto.title}`
     );
+
+    // Broadcast new discussion to cohort in real-time
+    this.discussionsGateway.broadcastNewDiscussion(discussion);
 
     return {
       ...discussion,
@@ -201,6 +206,9 @@ export class DiscussionsService {
       `Replied to discussion: ${discussion.title}`
     );
 
+    // Broadcast new comment to discussion participants in real-time
+    this.discussionsGateway.broadcastNewComment(comment, discussionId, discussion.cohortId);
+
     return {
       ...comment,
       pointsAwarded: awarded ? 2 : 0,
@@ -309,10 +317,15 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
-    return await this.prisma.discussion.update({
+    const updated = await this.prisma.discussion.update({
       where: { id: discussionId },
       data: { isPinned: !discussion.isPinned },
     });
+
+    // Broadcast pin status change in real-time
+    this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    return updated;
   }
 
   async toggleLock(discussionId: string, userRole: string) {
@@ -328,10 +341,15 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
-    return await this.prisma.discussion.update({
+    const updated = await this.prisma.discussion.update({
       where: { id: discussionId },
       data: { isLocked: !discussion.isLocked },
     });
+
+    // Broadcast lock status change in real-time
+    this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    return updated;
   }
 
   async getRecentDiscussions(limit: number = 5) {

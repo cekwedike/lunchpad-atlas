@@ -48,6 +48,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  firstName: string;
+  lastName: string;
   role: UserRole;
   cohortId: string | null;
   points: number; // Alias for totalPoints for convenience
@@ -122,27 +124,36 @@ export interface Discussion {
   id: string;
   title: string;
   content: string;
-  authorId: string;
+  userId: string; // Changed from authorId to match backend
   cohortId: string;
   resourceId: string | null;
   isPinned: boolean;
+  isLocked: boolean; // NEW: Admin lock feature
+  qualityScore: number | null;
+  qualityAnalysis: any;
+  scoredAt: Date | null;
   likeCount: number;
   commentCount: number;
   createdAt: Date;
   updatedAt: Date;
-  author?: User;
+  user?: User; // Changed from author to match backend
+  likes?: Array<{ userId: string; id: string }>; // For checking if current user liked
+  _count?: {
+    comments: number;
+    likes: number;
+  };
 }
 
 export interface DiscussionComment {
   id: string;
   content: string;
   discussionId: string;
-  authorId: string;
+  userId: string; // Changed from authorId to match backend
   parentId: string | null;
   likeCount: number;
   createdAt: Date;
   updatedAt: Date;
-  author?: User;
+  user?: User; // Changed from author to match backend
 }
 
 export interface Quiz {

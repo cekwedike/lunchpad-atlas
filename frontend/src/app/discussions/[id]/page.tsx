@@ -87,12 +87,12 @@ export default function DiscussionThreadPage({ params }: { params: { id: string 
             <div className="p-6">
               <div className="flex items-start gap-4 mb-4">
                 <div className="w-14 h-14 bg-atlas-navy text-white rounded-full flex items-center justify-center font-semibold">
-                  {discussion.author?.name?.slice(0, 2).toUpperCase() || "??"}
+                  {discussion.user?.firstName?.[0]}{discussion.user?.lastName?.[0] || "??"}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <h3 className="font-bold">{discussion.author?.name || "Unknown"}</h3>
+                      <h3 className="font-bold">{discussion.user?.firstName} {discussion.user?.lastName || "Unknown"}</h3>
                       <p className="text-sm text-muted-foreground">
                         {formatDistanceToNow(new Date(discussion.createdAt), { addSuffix: true })}
                       </p>
@@ -132,12 +132,12 @@ export default function DiscussionThreadPage({ params }: { params: { id: string 
                   <div className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-atlas-navy text-white rounded-full flex items-center justify-center font-semibold">
-                        {comment.author?.name?.slice(0, 2).toUpperCase() || "??"}
+                        {comment.user?.firstName?.[0]}{comment.user?.lastName?.[0] || "??"}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
                           <div>
-                            <h3 className="font-semibold">{comment.author?.name || "Unknown"}</h3>
+                            <h3 className="font-semibold">{comment.user?.firstName} {comment.user?.lastName || "Unknown"}</h3>
                             <p className="text-sm text-muted-foreground">
                               {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                             </p>

@@ -3,10 +3,11 @@ import { DiscussionsService } from './discussions.service';
 import { DiscussionsController } from './discussions.controller';
 import { PrismaService } from '../prisma.service';
 import { DiscussionScoringService } from './discussion-scoring.service';
+import { DiscussionsGateway } from './discussions.gateway';
 
 @Module({
-  providers: [DiscussionsService, DiscussionScoringService, PrismaService],
+  providers: [DiscussionsService, DiscussionScoringService, DiscussionsGateway, PrismaService],
   controllers: [DiscussionsController],
-  exports: [DiscussionsService],
+  exports: [DiscussionsService, DiscussionsGateway],
 })
 export class DiscussionsModule {}

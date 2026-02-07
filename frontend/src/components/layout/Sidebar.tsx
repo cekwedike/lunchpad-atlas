@@ -57,7 +57,7 @@ export function Sidebar() {
     },
     {
       title: 'Discussions',
-      href: '/discussions',
+      href: '/dashboard/discussions',
       icon: MessageSquare,
     },
     {
@@ -105,7 +105,7 @@ export function Sidebar() {
     },
     {
       title: 'Discussions',
-      href: '/discussions',
+      href: '/dashboard/discussions',
       icon: MessageSquare,
     },
     {
@@ -145,6 +145,11 @@ export function Sidebar() {
       title: 'Analytics',
       href: '/dashboard/admin/analytics',
       icon: BarChart3,
+    },
+    {
+      title: 'Discussions',
+      href: '/dashboard/discussions',
+      icon: MessageSquare,
     },
     {
       title: 'Resources (View)',
