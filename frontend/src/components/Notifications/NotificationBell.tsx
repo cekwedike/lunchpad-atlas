@@ -12,9 +12,10 @@ import { useUnreadCount } from '@/hooks/api/useNotifications';
 
 interface NotificationBellProps {
   userId: string;
+  userRole?: string;
 }
 
-export function NotificationBell({ userId }: NotificationBellProps) {
+export function NotificationBell({ userId, userRole }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const { data: unreadData } = useUnreadCount(userId);
   const unreadCount = unreadData?.count ?? 0;
@@ -44,7 +45,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         align="end"
         sideOffset={8}
       >
-        <NotificationDropdown userId={userId} onClose={() => setOpen(false)} />
+        <NotificationDropdown userId={userId} userRole={userRole} onClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );

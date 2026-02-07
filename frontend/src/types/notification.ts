@@ -20,6 +20,17 @@ export interface Notification {
   isDeleted: boolean;
   readAt?: Date;
   createdAt: Date;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    cohortId?: string;
+    cohort?: {
+      name: string;
+    };
+  };
 }
 
 export interface NotificationResponse {

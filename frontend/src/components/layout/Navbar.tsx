@@ -88,7 +88,7 @@ export function Navbar() {
 
           {/* Notifications */}
           {isAuthenticated && !isGuestMode && user && (
-            <NotificationBell userId={user.id} />
+            <NotificationBell userId={user.id} userRole={user.role} />
           )}
 
           {/* User Menu */}

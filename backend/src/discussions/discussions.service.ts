@@ -175,6 +175,11 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
+    // Check if discussion is locked
+    if (discussion.isLocked) {
+      throw new ForbiddenException('This discussion is locked. No new comments allowed.');
+    }
+
     const comment = await this.prisma.discussionComment.create({
       data: {
         content: dto.content,
@@ -281,6 +286,64 @@ export class DiscussionsService {
         },
         resource: {
           select: { id: true, title: true },
+        },
+        _count: {
+          select: { comments: true, likes: true },
+        },
+      },
+    });
+  }
+
+  // ==================== ADMIN METHODS ====================
+
+  async togglePin(discussionId: string, userRole: string) {
+    if (userRole !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can pin discussions');
+    }
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    return await this.prisma.discussion.update({
+      where: { id: discussionId },
+      data: { isPinned: !discussion.isPinned },
+    });
+  }
+
+  async toggleLock(discussionId: string, userRole: string) {
+    if (userRole !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can lock discussions');
+    }
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    return await this.prisma.discussion.update({
+      where: { id: discussionId },
+      data: { isLocked: !discussion.isLocked },
+    });
+  }
+
+  async getRecentDiscussions(limit: number = 5) {
+    return await this.prisma.discussion.findMany({
+      take: limit,
+      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        cohort: {
+          select: { id: true, name: true },
         },
         _count: {
           select: { comments: true, likes: true },

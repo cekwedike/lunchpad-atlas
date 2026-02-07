@@ -150,6 +150,46 @@ export class NotificationsService {
         isDeleted: false,
         ...(unreadOnly ? { isRead: false } : {}),
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  // Admin sees ALL notifications from all users
+  async getAllNotifications(limit: number = 50, unreadOnly: boolean = false) {
+    return this.prisma.notification.findMany({
+      where: {
+        isDeleted: false,
+        ...(unreadOnly ? { isRead: false } : {}),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+            cohortId: true,
+            cohort: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
@@ -159,6 +199,16 @@ export class NotificationsService {
     return this.prisma.notification.count({
       where: {
         userId,
+        isRead: false,
+        isDeleted: false,
+      },
+    });
+  }
+
+  // Admin gets count of ALL unread notifications
+  async getAllUnreadCount() {
+    return this.prisma.notification.count({
+      where: {
         isRead: false,
         isDeleted: false,
       },
@@ -180,12 +230,34 @@ export class NotificationsService {
     });
   }
 
+  // Admin can mark any notification as read
+  async markAsReadAdmin(notificationId: string) {
+    return this.prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+      },
+    });
+  }
+
   async markAllAsRead(userId: string) {
     return this.prisma.notification.updateMany({
       where: {
         userId,
         isRead: false,
       },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+      },
+    });
+  }
+
+  // Admin marks ALL notifications in system as read
+  async markAllAsReadAdmin() {
+    return this.prisma.notification.updateMany({
+      where: { isRead: false },
       data: {
         isRead: true,
         readAt: new Date(),
@@ -207,6 +279,14 @@ export class NotificationsService {
     });
   }
 
+  // Admin can delete any notification
+  async deleteNotificationAdmin(notificationId: string) {
+    return this.prisma.notification.update({
+      where: { id: notificationId },
+      data: { isDeleted: true },
+    });
+  }
+
   async deleteAllRead(userId: string) {
     return this.prisma.notification.updateMany({
       where: {
@@ -216,6 +296,14 @@ export class NotificationsService {
       data: {
         isDeleted: true,
       },
+    });
+  }
+
+  // Admin deletes ALL read notifications in system
+  async deleteAllReadAdmin() {
+    return this.prisma.notification.updateMany({
+      where: { isRead: true },
+      data: { isDeleted: true },
     });
   }
 
@@ -234,6 +322,118 @@ export class NotificationsService {
       title,
       message,
       data,
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  // ==================== ADMIN NOTIFICATION HELPERS ====================
+
+  async notifyAdminsUserUpdated(updatedUserId: string, adminName: string, changes: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const updatedUser = await this.prisma.user.findUnique({
+      where: { id: updatedUserId },
+      select: { firstName: true, lastName: true, email: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'LEADERBOARD_UPDATE' as NotificationType, // Reusing existing type
+      title: '👤 User Updated',
+      message: `${adminName} updated ${updatedUser?.firstName} ${updatedUser?.lastName} - ${changes}`,
+      data: { updatedUserId, changes, adminName },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyAdminsUserCreated(newUserId: string, adminName: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const newUser = await this.prisma.user.findUnique({
+      where: { id: newUserId },
+      select: { firstName: true, lastName: true, email: true, role: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'LEADERBOARD_UPDATE' as NotificationType,
+      title: '✨ New User Created',
+      message: `${adminName} created new ${newUser?.role}: ${newUser?.firstName} ${newUser?.lastName} (${newUser?.email})`,
+      data: { newUserId, adminName },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyAdminsCohortUpdated(cohortId: string, adminName: string, changes: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: cohortId },
+      select: { name: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'LEADERBOARD_UPDATE' as NotificationType,
+      title: '📚 Cohort Updated',
+      message: `${adminName} updated cohort "${cohort?.name}" - ${changes}`,
+      data: { cohortId, changes, adminName },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyAdminsResourceUpdated(resourceId: string, adminName: string, action: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: { title: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'RESOURCE_UNLOCK' as NotificationType,
+      title: '📖 Resource Updated',
+      message: `${adminName} ${action} resource: "${resource?.title}"`,
+      data: { resourceId, action, adminName },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyAdminsSessionUpdated(sessionId: string, adminName: string, action: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { title: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'SESSION_REMINDER' as NotificationType,
+      title: '📅 Session Updated',
+      message: `${adminName} ${action} session: "${session?.title}"`,
+      data: { sessionId, action, adminName },
     }));
 
     return this.createBulkNotifications(notifications);

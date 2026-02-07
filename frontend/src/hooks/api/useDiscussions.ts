@@ -99,3 +99,48 @@ export function useLikeDiscussion(discussionId: string) {
     },
   });
 }
+
+// Get recent discussions for dashboard
+export function useRecentDiscussions(limit: number = 5) {
+  return useQuery({
+    queryKey: ['discussions', 'recent', limit],
+    queryFn: () => apiClient.get<Discussion[]>(`/discussions/recent?limit=${limit}`),
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+}
+
+// Admin-only: Toggle pin status
+export function useTogglePin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (discussionId: string) =>
+      apiClient.post(`/discussions/${discussionId}/pin`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      toast.success('Pin status updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to toggle pin', error.message);
+    },
+  });
+}
+
+// Admin-only: Toggle lock status
+export function useToggleLock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (discussionId: string) =>
+      apiClient.post(`/discussions/${discussionId}/lock`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      toast.success('Lock status updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to toggle lock', error.message);
+    },
+  });
+}

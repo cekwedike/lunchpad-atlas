@@ -2,7 +2,7 @@
 
 import { 
   RefreshCw, Users, Calendar, BookOpen, Activity, Plus, CheckCircle, 
-  UserPlus, FileText, MessageSquare
+  UserPlus, FileText, MessageSquare, Pin, Lock
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useAdminUsers, useAuditLogs, useCohorts } from "@/hooks/api/useAdmin";
+import { useRecentDiscussions } from "@/hooks/api/useDiscussions";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function AdminDashboard() {
   const { data: usersResponse } = useAdminUsers();
   const { data: auditLogs } = useAuditLogs(1, 4);
   const { data: cohortsData } = useCohorts();
+  const { data: recentDiscussions } = useRecentDiscussions(5);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Extract user data and calculate stats
@@ -59,6 +62,10 @@ export default function AdminDashboard() {
 
   const handleAddResource = () => {
     router.push('/dashboard/admin/resources');
+  };
+
+  const handleViewDiscussions = () => {
+    router.push('/dashboard/discussions');
   };
 
   return (
@@ -190,33 +197,61 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Active Cohorts */}
+          {/* Recent Discussions */}
           <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader className="border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold text-gray-900">Active Cohorts</CardTitle>
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  {platformStats.cohortCount} Total
-                </Badge>
+                <CardTitle className="text-lg font-semibold text-gray-900">Recent Discussions</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleViewDiscussions}
+                  className="text-blue-600 hover:text-blue-700 h-8"
+                >
+                  View All
+                </Button>
               </div>
-              <CardDescription className="text-gray-600">Current program cohorts</CardDescription>
+              <CardDescription className="text-gray-600">Latest community activity</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-3">
-                {cohorts.length > 0 ? (
-                  cohorts.slice(0, 4).map((cohort: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 rounded-full bg-blue-500" />
-                        <span className="text-sm font-medium text-gray-900">{cohort.name}</span>
+                {recentDiscussions && recentDiscussions.length > 0 ? (
+                  recentDiscussions.map((discussion: any) => (
+                    <div
+                      key={discussion.id}
+                      className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/dashboard/discussions/${discussion.id}`)}
+                    >
+                      <MessageSquare className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {discussion.title}
+                          </p>
+                          {discussion.isPinned && (
+                            <Pin className="h-3 w-3 text-amber-600" />
+                          )}
+                          {discussion.isLocked && (
+                            <Lock className="h-3 w-3 text-red-600" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-600">
+                          <span>{discussion.user?.firstName} {discussion.user?.lastName}</span>
+                          <span>•</span>
+                          <span>{formatDistanceToNow(new Date(discussion.createdAt), { addSuffix: true })}</span>
+                        </div>
+                        {discussion._count && (
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span>{discussion._count.comments || 0} comments</span>
+                            <span>•</span>
+                            <span>{discussion._count.likes || 0} likes</span>
+                          </div>
+                        )}
                       </div>
-                      <span className="text-xs text-gray-600 font-medium">
-                        {cohort.fellows?.length || 0} Fellows
-                      </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500 text-center py-4">No cohorts available</p>
+                  <p className="text-sm text-gray-500 text-center py-4">No recent discussions</p>
                 )}
               </div>
             </CardContent>

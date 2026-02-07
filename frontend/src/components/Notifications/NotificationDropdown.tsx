@@ -27,6 +27,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface NotificationDropdownProps {
   userId: string;
+  userRole?: string;
   onClose: () => void;
 }
 
@@ -52,11 +53,13 @@ const notificationColors: Record<NotificationType, string> = {
   [NotificationType.POINT_CAP_WARNING]: 'text-amber-500',
 };
 
-export function NotificationDropdown({ userId, onClose }: NotificationDropdownProps) {
+export function NotificationDropdown({ userId, userRole, onClose }: NotificationDropdownProps) {
   const { data, refetch } = useNotifications(userId);
   const markAsReadMutation = useMarkAsRead();
   const markAllAsReadMutation = useMarkAllAsRead();
   const deleteNotificationMutation = useDeleteNotification();
+
+  const isAdmin = userRole === 'ADMIN';
 
   // WebSocket integration
   useNotificationsSocket({
@@ -164,6 +167,22 @@ export function NotificationDropdown({ userId, onClose }: NotificationDropdownPr
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
+                          {/* Admin sees user info */}
+                          {isAdmin && notification.user && (
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                                {notification.user.firstName} {notification.user.lastName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                ({notification.user.role})
+                              </span>
+                              {notification.user.cohort && (
+                                <span className="text-xs text-muted-foreground">
+                                  • {notification.user.cohort.name}
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <p className={cn(
                             'text-sm font-medium',
                             !notification.isRead && 'font-semibold'

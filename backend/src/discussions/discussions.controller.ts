@@ -60,4 +60,22 @@ export class DiscussionsController {
   ) {
     return this.discussionsService.getHighQualityDiscussions(cohortId, limit);
   }
+
+  @Get('recent')
+  @ApiOperation({ summary: 'Get recent discussions' })
+  getRecentDiscussions(@Query('limit') limit?: number) {
+    return this.discussionsService.getRecentDiscussions(limit ? +limit : 5);
+  }
+
+  @Post(':id/pin')
+  @ApiOperation({ summary: 'Toggle pin status (Admin only)' })
+  togglePin(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.togglePin(id, req.user.role);
+  }
+
+  @Post(':id/lock')
+  @ApiOperation({ summary: 'Toggle lock status (Admin only)' })
+  toggleLock(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.toggleLock(id, req.user.role);
+  }
 }

@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service';
 import { CreateCohortDto, UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
 import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // ============ Cohort Management Methods ============
 
@@ -14,7 +18,7 @@ export class AdminService {
       include: {
         _count: {
           select: {
-            fellows: true,
+            fellows: { where: { role: 'FELLOW' } },
             sessions: true,
           },
         },
@@ -57,6 +61,17 @@ export class AdminService {
       },
     });
 
+    // Notify all admins
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+    await this.notificationsService.notifyAdminsCohortUpdated(
+      cohort.id,
+      `${admin?.firstName} ${admin?.lastName}`,
+      'created',
+    );
+
     return cohort;
   }
 
@@ -84,6 +99,18 @@ export class AdminService {
         changes: { before: cohort, after: updatedCohort },
       },
     });
+
+    // Notify all admins
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+    const changes = Object.keys(dto).join(', ');
+    await this.notificationsService.notifyAdminsCohortUpdated(
+      cohortId,
+      `${admin?.firstName} ${admin?.lastName}`,
+      `updated ${changes}`,
+    );
 
     return updatedCohort;
   }
@@ -177,6 +204,17 @@ export class AdminService {
         changes: { before: session, after: updatedSession },
       },
     });
+
+    // Notify all admins
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+    await this.notificationsService.notifyAdminsSessionUpdated(
+      sessionId,
+      `${admin?.firstName} ${admin?.lastName}`,
+      'updated',
+    );
 
     return updatedSession;
   }
