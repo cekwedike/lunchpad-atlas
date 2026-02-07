@@ -8,8 +8,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   // Enable CORS for frontend
+  const allowedOrigins = Array.from(
+    new Set([
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+    ].filter(Boolean))
+  );
+
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: allowedOrigins,
     credentials: true,
   });
   
