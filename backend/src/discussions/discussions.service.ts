@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dto/discussion.dto';
 import { DiscussionScoringService } from './discussion-scoring.service';
 import { DiscussionsGateway } from './discussions.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class DiscussionsService {
@@ -10,6 +11,7 @@ export class DiscussionsService {
     private prisma: PrismaService,
     private discussionScoring: DiscussionScoringService,
     private discussionsGateway: DiscussionsGateway,
+    private notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -40,7 +42,12 @@ export class DiscussionsService {
     return true;
   }
 
-  async createDiscussion(userId: string, dto: CreateDiscussionDto) {
+  async createDiscussion(userId: string, userRole: string, dto: CreateDiscussionDto) {
+    // Only Admin and Facilitator can create discussions
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException('Only administrators and facilitators can create discussions');
+    }
+
     // Get user's cohortId if not provided
     let cohortId = dto.cohortId;
     if (!cohortId) {
@@ -61,7 +68,7 @@ export class DiscussionsService {
       },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true },
+          select: { id: true, firstName: true, lastName: true, role: true },
         },
       },
     });
@@ -76,6 +83,27 @@ export class DiscussionsService {
 
     // Broadcast new discussion to cohort in real-time
     this.discussionsGateway.broadcastNewDiscussion(discussion);
+
+    // Notify all cohort members about new discussion  
+    if (cohortId) {
+      const cohortMembers = await this.prisma.user.findMany({
+        where: {
+          cohortId: cohortId,
+          id: { not: userId }, // Don't notify the author
+        },
+        select: { id: true },
+      });
+
+      if (cohortMembers.length > 0) {
+        const authorName = `${discussion.user.firstName} ${discussion.user.lastName}`;
+        await this.notificationsService.notifyBulkNewDiscussion(
+          cohortMembers.map((m) => m.id),
+          authorName,
+          discussion.title,
+          discussion.id,
+        );
+      }
+    }
 
     return {
       ...discussion,
@@ -110,7 +138,7 @@ export class DiscussionsService {
         orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         include: {
           user: {
-            select: { id: true, firstName: true, lastName: true, email: true },
+            select: { id: true, firstName: true, lastName: true, email: true, role: true },
           },
           _count: {
             select: { comments: true, likes: true },
@@ -134,7 +162,7 @@ export class DiscussionsService {
       where: { id },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
         },
         _count: {
           select: { comments: true, likes: true },
@@ -175,7 +203,7 @@ export class DiscussionsService {
       orderBy: { createdAt: 'asc' },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
         },
       },
     });
@@ -203,7 +231,7 @@ export class DiscussionsService {
       },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
         },
       },
     });
@@ -218,6 +246,24 @@ export class DiscussionsService {
 
     // Broadcast new comment to discussion participants in real-time
     this.discussionsGateway.broadcastNewComment(comment, discussionId, discussion.cohortId);
+
+    // Notify discussion author
+    if (discussion.userId !== userId) {
+      const commenterName = `${comment.user.firstName} ${comment.user.lastName}`;
+      const discussionWithAuthor = await this.prisma.discussion.findUnique({
+        where: { id: discussionId },
+        select: { title: true, userId: true },
+      });
+      
+      if (discussionWithAuthor) {
+        await this.notificationsService.notifyDiscussionReply(
+          discussionWithAuthor.userId,
+          commenterName,
+          discussionWithAuthor.title,
+          discussionId,
+        );
+      }
+    }
 
     return {
       ...comment,
@@ -235,12 +281,58 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
-    if (discussion.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenException('You can only delete your own discussions');
+    // Admin or Facilitator can delete any discussion
+    if (discussion.userId !== userId && userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException('Only administrators and facilitators can delete discussions');
     }
 
     await this.prisma.discussion.delete({ where: { id } });
     return { message: 'Discussion deleted successfully' };
+  }
+
+  async deleteComment(commentId: string, userId: string, userRole: string) {
+    const comment = await this.prisma.discussionComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // Users can delete their own comments, admins can delete any
+    if (comment.userId !== userId && userRole !== 'ADMIN') {
+      throw new ForbiddenException('You can only delete your own comments');
+    }
+
+    await this.prisma.discussionComment.delete({ where: { id: commentId } });
+    return { message: 'Comment deleted successfully' };
+  }
+
+  async updateComment(commentId: string, userId: string, dto: CreateCommentDto) {
+    const comment = await this.prisma.discussionComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // Users can only edit their own comments
+    if (comment.userId !== userId) {
+      throw new ForbiddenException('You can only edit your own comments');
+    }
+
+    const updated = await this.prisma.discussionComment.update({
+      where: { id: commentId },
+      data: { content: dto.content },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+        },
+      },
+    });
+
+    return updated;
   }
 
   // AI Quality Scoring
@@ -279,7 +371,7 @@ export class DiscussionsService {
       },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true },
+          select: { id: true, firstName: true, lastName: true, role: true },
         },
       },
     });
@@ -335,6 +427,22 @@ export class DiscussionsService {
     // Broadcast pin status change in real-time
     this.discussionsGateway.broadcastDiscussionUpdate(updated);
 
+    // Notify cohort members if discussion was pinned
+    if (updated.isPinned && updated.cohortId) {
+      const cohortMembers = await this.prisma.user.findMany({
+        where: { cohortId: updated.cohortId },
+        select: { id: true },
+      });
+
+      for (const member of cohortMembers) {
+        await this.notificationsService.notifyDiscussionPinned(
+          member.id,
+          updated.title,
+          updated.id,
+        );
+      }
+    }
+
     return updated;
   }
 
@@ -358,6 +466,22 @@ export class DiscussionsService {
 
     // Broadcast lock status change in real-time
     this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    // Notify cohort members if discussion was locked
+    if (updated.isLocked && updated.cohortId) {
+      const cohortMembers = await this.prisma.user.findMany({
+        where: { cohortId: updated.cohortId },
+        select: { id: true },
+      });
+
+      for (const member of cohortMembers) {
+        await this.notificationsService.notifyDiscussionLocked(
+          member.id,
+          updated.title,
+          updated.id,
+        );
+      }
+    }
 
     return updated;
   }

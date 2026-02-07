@@ -3,12 +3,14 @@ import { PrismaService } from '../prisma.service';
 import { CreateCohortDto, UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
 import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private chatService: ChatService,
   ) {}
 
   // ============ Cohort Management Methods ============
@@ -48,6 +50,14 @@ export class AdminService {
         state: 'ACTIVE',
         facilitatorId: dto.facilitatorId,
       },
+    });
+
+    // Auto-create default chat channel for this cohort
+    await this.chatService.createChannel({
+      cohortId: cohort.id,
+      name: `${cohort.name} - General Chat`,
+      description: `Main chat room for ${cohort.name} cohort`,
+      type: 'COHORT_WIDE',
     });
 
     // Log admin action

@@ -23,7 +23,7 @@ export class DiscussionsController {
 
   @Post()
   createDiscussion(@Request() req, @Body() dto: CreateDiscussionDto) {
-    return this.discussionsService.createDiscussion(req.user.id, dto);
+    return this.discussionsService.createDiscussion(req.user.id, req.user.role, dto);
   }
 
   @Post(':id/like')
@@ -77,5 +77,21 @@ export class DiscussionsController {
   @ApiOperation({ summary: 'Toggle lock status (Admin only)' })
   toggleLock(@Param('id') id: string, @Request() req) {
     return this.discussionsService.toggleLock(id, req.user.role);
+  }
+
+  @Delete('comments/:commentId')
+  @ApiOperation({ summary: 'Delete a comment (own comments or admin)' })
+  deleteComment(@Param('commentId') commentId: string, @Request() req) {
+    return this.discussionsService.deleteComment(commentId, req.user.id, req.user.role);
+  }
+
+  @Post('comments/:commentId')
+  @ApiOperation({ summary: 'Update own comment' })
+  updateComment(
+    @Param('commentId') commentId: string,
+    @Request() req,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.discussionsService.updateComment(commentId, req.user.id, dto);
   }
 }

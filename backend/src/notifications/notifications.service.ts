@@ -141,6 +141,80 @@ export class NotificationsService {
     });
   }
 
+  async notifyNewDiscussion(
+    userId: string,
+    authorName: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'DISCUSSION_REPLY',
+      title: 'New Discussion',
+      message: `${authorName} started a new discussion: \"${discussionTitle}\"`,
+      data: { discussionId, authorName },
+    });
+  }
+
+  async notifyBulkNewDiscussion(
+    userIds: string[],
+    authorName: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    const notifications = userIds.map((userId) => ({
+      userId,
+      type: 'DISCUSSION_REPLY' as NotificationType,
+      title: 'New Discussion',
+      message: `${authorName} started a new discussion: \"${discussionTitle}\"`,
+      data: { discussionId, authorName },
+    }));
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyChatMessage(
+    userId: string,
+    senderName: string,
+    channelName: string,
+    messagePreview: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'SESSION_REMINDER',
+      title: `New message in ${channelName}`,
+      message: `${senderName}: ${messagePreview}`,
+      data: { senderName, channelName },
+    });
+  }
+
+  async notifyDiscussionPinned(
+    userId: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'SESSION_REMINDER',
+      title: 'Discussion Pinned',
+      message: `\"${discussionTitle}\" has been pinned by an admin`,
+      data: { discussionId },
+    });
+  }
+
+  async notifyDiscussionLocked(
+    userId: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'SESSION_REMINDER',
+      title: 'Discussion Locked',
+      message: `\"${discussionTitle}\" has been locked. No new comments can be added.`,
+      data: { discussionId },
+    });
+  }
+
   // ==================== FETCH NOTIFICATIONS ====================
 
   async getUserNotifications(userId: string, limit: number = 20, unreadOnly: boolean = false) {

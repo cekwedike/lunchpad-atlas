@@ -4,9 +4,10 @@ import { AdminService } from './admin.service';
 import { AdminUserService } from './admin-user.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, ChatModule],
   controllers: [AdminController],
   providers: [AdminService, AdminUserService, PrismaService],
   exports: [AdminService, AdminUserService],

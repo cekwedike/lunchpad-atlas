@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Send,
   Trash2,
+  Edit,
   MoreVertical,
 } from "lucide-react";
 import {
@@ -28,7 +29,7 @@ import {
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { formatDistanceToNow } from "date-fns";
+import { formatToWAT, formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -125,14 +126,18 @@ export default function DiscussionDetailPage() {
     if (!commentText.trim()) return;
     
     try {
-      await createComment.mutateAsync({
+      const result = await createComment.mutateAsync({
         content: commentText,
       });
       setCommentText("");
       emitTyping(discussionId, false);
-      toast.success("Comment posted!");
+      // Manually refetch to ensure fresh data
+      await refetchComments();
+      await refetch();
+      toast.success("Comment posted successfully!");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to post comment");
+      console.error('Comment error:', error);
+      toast.error(error.response?.data?.message || error.message || "Failed to post comment");
     }
   };
 
@@ -162,11 +167,30 @@ export default function DiscussionDetailPage() {
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+    
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/discussions/comments/${commentId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      toast.success("Comment deleted");
+      refetchComments();
+      refetch(); // Update comment count
+    } catch (error: any) {
+      toast.error("Failed to delete comment");
+    }
+  };
+
   const comments = commentsData || [];
   const isAdmin = profile?.role === "ADMIN";
+  const isFacilitator = profile?.role === "FACILITATOR";
   const isOwner = discussion?.userId === profile?.id;
   const isLocked = discussion?.isLocked;
   const isLiked = discussion?.likes?.some((like: any) => like.userId === profile?.id);
+  const canModerateDiscussion = isAdmin || isFacilitator;
 
   if (!discussion) {
     return (
@@ -246,14 +270,15 @@ export default function DiscussionDetailPage() {
                     </div>
                   </Avatar>
                   <span className="font-medium text-gray-700">
-                    {discussion.user?.firstName} {discussion.user?.lastName}
+                    {discussion.user?.firstName}
                   </span>
+                  <Badge className={`text-xs ${getRoleBadgeColor(discussion.user?.role)}`}>
+                    {getRoleDisplayName(discussion.user?.role)}
+                  </Badge>
                 </div>
                 <span>•</span>
-                <span>
-                  {formatDistanceToNow(new Date(discussion.createdAt), {
-                    addSuffix: true,
-                  })}
+                <span title={formatToWAT(discussion.createdAt)}>
+                  {formatRelativeTimeWAT(discussion.createdAt)}
                 </span>
               </div>
 
@@ -324,33 +349,48 @@ export default function DiscussionDetailPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {comments.map((comment: any) => (
-                  <div
-                    key={comment.id}
-                    className="border-l-2 border-gray-200 pl-4 py-2"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-8 w-8 mt-1">
-                        <div className="h-full w-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                          {comment.user?.firstName?.[0]}{comment.user?.lastName?.[0]}
+                {comments.map((comment: any) => {
+                  const isOwnComment = comment.userId === profile?.id;
+                  const canDelete = isOwnComment || isAdmin;
+                  
+                  return (
+                    <div
+                      key={comment.id}
+                      className="border-l-2 border-gray-200 pl-4 py-2 hover:bg-gray-50 rounded-r transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
+                          <div className="h-full w-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                            {comment.user?.firstName?.[0]}{comment.user?.lastName?.[0]}
+                          </div>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="font-medium text-gray-900">
+                              {comment.user?.firstName}
+                            </span>
+                            <Badge className={`text-xs ${getRoleBadgeColor(comment.user?.role)}`}>
+                              {getRoleDisplayName(comment.user?.role)}
+                            </Badge>
+                            <span className="text-sm text-gray-500" title={formatToWAT(comment.createdAt)}>
+                              {formatRelativeTimeWAT(comment.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-gray-700 break-words">{comment.content}</p>
                         </div>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-gray-900">
-                            {comment.user?.firstName} {comment.user?.lastName}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {formatDistanceToNow(new Date(comment.createdAt), {
-                              addSuffix: true,
-                            })}
-                          </span>
-                        </div>
-                        <p className="text-gray-700">{comment.content}</p>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-colors"
+                            title="Delete comment"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

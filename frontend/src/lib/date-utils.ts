@@ -1,4 +1,37 @@
 import { format, formatDistance, formatRelative, subDays, addDays, differenceInDays, differenceInHours, differenceInMinutes, isPast, isFuture } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+
+const WAT_TIMEZONE = 'Africa/Lagos';
+
+/**
+ * Format date to WAT timezone with timestamp
+ * @param date - Date to format
+ * @param formatStr - Format string (default shows like: 'Feb 7, 2026 3:45 PM WAT')
+ */
+export function formatToWAT(date: Date | string, formatStr: string = 'MMM d, yyyy h:mm a'): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  try {
+    const watDate = toZonedTime(dateObj, WAT_TIMEZONE);
+    return format(watDate, formatStr) + ' WAT';
+  } catch (error) {
+    // Fallback if timezone conversion fails
+    return format(dateObj, formatStr) + ' WAT';
+  }
+}
+
+/**
+ * Format relative time in WAT (e.g., "2 hours ago")
+ */
+export function formatRelativeTimeWAT(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  try {
+    const watDate = toZonedTime(dateObj, WAT_TIMEZONE);
+    return formatDistance(watDate, new Date(), { addSuffix: true });
+  } catch (error) {
+    // Fallback
+    return formatDistance(dateObj, new Date(), { addSuffix: true });
+  }
+}
 
 /**
  * Format date to relative time (e.g., "2 hours ago", "in 3 days")
@@ -81,6 +114,38 @@ export function isDatePast(date: Date | string): boolean {
 export function isDateFuture(date: Date | string): boolean {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   return isFuture(dateObj);
+}
+
+/**
+ * Get role badge color classes for Tailwind
+ */
+export function getRoleBadgeColor(role: string): string {
+  switch (role?.toUpperCase()) {
+    case 'ADMIN':
+      return 'bg-red-100 text-red-700 border-red-200';
+    case 'FACILITATOR':
+      return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'FELLOW':
+      return 'bg-green-100 text-green-700 border-green-200';
+    default:
+      return 'bg-gray-100 text-gray-700 border-gray-200';
+  }
+}
+
+/**
+ * Get role display name
+ */
+export function getRoleDisplayName(role: string): string {
+  switch (role?.toUpperCase()) {
+    case 'ADMIN':
+      return 'Admin';
+    case 'FACILITATOR':
+      return 'Facilitator';
+    case 'FELLOW':
+      return 'Fellow';
+    default:
+      return role || 'User';
+  }
 }
 
 /**

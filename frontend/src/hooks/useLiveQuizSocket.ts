@@ -10,7 +10,7 @@ import {
   ResultsShownEvent,
 } from '@/types/live-quiz';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 interface UseLiveQuizSocketOptions {
   quizId: string;
