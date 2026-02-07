@@ -2,7 +2,7 @@ import { Controller, Patch, Body, Get, Param, UseGuards, Request, Query, Put, Po
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminUserService } from './admin-user.service';
-import { UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
+import { CreateCohortDto, UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
 import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -20,6 +20,25 @@ export class AdminController {
     private adminUserService: AdminUserService,
   ) {}
 
+  // ============ Cohort Management Endpoints ============
+
+  @Get('cohorts')
+  @ApiOperation({ summary: 'Get all cohorts (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Cohorts retrieved successfully' })
+  getAllCohorts() {
+    return this.adminService.getAllCohorts();
+  }
+
+  @Post('cohorts')
+  @ApiOperation({ summary: 'Create a new cohort (Admin only)' })
+  @ApiResponse({ status: 201, description: 'Cohort created successfully' })
+  createCohort(
+    @Body() dto: CreateCohortDto,
+    @Request() req
+  ) {
+    return this.adminService.createCohort(dto, req.user.id);
+  }
+
   @Patch('cohorts/:id')
   @ApiOperation({ summary: 'Update cohort details (Admin only)' })
   @ApiParam({ name: 'id', description: 'Cohort ID' })
@@ -32,6 +51,18 @@ export class AdminController {
     @Request() req
   ) {
     return this.adminService.updateCohort(cohortId, dto, req.user.id);
+  }
+
+  @Delete('cohorts/:id')
+  @ApiOperation({ summary: 'Delete a cohort and all its users (Admin only)' })
+  @ApiParam({ name: 'id', description: 'Cohort ID' })
+  @ApiResponse({ status: 200, description: 'Cohort and all users deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Cohort not found' })
+  deleteCohort(
+    @Param('id') cohortId: string,
+    @Request() req
+  ) {
+    return this.adminService.deleteCohort(cohortId, req.user.id);
   }
 
   @Patch('sessions/:id')
@@ -73,15 +104,22 @@ export class AdminController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   getAllUsers(
     @Query('search') search?: string,
-    @Query('role') role?: UserRole,
+    @Query('role') role?: string,
     @Query('cohortId') cohortId?: string,
     @Query('hasActivity') hasActivity?: boolean,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
+    // Parse role parameter - can be single or comma-separated
+    let parsedRole: UserRole | UserRole[] | undefined;
+    if (role) {
+      const roles = role.split(',').map(r => r.trim() as UserRole);
+      parsedRole = roles.length === 1 ? roles[0] : roles;
+    }
+
     return this.adminUserService.getAllUsers({
       search,
-      role,
+      role: parsedRole,
       cohortId,
       hasActivity,
       page: page ? +page : 1,
@@ -157,6 +195,18 @@ export class AdminController {
     return this.adminUserService.bulkUpdateRole(body.userIds, body.role);
   }
 
+  @Delete('users/:id')
+  @ApiOperation({ summary: 'Delete a user' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  deleteUser(
+    @Param('id') userId: string,
+    @Request() req,
+  ) {
+    return this.adminUserService.deleteUser(userId, req.user.id);
+  }
+
   // ============ Resource Management Endpoints ============
 
   @Post('resources')
@@ -171,7 +221,7 @@ export class AdminController {
 
   @Get('resources')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
-  @ApiOperation({ summary: 'Get all resources with optional filters (Admin/Facilitator)' })
+  @ApiOperation({ summary: 'Get all resources with optional filters (Admin/Facilitator only)' })
   @ApiQuery({ name: 'sessionId', required: false })
   @ApiQuery({ name: 'type', required: false, enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'] })
   @ApiQuery({ name: 'search', required: false })

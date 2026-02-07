@@ -1,5 +1,27 @@
-import { IsString, IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsDateString, IsEnum, IsOptional, IsUUID, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+export class CreateCohortDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  startDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  endDate: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  facilitatorId?: string;
+}
 
 export class UpdateCohortDto {
   @ApiProperty({ required: false })

@@ -5,7 +5,7 @@ import { EnhancedEngagementService } from './enhanced-engagement.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
+import { ResourceQueryDto, TrackEngagementDto, AdminUnlockResourceDto } from './dto/resource.dto';
 
 @ApiTags('resources')
 @Controller('resources')
@@ -18,8 +18,8 @@ export class ResourcesController {
   ) {}
 
   @Get()
-  getResources(@Request() req, @Query() query: ResourceQueryDto) {
-    return this.resourcesService.getResources(req.user.id, query);
+  async getResources(@Request() req, @Query() query: ResourceQueryDto) {
+    return await this.resourcesService.getResources(req.user.id, query);
   }
 
   @Get(':id')
@@ -84,5 +84,15 @@ export class ResourcesController {
       cohortId,
       threshold ? parseFloat(threshold) : 0.5,
     );
+  }
+
+  @Post('admin/unlock')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Admin manually unlocks a resource for a specific user' })
+  @ApiResponse({ status: 200, description: 'Resource unlocked successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  adminUnlockResource(@Body() dto: AdminUnlockResourceDto) {
+    return this.resourcesService.adminUnlockResource(dto.userId, dto.resourceId);
   }
 }

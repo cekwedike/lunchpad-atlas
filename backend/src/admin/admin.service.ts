@@ -1,11 +1,64 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
+import { CreateCohortDto, UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
 import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
 
 @Injectable()
 export class AdminService {
   constructor(private prisma: PrismaService) {}
+
+  // ============ Cohort Management Methods ============
+
+  async getAllCohorts() {
+    const cohorts = await this.prisma.cohort.findMany({
+      include: {
+        _count: {
+          select: {
+            fellows: true,
+            sessions: true,
+          },
+        },
+        facilitator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        startDate: 'desc',
+      },
+    });
+
+    return cohorts;
+  }
+
+  async createCohort(dto: CreateCohortDto, adminId: string) {
+    const cohort = await this.prisma.cohort.create({
+      data: {
+        name: dto.name,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        state: 'ACTIVE',
+        facilitatorId: dto.facilitatorId,
+      },
+    });
+
+    // Log admin action
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'CREATE_COHORT',
+        entityType: 'Cohort',
+        entityId: cohort.id,
+        changes: { created: cohort },
+      },
+    });
+
+    return cohort;
+  }
 
   async updateCohort(cohortId: string, dto: UpdateCohortDto, adminId: string) {
     const cohort = await this.prisma.cohort.findUnique({
@@ -33,6 +86,62 @@ export class AdminService {
     });
 
     return updatedCohort;
+  }
+
+  async deleteCohort(cohortId: string, adminId: string) {
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: cohortId },
+      include: {
+        fellows: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!cohort) {
+      throw new NotFoundException('Cohort not found');
+    }
+
+    // Delete all users in the cohort first
+    await this.prisma.user.deleteMany({
+      where: { cohortId },
+    });
+
+    // Delete the cohort
+    await this.prisma.cohort.delete({
+      where: { id: cohortId },
+    });
+
+    // Log admin action
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'DELETE_COHORT',
+        entityType: 'Cohort',
+        entityId: cohortId,
+        changes: {
+          deleted: {
+            cohort: cohort.name,
+            usersDeleted: cohort.fellows.length,
+            users: cohort.fellows.map(u => ({
+              email: u.email,
+              name: `${u.firstName} ${u.lastName}`,
+            })),
+          },
+        },
+      },
+    });
+
+    return {
+      message: 'Cohort and all users deleted successfully',
+      deletedCohort: cohort.name,
+      deletedUsersCount: cohort.fellows.length,
+    };
   }
 
   async updateSession(sessionId: string, dto: UpdateSessionDto, adminId: string) {
@@ -253,7 +362,10 @@ export class AdminService {
     page?: number;
     limit?: number;
   }) {
-    const { sessionId, type, search, page = 1, limit = 50 } = filters || {};
+    const { sessionId, type, search } = filters || {};
+    // Ensure page and limit are numbers
+    const page = Number(filters?.page) || 1;
+    const limit = Number(filters?.limit) || 50;
     const skip = (page - 1) * limit;
 
     const where: any = {};

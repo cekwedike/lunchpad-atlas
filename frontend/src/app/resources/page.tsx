@@ -21,13 +21,15 @@ import {
   Globe,
   Lightbulb,
   Clock,
-  Edit
+  Edit,
+  Unlock
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useResources } from "@/hooks/api/useResources";
+import { useResources, useAdminUnlockResource } from "@/hooks/api/useResources";
 import { useProfile } from "@/hooks/api/useProfile";
+import { useAdminUsers } from "@/hooks/api/useAdmin";
 import { ResourceType, UserRole } from "@/types/api";
 import { getVideoEmbedUrl } from "@/lib/videoUtils";
 
@@ -105,11 +107,16 @@ export default function ResourcesPage() {
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [videoDialog, setVideoDialog] = useState<{ open: boolean; resource?: any }>({ open: false });
+  const [unlockDialog, setUnlockDialog] = useState<{ open: boolean; resource?: any }>({ open: false });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "article" | "video">("all");
 
   const { data: resources } = useResources();
   const { data: profile } = useProfile();
+  const { data: usersData } = useAdminUsers({ role: 'FELLOW,FACILITATOR' });
+  const adminUnlock = useAdminUnlockResource();
+
+  const users = usersData as any;
 
   const isAdmin = profile?.role === UserRole.ADMIN;
   const isFellow = profile?.role === UserRole.FELLOW;
@@ -508,14 +515,30 @@ export default function ResourcesPage() {
                               </div>
 
                               {isAdmin && (
-                                <Link
-                                  href={`/dashboard/admin/resources?edit=${resource.id}`}
-                                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Edit className="h-3 w-3" />
-                                  Edit
-                                </Link>
+                                <div className="flex items-center gap-2">
+                                  {!isUnlocked && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setUnlockDialog({ open: true, resource });
+                                      }}
+                                      className="flex items-center gap-1 text-green-600 hover:text-green-700 border-green-200"
+                                    >
+                                      <Unlock className="h-3 w-3" />
+                                      Unlock
+                                    </Button>
+                                  )}
+                                  <Link
+                                    href={`/dashboard/admin/resources?edit=${resource.id}`}
+                                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                    Edit
+                                  </Link>
+                                </div>
                               )}
 
                               {isUnlocked && !isAdmin && (
@@ -580,6 +603,60 @@ export default function ResourcesPage() {
                   </div>
                   <Button onClick={() => setVideoDialog({ open: false })}>Close</Button>
                 </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Admin Unlock Dialog */}
+        <Dialog open={unlockDialog.open} onOpenChange={(open) => setUnlockDialog({ open })}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Manually Unlock Resource</DialogTitle>
+            </DialogHeader>
+            {unlockDialog.resource && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-semibold text-gray-900 mb-1">{unlockDialog.resource.title}</p>
+                  <p className="text-xs text-gray-600">
+                    Select a user to manually unlock this resource for them, bypassing the 5-day rule.
+                  </p>
+                </div>
+                
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <p className="text-sm font-medium text-gray-700">Select User:</p>
+                  {users?.users?.map((user: any) => (
+                    <Button
+                      key={user.id}
+                      variant="outline"
+                      className="w-full justify-start text-left"
+                      onClick={() => {
+                        adminUnlock.mutate({ 
+                          userId: user.id, 
+                          resourceId: unlockDialog.resource.id 
+                        });
+                        setUnlockDialog({ open: false });
+                      }}
+                      disabled={adminUnlock.isPending}
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">{user.firstName} {user.lastName}</span>
+                        <span className="text-xs text-gray-500">{user.email} • {user.role}</span>
+                      </div>
+                    </Button>
+                  ))}
+                  {(!users?.users || users.users.length === 0) && (
+                    <p className="text-sm text-gray-500 text-center py-4">No fellows or facilitators found</p>
+                  )}
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={() => setUnlockDialog({ open: false })}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
               </div>
             )}
           </DialogContent>

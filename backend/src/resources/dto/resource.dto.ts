@@ -1,4 +1,5 @@
 import { IsOptional, IsString, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class ResourceQueryDto {
   @IsOptional()
@@ -14,9 +15,15 @@ export class ResourceQueryDto {
   search?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(1000)
   limit?: number = 10;
 }
 
@@ -50,5 +57,13 @@ export class TrackEngagementDto {
   @IsOptional()
   @IsString()
   metadata?: string; // JSON string for additional data
+}
+
+export class AdminUnlockResourceDto {
+  @IsString()
+  userId: string;
+
+  @IsString()
+  resourceId: string;
 }
 

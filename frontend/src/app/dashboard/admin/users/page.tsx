@@ -19,160 +19,141 @@ import {
   Users, Search, Download, Plus, Edit, Trash2,
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen
 } from "lucide-react";
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: "FELLOW" | "FACILITATOR" | "ADMIN";
-  joinedDate: string;
-  status: "active" | "inactive";
-  completedResources: number;
-  points?: number; // Only Fellows have points
-  lastActive: string;
-}
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts } from "@/hooks/api/useAdmin";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export default function AdminUsersPage() {
+  const queryClient = useQueryClient();
+  const { data: usersResponse, isLoading } = useAdminUsers();
+  const { data: cohortsData } = useCohorts();
+  const createUser = useCreateUser();
+  const updateUserRole = useUpdateUserRole();
+  const deleteUser = useDeleteUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Extract users from API response
+  const users = usersResponse?.users || [];
+  const totalUsers = usersResponse?.pagination?.total || 0;
+  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
 
   // Form state for add/edit user
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    role: "FELLOW" as User["role"],
+    role: "FELLOW" as "FELLOW" | "FACILITATOR" | "ADMIN",
+    cohortId: "",
   });
 
-  // Mock user data - TODO: Replace with actual API calls
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john.doe@example.com",
-      role: "FELLOW",
-      joinedDate: "2024-01-15",
-      status: "active",
-      completedResources: 45,
-      points: 1250,
-      lastActive: "2 hours ago"
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane.smith@example.com",
-      role: "FACILITATOR",
-      joinedDate: "2023-11-20",
-      status: "active",
-      completedResources: 78,
-      lastActive: "1 day ago"
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike.johnson@example.com",
-      role: "FELLOW",
-      joinedDate: "2024-02-01",
-      status: "active",
-      completedResources: 23,
-      points: 680,
-      lastActive: "5 minutes ago"
-    },
-    {
-      id: 4,
-      name: "Sarah Williams",
-      email: "sarah.williams@example.com",
-      role: "ADMIN",
-      joinedDate: "2023-09-10",
-      status: "active",
-      completedResources: 102,
-      lastActive: "30 minutes ago"
-    },
-    {
-      id: 5,
-      name: "Tom Brown",
-      email: "tom.brown@example.com",
-      role: "FELLOW",
-      joinedDate: "2024-01-20",
-      status: "inactive",
-      completedResources: 12,
-      points: 340,
-      lastActive: "1 week ago"
-    },
-  ]);
+  // Generate auto-password for Fellows and Facilitators
+  const generatePassword = (name: string, role: "FELLOW" | "FACILITATOR" | "ADMIN"): string => {
+    if (role === "ADMIN") {
+      return ""; // Admins set their own password
+    }
+    
+    // Get first name (first 4-5 letters) + current year
+    const firstName = name.split(' ')[0] || name;
+    const namePrefix = firstName.substring(0, Math.min(5, firstName.length)).toLowerCase();
+    const year = new Date().getFullYear();
+    
+    return `${namePrefix}${year}`;
+  };
 
   const handleAddUser = async () => {
     setIsSubmitting(true);
-    // TODO: Replace with actual API call to persist user in database
-    // Example: await fetch('/api/admin/users', { method: 'POST', body: JSON.stringify(formData) })
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newUser: User = {
-      id: Math.max(...users.map(u => u.id)) + 1,
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      joinedDate: new Date().toISOString().split('T')[0],
-      status: "active",
-      completedResources: 0,
-      ...(formData.role === "FELLOW" && { points: 0 }),
-      lastActive: "Just now"
-    };
-    
-    setUsers([...users, newUser]);
-    setIsAddDialogOpen(false);
-    resetForm();
-    setIsSubmitting(false);
+    try {
+      // Generate password if not set (for Fellows/Facilitators)
+      const passwordToUse = formData.password || generatePassword(formData.name, formData.role);
+      
+      // Validate password length
+      if (!passwordToUse || passwordToUse.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const userData: any = {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: passwordToUse,
+        role: formData.role,
+      };
+      
+      // Add cohortId only if Fellow and cohort is selected
+      if (formData.role === "FELLOW" && formData.cohortId) {
+        userData.cohortId = formData.cohortId;
+      }
+      
+      console.log('Creating user with data:', { ...userData, password: '[REDACTED]' });
+
+      await createUser.mutateAsync(userData);
+      
+      setIsAddDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to add user:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditUser = async () => {
     if (!selectedUser) return;
     setIsSubmitting(true);
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setUsers(users.map(user =>
-      user.id === selectedUser.id
-        ? { ...user, name: formData.name, email: formData.email, role: formData.role }
-        : user
-    ));
-    
-    setIsEditDialogOpen(false);
-    setSelectedUser(null);
-    resetForm();
-    setIsSubmitting(false);
+    try {
+      // Only update role for now (password updates would need separate endpoint)
+      if (formData.role !== selectedUser.role) {
+        await updateUserRole.mutateAsync({
+          userId: selectedUser.id,
+          role: formData.role,
+        });
+      }
+      
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to update user:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     setIsSubmitting(true);
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setUsers(users.filter(user => user.id !== selectedUser.id));
-    setIsDeleteDialogOpen(false);
-    setSelectedUser(null);
-    setIsSubmitting(false);
+    try {
+      await deleteUser.mutateAsync(selectedUser.id);
+      
+      setIsDeleteDialogOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const openEditDialog = (user: User) => {
+  const openEditDialog = (user: any) => {
     setSelectedUser(user);
     setFormData({
-      name: user.name,
+      name: `${user.firstName} ${user.lastName}`,
       email: user.email,
       password: "",
       role: user.role,
+      cohortId: user.cohortId || "",
     });
     setIsEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (user: User) => {
+  const openDeleteDialog = (user: any) => {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
@@ -183,12 +164,13 @@ export default function AdminUsersPage() {
       email: "",
       password: "",
       role: "FELLOW",
+      cohortId: "",
     });
     setShowPassword(false);
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredUsers = users.filter((user: any) =>
+    `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -206,17 +188,26 @@ export default function AdminUsersPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    return status === "active" ? "text-emerald-600" : "text-gray-400";
-  };
-
   const stats = {
     totalUsers: users.length,
-    fellows: users.filter(u => u.role === "FELLOW").length,
-    facilitators: users.filter(u => u.role === "FACILITATOR").length,
-    admins: users.filter(u => u.role === "ADMIN").length,
-    activeUsers: users.filter(u => u.status === "active").length,
+    fellows: users.filter((u: any) => u.role === "FELLOW").length,
+    facilitators: users.filter((u: any) => u.role === "FACILITATOR").length,
+    admins: users.filter((u: any) => u.role === "ADMIN").length,
+    activeUsers: users.filter((u: any) => u.isActive).length,
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-600">Loading users...</span>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -344,21 +335,20 @@ export default function AdminUsersPage() {
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Progress</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Points</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Active</th>
                     <th className="text-right py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
+                  {filteredUsers.map((user: any) => (
                     <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                            {user.name.split(' ').map(n => n[0]).join('')}
+                            {`${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase()}
                           </div>
-                          <span className="font-medium text-gray-900">{user.name}</span>
+                          <span className="font-medium text-gray-900">{`${user.firstName} ${user.lastName}`}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6">
@@ -371,34 +361,30 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          {user.status === "active" ? (
-                            <CheckCircle className={`h-4 w-4 ${getStatusColor(user.status)}`} />
+                          {user.isActive ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
                           ) : (
-                            <XCircle className={`h-4 w-4 ${getStatusColor(user.status)}`} />
+                            <XCircle className="h-4 w-4 text-red-600" />
                           )}
-                          <span className={`text-sm font-medium capitalize ${getStatusColor(user.status)}`}>
-                            {user.status}
+                          <span className={`text-sm font-medium capitalize ${user.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                            {user.isActive ? 'active' : 'inactive'}
                           </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900 font-medium">{user.completedResources}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6">
                         {user.role === "FELLOW" ? (
                           <div className="flex items-center gap-2">
                             <Award className="h-4 w-4 text-amber-500" />
-                            <span className="text-sm text-gray-900 font-semibold">{user.points ?? 0}</span>
+                            <span className="text-sm text-gray-900 font-semibold">{user.statistics?.totalPoints ?? 0}</span>
                           </div>
                         ) : (
                           <span className="text-sm text-gray-500">N/A</span>
                         )}
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-sm text-gray-600">{user.lastActive}</span>
+                        <span className="text-sm text-gray-600">
+                          {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString() : 'Never'}
+                        </span>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex justify-end gap-2">
@@ -468,15 +454,67 @@ export default function AdminUsersPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="role" className="text-sm font-medium text-gray-900">User Role</Label>
+                <select
+                  id="role"
+                  value={formData.role}
+                  onChange={(e) => {
+                    const newRole = e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN";
+                    setFormData({ 
+                      ...formData, 
+                      role: newRole,
+                      password: newRole === "ADMIN" ? "" : formData.password,
+                      cohortId: newRole === "FELLOW" ? formData.cohortId : "",
+                    });
+                  }}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="FELLOW">Fellow</option>
+                  <option value="FACILITATOR">Facilitator</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+              
+              {/* Cohort selector - only for Fellows */}
+              {formData.role === "FELLOW" && (
+                <div className="space-y-2">
+                  <Label htmlFor="cohort" className="text-sm font-medium text-gray-900">
+                    Cohort {formData.cohortId ? "" : "(Optional - will default to 2026)"}
+                  </Label>
+                  <select
+                    id="cohort"
+                    value={formData.cohortId}
+                    onChange={(e) => setFormData({ ...formData, cohortId: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Auto-assign to 2026 cohort</option>
+                    {cohorts.map((cohort: any) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name} ({cohort._count?.fellows || 0} members)
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500">
+                    If no cohort is selected, the user will be automatically assigned to the "2026" cohort
+                  </p>
+                </div>
+              )}
+              
+              <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-900">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Create a secure password"
+                    placeholder={
+                      formData.role === "ADMIN" 
+                        ? "Create a secure password" 
+                        : `Auto-generated: ${formData.name ? generatePassword(formData.name, formData.role) : "Enter name first"}`
+                    }
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="bg-gray-50 border-gray-300 text-gray-900 pr-10"
+                    disabled={formData.role !== "ADMIN" && !formData.password}
                   />
                   <button
                     type="button"
@@ -486,20 +524,11 @@ export default function AdminUsersPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">User will use this password to sign in</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-sm font-medium text-gray-900">User Role</Label>
-                <select
-                  id="role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
-                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="FELLOW">Fellow</option>
-                  <option value="FACILITATOR">Facilitator</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
+                <p className="text-xs text-gray-500">
+                  {formData.role === "ADMIN" 
+                    ? "Admin must set a secure password (min 6 characters)" 
+                    : "Password will be auto-generated from name + year (e.g., john2026). You can override it if needed."}
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -513,7 +542,12 @@ export default function AdminUsersPage() {
               </Button>
               <Button 
                 onClick={handleAddUser} 
-                disabled={!formData.name || !formData.email || !formData.password || isSubmitting}
+                disabled={
+                  !formData.name || 
+                  !formData.email || 
+                  (formData.role === "ADMIN" && !formData.password) || 
+                  isSubmitting
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isSubmitting ? (
@@ -585,7 +619,7 @@ export default function AdminUsersPage() {
                 <select
                   id="edit-role"
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN" })}
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="FELLOW">Fellow</option>

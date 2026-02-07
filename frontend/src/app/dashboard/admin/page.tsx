@@ -1,41 +1,64 @@
 "use client";
 
 import { 
-  RefreshCw, Users, Calendar, BookOpen, Activity, Database, Plus, Shield, CheckCircle, 
-  UserPlus, FileText, MessageSquare, Mail
+  RefreshCw, Users, Calendar, BookOpen, Activity, Plus, CheckCircle, 
+  UserPlus, FileText, MessageSquare
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProfile } from "@/hooks/api/useProfile";
+import { useAdminUsers, useAuditLogs, useCohorts } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: usersResponse } = useAdminUsers();
+  const { data: auditLogs } = useAuditLogs(1, 4);
+  const { data: cohortsData } = useCohorts();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Extract user data and calculate stats
+  const users = usersResponse?.users || [];
+  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
+  
   const platformStats = {
-    totalUsers: 156,
-    fellowCount: 125,
-    facilitatorCount: 28,
-    adminCount: 3,
-    cohortCount: 5,
-    resourceCount: 91,
-    activeUsers: 34,
-    storageUsed: "2.4GB",
-    storageCapacity: "10GB",
-    weeklyGrowth: 12,
-    engagementRate: 78,
+    totalUsers: users.length || 0,
+    fellowCount: users.filter((u: any) => u.role === 'FELLOW').length || 0,
+    facilitatorCount: users.filter((u: any) => u.role === 'FACILITATOR').length || 0,
+    adminCount: users.filter((u: any) => u.role === 'ADMIN').length || 0,
+    cohortCount: cohorts.length || 0,
+    resourceCount: 91, // TODO: Fetch from resources endpoint
+    activeUsers: users.filter((u: any) => u.isActive).length || 0,
+    weeklyGrowth: 12, // TODO: Calculate from historical data
+    engagementRate: 78, // TODO: Calculate from activity data
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['profile'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+    queryClient.invalidateQueries({ queryKey: ['cohorts'] });
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsRefreshing(false);
+  };
+
+  const handleAddUser = () => {
+    router.push('/dashboard/admin/users');
+  };
+
+  const handleNewCohort = () => {
+    router.push('/dashboard/admin/cohorts');
+  };
+
+  const handleAddResource = () => {
+    router.push('/dashboard/admin/resources');
   };
 
   return (
@@ -61,7 +84,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Key Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -102,22 +125,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{platformStats.resourceCount}</div>
               <p className="text-xs text-gray-500 mt-1">
-                Across {platformStats.cohortCount} cohorts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-gray-200 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-gray-600">Storage Used</CardTitle>
-                <Database className="h-4 w-4 text-gray-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{platformStats.storageUsed}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                of {platformStats.storageCapacity} capacity
+                Total learning materials
               </p>
             </CardContent>
           </Card>
@@ -182,34 +190,34 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* System Health */}
+          {/* Active Cohorts */}
           <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader className="border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold text-gray-900">System Health</CardTitle>
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Operational
+                <CardTitle className="text-lg font-semibold text-gray-900">Active Cohorts</CardTitle>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  {platformStats.cohortCount} Total
                 </Badge>
               </div>
-              <CardDescription className="text-gray-600">All systems running smoothly</CardDescription>
+              <CardDescription className="text-gray-600">Current program cohorts</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-3">
-                {[
-                  { name: 'API Server', status: 'Healthy', color: 'emerald' },
-                  { name: 'Database', status: 'Connected', color: 'emerald' },
-                  { name: 'Storage', status: '24% Used', color: 'blue' },
-                  { name: 'Cache', status: 'Active', color: 'emerald' },
-                ].map((system, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-2 w-2 rounded-full bg-${system.color}-500 animate-pulse`} />
-                      <span className="text-sm font-medium text-gray-900">{system.name}</span>
+                {cohorts.length > 0 ? (
+                  cohorts.slice(0, 4).map((cohort: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-2 rounded-full bg-blue-500" />
+                        <span className="text-sm font-medium text-gray-900">{cohort.name}</span>
+                      </div>
+                      <span className="text-xs text-gray-600 font-medium">
+                        {cohort.fellows?.length || 0} Fellows
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-600 font-medium">{system.status}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">No cohorts available</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -225,23 +233,33 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
-                {[
-                  { action: 'Created new user', user: 'john.doe@example.com', time: '1 hour ago', icon: UserPlus, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' },
-                  { action: 'Updated cohort settings', user: 'April 2026 Cohort A', time: '3 hours ago', icon: Calendar, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
-                  { action: 'Added new resource', user: 'Advanced Python Module', time: '5 hours ago', icon: BookOpen, iconBg: 'bg-violet-100', iconColor: 'text-violet-600' },
-                  { action: 'Moderated discussion', user: 'React Best Practices', time: '1 day ago', icon: MessageSquare, iconBg: 'bg-amber-100', iconColor: 'text-amber-600' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className={`p-2 rounded-lg ${item.iconBg}`}>
-                      <item.icon className={`h-4 w-4 ${item.iconColor}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{item.action}</p>
-                      <p className="text-sm text-gray-600 truncate">{item.user}</p>
-                      <p className="text-xs text-gray-500 mt-1">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
+                {auditLogs?.data && auditLogs.data.length > 0 ? (
+                  auditLogs.data.map((log: any, i: number) => {
+                    const getActionIcon = (action: string) => {
+                      if (action.includes('user')) return { icon: UserPlus, bg: 'bg-blue-100', color: 'text-blue-600' };
+                      if (action.includes('cohort')) return { icon: Calendar, bg: 'bg-emerald-100', color: 'text-emerald-600' };
+                      if (action.includes('resource')) return { icon: BookOpen, bg: 'bg-violet-100', color: 'text-violet-600' };
+                      return { icon: MessageSquare, bg: 'bg-amber-100', color: 'text-amber-600' };
+                    };
+                    const iconData = getActionIcon(log.action);
+                    return (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className={`p-2 rounded-lg ${iconData.bg}`}>
+                          <iconData.icon className={`h-4 w-4 ${iconData.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{log.action}</p>
+                          <p className="text-sm text-gray-600 truncate">{log.entityType}: {log.entityId}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">No recent actions</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -253,34 +271,30 @@ export default function AdminDashboard() {
               <CardDescription className="text-gray-600">Frequently used admin tools</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Button 
-                  variant="outline" 
+                  variant="outline"
+                  onClick={handleAddUser}
                   className="h-24 flex-col gap-2 bg-white border-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600"
                 >
                   <UserPlus className="h-6 w-6" />
                   <span className="text-sm font-medium">Add User</span>
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="outline"
+                  onClick={handleNewCohort}
                   className="h-24 flex-col gap-2 bg-white border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600"
                 >
                   <Calendar className="h-6 w-6" />
                   <span className="text-sm font-medium">New Cohort</span>
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="outline"
+                  onClick={handleAddResource}
                   className="h-24 flex-col gap-2 bg-white border-gray-300 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-600"
                 >
                   <FileText className="h-6 w-6" />
                   <span className="text-sm font-medium">Add Resource</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="h-24 flex-col gap-2 bg-white border-gray-300 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-600"
-                >
-                  <Database className="h-6 w-6" />
-                  <span className="text-sm font-medium">Backup Data</span>
                 </Button>
               </div>
             </CardContent>

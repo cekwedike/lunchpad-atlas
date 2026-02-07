@@ -116,8 +116,68 @@ export function useCohorts() {
   return useQuery({
     queryKey: ['cohorts'],
     queryFn: async () => {
-      const data = await apiClient.get('/cohorts');
+      const data = await apiClient.get('/admin/cohorts');
       return Array.isArray(data) ? data : [];
+    },
+  });
+}
+
+// Create cohort
+export function useCreateCohort() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { name: string; startDate: string; endDate: string; facilitatorId?: string }) =>
+      apiClient.post('/admin/cohorts', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('Cohort created successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to create cohort', {
+        description: error.message,
+      });
+    },
+  });
+}
+
+// Delete cohort
+export function useDeleteCohort() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (cohortId: string) =>
+      apiClient.delete(`/admin/cohorts/${cohortId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('Cohort and all users deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete cohort', {
+        description: error.message,
+      });
+    },
+  });
+}
+
+// Get all users (for admin)
+export function useAdminUsers(filters?: { role?: string; cohortId?: string; search?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.role) params.append('role', filters.role);
+  if (filters?.cohortId) params.append('cohortId', filters.cohortId);
+  if (filters?.search) params.append('search', filters.search);
+
+  const queryString = params.toString();
+
+  return useQuery({
+    queryKey: ['admin-users', filters],
+    queryFn: async () => {
+      const response = await apiClient.get<any>(`/admin/users${queryString ? `?${queryString}` : ''}`);
+      console.log('Admin users API response:', response);
+      return response;
     },
   });
 }
@@ -131,6 +191,106 @@ export function useSessions(cohortId?: string) {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!cohortId,
+  });
+}
+
+// ============ User Management Hooks ============
+
+// Create user (admin registration)
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { name: string; email: string; password: string; role: 'FELLOW' | 'FACILITATOR' | 'ADMIN' }) =>
+      apiClient.post('/auth/register', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('User created successfully');
+    },
+    onError: (error: any) => {
+      console.error('User creation error:', error);
+      
+      let errorMessage = 'Email may already be in use';
+      
+      // Extract detailed error message
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Handle validation errors
+      if (error.errors) {
+        const validationErrors = Object.entries(error.errors)
+          .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('; ');
+        errorMessage = validationErrors;
+      }
+      
+      toast.error('Failed to create user', {
+        description: errorMessage,
+      });
+    },
+  });
+}
+
+// Update user role
+export function useUpdateUserRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: 'FELLOW' | 'FACILITATOR' | 'ADMIN' }) =>
+      apiClient.put(`/admin/users/${userId}/role`, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('User role updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update user role', {
+        description: error.message,
+      });
+    },
+  });
+}
+
+// Update user cohort
+export function useUpdateUserCohort() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, cohortId }: { userId: string; cohortId: string | null }) =>
+      apiClient.put(`/admin/users/${userId}/cohort`, { cohortId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('User cohort updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update user cohort', {
+        description: error.message,
+      });
+    },
+  });
+}
+
+// Delete user
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiClient.delete(`/admin/users/${userId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('User deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete user', {
+        description: error.message || 'Cannot delete user',
+      });
+    },
   });
 }
 

@@ -4,7 +4,7 @@ import { UserRole } from '@prisma/client';
 
 export interface UserFilters {
   search?: string;
-  role?: UserRole;
+  role?: UserRole | UserRole[];
   cohortId?: string;
   hasActivity?: boolean;
   page?: number;
@@ -48,9 +48,13 @@ export class AdminUserService {
       ];
     }
 
-    // Filter by role
+    // Filter by role(s)
     if (role) {
-      where.role = role;
+      if (Array.isArray(role)) {
+        where.role = { in: role };
+      } else {
+        where.role = role;
+      }
     }
 
     // Filter by cohort
@@ -472,6 +476,57 @@ export class AdminUserService {
         ? Math.round(averageQuizScore._avg.score * 10) / 10
         : 0,
       totalTimeSpentMinutes: totalTimeSpent._sum.timeSpent ? Math.round(totalTimeSpent._sum.timeSpent / 60) : 0,
+    };
+  }
+
+  /**
+   * Delete a user (admin only)
+   */
+  async deleteUser(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Delete the user
+    await this.prisma.user.delete({
+      where: { id: userId },
+    });
+
+    // Log the admin action
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'USER_DELETED',
+        entityType: 'User',
+        entityId: userId,
+        changes: {
+          deleted: {
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            role: user.role,
+          },
+        },
+      },
+    });
+
+    return {
+      message: 'User deleted successfully',
+      deletedUser: {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+      },
     };
   }
 }

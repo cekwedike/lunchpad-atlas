@@ -115,7 +115,10 @@ export class ResourcesService {
   }
 
   async getResources(userId: string, query: ResourceQueryDto) {
-    const { type, sessionId, search, page = 1, limit = 10 } = query;
+    // Ensure page and limit are numbers
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const { type, sessionId, search } = query;
     const skip = (page - 1) * limit;
 
     // Get user role
@@ -461,6 +464,64 @@ export class ResourcesService {
           : resource.type === 'VIDEO'
             ? updatedProgress.watchPercentage >= 85
             : true),
+    };
+  }
+
+  /**
+   * Admin manually unlocks a resource for a specific user
+   * Creates or updates progress record to set state to UNLOCKED
+   */
+  async adminUnlockResource(userId: string, resourceId: string) {
+    // Verify resource exists
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      include: { session: true },
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+
+    // Verify user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Create or update progress record to unlock
+    const progress = await this.prisma.resourceProgress.upsert({
+      where: {
+        userId_resourceId: {
+          userId,
+          resourceId,
+        },
+      },
+      create: {
+        userId,
+        resourceId,
+        state: 'UNLOCKED',
+      },
+      update: {
+        state: 'UNLOCKED',
+      },
+    });
+
+    return {
+      message: `Resource "${resource.title}" manually unlocked for user`,
+      progress,
+      resource: {
+        id: resource.id,
+        title: resource.title,
+        session: resource.session?.title,
+      },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+      },
     };
   }
 }

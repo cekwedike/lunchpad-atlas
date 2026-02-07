@@ -46,6 +46,11 @@ export function Sidebar() {
       icon: LayoutDashboard,
     },
     {
+      title: 'My Cohort',
+      href: '/dashboard/fellow/cohorts',
+      icon: Users,
+    },
+    {
       title: 'Resources',
       href: '/resources',
       icon: BookOpen,
@@ -120,6 +125,11 @@ export function Sidebar() {
       title: 'User Management',
       href: '/dashboard/admin/users',
       icon: Users,
+    },
+    {
+      title: 'Cohort Management',
+      href: '/dashboard/admin/cohorts',
+      icon: GraduationCap,
     },
     {
       title: 'Sessions Management',

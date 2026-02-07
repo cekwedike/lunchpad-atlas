@@ -12,10 +12,16 @@ export function useResources(sessionId?: string) {
   return useQuery({
     queryKey: ['resources', sessionId],
     queryFn: async () => {
-      const endpoint = sessionId ? `/resources?sessionId=${sessionId}` : '/resources';
+      const endpoint = sessionId ? `/resources?sessionId=${sessionId}&limit=1000` : '/resources?limit=1000';
       const response = await apiClient.get<PaginatedResponse<Resource>>(endpoint);
-      // Extract the data array from the paginated response
-      return response.data || [];
+      
+      // Backend returns {data: Resource[], total, page, limit, totalPages}
+      if (response && typeof response === 'object' && 'data' in response) {
+        return response.data || [];
+      }
+      
+      // Fallback if response structure is different
+      return Array.isArray(response) ? response : [];
     },
     enabled: hasToken && !isGuestMode,
     retry: false,
@@ -102,4 +108,19 @@ export function useTrackEngagement(resourceId: string) {
     },
   });
 }
+export function useAdminUnlockResource() {
+  const queryClient = useQueryClient();
 
+  return useMutation({
+    mutationFn: (data: { userId: string; resourceId: string }) =>
+      apiClient.post('/resources/admin/unlock', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resource-progress'] });
+      toast.success('Resource unlocked', 'Resource has been manually unlocked for the user');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to unlock resource', error.message);
+    },
+  });
+}

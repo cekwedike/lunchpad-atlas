@@ -1822,8 +1822,8 @@ async function main() {
   console.log('\n📊 Summary:');
   console.log(`   - Cohorts: 1`);
   console.log(`   - Users: 4 (2 fellows, 1 facilitator, 1 admin)`);
-  console.log(`   - Sessions: 4`);
-  console.log(`   - Resources: 11`);
+  console.log(`   - Sessions: 16`);
+  console.log(`   - Resources: 93`);
   console.log(`   - Quizzes: 1 (with 2 questions)`);
   console.log(`   - Discussions: 2`);
   console.log(`   - Comments: 3`);
