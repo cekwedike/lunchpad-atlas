@@ -19,7 +19,7 @@ import {
   Users, Search, Download, Plus, Edit, Trash2,
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen
 } from "lucide-react";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts } from "@/hooks/api/useAdmin";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ export default function AdminUsersPage() {
   const { data: cohortsData } = useCohorts();
   const createUser = useCreateUser();
   const updateUserRole = useUpdateUserRole();
+  const updateUserCohort = useUpdateUserCohort();
   const deleteUser = useDeleteUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -108,11 +109,27 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
-      // Only update role for now (password updates would need separate endpoint)
+      // Update role if changed
       if (formData.role !== selectedUser.role) {
         await updateUserRole.mutateAsync({
           userId: selectedUser.id,
           role: formData.role,
+        });
+      }
+      
+      // Update cohort if changed (for Fellows only)
+      if (formData.role === 'FELLOW' && formData.cohortId !== selectedUser.cohortId) {
+        await updateUserCohort.mutateAsync({
+          userId: selectedUser.id,
+          cohortId: formData.cohortId || null,
+        });
+      }
+      
+      // If role changed from FELLOW to something else, remove from cohort
+      if (formData.role !== 'FELLOW' && selectedUser.cohortId) {
+        await updateUserCohort.mutateAsync({
+          userId: selectedUser.id,
+          cohortId: null,
         });
       }
       
@@ -334,6 +351,7 @@ export default function AdminUsersPage() {
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Cohort</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Points</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Active</th>
@@ -358,6 +376,17 @@ export default function AdminUsersPage() {
                         <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} font-medium`}>
                           {user.role}
                         </Badge>
+                      </td>
+                      <td className="py-4 px-6">
+                        {user.role === 'FELLOW' ? (
+                          user.cohort ? (
+                            <span className="text-sm text-gray-900 font-medium">{user.cohort.name}</span>
+                          ) : (
+                            <span className="text-sm text-gray-400">No cohort</span>
+                          )
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
@@ -619,7 +648,14 @@ export default function AdminUsersPage() {
                 <select
                   id="edit-role"
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN" })}
+                  onChange={(e) => {
+                    const newRole = e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN";
+                    setFormData({ 
+                      ...formData, 
+                      role: newRole,
+                      cohortId: newRole === "FELLOW" ? formData.cohortId : ""
+                    });
+                  }}
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="FELLOW">Fellow</option>
@@ -627,6 +663,26 @@ export default function AdminUsersPage() {
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>
+              
+              {/* Cohort selector - only for Fellows */}
+              {formData.role === "FELLOW" && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cohort" className="text-sm font-medium text-gray-900">Cohort</Label>
+                  <select
+                    id="edit-cohort"
+                    value={formData.cohortId}
+                    onChange={(e) => setFormData({ ...formData, cohortId: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">No cohort</option>
+                    {cohorts.map((cohort: any) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name} ({cohort._count?.fellows || 0} members)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button 
