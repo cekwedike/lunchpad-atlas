@@ -23,7 +23,7 @@ export class CreateDiscussionDto {
 export class CreateCommentDto {
   @IsString()
   @IsNotEmpty()
-  @MinLength(10)
+  @MinLength(1)
   content: string;
 }
 

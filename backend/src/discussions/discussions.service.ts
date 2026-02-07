@@ -41,12 +41,22 @@ export class DiscussionsService {
   }
 
   async createDiscussion(userId: string, dto: CreateDiscussionDto) {
+    // Get user's cohortId if not provided
+    let cohortId = dto.cohortId;
+    if (!cohortId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { cohortId: true },
+      });
+      cohortId = user?.cohortId || '';
+    }
+
     const discussion = await this.prisma.discussion.create({
       data: {
         title: dto.title,
         content: dto.content,
         userId: userId,
-        cohortId: dto.cohortId || '',
+        cohortId: cohortId,
         resourceId: dto.resourceId || '',
       },
       include: {
