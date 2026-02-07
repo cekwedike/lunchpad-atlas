@@ -8,6 +8,10 @@ export interface Channel {
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
+  cohort?: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface ChatMessage {

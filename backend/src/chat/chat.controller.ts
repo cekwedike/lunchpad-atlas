@@ -36,6 +36,12 @@ export class ChatController {
     return this.chatService.getCohortChannels(cohortId);
   }
 
+  @Get('channels')
+  @Roles(UserRole.ADMIN)
+  getAllChannels() {
+    return this.chatService.getAllChannels();
+  }
+
   @Get('channels/:channelId')
   getChannelById(@Param('channelId') channelId: string) {
     return this.chatService.getChannelById(channelId);

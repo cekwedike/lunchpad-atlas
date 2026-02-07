@@ -171,7 +171,7 @@ export default function DiscussionDetailPage() {
     if (!confirm('Are you sure you want to delete this comment?')) return;
     
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/discussions/comments/${commentId}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/discussions/comments/${commentId}`, {
         method: 'DELETE',
         credentials: 'include',
       });

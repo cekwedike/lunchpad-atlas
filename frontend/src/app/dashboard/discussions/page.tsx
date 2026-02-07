@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation";
 import { useDiscussions } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { useCohortChannels, useChannelMessages } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages } from "@/hooks/api/useChat";
 import { formatDistanceToNow } from "date-fns";
 import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import Link from "next/link";
@@ -42,9 +42,12 @@ export default function DiscussionsPage() {
   const { socket, isConnected } = useDiscussionsSocket();
 
   // Chat functionality
-  const { data: channels } = useCohortChannels(profile?.cohortId);
-  const mainChannel = channels?.[0]; // Get first channel (main chat)
-  const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
+  const isAdmin = profile?.role === 'ADMIN';
+  const { data: cohortChannels } = useCohortChannels(profile?.cohortId);
+  const { data: allChannels } = useAllChannels(isAdmin);
+  const channels = isAdmin ? allChannels : cohortChannels;
+  const mainChannel = channels?.[0];
+  const { data: messages } = useChannelMessages(mainChannel?.id);
 
   // Subscribe to real-time updates
   useEffect(() => {
@@ -92,7 +95,6 @@ export default function DiscussionsPage() {
   );
 
   const canCreateDiscussion = profile?.role === 'ADMIN' || profile?.role === 'FACILITATOR';
-  const cohortChatName = mainChannel?.name?.replace(/ - General Chat$/, '') || 'Cohort Chat';
   const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
 
   return (
@@ -283,35 +285,47 @@ export default function DiscussionsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4">
-                {mainChannel ? (
-                  <Link href="/dashboard/chat" className="block">
-                    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="text-sm text-gray-500">Chat Room</div>
-                          <div className="text-lg font-semibold text-gray-900">
-                            {cohortChatName}
+                {channels && channels.length > 0 ? (
+                  <div className="space-y-3">
+                    {channels.map((channel) => {
+                      const channelTitle = channel.cohort?.name || channel.name.replace(/ - General Chat$/, '');
+                      const isActive = channel.id === mainChannel?.id;
+                      return (
+                        <Link
+                          key={channel.id}
+                          href={`/dashboard/chat?channelId=${channel.id}`}
+                          className="block"
+                        >
+                          <div className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${isActive ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="text-sm text-gray-500">Chat Room</div>
+                                <div className="text-lg font-semibold text-gray-900">
+                                  {channelTitle}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <div className="h-2 w-2 rounded-full bg-green-500" />
+                                <Users className="h-4 w-4" />
+                              </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="text-sm text-gray-600 truncate max-w-[70%]">
+                                {isActive && lastMessage ? lastMessage.content : "Open to view messages"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {isActive && lastMessage ? formatRelativeTimeWAT(lastMessage.createdAt) : ""}
+                              </div>
+                            </div>
+                            <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
+                              Open chat room
+                              <ArrowRight className="h-4 w-4" />
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <div className="h-2 w-2 rounded-full bg-green-500" />
-                          <Users className="h-4 w-4" />
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between">
-                        <div className="text-sm text-gray-600 truncate max-w-[70%]">
-                          {lastMessage ? lastMessage.content : "No messages yet"}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {lastMessage ? formatRelativeTimeWAT(lastMessage.createdAt) : ""}
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
-                        Open chat room
-                        <ArrowRight className="h-4 w-4" />
-                      </div>
-                    </div>
-                  </Link>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div className="text-center py-6 text-gray-500">
                     <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />

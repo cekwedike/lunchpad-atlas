@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Channel, ChatMessage, CreateChannelDto, SendMessageDto } from '@/types/chat';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 // ==================== CHANNELS ====================
 
@@ -19,6 +19,21 @@ export function useCohortChannels(cohortId: string | undefined) {
       return response.json();
     },
     enabled: !!cohortId,
+  });
+}
+
+export function useAllChannels(enabled: boolean) {
+  return useQuery<Channel[]>({
+    queryKey: ['channels', 'all'],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/chat/channels`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch channels');
+      return response.json();
+    },
+    enabled,
   });
 }
 

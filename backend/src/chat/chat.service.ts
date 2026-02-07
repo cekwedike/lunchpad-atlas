@@ -26,6 +26,29 @@ export class ChatService {
         { type: 'asc' },
         { createdAt: 'asc' },
       ],
+      include: {
+        cohort: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+  }
+
+  async getAllChannels() {
+    return this.prisma.channel.findMany({
+      where: {
+        isArchived: false,
+      },
+      orderBy: [
+        { cohortId: 'asc' },
+        { type: 'asc' },
+        { createdAt: 'asc' },
+      ],
+      include: {
+        cohort: {
+          select: { id: true, name: true },
+        },
+      },
     });
   }
 
@@ -66,10 +89,10 @@ export class ChatService {
     // Verify user has access to this cohort
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { cohortId: true },
+      select: { cohortId: true, role: true },
     });
 
-    if (user?.cohortId !== channel.cohortId) {
+    if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
       throw new ForbiddenException('You do not have access to this channel');
     }
 
@@ -116,10 +139,10 @@ export class ChatService {
     const channel = await this.getChannelById(channelId);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { cohortId: true },
+      select: { cohortId: true, role: true },
     });
 
-    if (user?.cohortId !== channel.cohortId) {
+    if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
       throw new ForbiddenException('You do not have access to this channel');
     }
 
@@ -148,6 +171,9 @@ export class ChatService {
         isFlagged: true,
         createdAt: true,
         updatedAt: true,
+        user: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
       },
     });
   }

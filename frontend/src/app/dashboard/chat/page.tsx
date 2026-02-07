@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,20 +15,27 @@ import {
   Users,
   MessageCircle,
 } from "lucide-react";
-import { useCohortChannels, useChannelMessages, useSendMessage } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 
 export default function ChatRoomPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: profile } = useProfile();
   const [chatMessage, setChatMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: channels } = useCohortChannels(profile?.cohortId);
-  const mainChannel = channels?.[0];
-  const cohortChatName = mainChannel?.name?.replace(/ - General Chat$/, '') || 'Cohort Chat';
+  const isAdmin = profile?.role === 'ADMIN';
+  const { data: cohortChannels } = useCohortChannels(profile?.cohortId);
+  const { data: allChannels } = useAllChannels(isAdmin);
+  const channels = isAdmin ? allChannels : cohortChannels;
+  const selectedChannelId = searchParams.get('channelId');
+  const mainChannel = selectedChannelId
+    ? channels?.find((channel) => channel.id === selectedChannelId)
+    : channels?.[0];
+  const cohortChatName = mainChannel?.cohort?.name || mainChannel?.name?.replace(/ - General Chat$/, '') || 'Cohort Chat';
   const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
   const sendMessage = useSendMessage();
 

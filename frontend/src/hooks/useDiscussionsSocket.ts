@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/authStore';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const RAW_SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const SOCKET_URL = RAW_SOCKET_URL.replace(/\/api\/v1\/?$/, '');
 
 export function useDiscussionsSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
