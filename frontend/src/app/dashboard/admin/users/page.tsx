@@ -109,8 +109,18 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
+      const roleChanged = formData.role !== selectedUser.role;
+      const facilitatorCohortUpdated = roleChanged && formData.role === 'FACILITATOR' && !!formData.cohortId;
+
+      if (facilitatorCohortUpdated) {
+        await updateUserCohort.mutateAsync({
+          userId: selectedUser.id,
+          cohortId: formData.cohortId,
+        });
+      }
+
       // Update role if changed
-      if (formData.role !== selectedUser.role) {
+      if (roleChanged) {
         await updateUserRole.mutateAsync({
           userId: selectedUser.id,
           role: formData.role,
@@ -118,7 +128,7 @@ export default function AdminUsersPage() {
       }
       
       // Update cohort if changed (for Fellows and Facilitators)
-      if ((formData.role === 'FELLOW' || formData.role === 'FACILITATOR') && formData.cohortId !== selectedUser.cohortId) {
+      if (!facilitatorCohortUpdated && (formData.role === 'FELLOW' || formData.role === 'FACILITATOR') && formData.cohortId !== selectedUser.cohortId) {
         await updateUserCohort.mutateAsync({
           userId: selectedUser.id,
           cohortId: formData.cohortId || null,
@@ -203,6 +213,26 @@ export default function AdminUsersPage() {
       default:
         return "bg-gray-50 text-gray-700 border-gray-200";
     }
+  };
+
+  const formatLastActive = (user: any) => {
+    if (!user.lastActiveAt) return 'Never';
+
+    const seconds = typeof user.lastActiveSeconds === 'number'
+      ? user.lastActiveSeconds
+      : Math.max(0, Math.floor((Date.now() - new Date(user.lastActiveAt).getTime()) / 1000));
+
+    if (seconds < 5) return 'Just now';
+    if (seconds < 60) return `${seconds}s ago`;
+
+    const minutes = Math.floor(seconds / 60);
+    const minuteRemainder = seconds % 60;
+    if (minutes < 60) return `${minutes}m ${minuteRemainder}s ago`;
+
+    const hours = Math.floor(minutes / 60);
+    const hourRemainderMinutes = minutes % 60;
+    if (hourRemainderMinutes === 0) return `${hours}h ago`;
+    return `${hours}h ${hourRemainderMinutes}m ago`;
   };
 
   const stats = {
@@ -412,7 +442,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-sm text-gray-600">
-                          {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString() : 'Never'}
+                          {formatLastActive(user)}
                         </span>
                       </td>
                       <td className="py-4 px-6">

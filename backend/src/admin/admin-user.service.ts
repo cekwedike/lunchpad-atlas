@@ -116,17 +116,26 @@ export class AdminUserService {
     ]);
 
     const now = new Date();
-    const activeThresholdMs = 7 * 24 * 60 * 60 * 1000;
+    const activeThresholdMs = 60 * 60 * 1000;
 
     const usersWithStatus = users.map((user) => {
       const lastActiveAt = user.lastLoginAt;
-      const isActive = lastActiveAt
-        ? now.getTime() - lastActiveAt.getTime() <= activeThresholdMs
-        : false;
+      const lastActiveMs = lastActiveAt
+        ? now.getTime() - lastActiveAt.getTime()
+        : null;
+      const lastActiveMinutes = lastActiveMs !== null
+        ? Math.max(0, Math.floor(lastActiveMs / 60000))
+        : null;
+      const lastActiveSeconds = lastActiveMs !== null
+        ? Math.max(0, Math.floor(lastActiveMs / 1000))
+        : null;
+      const isActive = lastActiveMs !== null ? lastActiveMs <= activeThresholdMs : false;
 
       return {
         ...user,
         lastActiveAt,
+        lastActiveMinutes,
+        lastActiveSeconds,
         isActive,
         statistics: {
           totalPoints: user.currentMonthPoints,
