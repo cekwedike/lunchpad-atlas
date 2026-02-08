@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 const RAW_SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -18,6 +18,10 @@ interface UseChatSocketOptions {
  */
 export function useChatSocket(options: UseChatSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
+  const joinedChannelRef = useRef<string | null>(null);
+  const pendingChannelRef = useRef<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const {
     userId,
     channelId,
@@ -28,23 +32,45 @@ export function useChatSocket(options: UseChatSocketOptions) {
   } = options;
 
   useEffect(() => {
+    if (!userId) return;
+
     // Initialize socket connection
     socketRef.current = io(`${SOCKET_URL}/chat`, {
       auth: {
         userId,
       },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      timeout: 10000,
     });
 
     const socket = socketRef.current;
 
     // Connection events
     socket.on('connect', () => {
-      console.log('Chat socket connected');
+      setIsConnected(true);
+      setLastError(null);
+      const pendingChannelId = pendingChannelRef.current;
+      if (pendingChannelId) {
+        socket.emit('join_channel', { channelId: pendingChannelId }, (response: any) => {
+          if (response?.success) {
+            joinedChannelRef.current = pendingChannelId;
+            pendingChannelRef.current = null;
+          } else if (response?.error) {
+            setLastError(response.error);
+          }
+        });
+      }
     });
 
     socket.on('disconnect', () => {
-      console.log('Chat socket disconnected');
+      setIsConnected(false);
+    });
+
+    socket.on('connect_error', (error) => {
+      setIsConnected(false);
+      setLastError(error?.message || 'Failed to connect to chat');
     });
 
     // Message events
@@ -67,6 +93,9 @@ export function useChatSocket(options: UseChatSocketOptions) {
 
     // Cleanup
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
       socket.disconnect();
     };
   }, [userId, onNewMessage, onMessageDeleted, onUserTyping, onUserStoppedTyping]);
@@ -76,10 +105,34 @@ export function useChatSocket(options: UseChatSocketOptions) {
     if (!channelId || !socketRef.current) return;
 
     const socket = socketRef.current;
-    socket.emit('join_channel', { channelId });
+
+    if (joinedChannelRef.current && joinedChannelRef.current !== channelId) {
+      socket.emit('leave_channel', { channelId: joinedChannelRef.current });
+      joinedChannelRef.current = null;
+    }
+
+    if (socket.connected) {
+      socket.emit('join_channel', { channelId }, (response: any) => {
+        if (response?.success) {
+          joinedChannelRef.current = channelId;
+        } else if (response?.error) {
+          setLastError(response.error);
+        }
+      });
+    } else {
+      pendingChannelRef.current = channelId;
+    }
 
     return () => {
-      socket.emit('leave_channel', { channelId });
+      if (socket.connected) {
+        socket.emit('leave_channel', { channelId });
+      }
+      if (pendingChannelRef.current === channelId) {
+        pendingChannelRef.current = null;
+      }
+      if (joinedChannelRef.current === channelId) {
+        joinedChannelRef.current = null;
+      }
     };
   }, [channelId]);
 
@@ -118,6 +171,7 @@ export function useChatSocket(options: UseChatSocketOptions) {
     deleteMessage,
     startTyping,
     stopTyping,
-    isConnected: socketRef.current?.connected ?? false,
+    isConnected,
+    lastError,
   };
 }

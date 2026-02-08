@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProfile } from "@/hooks/api/useProfile";
-import { useAdminUsers, useAuditLogs, useCohorts } from "@/hooks/api/useAdmin";
+import { useAdminMetrics, useAuditLogs } from "@/hooks/api/useAdmin";
 import { useRecentDiscussions } from "@/hooks/api/useDiscussions";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -20,34 +20,28 @@ export default function AdminDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: profile, isLoading: profileLoading } = useProfile();
-  const { data: usersResponse } = useAdminUsers();
   const { data: auditLogs } = useAuditLogs(1, 4);
-  const { data: cohortsData } = useCohorts();
   const { data: recentDiscussions } = useRecentDiscussions(5);
+  const { data: metrics } = useAdminMetrics();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Extract user data and calculate stats
-  const users = usersResponse?.users || [];
-  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
-  
   const platformStats = {
-    totalUsers: users.length || 0,
-    fellowCount: users.filter((u: any) => u.role === 'FELLOW').length || 0,
-    facilitatorCount: users.filter((u: any) => u.role === 'FACILITATOR').length || 0,
-    adminCount: users.filter((u: any) => u.role === 'ADMIN').length || 0,
-    cohortCount: cohorts.length || 0,
-    resourceCount: 91, // TODO: Fetch from resources endpoint
-    activeUsers: users.filter((u: any) => u.isActive).length || 0,
-    weeklyGrowth: 12, // TODO: Calculate from historical data
-    engagementRate: 78, // TODO: Calculate from activity data
+    totalUsers: metrics?.totalUsers || 0,
+    fellowCount: metrics?.roleCounts?.fellowCount || 0,
+    facilitatorCount: metrics?.roleCounts?.facilitatorCount || 0,
+    adminCount: metrics?.roleCounts?.adminCount || 0,
+    cohortCount: metrics?.cohortCount || 0,
+    resourceCount: metrics?.resourceCount || 0,
+    activeUsers: metrics?.activeUsers || 0,
+    weeklyGrowth: metrics?.weeklyGrowth || 0,
+    engagementRate: metrics?.engagementRate || 0,
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     queryClient.invalidateQueries({ queryKey: ['profile'] });
-    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
-    queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-metrics'] });
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsRefreshing(false);
   };
@@ -159,7 +153,7 @@ export default function AdminDashboard() {
                   <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                     <div 
                       className="bg-blue-500 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${(platformStats.fellowCount / platformStats.totalUsers) * 100}%` }} 
+                      style={{ width: `${platformStats.totalUsers ? (platformStats.fellowCount / platformStats.totalUsers) * 100 : 0}%` }} 
                     />
                   </div>
                 </div>
@@ -174,7 +168,7 @@ export default function AdminDashboard() {
                   <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                     <div 
                       className="bg-emerald-500 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${(platformStats.facilitatorCount / platformStats.totalUsers) * 100}%` }} 
+                      style={{ width: `${platformStats.totalUsers ? (platformStats.facilitatorCount / platformStats.totalUsers) * 100 : 0}%` }} 
                     />
                   </div>
                 </div>
@@ -189,7 +183,7 @@ export default function AdminDashboard() {
                   <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                     <div 
                       className="bg-violet-500 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${(platformStats.adminCount / platformStats.totalUsers) * 100}%` }} 
+                      style={{ width: `${platformStats.totalUsers ? (platformStats.adminCount / platformStats.totalUsers) * 100 : 0}%` }} 
                     />
                   </div>
                 </div>

@@ -162,19 +162,6 @@ export class ChatService {
       where: whereConditions,
       orderBy: { createdAt: 'desc' },
       take: limit,
-      select: {
-        id: true,
-        channelId: true,
-        userId: true,
-        content: true,
-        isDeleted: true,
-        isFlagged: true,
-        createdAt: true,
-        updatedAt: true,
-        user: {
-          select: { id: true, firstName: true, lastName: true, role: true },
-        },
-      },
     });
   }
 

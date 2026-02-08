@@ -62,12 +62,35 @@ export interface AuditLogsResponse {
   totalPages: number;
 }
 
+export interface PlatformMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  engagementRate: number;
+  weeklyGrowth: number;
+  resourceCount: number;
+  cohortCount: number;
+  roleCounts: {
+    fellowCount: number;
+    facilitatorCount: number;
+    adminCount: number;
+  };
+  newUsersThisWeek: number;
+  newUsersLastWeek: number;
+}
+
 // Get audit logs
 export function useAuditLogs(page: number = 1, limit: number = 50) {
   return useQuery({
     queryKey: ['audit-logs', page, limit],
     queryFn: () => 
       apiClient.get<AuditLogsResponse>(`/admin/audit-logs?page=${page}&limit=${limit}`),
+  });
+}
+
+export function useAdminMetrics() {
+  return useQuery({
+    queryKey: ['admin-metrics'],
+    queryFn: () => apiClient.get<PlatformMetrics>('/admin/metrics'),
   });
 }
 

@@ -65,7 +65,7 @@ describe('DiscussionsService', () => {
 
       mockPrismaService.discussion.create.mockResolvedValue(mockDiscussion);
 
-      const result = await service.createDiscussion(userId, createDto);
+      const result = await service.createDiscussion(userId, 'ADMIN', createDto);
 
       expect(result).toEqual(mockDiscussion);
       expect(mockPrismaService.discussion.create).toHaveBeenCalledWith({

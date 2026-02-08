@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,17 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Send } from "lucide-react";
 import { useCreateDiscussion } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
+import { useResource } from "@/hooks/api/useResources";
 import { toast } from "sonner";
 
 export default function NewDiscussionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: profile } = useProfile();
   const createDiscussion = useCreateDiscussion();
+
+  const resourceId = searchParams.get('resourceId') || undefined;
+  const { data: resource } = useResource(resourceId || "");
   
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -38,6 +43,7 @@ export default function NewDiscussionPage() {
       const result = await createDiscussion.mutateAsync({
         title: title.trim(),
         content: content.trim(),
+        resourceId,
       });
       
       toast.success("Discussion created!");
@@ -54,7 +60,7 @@ export default function NewDiscussionPage() {
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => router.push('/dashboard/discussions')}
+            onClick={() => router.push(resourceId ? `/dashboard/discussions?resourceId=${resourceId}` : '/dashboard/discussions')}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -69,6 +75,23 @@ export default function NewDiscussionPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {resourceId && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="text-sm text-blue-700">Resource discussion</div>
+                  <div className="text-base font-semibold text-blue-900">
+                    {resource?.title || "Selected resource"}
+                  </div>
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push(`/resources/${resourceId}`)}
+                    >
+                      View Resource
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
                 <Input

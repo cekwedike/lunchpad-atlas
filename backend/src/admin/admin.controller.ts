@@ -92,6 +92,12 @@ export class AdminController {
     return this.adminService.getAuditLogs(page, limit);
   }
 
+  @Get('metrics')
+  @ApiOperation({ summary: 'Get platform metrics (Admin only)' })
+  getPlatformMetrics() {
+    return this.adminService.getPlatformMetrics();
+  }
+
   // ============ User Management Endpoints ============
 
   @Get('users')

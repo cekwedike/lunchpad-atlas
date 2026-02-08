@@ -1,26 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import {
   SessionAnalytics,
   CohortAnalytics,
   CohortInsights,
 } from '@/types/sessionAnalytics';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
 // Fetch session analytics
 export function useSessionAnalytics(sessionId: string) {
   return useQuery<SessionAnalytics>({
     queryKey: ['sessionAnalytics', sessionId],
-    queryFn: async () => {
-      const response = await fetch(
-        `${API_URL}/session-analytics/session/${sessionId}`,
-        {
-          credentials: 'include',
-        }
-      );
-      if (!response.ok) throw new Error('Failed to fetch session analytics');
-      return response.json();
-    },
+    queryFn: () => apiClient.get<SessionAnalytics>(`/session-analytics/session/${sessionId}`),
     enabled: !!sessionId,
   });
 }
@@ -29,16 +19,7 @@ export function useSessionAnalytics(sessionId: string) {
 export function useCohortAnalytics(cohortId: string) {
   return useQuery<CohortAnalytics>({
     queryKey: ['cohortAnalytics', cohortId],
-    queryFn: async () => {
-      const response = await fetch(
-        `${API_URL}/session-analytics/cohort/${cohortId}`,
-        {
-          credentials: 'include',
-        }
-      );
-      if (!response.ok) throw new Error('Failed to fetch cohort analytics');
-      return response.json();
-    },
+    queryFn: () => apiClient.get<CohortAnalytics>(`/session-analytics/cohort/${cohortId}`),
     enabled: !!cohortId,
   });
 }
@@ -47,16 +28,15 @@ export function useCohortAnalytics(cohortId: string) {
 export function useCohortInsights(cohortId: string) {
   return useQuery<CohortInsights>({
     queryKey: ['cohortInsights', cohortId],
-    queryFn: async () => {
-      const response = await fetch(
-        `${API_URL}/session-analytics/cohort/${cohortId}/insights`,
-        {
-          credentials: 'include',
-        }
-      );
-      if (!response.ok) throw new Error('Failed to fetch cohort insights');
-      return response.json();
-    },
+    queryFn: () => apiClient.get<CohortInsights>(`/session-analytics/cohort/${cohortId}/insights`),
+    enabled: !!cohortId,
+  });
+}
+
+export function useAnalyticsSummary(cohortId: string) {
+  return useQuery<any>({
+    queryKey: ['analytics-summary', cohortId],
+    queryFn: () => apiClient.get(`/session-analytics/summary/${cohortId}`),
     enabled: !!cohortId,
   });
 }
@@ -73,19 +53,7 @@ export function useProcessSessionTranscript() {
       sessionId: string;
       transcript: string;
     }) => {
-      const response = await fetch(
-        `${API_URL}/session-analytics/process/${sessionId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ transcript }),
-        }
-      );
-      if (!response.ok) throw new Error('Failed to process session transcript');
-      return response.json();
+      return apiClient.post(`/session-analytics/process/${sessionId}`, { transcript });
     },
     onSuccess: (_, { sessionId }) => {
       // Invalidate queries to refetch updated data

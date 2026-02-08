@@ -20,30 +20,36 @@ import {
   Users,
   ArrowRight,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDiscussions } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { useAllChannels, useCohortChannels, useChannelMessages } from "@/hooks/api/useChat";
+import { useResource } from "@/hooks/api/useResources";
 import { formatDistanceToNow } from "date-fns";
 import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import Link from "next/link";
 
 export default function DiscussionsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: profile } = useProfile();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPinned, setFilterPinned] = useState(false);
+
+  const resourceId = searchParams.get('resourceId') || undefined;
+  const { data: resource } = useResource(resourceId || "");
   
   const { data: discussionsData, refetch } = useDiscussions(profile?.cohortId ?? undefined, {
     pinned: filterPinned || undefined,
+    resourceId,
   });
 
   const { socket, isConnected } = useDiscussionsSocket();
 
   // Chat functionality
   const isAdmin = profile?.role === 'ADMIN';
-  const { data: cohortChannels } = useCohortChannels(profile?.cohortId);
+  const { data: cohortChannels } = useCohortChannels(profile?.cohortId ?? undefined);
   const { data: allChannels } = useAllChannels(isAdmin);
   const channels = isAdmin ? allChannels : cohortChannels;
   const mainChannel = channels?.[0];
@@ -118,9 +124,11 @@ export default function DiscussionsPage() {
                 )}
               </div>
               <Button
-                onClick={() => router.push('/dashboard/discussions/new')}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"                disabled={!canCreateDiscussion}
-                title={!canCreateDiscussion ? "Only Admins and Facilitators can create discussions" : ""}              >
+                onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                disabled={!canCreateDiscussion}
+                title={!canCreateDiscussion ? "Only Admins and Facilitators can create discussions" : ""}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Start Discussion
               </Button>
@@ -150,6 +158,33 @@ export default function DiscussionsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {resourceId && (
+              <Card className="bg-blue-50 border-blue-200 shadow-sm flex-shrink-0">
+                <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-blue-700">Filtered by resource</div>
+                    <div className="text-base font-semibold text-blue-900">
+                      {resource?.title || "Resource discussion"}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/resources/${resourceId}`)}
+                    >
+                      View Resource
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push('/dashboard/discussions')}
+                    >
+                      Clear Filter
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
@@ -210,7 +245,7 @@ export default function DiscussionsPage() {
                         </p>
                         {!searchQuery && (
                           <Button
-                            onClick={() => router.push('/dashboard/discussions/new')}
+                            onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
                             className="bg-blue-600 hover:bg-blue-700 text-white"
                           >
                             <Plus className="h-4 w-4 mr-2" />

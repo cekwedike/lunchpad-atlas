@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,8 +17,11 @@ import {
 } from "lucide-react";
 import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
+import { useChatSocket } from "@/hooks/useChatSocket";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
+import type { ChatMessage } from "@/types/chat";
 
 export default function ChatRoomPage() {
   const router = useRouter();
@@ -26,9 +29,11 @@ export default function ChatRoomPage() {
   const { data: profile } = useProfile();
   const [chatMessage, setChatMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   const isAdmin = profile?.role === 'ADMIN';
-  const { data: cohortChannels } = useCohortChannels(profile?.cohortId);
+  const cohortId = (profile?.cohortId ?? undefined) as string | undefined;
+  const { data: cohortChannels } = useCohortChannels(cohortId);
   const { data: allChannels } = useAllChannels(isAdmin);
   const channels = isAdmin ? allChannels : cohortChannels;
   const selectedChannelId = searchParams.get('channelId');
@@ -39,21 +44,41 @@ export default function ChatRoomPage() {
   const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
   const sendMessage = useSendMessage();
 
+  const handleSocketNewMessage = useCallback((message: ChatMessage) => {
+    if (!mainChannel?.id || message.channelId !== mainChannel.id) return;
+
+    queryClient.setQueryData<ChatMessage[]>(['messages', mainChannel.id, 50], (current) => {
+      if (!current) return [message];
+      if (current.some((existing) => existing.id === message.id)) return current;
+      return [...current, message];
+    });
+  }, [mainChannel?.id, queryClient]);
+
+  const handleSocketMessageDeleted = useCallback((data: { messageId: string; channelId: string }) => {
+    if (!mainChannel?.id || data.channelId !== mainChannel.id) return;
+
+    queryClient.setQueryData<ChatMessage[]>(['messages', mainChannel.id, 50], (current) => {
+      if (!current) return current;
+      return current.filter((message) => message.id !== data.messageId);
+    });
+  }, [mainChannel?.id, queryClient]);
+
+  const { isConnected, lastError } = useChatSocket({
+    userId: profile?.id || "",
+    channelId: mainChannel?.id,
+    onNewMessage: handleSocketNewMessage,
+    onMessageDeleted: handleSocketMessageDeleted,
+  });
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-refresh messages every 3 seconds
   useEffect(() => {
-    if (!mainChannel?.id) return;
-    
-    const interval = setInterval(() => {
-      refetchMessages();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [mainChannel?.id, refetchMessages]);
+    if (!mainChannel?.id || !lastError) return;
+    refetchMessages();
+  }, [mainChannel?.id, lastError, refetchMessages]);
 
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !mainChannel) return;
@@ -93,6 +118,12 @@ export default function ChatRoomPage() {
               <ArrowLeft className="h-4 w-4" />
               Back to Discussions
             </Button>
+            <div className="flex items-center gap-2 text-xs">
+              <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className="text-gray-600">
+                {isConnected ? 'Live' : 'Reconnecting'}
+              </span>
+            </div>
           </div>
 
           {/* Chat Card */}

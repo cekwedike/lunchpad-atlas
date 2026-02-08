@@ -133,13 +133,20 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
                 </AlertDescription>
               </Alert>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Button
                   onClick={() => window.open(resource.url, "_blank", "noopener,noreferrer")}
                   className="flex-1"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open Article
+                </Button>
+                <Button
+                  onClick={() => router.push(`/dashboard/discussions?resourceId=${resource.id}`)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Discuss Resource
                 </Button>
                 <Button 
                   onClick={handleMarkComplete} 
@@ -231,7 +238,7 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
               </Alert>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               {!isVideoSupported && (
                 <Button
                   onClick={() => window.open(resource.url, "_blank", "noopener,noreferrer")}
@@ -241,6 +248,13 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
                   Open Video
                 </Button>
               )}
+              <Button
+                onClick={() => router.push(`/dashboard/discussions?resourceId=${resource.id}`)}
+                variant="outline"
+                className="flex-1"
+              >
+                Discuss Resource
+              </Button>
               <Button 
                 onClick={handleMarkComplete} 
                 variant={isVideoSupported ? "default" : "outline"}

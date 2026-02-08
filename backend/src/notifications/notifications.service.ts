@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { NotificationType } from '@prisma/client';
+import { EmailService } from '../email/email.service';
 
 export interface CreateNotificationDto {
   userId: string;
@@ -12,12 +14,16 @@ export interface CreateNotificationDto {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private configService: ConfigService,
+  ) {}
 
   // ==================== CREATE NOTIFICATIONS ====================
 
   async createNotification(dto: CreateNotificationDto) {
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId: dto.userId,
         type: dto.type,
@@ -26,10 +32,16 @@ export class NotificationsService {
         data: dto.data || {},
       },
     });
+
+    this.sendNotificationEmail(dto).catch((error) => {
+      console.error('Failed to send notification email:', error);
+    });
+
+    return notification;
   }
 
   async createBulkNotifications(notifications: CreateNotificationDto[]) {
-    return this.prisma.notification.createMany({
+    const result = await this.prisma.notification.createMany({
       data: notifications.map((n) => ({
         userId: n.userId,
         type: n.type,
@@ -38,6 +50,81 @@ export class NotificationsService {
         data: n.data || {},
       })),
     });
+
+    this.sendBulkNotificationEmails(notifications).catch((error) => {
+      console.error('Failed to send bulk notification emails:', error);
+    });
+
+    return result;
+  }
+
+  private isEmailEnabled(): boolean {
+    return this.configService.get('EMAIL_NOTIFICATIONS_ENABLED') === 'true';
+  }
+
+  private buildActionUrl(data?: any): string | undefined {
+    const baseUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+
+    if (!data) return undefined;
+
+    if (data.discussionId) return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
+    if (data.resourceId) return `${baseUrl}/dashboard/resources/${data.resourceId}`;
+    if (data.sessionId) return `${baseUrl}/dashboard/sessions/${data.sessionId}`;
+    if (data.quizId) return `${baseUrl}/dashboard/quizzes/${data.quizId}`;
+
+    return undefined;
+  }
+
+  private async sendNotificationEmail(dto: CreateNotificationDto) {
+    if (!this.isEmailEnabled()) return;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+      select: { email: true, firstName: true },
+    });
+
+    if (!user?.email) return;
+
+    const actionUrl = this.buildActionUrl(dto.data);
+
+    await this.emailService.sendNotificationEmail(user.email, {
+      firstName: user.firstName || 'there',
+      title: dto.title,
+      message: dto.message,
+      actionUrl,
+      actionText: actionUrl ? 'View details' : undefined,
+    });
+  }
+
+  private async sendBulkNotificationEmails(notifications: CreateNotificationDto[]) {
+    if (!this.isEmailEnabled()) return;
+
+    const userIds = Array.from(new Set(notifications.map((notification) => notification.userId)));
+    if (userIds.length === 0) return;
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true, firstName: true },
+    });
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    await Promise.all(
+      notifications.map((notification) => {
+        const user = userMap.get(notification.userId);
+        if (!user?.email) return Promise.resolve();
+
+        const actionUrl = this.buildActionUrl(notification.data);
+
+        return this.emailService.sendNotificationEmail(user.email, {
+          firstName: user.firstName || 'there',
+          title: notification.title,
+          message: notification.message,
+          actionUrl,
+          actionText: actionUrl ? 'View details' : undefined,
+        });
+      }),
+    );
   }
 
   // ==================== HELPER METHODS ====================

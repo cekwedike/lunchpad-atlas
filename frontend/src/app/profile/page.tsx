@@ -12,6 +12,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { EmptyState } from "@/components/EmptyState";
 import { StatCard } from "@/components/StatCard";
 import { useProfile, useUserAchievements, useUserStats } from "@/hooks/api/useProfile";
+import { useUpdateProfile } from "@/hooks/api/useAuth";
 import { UserRole } from "@/types/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,6 +33,7 @@ export default function ProfilePage() {
   const { data: profile, isLoading: isLoadingProfile, error: profileError, refetch: refetchProfile } = useProfile();
   const { data: achievements, isLoading: isLoadingAchievements } = useUserAchievements();
   const { data: stats, isLoading: isLoadingStats } = useUserStats();
+  const updateProfile = useUpdateProfile();
   
   const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileUpdateData>({
     resolver: zodResolver(profileUpdateSchema),
@@ -42,13 +44,24 @@ export default function ProfilePage() {
   });
 
   const onSubmit = async (data: ProfileUpdateData) => {
-    // TODO: Implement update profile mutation when available
-    console.log('Update profile:', data);
-    setIsEditing(false);
+    try {
+      await updateProfile.mutateAsync({
+        name: data.name,
+        email: data.email,
+      });
+      await refetchProfile();
+      reset({ name: data.name, email: data.email });
+      setIsEditing(false);
+    } catch (error) {
+      // Errors are handled in the hook
+    }
   };
 
   const handleCancelEdit = () => {
-    reset();
+    reset({
+      name: profile?.name || '',
+      email: profile?.email || '',
+    });
     setIsEditing(false);
   };
 

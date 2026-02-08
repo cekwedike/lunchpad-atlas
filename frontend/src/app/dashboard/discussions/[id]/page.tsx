@@ -26,6 +26,7 @@ import {
   useLikeDiscussion,
   useTogglePin,
   useToggleLock,
+  useScoreDiscussionQuality,
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
@@ -54,6 +55,7 @@ export default function DiscussionDetailPage() {
   const likeDiscussion = useLikeDiscussion(discussionId);
   const togglePin = useTogglePin();
   const toggleLock = useToggleLock();
+  const scoreDiscussionQuality = useScoreDiscussionQuality(discussionId);
   
   const { socket, isConnected, subscribeToDiscussion, unsubscribeFromDiscussion, emitTyping } = useDiscussionsSocket();
 
@@ -167,6 +169,15 @@ export default function DiscussionDetailPage() {
     }
   };
 
+  const handleScoreQuality = async () => {
+    try {
+      await scoreDiscussionQuality.mutateAsync();
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to score discussion");
+    }
+  };
+
   const handleDeleteComment = async (commentId: string) => {
     if (!confirm('Are you sure you want to delete this comment?')) return;
     
@@ -191,6 +202,8 @@ export default function DiscussionDetailPage() {
   const isLocked = discussion?.isLocked;
   const isLiked = discussion?.likes?.some((like: any) => like.userId === profile?.id);
   const canModerateDiscussion = isAdmin || isFacilitator;
+  const canScoreQuality = canModerateDiscussion;
+  const qualityAnalysis = (discussion?.qualityAnalysis || {}) as any;
 
   if (!discussion) {
     return (
@@ -262,6 +275,81 @@ export default function DiscussionDetailPage() {
 
               <p className="text-gray-700 whitespace-pre-wrap">{discussion.content}</p>
 
+              <div className="rounded-lg border bg-slate-50 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">Quality Score</div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-bold text-gray-900">
+                        {discussion.qualityScore ?? "--"}
+                      </span>
+                      {qualityAnalysis?.badge && (
+                        <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
+                          {qualityAnalysis.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    {discussion.scoredAt ? (
+                      <div className="text-xs text-gray-500" title={formatToWAT(discussion.scoredAt)}>
+                        Scored {formatRelativeTimeWAT(discussion.scoredAt)}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500">Not scored yet</div>
+                    )}
+                  </div>
+                  {canScoreQuality && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleScoreQuality}
+                      disabled={scoreDiscussionQuality.isPending}
+                      className="shrink-0"
+                    >
+                      {discussion.qualityScore ? "Rescore" : "Score now"}
+                    </Button>
+                  )}
+                </div>
+
+                {(qualityAnalysis?.depth || qualityAnalysis?.relevance || qualityAnalysis?.constructiveness) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-md bg-white border p-3">
+                      <div className="text-xs text-gray-500">Depth</div>
+                      <div className="font-semibold text-gray-900">{qualityAnalysis.depth ?? "--"}/10</div>
+                    </div>
+                    <div className="rounded-md bg-white border p-3">
+                      <div className="text-xs text-gray-500">Relevance</div>
+                      <div className="font-semibold text-gray-900">{qualityAnalysis.relevance ?? "--"}/10</div>
+                    </div>
+                    <div className="rounded-md bg-white border p-3">
+                      <div className="text-xs text-gray-500">Constructiveness</div>
+                      <div className="font-semibold text-gray-900">{qualityAnalysis.constructiveness ?? "--"}/10</div>
+                    </div>
+                  </div>
+                )}
+
+                {Array.isArray(qualityAnalysis?.insights) && qualityAnalysis.insights.length > 0 && (
+                  <div className="text-sm">
+                    <div className="font-semibold text-gray-900 mb-1">Insights</div>
+                    <ul className="list-disc pl-5 text-gray-700">
+                      {qualityAnalysis.insights.map((insight: string, index: number) => (
+                        <li key={`insight-${index}`}>{insight}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {Array.isArray(qualityAnalysis?.suggestions) && qualityAnalysis.suggestions.length > 0 && (
+                  <div className="text-sm">
+                    <div className="font-semibold text-gray-900 mb-1">Suggestions</div>
+                    <ul className="list-disc pl-5 text-gray-700">
+                      {qualityAnalysis.suggestions.map((suggestion: string, index: number) => (
+                        <li key={`suggestion-${index}`}>{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-4 text-sm text-gray-500 pt-4 border-t">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
@@ -272,9 +360,11 @@ export default function DiscussionDetailPage() {
                   <span className="font-medium text-gray-700">
                     {discussion.user?.firstName}
                   </span>
-                  <Badge className={`text-xs ${getRoleBadgeColor(discussion.user?.role)}`}>
-                    {getRoleDisplayName(discussion.user?.role)}
-                  </Badge>
+                  {discussion.user?.role && (
+                    <Badge className={`text-xs ${getRoleBadgeColor(discussion.user.role)}`}>
+                      {getRoleDisplayName(discussion.user.role)}
+                    </Badge>
+                  )}
                 </div>
                 <span>•</span>
                 <span title={formatToWAT(discussion.createdAt)}>

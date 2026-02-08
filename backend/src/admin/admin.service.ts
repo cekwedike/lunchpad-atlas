@@ -250,6 +250,74 @@ export class AdminService {
     };
   }
 
+  async getPlatformMetrics() {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    const fourteenDaysAgo = new Date(now);
+    fourteenDaysAgo.setDate(now.getDate() - 14);
+
+    const [
+      totalUsers,
+      activeUsers,
+      resourceCount,
+      cohortCount,
+      fellowCount,
+      facilitatorCount,
+      adminCount,
+      newUsersThisWeek,
+      newUsersLastWeek,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({
+        where: {
+          OR: [
+            { resourceProgress: { some: {} } },
+            { discussions: { some: {} } },
+            { quizResponses: { some: {} } },
+          ],
+        },
+      }),
+      this.prisma.resource.count(),
+      this.prisma.cohort.count(),
+      this.prisma.user.count({ where: { role: 'FELLOW' } }),
+      this.prisma.user.count({ where: { role: 'FACILITATOR' } }),
+      this.prisma.user.count({ where: { role: 'ADMIN' } }),
+      this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      this.prisma.user.count({
+        where: {
+          createdAt: {
+            gte: fourteenDaysAgo,
+            lt: sevenDaysAgo,
+          },
+        },
+      }),
+    ]);
+
+    const weeklyGrowth = newUsersLastWeek === 0
+      ? (newUsersThisWeek > 0 ? 100 : 0)
+      : Math.round(((newUsersThisWeek - newUsersLastWeek) / newUsersLastWeek) * 100);
+    const engagementRate = totalUsers === 0
+      ? 0
+      : Math.round((activeUsers / totalUsers) * 100);
+
+    return {
+      totalUsers,
+      activeUsers,
+      engagementRate,
+      weeklyGrowth,
+      resourceCount,
+      cohortCount,
+      roleCounts: {
+        fellowCount,
+        facilitatorCount,
+        adminCount,
+      },
+      newUsersThisWeek,
+      newUsersLastWeek,
+    };
+  }
+
   // ============ Resource Management ============
 
   async createResource(dto: CreateResourceDto, adminId: string) {

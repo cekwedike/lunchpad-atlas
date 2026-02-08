@@ -53,7 +53,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get user's cohort and join cohort room
       const user = await this.chatService['prisma'].user.findUnique({
         where: { id: userId },
-        select: { cohortId: true },
+        select: { cohortId: true, role: true },
       });
 
       if (user?.cohortId) {
@@ -90,10 +90,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const channel = await this.chatService.getChannelById(data.channelId);
       const user = await this.chatService['prisma'].user.findUnique({
         where: { id: userId },
-        select: { cohortId: true },
+        select: { cohortId: true, role: true },
       });
 
-      if (user?.cohortId !== channel.cohortId) {
+      if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
         throw new Error('Access denied to this channel');
       }
 

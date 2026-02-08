@@ -144,3 +144,21 @@ export function useToggleLock() {
     },
   });
 }
+
+// Admin/Facilitator: AI score discussion quality
+export function useScoreDiscussionQuality(discussionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.post<Discussion>(`/discussions/${discussionId}/score-quality`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussion', discussionId] });
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      toast.success('Quality score updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to score discussion', error.message);
+    },
+  });
+}

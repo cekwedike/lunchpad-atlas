@@ -77,7 +77,7 @@ export default function DiscussionsAndChatPage() {
                   </div>
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <Users className="h-4 w-4" />
-                    <span>{profile?.cohort?.name || "No cohort"}</span>
+                    <span>{profile?.cohortId || "No cohort"}</span>
                   </div>
                 </CardTitle>
               </CardHeader>
