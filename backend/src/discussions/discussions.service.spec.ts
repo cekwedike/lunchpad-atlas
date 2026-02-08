@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { DiscussionsService } from './discussions.service';
 import { PrismaService } from '../prisma.service';
+import { DiscussionScoringService } from './discussion-scoring.service';
+import { DiscussionsGateway } from './discussions.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('DiscussionsService', () => {
   let service: DiscussionsService;
@@ -24,6 +27,33 @@ describe('DiscussionsService', () => {
       create: jest.fn(),
       delete: jest.fn(),
     },
+    resource: {
+      findUnique: jest.fn(),
+    },
+    session: {
+      findUnique: jest.fn(),
+    },
+    pointsLog: {
+      create: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
+  };
+
+  const mockDiscussionScoringService = {
+    scoreDiscussion: jest.fn(),
+  };
+
+  const mockDiscussionsGateway = {
+    broadcastNewDiscussion: jest.fn(),
+    broadcastNewComment: jest.fn(),
+  };
+
+  const mockNotificationsService = {
+    notifyBulkNewDiscussion: jest.fn(),
+    notifyDiscussionReply: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,6 +61,9 @@ describe('DiscussionsService', () => {
       providers: [
         DiscussionsService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: DiscussionScoringService, useValue: mockDiscussionScoringService },
+        { provide: DiscussionsGateway, useValue: mockDiscussionsGateway },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -52,6 +85,19 @@ describe('DiscussionsService', () => {
         resourceId: 'resource-1',
       };
 
+      mockPrismaService.resource.findUnique.mockResolvedValue({
+        id: 'resource-1',
+        sessionId: 'session-1',
+        session: { cohortId: 'cohort-1' },
+      });
+      mockPrismaService.session.findUnique.mockResolvedValue({
+        id: 'session-1',
+        sessionNumber: 1,
+        title: 'Session 1',
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: userId });
+      mockPrismaService.user.findMany.mockResolvedValue([]);
+
       const mockDiscussion = {
         id: 'disc-1',
         ...createDto,
@@ -61,13 +107,23 @@ describe('DiscussionsService', () => {
           firstName: 'John',
           lastName: 'Doe',
         },
+        resource: {
+          id: 'resource-1',
+          title: 'Resource Title',
+        },
       };
 
       mockPrismaService.discussion.create.mockResolvedValue(mockDiscussion);
 
       const result = await service.createDiscussion(userId, 'ADMIN', createDto);
 
-      expect(result).toEqual(mockDiscussion);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockDiscussion.id,
+          title: mockDiscussion.title,
+          pointsAwarded: 5,
+        }),
+      );
       expect(mockPrismaService.discussion.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           title: createDto.title,
@@ -189,7 +245,12 @@ describe('DiscussionsService', () => {
         },
       };
 
-      mockPrismaService.discussion.findUnique.mockResolvedValue(mockDiscussion);
+      mockPrismaService.discussion.findUnique.mockResolvedValue({
+        ...mockDiscussion,
+        isLocked: false,
+        userId,
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: userId });
       mockPrismaService.discussionComment.create.mockResolvedValue(mockComment);
 
       const result = await service.createComment(
