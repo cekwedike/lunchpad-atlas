@@ -538,6 +538,19 @@ export class DiscussionsService {
     }
 
     await this.prisma.discussionComment.delete({ where: { id: commentId } });
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: comment.discussionId },
+      select: { cohortId: true },
+    });
+
+    if (discussion?.cohortId) {
+      this.discussionsGateway.broadcastCommentDeleted(
+        comment.discussionId,
+        commentId,
+        discussion.cohortId,
+      );
+    }
     return { message: 'Comment deleted successfully' };
   }
 

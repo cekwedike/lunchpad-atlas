@@ -34,6 +34,8 @@ import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 import type { CommentReactionType } from "@/types/api";
+import { apiClient } from "@/lib/api-client";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,8 +52,12 @@ export default function DiscussionDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; author?: string } | null>(null);
   const [deleteDiscussionModalOpen, setDeleteDiscussionModalOpen] = useState(false);
+  const [deleteCommentModalOpen, setDeleteCommentModalOpen] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<{ id: string; content?: string } | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const queryClient = useQueryClient();
   
   const { data: discussion, refetch } = useDiscussion(discussionId);
   const { data: commentsData, refetch: refetchComments } = useDiscussionComments(discussionId);
@@ -92,6 +98,18 @@ export default function DiscussionDetailPage() {
       }
     };
 
+    const handleCommentDeleted = (data: any) => {
+      if (data.discussionId !== discussionId) return;
+
+      queryClient.setQueryData(['discussion-comments', discussionId], (current: any) => {
+        if (!Array.isArray(current)) return current;
+        return current.filter(
+          (comment: any) => comment.id !== data.commentId && comment.parentId !== data.commentId,
+        );
+      });
+      refetch();
+    };
+
     const handleUserTyping = (data: any) => {
       if (data.discussionId === discussionId && data.userId !== profile?.id) {
         setTypingUsers((prev) => {
@@ -108,14 +126,16 @@ export default function DiscussionDetailPage() {
 
     socket.on('discussion:updated', handleDiscussionUpdated);
     socket.on('discussion:new_comment', handleNewComment);
+    socket.on('discussion:comment_deleted', handleCommentDeleted);
     socket.on('discussion:user_typing', handleUserTyping);
 
     return () => {
       socket.off('discussion:updated', handleDiscussionUpdated);
       socket.off('discussion:new_comment', handleNewComment);
+      socket.off('discussion:comment_deleted', handleCommentDeleted);
       socket.off('discussion:user_typing', handleUserTyping);
     };
-  }, [socket, discussionId, profile?.id, refetch, refetchComments]);
+  }, [socket, discussionId, profile?.id, queryClient, refetch, refetchComments]);
 
   // Handle typing indicator
   const handleTyping = () => {
@@ -186,20 +206,29 @@ export default function DiscussionDetailPage() {
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Are you sure you want to delete this comment?')) return;
-    
+  const handleDeleteComment = async () => {
+    if (!commentToDelete) return;
+
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/discussions/comments/${commentId}`, {
-        method: 'DELETE',
-        credentials: 'include',
+      setIsDeletingComment(true);
+      await apiClient.delete(`/discussions/comments/${commentToDelete.id}`);
+
+      queryClient.setQueryData(['discussion-comments', discussionId], (current: any) => {
+        if (!Array.isArray(current)) return current;
+        return current.filter(
+          (comment: any) => comment.id !== commentToDelete.id && comment.parentId !== commentToDelete.id,
+        );
       });
-      
+
       toast.success("Comment deleted");
+      setDeleteCommentModalOpen(false);
+      setCommentToDelete(null);
       refetchComments();
-      refetch(); // Update comment count
+      refetch();
     } catch (error: any) {
       toast.error("Failed to delete comment");
+    } finally {
+      setIsDeletingComment(false);
     }
   };
 
@@ -331,7 +360,10 @@ export default function DiscussionDetailPage() {
               )}
               {canDelete && (
                 <button
-                  onClick={() => handleDeleteComment(comment.id)}
+                  onClick={() => {
+                    setCommentToDelete({ id: comment.id, content: comment.content });
+                    setDeleteCommentModalOpen(true);
+                  }}
                   className="text-xs text-red-600 hover:text-red-700"
                 >
                   Delete
@@ -639,6 +671,39 @@ export default function DiscussionDetailPage() {
                 }}
               >
                 Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteCommentModalOpen && commentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">Delete comment</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to delete this comment? This cannot be undone.
+            </p>
+            {commentToDelete.content && (
+              <p className="mt-3 text-sm text-gray-500 line-clamp-3">
+                “{commentToDelete.content}”
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteCommentModalOpen(false);
+                  setCommentToDelete(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleDeleteComment}
+                disabled={isDeletingComment}
+              >
+                {isDeletingComment ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           </div>

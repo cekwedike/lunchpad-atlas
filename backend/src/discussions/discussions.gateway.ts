@@ -108,6 +108,13 @@ export class DiscussionsGateway
     });
   }
 
+  broadcastCommentDeleted(discussionId: string, commentId: string, cohortId: string) {
+    this.server.to(`cohort:${cohortId}`).emit('discussion:comment_deleted', {
+      discussionId,
+      commentId,
+    });
+  }
+
   broadcastDiscussionDeleted(discussionId: string, cohortId: string) {
     this.server
       .to(`cohort:${cohortId}`)
