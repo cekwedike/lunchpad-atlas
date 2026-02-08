@@ -12,6 +12,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,7 +23,10 @@ import { UserRole } from '@prisma/client';
 @Controller('chat')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ChatController {
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private chatGateway: ChatGateway,
+  ) {}
 
   // ==================== CHANNELS ====================
 
@@ -75,13 +79,23 @@ export class ChatController {
     @Param('channelId') channelId: string,
     @Request() req: any,
   ) {
-    return this.chatService.toggleChannelLock(channelId, req.user.id);
+    return this.chatService.toggleChannelLock(channelId, req.user.id).then((updated) => {
+      this.chatGateway.emitChannelLockUpdated(
+        updated.id,
+        updated.cohortId,
+        updated.isLocked,
+      );
+      return updated;
+    });
   }
 
   @Delete('channels/:channelId')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   deleteChannel(@Param('channelId') channelId: string, @Request() req: any) {
-    return this.chatService.deleteChannel(channelId, req.user.id);
+    return this.chatService.deleteChannel(channelId, req.user.id).then((deleted) => {
+      this.chatGateway.emitChannelDeleted(deleted.id, deleted.cohortId);
+      return deleted;
+    });
   }
 
   // ==================== MESSAGES ====================

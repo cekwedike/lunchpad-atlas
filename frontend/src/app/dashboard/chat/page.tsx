@@ -67,11 +67,51 @@ export default function ChatRoomPage() {
     });
   }, [mainChannel?.id, queryClient]);
 
+  const handleChannelDeleted = useCallback((data: { channelId: string }) => {
+    queryClient.setQueryData(['channels', cohortId], (current: any) => {
+      if (!Array.isArray(current)) return current;
+      return current.filter((channel) => channel.id !== data.channelId);
+    });
+    queryClient.setQueryData(['channels', 'all'], (current: any) => {
+      if (!Array.isArray(current)) return current;
+      return current.filter((channel) => channel.id !== data.channelId);
+    });
+    queryClient.removeQueries({ queryKey: ['channels', 'by-id', data.channelId] });
+    queryClient.removeQueries({ queryKey: ['messages', data.channelId] });
+
+    if (mainChannel?.id === data.channelId) {
+      toast.info('Chat room deleted', { description: 'This room was removed by an admin.' });
+      router.replace('/dashboard/chat');
+    }
+  }, [cohortId, mainChannel?.id, queryClient, router]);
+
+  const handleChannelLockUpdated = useCallback((data: { channelId: string; isLocked: boolean }) => {
+    const updateChannel = (channel: any) => {
+      if (!channel || channel.id !== data.channelId) return channel;
+      return { ...channel, isLocked: data.isLocked };
+    };
+
+    queryClient.setQueryData(['channels', cohortId], (current: any) => {
+      if (!Array.isArray(current)) return current;
+      return current.map(updateChannel);
+    });
+    queryClient.setQueryData(['channels', 'all'], (current: any) => {
+      if (!Array.isArray(current)) return current;
+      return current.map(updateChannel);
+    });
+    queryClient.setQueryData(['channels', 'by-id', data.channelId], (current: any) => {
+      if (!current) return current;
+      return updateChannel(current);
+    });
+  }, [cohortId, queryClient]);
+
   const { isConnected, lastError } = useChatSocket({
     userId: profile?.id || "",
     channelId: mainChannel?.id,
     onNewMessage: handleSocketNewMessage,
     onMessageDeleted: handleSocketMessageDeleted,
+    onChannelDeleted: handleChannelDeleted,
+    onChannelLockUpdated: handleChannelLockUpdated,
   });
 
   // Auto-scroll to bottom

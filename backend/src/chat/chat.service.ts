@@ -132,17 +132,19 @@ export class ChatService {
       );
     }
 
-    if (user.role === 'FACILITATOR') {
-      const channel = await this.prisma.channel.findUnique({
-        where: { id: channelId },
-        select: { cohortId: true },
-      });
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { id: true, cohortId: true, name: true },
+    });
 
-      if (!channel || channel.cohortId !== user.cohortId) {
+    if (!channel) {
+      throw new NotFoundException(`Channel with ID ${channelId} not found`);
+    }
+
+    if (user.role === 'FACILITATOR' && channel.cohortId !== user.cohortId) {
         throw new ForbiddenException(
           'Facilitators can only archive channels for their cohort',
         );
-      }
     }
 
     return this.prisma.channel.update({
@@ -163,26 +165,30 @@ export class ChatService {
       );
     }
 
-    if (user.role === 'FACILITATOR') {
-      const channel = await this.prisma.channel.findUnique({
-        where: { id: channelId },
-        select: { cohortId: true },
-      });
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { id: true, cohortId: true, name: true },
+    });
 
-      if (!channel || channel.cohortId !== user.cohortId) {
-        throw new ForbiddenException(
-          'Facilitators can only delete channels for their cohort',
-        );
-      }
+    if (!channel) {
+      throw new NotFoundException(`Channel with ID ${channelId} not found`);
+    }
+
+    if (user.role === 'FACILITATOR' && channel.cohortId !== user.cohortId) {
+      throw new ForbiddenException(
+        'Facilitators can only delete channels for their cohort',
+      );
     }
 
     await this.prisma.chatMessage.deleteMany({
       where: { channelId },
     });
 
-    return this.prisma.channel.delete({
+    await this.prisma.channel.delete({
       where: { id: channelId },
     });
+
+    return channel;
   }
 
   // ==================== MESSAGES ====================

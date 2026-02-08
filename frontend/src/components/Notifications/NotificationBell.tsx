@@ -9,6 +9,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
+import { useNotificationsSocket } from '@/hooks/useNotificationsSocket';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface NotificationBellProps {
   userId: string;
@@ -18,7 +20,18 @@ interface NotificationBellProps {
 export function NotificationBell({ userId, userRole }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const { data: unreadData } = useUnreadCount(userId);
+  const queryClient = useQueryClient();
   const unreadCount = unreadData?.count ?? 0;
+
+  useNotificationsSocket({
+    userId,
+    onUnreadCountUpdate: (count) => {
+      queryClient.setQueryData(['notifications', 'unread', userId], { count });
+    },
+    onNotification: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', userId] });
+    },
+  });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -19,6 +19,8 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
   const { userId, onNotification, onUnreadCountUpdate } = options;
 
   useEffect(() => {
+    if (!userId) return;
+
     // Initialize socket connection
     socketRef.current = io(`${SOCKET_URL}/notifications`, {
       auth: {

@@ -234,4 +234,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       channelId: data.channelId,
     });
   }
+
+  emitChannelDeleted(channelId: string, cohortId: string) {
+    this.server.to(`cohort:${cohortId}`).emit('channel_deleted', {
+      channelId,
+      cohortId,
+    });
+    this.server.to(`channel:${channelId}`).emit('channel_deleted', {
+      channelId,
+      cohortId,
+    });
+  }
+
+  emitChannelLockUpdated(channelId: string, cohortId: string, isLocked: boolean) {
+    this.server.to(`cohort:${cohortId}`).emit('channel_lock_updated', {
+      channelId,
+      cohortId,
+      isLocked,
+    });
+    this.server.to(`channel:${channelId}`).emit('channel_lock_updated', {
+      channelId,
+      cohortId,
+      isLocked,
+    });
+  }
 }

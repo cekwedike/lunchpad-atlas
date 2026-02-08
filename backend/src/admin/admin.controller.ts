@@ -273,6 +273,7 @@ export class AdminController {
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Request() req?: any,
   ) {
     return this.adminService.getAllResources({
       sessionId,
@@ -280,6 +281,7 @@ export class AdminController {
       search,
       page,
       limit,
+      requesterId: req?.user?.id,
     });
   }
 
@@ -289,8 +291,8 @@ export class AdminController {
     summary: 'Get all resources for a session (Admin/Facilitator)',
   })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
-  getResourcesBySession(@Param('sessionId') sessionId: string) {
-    return this.adminService.getResourcesBySession(sessionId);
+  getResourcesBySession(@Param('sessionId') sessionId: string, @Request() req?: any) {
+    return this.adminService.getResourcesBySession(sessionId, req?.user?.id);
   }
 
   @Patch('resources/:id')

@@ -346,6 +346,15 @@ export class AdminService {
   // ============ Resource Management ============
 
   async createResource(dto: CreateResourceDto, adminId: string) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { role: true, cohortId: true, firstName: true, lastName: true },
+    });
+
+    if (!requester) {
+      throw new NotFoundException('User not found');
+    }
+
     // Verify session exists
     const session = await this.prisma.session.findUnique({
       where: { id: dto.sessionId },
@@ -353,6 +362,10 @@ export class AdminService {
 
     if (!session) {
       throw new NotFoundException('Session not found');
+    }
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new BadRequestException('Facilitators can only manage resources in their cohort');
     }
 
     // Create the resource
@@ -385,10 +398,7 @@ export class AdminService {
       },
     });
 
-    const admin = await this.prisma.user.findUnique({
-      where: { id: adminId },
-      select: { firstName: true, lastName: true },
-    });
+    const admin = requester;
 
     await this.notificationsService.notifyAdminsResourceUpdated(
       resource.id,
@@ -405,12 +415,32 @@ export class AdminService {
     dto: UpdateResourceDto,
     adminId: string,
   ) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { role: true, cohortId: true, firstName: true, lastName: true },
+    });
+
+    if (!requester) {
+      throw new NotFoundException('User not found');
+    }
+
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
     });
 
     if (!resource) {
       throw new NotFoundException('Resource not found');
+    }
+
+    if (requester.role === 'FACILITATOR') {
+      const existingSession = await this.prisma.session.findUnique({
+        where: { id: resource.sessionId },
+        select: { cohortId: true },
+      });
+
+      if (!existingSession || existingSession.cohortId !== requester.cohortId) {
+        throw new BadRequestException('Facilitators can only manage resources in their cohort');
+      }
     }
 
     // If sessionId is being changed, verify it exists
@@ -421,6 +451,10 @@ export class AdminService {
 
       if (!session) {
         throw new NotFoundException('Session not found');
+      }
+
+      if (requester.role === 'FACILITATOR' && session.cohortId !== requester.cohortId) {
+        throw new BadRequestException('Facilitators can only move resources within their cohort');
       }
     }
 
@@ -454,10 +488,7 @@ export class AdminService {
       },
     });
 
-    const admin = await this.prisma.user.findUnique({
-      where: { id: adminId },
-      select: { firstName: true, lastName: true },
-    });
+    const admin = requester;
 
     await this.notificationsService.notifyAdminsResourceUpdated(
       resourceId,
@@ -470,6 +501,15 @@ export class AdminService {
   }
 
   async deleteResource(resourceId: string, adminId: string) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { role: true, cohortId: true, firstName: true, lastName: true },
+    });
+
+    if (!requester) {
+      throw new NotFoundException('User not found');
+    }
+
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
       include: {
@@ -479,6 +519,17 @@ export class AdminService {
 
     if (!resource) {
       throw new NotFoundException('Resource not found');
+    }
+
+    if (requester.role === 'FACILITATOR') {
+      const session = await this.prisma.session.findUnique({
+        where: { id: resource.sessionId },
+        select: { cohortId: true },
+      });
+
+      if (!session || session.cohortId !== requester.cohortId) {
+        throw new BadRequestException('Facilitators can only manage resources in their cohort');
+      }
     }
 
     // Check if any users have started this resource
@@ -503,10 +554,7 @@ export class AdminService {
       },
     });
 
-    const admin = await this.prisma.user.findUnique({
-      where: { id: adminId },
-      select: { firstName: true, lastName: true },
-    });
+    const admin = requester;
 
     await this.notificationsService.notifyAdminsResourceUpdated(
       resourceId,
@@ -518,7 +566,25 @@ export class AdminService {
     return { success: true, message: 'Resource deleted successfully' };
   }
 
-  async getResourcesBySession(sessionId: string) {
+  async getResourcesBySession(sessionId: string, requesterId?: string) {
+    if (requesterId) {
+      const requester = await this.prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { role: true, cohortId: true },
+      });
+
+      if (requester?.role === 'FACILITATOR') {
+        const session = await this.prisma.session.findUnique({
+          where: { id: sessionId },
+          select: { cohortId: true },
+        });
+
+        if (!session || session.cohortId !== requester.cohortId) {
+          throw new BadRequestException('Facilitators can only view resources in their cohort');
+        }
+      }
+    }
+
     return this.prisma.resource.findMany({
       where: { sessionId },
       orderBy: { order: 'asc' },
@@ -542,8 +608,9 @@ export class AdminService {
     search?: string;
     page?: number;
     limit?: number;
+    requesterId?: string;
   }) {
-    const { sessionId, type, search } = filters || {};
+    const { sessionId, type, search, requesterId } = filters || {};
     // Ensure page and limit are numbers
     const page = Number(filters?.page) || 1;
     const limit = Number(filters?.limit) || 50;
@@ -557,6 +624,17 @@ export class AdminService {
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
       ];
+    }
+
+    if (requesterId) {
+      const requester = await this.prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { role: true, cohortId: true },
+      });
+
+      if (requester?.role === 'FACILITATOR' && requester.cohortId) {
+        where.session = { cohortId: requester.cohortId };
+      }
     }
 
     const [resources, total] = await Promise.all([

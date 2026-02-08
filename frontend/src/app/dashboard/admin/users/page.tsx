@@ -87,8 +87,8 @@ export default function AdminUsersPage() {
         role: formData.role,
       };
       
-      // Add cohortId only if Fellow and cohort is selected
-      if (formData.role === "FELLOW" && formData.cohortId) {
+      // Add cohortId for Fellows and Facilitators
+      if ((formData.role === "FELLOW" || formData.role === "FACILITATOR") && formData.cohortId) {
         userData.cohortId = formData.cohortId;
       }
       
@@ -117,16 +117,16 @@ export default function AdminUsersPage() {
         });
       }
       
-      // Update cohort if changed (for Fellows only)
-      if (formData.role === 'FELLOW' && formData.cohortId !== selectedUser.cohortId) {
+      // Update cohort if changed (for Fellows and Facilitators)
+      if ((formData.role === 'FELLOW' || formData.role === 'FACILITATOR') && formData.cohortId !== selectedUser.cohortId) {
         await updateUserCohort.mutateAsync({
           userId: selectedUser.id,
           cohortId: formData.cohortId || null,
         });
       }
       
-      // If role changed from FELLOW to something else, remove from cohort
-      if (formData.role !== 'FELLOW' && selectedUser.cohortId) {
+      // If role changed away from cohort-based roles, remove from cohort
+      if (formData.role !== 'FELLOW' && formData.role !== 'FACILITATOR' && selectedUser.cohortId) {
         await updateUserCohort.mutateAsync({
           userId: selectedUser.id,
           cohortId: null,
@@ -378,7 +378,7 @@ export default function AdminUsersPage() {
                         </Badge>
                       </td>
                       <td className="py-4 px-6">
-                        {user.role === 'FELLOW' ? (
+                        {user.role === 'FELLOW' || user.role === 'FACILITATOR' ? (
                           user.cohort ? (
                             <span className="text-sm text-gray-900 font-medium">{user.cohort.name}</span>
                           ) : (
@@ -493,7 +493,7 @@ export default function AdminUsersPage() {
                       ...formData, 
                       role: newRole,
                       password: newRole === "ADMIN" ? "" : formData.password,
-                      cohortId: newRole === "FELLOW" ? formData.cohortId : "",
+                      cohortId: newRole === "FELLOW" || newRole === "FACILITATOR" ? formData.cohortId : "",
                     });
                   }}
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -504,11 +504,11 @@ export default function AdminUsersPage() {
                 </select>
               </div>
               
-              {/* Cohort selector - only for Fellows */}
-              {formData.role === "FELLOW" && (
+              {/* Cohort selector - Fellows and Facilitators */}
+              {(formData.role === "FELLOW" || formData.role === "FACILITATOR") && (
                 <div className="space-y-2">
                   <Label htmlFor="cohort" className="text-sm font-medium text-gray-900">
-                    Cohort {formData.cohortId ? "" : "(Optional - will default to 2026)"}
+                    {formData.role === "FACILITATOR" ? "Cohort (Required)" : `Cohort ${formData.cohortId ? "" : "(Optional - will default to 2026)"}`}
                   </Label>
                   <select
                     id="cohort"
@@ -516,16 +516,20 @@ export default function AdminUsersPage() {
                     onChange={(e) => setFormData({ ...formData, cohortId: e.target.value })}
                     className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Auto-assign to 2026 cohort</option>
+                    <option value="">
+                      {formData.role === "FACILITATOR" ? "Select a cohort" : "Auto-assign to 2026 cohort"}
+                    </option>
                     {cohorts.map((cohort: any) => (
                       <option key={cohort.id} value={cohort.id}>
                         {cohort.name} ({cohort._count?.fellows || 0} members)
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500">
-                    If no cohort is selected, the user will be automatically assigned to the "2026" cohort
-                  </p>
+                  {formData.role === "FELLOW" && (
+                    <p className="text-xs text-gray-500">
+                      If no cohort is selected, the user will be automatically assigned to the "2026" cohort
+                    </p>
+                  )}
                 </div>
               )}
               
@@ -575,6 +579,7 @@ export default function AdminUsersPage() {
                   !formData.name || 
                   !formData.email || 
                   (formData.role === "ADMIN" && !formData.password) || 
+                  (formData.role === "FACILITATOR" && !formData.cohortId) ||
                   isSubmitting
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -653,7 +658,7 @@ export default function AdminUsersPage() {
                     setFormData({ 
                       ...formData, 
                       role: newRole,
-                      cohortId: newRole === "FELLOW" ? formData.cohortId : ""
+                      cohortId: newRole === "FELLOW" || newRole === "FACILITATOR" ? formData.cohortId : ""
                     });
                   }}
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -664,8 +669,8 @@ export default function AdminUsersPage() {
                 </select>
               </div>
               
-              {/* Cohort selector - only for Fellows */}
-              {formData.role === "FELLOW" && (
+              {/* Cohort selector - Fellows and Facilitators */}
+              {(formData.role === "FELLOW" || formData.role === "FACILITATOR") && (
                 <div className="space-y-2">
                   <Label htmlFor="edit-cohort" className="text-sm font-medium text-gray-900">Cohort</Label>
                   <select
@@ -674,7 +679,7 @@ export default function AdminUsersPage() {
                     onChange={(e) => setFormData({ ...formData, cohortId: e.target.value })}
                     className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">No cohort</option>
+                    <option value="">{formData.role === "FACILITATOR" ? "Select a cohort" : "No cohort"}</option>
                     {cohorts.map((cohort: any) => (
                       <option key={cohort.id} value={cohort.id}>
                         {cohort.name} ({cohort._count?.fellows || 0} members)
@@ -695,7 +700,7 @@ export default function AdminUsersPage() {
               </Button>
               <Button 
                 onClick={handleEditUser} 
-                disabled={!formData.name || !formData.email || isSubmitting}
+                disabled={!formData.name || !formData.email || (formData.role === "FACILITATOR" && !formData.cohortId) || isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isSubmitting ? (

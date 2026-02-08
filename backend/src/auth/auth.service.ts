@@ -85,6 +85,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
     return this.generateTokens(user);
   }
 

@@ -9,6 +9,8 @@ interface UseChatSocketOptions {
   channelId?: string;
   onNewMessage?: (message: any) => void;
   onMessageDeleted?: (data: { messageId: string; channelId: string }) => void;
+  onChannelDeleted?: (data: { channelId: string; cohortId?: string }) => void;
+  onChannelLockUpdated?: (data: { channelId: string; cohortId?: string; isLocked: boolean }) => void;
   onUserTyping?: (data: { userId: string; channelId: string }) => void;
   onUserStoppedTyping?: (data: { userId: string; channelId: string }) => void;
 }
@@ -27,6 +29,8 @@ export function useChatSocket(options: UseChatSocketOptions) {
     channelId,
     onNewMessage,
     onMessageDeleted,
+    onChannelDeleted,
+    onChannelLockUpdated,
     onUserTyping,
     onUserStoppedTyping,
   } = options;
@@ -82,6 +86,14 @@ export function useChatSocket(options: UseChatSocketOptions) {
       socket.on('message_deleted', onMessageDeleted);
     }
 
+    if (onChannelDeleted) {
+      socket.on('channel_deleted', onChannelDeleted);
+    }
+
+    if (onChannelLockUpdated) {
+      socket.on('channel_lock_updated', onChannelLockUpdated);
+    }
+
     // Typing events
     if (onUserTyping) {
       socket.on('user_typing', onUserTyping);
@@ -96,9 +108,15 @@ export function useChatSocket(options: UseChatSocketOptions) {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('connect_error');
+      socket.off('new_message');
+      socket.off('message_deleted');
+      socket.off('channel_deleted');
+      socket.off('channel_lock_updated');
+      socket.off('user_typing');
+      socket.off('user_stopped_typing');
       socket.disconnect();
     };
-  }, [userId, onNewMessage, onMessageDeleted, onUserTyping, onUserStoppedTyping]);
+  }, [userId, onNewMessage, onMessageDeleted, onChannelDeleted, onChannelLockUpdated, onUserTyping, onUserStoppedTyping]);
 
   // Join channel
   useEffect(() => {

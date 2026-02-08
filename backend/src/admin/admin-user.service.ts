@@ -115,8 +115,27 @@ export class AdminUserService {
       this.prisma.user.count({ where }),
     ]);
 
+    const now = new Date();
+    const activeThresholdMs = 7 * 24 * 60 * 60 * 1000;
+
+    const usersWithStatus = users.map((user) => {
+      const lastActiveAt = user.lastLoginAt;
+      const isActive = lastActiveAt
+        ? now.getTime() - lastActiveAt.getTime() <= activeThresholdMs
+        : false;
+
+      return {
+        ...user,
+        lastActiveAt,
+        isActive,
+        statistics: {
+          totalPoints: user.currentMonthPoints,
+        },
+      };
+    });
+
     return {
-      users,
+      users: usersWithStatus,
       pagination: {
         total,
         page,

@@ -13,6 +13,7 @@ export function useCohortChannels(cohortId: string | undefined) {
       return apiClient.get<Channel[]>(`/chat/channels/cohort/${cohortId}`);
     },
     enabled: !!cohortId,
+    refetchInterval: 10000,
   });
 }
 
@@ -23,6 +24,7 @@ export function useAllChannels(enabled: boolean) {
       return apiClient.get<Channel[]>('/chat/channels');
     },
     enabled,
+    refetchInterval: enabled ? 10000 : false,
   });
 }
 
@@ -102,6 +104,7 @@ export function useChannelById(channelId?: string, enabled: boolean = true) {
       return apiClient.get<Channel>(`/chat/channels/${channelId}`);
     },
     enabled: enabled && !!channelId,
+    refetchInterval: enabled && !!channelId ? 10000 : false,
   });
 }
 
@@ -149,6 +152,11 @@ export function useSendMessage() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['messages', variables.channelId] });
+    },
+    onError: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'by-id', variables.channelId] });
     },
   });
 }
