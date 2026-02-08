@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, MinLength, IsOptional, IsIn, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  IsOptional,
+  IsIn,
+  IsUUID,
+} from 'class-validator';
 
 export type DiscussionTopicType = 'GENERAL' | 'SESSION' | 'RESOURCE';
 

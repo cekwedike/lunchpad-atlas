@@ -8,7 +8,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { LiveQuizService } from './live-quiz.service';
-import { CreateLiveQuizDto, JoinLiveQuizDto, SubmitAnswerDto } from './dto/live-quiz.dto';
+import {
+  CreateLiveQuizDto,
+  JoinLiveQuizDto,
+  SubmitAnswerDto,
+} from './dto/live-quiz.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

@@ -43,7 +43,9 @@ export class NotificationsGateway
       // Join user's personal room
       client.join(`user:${userId}`);
 
-      console.log(`Notification client connected: ${client.id} (User: ${userId})`);
+      console.log(
+        `Notification client connected: ${client.id} (User: ${userId})`,
+      );
     } catch (error) {
       console.error('Notification connection error:', error);
       client.disconnect();
@@ -53,7 +55,9 @@ export class NotificationsGateway
   handleDisconnect(client: AuthenticatedSocket) {
     const userId = this.connectedUsers.get(client.id);
     this.connectedUsers.delete(client.id);
-    console.log(`Notification client disconnected: ${client.id} (User: ${userId})`);
+    console.log(
+      `Notification client disconnected: ${client.id} (User: ${userId})`,
+    );
   }
 
   // ==================== BROADCAST METHODS ====================

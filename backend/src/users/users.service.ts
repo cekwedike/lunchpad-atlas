@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
 import { UpdateUserDto, ChangePasswordDto, UserStatsDto } from './dto/user.dto';
@@ -72,7 +76,10 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const isValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    const isValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
     if (!isValid) {
       throw new BadRequestException('Current password is incorrect');
     }
@@ -87,21 +94,22 @@ export class UsersService {
   }
 
   async getUserStats(userId: string): Promise<UserStatsDto> {
-    const [resourcesCompleted, discussionsPosted, quizzesTaken, pointsData] = await Promise.all([
-      this.prisma.resourceProgress.count({
-        where: { userId, state: 'COMPLETED' },
-      }),
-      this.prisma.discussion.count({
-        where: { userId: userId },
-      }),
-      this.prisma.quizResponse.count({
-        where: { userId },
-      }),
-      this.prisma.pointsLog.aggregate({
-        where: { userId },
-        _sum: { points: true },
-      }),
-    ]);
+    const [resourcesCompleted, discussionsPosted, quizzesTaken, pointsData] =
+      await Promise.all([
+        this.prisma.resourceProgress.count({
+          where: { userId, state: 'COMPLETED' },
+        }),
+        this.prisma.discussion.count({
+          where: { userId: userId },
+        }),
+        this.prisma.quizResponse.count({
+          where: { userId },
+        }),
+        this.prisma.pointsLog.aggregate({
+          where: { userId },
+          _sum: { points: true },
+        }),
+      ]);
 
     return {
       resourcesCompleted,

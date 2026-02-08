@@ -15,7 +15,7 @@ export class EnhancedEngagementService {
   async trackVideoEngagement(
     userId: string,
     resourceId: string,
-    data: Partial<EnhancedEngagementData>
+    data: Partial<EnhancedEngagementData>,
   ) {
     const progress = await this.prisma.resourceProgress.findUnique({
       where: {
@@ -33,12 +33,14 @@ export class EnhancedEngagementService {
       },
       data: {
         playbackSpeed: data.playbackSpeed ?? progress.playbackSpeed,
-        pauseCount: data.pauseCount !== undefined 
-          ? progress.pauseCount + data.pauseCount 
-          : progress.pauseCount,
-        seekCount: data.seekCount !== undefined 
-          ? progress.seekCount + data.seekCount 
-          : progress.seekCount,
+        pauseCount:
+          data.pauseCount !== undefined
+            ? progress.pauseCount + data.pauseCount
+            : progress.pauseCount,
+        seekCount:
+          data.seekCount !== undefined
+            ? progress.seekCount + data.seekCount
+            : progress.seekCount,
         attentionSpanScore: data.attentionScore ?? progress.attentionSpanScore,
         updatedAt: new Date(),
       },
@@ -47,7 +49,7 @@ export class EnhancedEngagementService {
 
   async calculateEngagementQuality(
     userId: string,
-    resourceId: string
+    resourceId: string,
   ): Promise<number> {
     const progress = await this.prisma.resourceProgress.findUnique({
       where: {
@@ -95,7 +97,7 @@ export class EnhancedEngagementService {
 
   async generateEngagementReport(userId: string, sessionId?: string) {
     const where: any = { userId };
-    
+
     if (sessionId) {
       where.resource = { sessionId };
     }
@@ -116,7 +118,7 @@ export class EnhancedEngagementService {
 
     const report = {
       totalResources: progressRecords.length,
-      completed: progressRecords.filter(p => p.state === 'COMPLETED').length,
+      completed: progressRecords.filter((p) => p.state === 'COMPLETED').length,
       averagePlaybackSpeed: 0,
       totalPauses: 0,
       totalSeeks: 0,
@@ -131,18 +133,32 @@ export class EnhancedEngagementService {
     }
 
     // Calculate averages
-    const videoProgress = progressRecords.filter(p => p.resource.type === 'VIDEO');
-    
+    const videoProgress = progressRecords.filter(
+      (p) => p.resource.type === 'VIDEO',
+    );
+
     if (videoProgress.length > 0) {
-      report.averagePlaybackSpeed = videoProgress.reduce((sum, p) => sum + p.playbackSpeed, 0) / videoProgress.length;
-      report.totalPauses = videoProgress.reduce((sum, p) => sum + p.pauseCount, 0);
-      report.totalSeeks = videoProgress.reduce((sum, p) => sum + p.seekCount, 0);
-      report.averageAttentionScore = videoProgress.reduce((sum, p) => sum + p.attentionSpanScore, 0) / videoProgress.length;
-      report.averageEngagementQuality = videoProgress.reduce((sum, p) => sum + p.engagementQuality, 0) / videoProgress.length;
+      report.averagePlaybackSpeed =
+        videoProgress.reduce((sum, p) => sum + p.playbackSpeed, 0) /
+        videoProgress.length;
+      report.totalPauses = videoProgress.reduce(
+        (sum, p) => sum + p.pauseCount,
+        0,
+      );
+      report.totalSeeks = videoProgress.reduce(
+        (sum, p) => sum + p.seekCount,
+        0,
+      );
+      report.averageAttentionScore =
+        videoProgress.reduce((sum, p) => sum + p.attentionSpanScore, 0) /
+        videoProgress.length;
+      report.averageEngagementQuality =
+        videoProgress.reduce((sum, p) => sum + p.engagementQuality, 0) /
+        videoProgress.length;
     }
 
     // Flag suspicious behavior
-    progressRecords.forEach(prog => {
+    progressRecords.forEach((prog) => {
       const issues: string[] = [];
 
       if (prog.playbackSpeed > 2.0) {
@@ -158,11 +174,15 @@ export class EnhancedEngagementService {
       }
 
       if (prog.attentionSpanScore < 0.5) {
-        issues.push(`Low attention: ${(prog.attentionSpanScore * 100).toFixed(0)}%`);
+        issues.push(
+          `Low attention: ${(prog.attentionSpanScore * 100).toFixed(0)}%`,
+        );
       }
 
       if (prog.engagementQuality < 0.5) {
-        issues.push(`Low engagement quality: ${(prog.engagementQuality * 100).toFixed(0)}%`);
+        issues.push(
+          `Low engagement quality: ${(prog.engagementQuality * 100).toFixed(0)}%`,
+        );
       }
 
       if (issues.length > 0) {
@@ -176,19 +196,27 @@ export class EnhancedEngagementService {
 
     // Generate recommendations
     if (report.averagePlaybackSpeed > 1.5) {
-      report.recommendations.push('Consider watching videos at normal speed to improve retention.');
+      report.recommendations.push(
+        'Consider watching videos at normal speed to improve retention.',
+      );
     }
 
     if (report.averageAttentionScore < 0.6) {
-      report.recommendations.push('Try to minimize distractions while watching videos.');
+      report.recommendations.push(
+        'Try to minimize distractions while watching videos.',
+      );
     }
 
     if (report.totalPauses / report.totalResources > 15) {
-      report.recommendations.push('Frequent pausing may indicate distraction. Consider dedicated study time.');
+      report.recommendations.push(
+        'Frequent pausing may indicate distraction. Consider dedicated study time.',
+      );
     }
 
     if (report.totalSeeks / report.totalResources > 8) {
-      report.recommendations.push('Excessive seeking may reduce learning effectiveness. Watch content sequentially.');
+      report.recommendations.push(
+        'Excessive seeking may reduce learning effectiveness. Watch content sequentially.',
+      );
     }
 
     return report;
@@ -218,7 +246,7 @@ export class EnhancedEngagementService {
       take: 50,
     });
 
-    return alerts.map(alert => ({
+    return alerts.map((alert) => ({
       userId: alert.user.id,
       userName: `${alert.user.firstName} ${alert.user.lastName}`,
       userEmail: alert.user.email,
@@ -231,7 +259,12 @@ export class EnhancedEngagementService {
       attentionScore: alert.attentionSpanScore,
       watchPercentage: alert.watchPercentage,
       timeSpent: alert.timeSpent,
-      severity: alert.engagementQuality < 0.3 ? 'HIGH' : alert.engagementQuality < 0.5 ? 'MEDIUM' : 'LOW',
+      severity:
+        alert.engagementQuality < 0.3
+          ? 'HIGH'
+          : alert.engagementQuality < 0.5
+            ? 'MEDIUM'
+            : 'LOW',
     }));
   }
 }

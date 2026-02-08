@@ -1,11 +1,29 @@
-import { Controller, Get, Post, Param, Query, UseGuards, Request, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+  Body,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ResourcesService } from './resources.service';
 import { EnhancedEngagementService } from './enhanced-engagement.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { ResourceQueryDto, TrackEngagementDto, AdminUnlockResourceDto } from './dto/resource.dto';
+import {
+  ResourceQueryDto,
+  TrackEngagementDto,
+  AdminUnlockResourceDto,
+} from './dto/resource.dto';
 
 @ApiTags('resources')
 @Controller('resources')
@@ -30,20 +48,26 @@ export class ResourcesController {
   @Post(':id/complete')
   @ApiOperation({ summary: 'Mark a resource as complete' })
   @ApiResponse({ status: 200, description: 'Resource marked complete' })
-  @ApiResponse({ status: 403, description: 'Insufficient engagement - anti-skimming validation failed' })
+  @ApiResponse({
+    status: 403,
+    description: 'Insufficient engagement - anti-skimming validation failed',
+  })
   @ApiResponse({ status: 404, description: 'Resource not found' })
   markComplete(@Param('id') id: string, @Request() req) {
     return this.resourcesService.markComplete(id, req.user.id);
   }
 
   @Post(':id/track')
-  @ApiOperation({ summary: 'Track user engagement with resource (scroll, video progress, time)' })
+  @ApiOperation({
+    summary:
+      'Track user engagement with resource (scroll, video progress, time)',
+  })
   @ApiResponse({ status: 200, description: 'Engagement tracked successfully' })
   @ApiResponse({ status: 404, description: 'Resource not found' })
   trackEngagement(
     @Param('id') id: string,
     @Body() dto: TrackEngagementDto,
-    @Request() req
+    @Request() req,
   ) {
     return this.resourcesService.trackEngagement(id, req.user.id, dto);
   }
@@ -52,7 +76,8 @@ export class ResourcesController {
   @ApiOperation({ summary: 'Track advanced video engagement metrics' })
   trackVideoEngagement(
     @Param('id') id: string,
-    @Body() data: {
+    @Body()
+    data: {
       playbackSpeed?: number;
       pauseCount?: number;
       seekCount?: number;
@@ -65,11 +90,11 @@ export class ResourcesController {
 
   @Get('engagement/report')
   @ApiOperation({ summary: 'Get engagement quality report for user' })
-  getEngagementReport(
-    @Request() req,
-    @Query('sessionId') sessionId?: string,
-  ) {
-    return this.engagementService.generateEngagementReport(req.user.id, sessionId);
+  getEngagementReport(@Request() req, @Query('sessionId') sessionId?: string) {
+    return this.engagementService.generateEngagementReport(
+      req.user.id,
+      sessionId,
+    );
   }
 
   @Get('engagement/alerts')
@@ -89,10 +114,15 @@ export class ResourcesController {
   @Post('admin/unlock')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Admin manually unlocks a resource for a specific user' })
+  @ApiOperation({
+    summary: 'Admin manually unlocks a resource for a specific user',
+  })
   @ApiResponse({ status: 200, description: 'Resource unlocked successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   adminUnlockResource(@Body() dto: AdminUnlockResourceDto) {
-    return this.resourcesService.adminUnlockResource(dto.userId, dto.resourceId);
+    return this.resourcesService.adminUnlockResource(
+      dto.userId,
+      dto.resourceId,
+    );
   }
 }

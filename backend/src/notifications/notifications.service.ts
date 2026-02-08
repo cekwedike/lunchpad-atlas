@@ -57,7 +57,9 @@ export class NotificationsService {
       })),
     });
 
-    const grouped = notifications.reduce<Record<string, CreateNotificationDto[]>>((acc, item) => {
+    const grouped = notifications.reduce<
+      Record<string, CreateNotificationDto[]>
+    >((acc, item) => {
       if (!acc[item.userId]) acc[item.userId] = [];
       acc[item.userId].push(item);
       return acc;
@@ -65,7 +67,8 @@ export class NotificationsService {
 
     await Promise.all(
       Object.entries(grouped).map(async ([userId, userNotifications]) => {
-        const lastNotification = userNotifications[userNotifications.length - 1];
+        const lastNotification =
+          userNotifications[userNotifications.length - 1];
         this.notificationsGateway.sendNotificationToUser(userId, {
           ...lastNotification,
           createdAt: new Date(),
@@ -87,14 +90,21 @@ export class NotificationsService {
   }
 
   private buildActionUrl(data?: any): string | undefined {
-    const baseUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const baseUrl = this.configService.get(
+      'FRONTEND_URL',
+      'http://localhost:5173',
+    );
 
     if (!data) return undefined;
 
-    if (data.channelId) return `${baseUrl}/dashboard/chat?channelId=${data.channelId}`;
-    if (data.discussionId) return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
-    if (data.resourceId) return `${baseUrl}/dashboard/resources/${data.resourceId}`;
-    if (data.sessionId) return `${baseUrl}/dashboard/sessions/${data.sessionId}`;
+    if (data.channelId)
+      return `${baseUrl}/dashboard/chat?channelId=${data.channelId}`;
+    if (data.discussionId)
+      return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
+    if (data.resourceId)
+      return `${baseUrl}/dashboard/resources/${data.resourceId}`;
+    if (data.sessionId)
+      return `${baseUrl}/dashboard/sessions/${data.sessionId}`;
     if (data.quizId) return `${baseUrl}/dashboard/quizzes/${data.quizId}`;
 
     return undefined;
@@ -121,10 +131,14 @@ export class NotificationsService {
     });
   }
 
-  private async sendBulkNotificationEmails(notifications: CreateNotificationDto[]) {
+  private async sendBulkNotificationEmails(
+    notifications: CreateNotificationDto[],
+  ) {
     if (!this.isEmailEnabled()) return;
 
-    const userIds = Array.from(new Set(notifications.map((notification) => notification.userId)));
+    const userIds = Array.from(
+      new Set(notifications.map((notification) => notification.userId)),
+    );
     if (userIds.length === 0) return;
 
     const users = await this.prisma.user.findMany({
@@ -154,7 +168,11 @@ export class NotificationsService {
 
   // ==================== HELPER METHODS ====================
 
-  async notifyResourceUnlock(userId: string, resourceTitle: string, resourceId: string) {
+  async notifyResourceUnlock(
+    userId: string,
+    resourceTitle: string,
+    resourceId: string,
+  ) {
     return this.createNotification({
       userId,
       type: 'RESOURCE_UNLOCK',
@@ -164,7 +182,12 @@ export class NotificationsService {
     });
   }
 
-  async notifyQuizReminder(userId: string, quizTitle: string, quizId: string, dueDate: Date) {
+  async notifyQuizReminder(
+    userId: string,
+    quizTitle: string,
+    quizId: string,
+    dueDate: Date,
+  ) {
     return this.createNotification({
       userId,
       type: 'QUIZ_REMINDER',
@@ -233,7 +256,11 @@ export class NotificationsService {
     });
   }
 
-  async notifyLeaderboardUpdate(userId: string, newRank: number, oldRank: number) {
+  async notifyLeaderboardUpdate(
+    userId: string,
+    newRank: number,
+    oldRank: number,
+  ) {
     return this.createNotification({
       userId,
       type: 'LEADERBOARD_UPDATE',
@@ -243,7 +270,11 @@ export class NotificationsService {
     });
   }
 
-  async notifyPointCapWarning(userId: string, currentPoints: number, cap: number) {
+  async notifyPointCapWarning(
+    userId: string,
+    currentPoints: number,
+    cap: number,
+  ) {
     return this.createNotification({
       userId,
       type: 'POINT_CAP_WARNING',
@@ -263,7 +294,7 @@ export class NotificationsService {
       userId,
       type: 'DISCUSSION_REPLY',
       title: 'New Discussion',
-      message: `${authorName} started a new discussion: \"${discussionTitle}\"`,
+      message: `${authorName} started a new discussion: "${discussionTitle}"`,
       data: { discussionId, authorName },
     });
   }
@@ -278,7 +309,7 @@ export class NotificationsService {
       userId,
       type: 'DISCUSSION_REPLY' as NotificationType,
       title: 'New Discussion',
-      message: `${authorName} started a new discussion: \"${discussionTitle}\"`,
+      message: `${authorName} started a new discussion: "${discussionTitle}"`,
       data: { discussionId, authorName },
     }));
     return this.createBulkNotifications(notifications);
@@ -327,7 +358,7 @@ export class NotificationsService {
       userId,
       type: 'SYSTEM_ALERT',
       title: 'Discussion Pinned',
-      message: `\"${discussionTitle}\" has been pinned by an admin`,
+      message: `"${discussionTitle}" has been pinned by an admin`,
       data: { discussionId },
     });
   }
@@ -341,14 +372,18 @@ export class NotificationsService {
       userId,
       type: 'SYSTEM_ALERT',
       title: 'Discussion Locked',
-      message: `\"${discussionTitle}\" has been locked. No new comments can be added.`,
+      message: `"${discussionTitle}" has been locked. No new comments can be added.`,
       data: { discussionId },
     });
   }
 
   // ==================== FETCH NOTIFICATIONS ====================
 
-  async getUserNotifications(userId: string, limit: number = 20, unreadOnly: boolean = false) {
+  async getUserNotifications(
+    userId: string,
+    limit: number = 20,
+    unreadOnly: boolean = false,
+  ) {
     return this.prisma.notification.findMany({
       where: {
         userId,
@@ -514,7 +549,13 @@ export class NotificationsService {
 
   // ==================== BATCH OPERATIONS ====================
 
-  async sendCohortNotification(cohortId: string, type: NotificationType, title: string, message: string, data?: any) {
+  async sendCohortNotification(
+    cohortId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: any,
+  ) {
     // Get all fellows in cohort
     const fellows = await this.prisma.user.findMany({
       where: { cohortId },
@@ -534,7 +575,11 @@ export class NotificationsService {
 
   // ==================== ADMIN NOTIFICATION HELPERS ====================
 
-  async notifyAdminsUserUpdated(updatedUserId: string, adminName: string, changes: string) {
+  async notifyAdminsUserUpdated(
+    updatedUserId: string,
+    adminName: string,
+    changes: string,
+  ) {
     const admins = await this.prisma.user.findMany({
       where: { role: 'ADMIN' },
       select: { id: true },
@@ -594,13 +639,12 @@ export class NotificationsService {
       select: { name: true },
     });
 
-    const title = type === 'COHORT_CREATED'
-      ? '📚 Cohort Created'
-      : '📚 Cohort Updated';
+    const title =
+      type === 'COHORT_CREATED' ? '📚 Cohort Created' : '📚 Cohort Updated';
 
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: type as NotificationType,
+      type: type,
       title,
       message: `${adminName} ${changes} cohort "${cohort?.name}"`,
       data: { cohortId, changes, adminName },
@@ -625,13 +669,14 @@ export class NotificationsService {
       select: { title: true },
     });
 
-    const title = type === 'RESOURCE_CREATED'
-      ? '📖 Resource Created'
-      : '📖 Resource Updated';
+    const title =
+      type === 'RESOURCE_CREATED'
+        ? '📖 Resource Created'
+        : '📖 Resource Updated';
 
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: type as NotificationType,
+      type: type,
       title,
       message: `${adminName} ${action} resource: "${resource?.title}"`,
       data: { resourceId, action, adminName },
@@ -656,13 +701,12 @@ export class NotificationsService {
       select: { title: true },
     });
 
-    const title = type === 'SESSION_CREATED'
-      ? '📅 Session Created'
-      : '📅 Session Updated';
+    const title =
+      type === 'SESSION_CREATED' ? '📅 Session Created' : '📅 Session Updated';
 
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: type as NotificationType,
+      type: type,
       title,
       message: `${adminName} ${action} session: "${session?.title}"`,
       data: { sessionId, action, adminName },

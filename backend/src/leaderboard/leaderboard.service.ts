@@ -22,7 +22,15 @@ export class LeaderboardService {
       // Default to current month
       const now = new Date();
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      endDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
     }
 
     // Build where clause
@@ -80,7 +88,9 @@ export class LeaderboardService {
 
         return {
           userId: entry.userId,
-          userName: user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown',
+          userName: user
+            ? `${user.firstName} ${user.lastName}`.trim()
+            : 'Unknown',
           email: user?.email || '',
           cohortId: user?.cohortId,
           points: entry._sum.points || 0,
@@ -115,7 +125,15 @@ export class LeaderboardService {
     } else {
       const now = new Date();
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      endDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
     }
 
     const where: any = {
@@ -192,14 +210,14 @@ export class LeaderboardService {
     });
 
     const sortedDays = Array.from(uniqueDays).sort().reverse();
-    
+
     if (sortedDays.length === 0) return 0;
 
     let streak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
-    
+
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
@@ -213,7 +231,7 @@ export class LeaderboardService {
     let expectedDate = new Date(sortedDays[0]);
     for (const dayStr of sortedDays) {
       const currentDay = new Date(dayStr);
-      
+
       const diffDays = Math.floor(
         (expectedDate.getTime() - currentDay.getTime()) / (1000 * 60 * 60 * 24),
       );

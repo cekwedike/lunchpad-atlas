@@ -1,6 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto, DiscussionTopicType } from './dto/discussion.dto';
+import {
+  CreateDiscussionDto,
+  CreateCommentDto,
+  DiscussionFilterDto,
+  DiscussionTopicType,
+} from './dto/discussion.dto';
 import { DiscussionScoringService } from './discussion-scoring.service';
 import { DiscussionsGateway } from './discussions.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -21,7 +31,7 @@ export class DiscussionsService {
     userId: string,
     points: number,
     eventType: string,
-    description: string
+    description: string,
   ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -42,10 +52,16 @@ export class DiscussionsService {
     return true;
   }
 
-  async createDiscussion(userId: string, userRole: string, dto: CreateDiscussionDto) {
+  async createDiscussion(
+    userId: string,
+    userRole: string,
+    dto: CreateDiscussionDto,
+  ) {
     // Only Admin and Facilitator can create discussions
     if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
-      throw new ForbiddenException('Only administrators and facilitators can create discussions');
+      throw new ForbiddenException(
+        'Only administrators and facilitators can create discussions',
+      );
     }
 
     // Get user's cohortId if not provided
@@ -59,23 +75,32 @@ export class DiscussionsService {
     }
 
     if (!cohortId) {
-      throw new BadRequestException('Cohort is required to create a discussion');
+      throw new BadRequestException(
+        'Cohort is required to create a discussion',
+      );
     }
 
-    const topicType: DiscussionTopicType = dto.topicType
-      || (dto.resourceId ? 'RESOURCE' : dto.sessionId ? 'SESSION' : 'GENERAL');
+    const topicType: DiscussionTopicType =
+      dto.topicType ||
+      (dto.resourceId ? 'RESOURCE' : dto.sessionId ? 'SESSION' : 'GENERAL');
 
     let resourceId: string | undefined;
     let sessionId: string | undefined;
 
     if (topicType === 'RESOURCE') {
       if (!dto.resourceId) {
-        throw new BadRequestException('Resource is required for a resource discussion');
+        throw new BadRequestException(
+          'Resource is required for a resource discussion',
+        );
       }
 
       const resource = await this.prisma.resource.findUnique({
         where: { id: dto.resourceId },
-        select: { id: true, sessionId: true, session: { select: { cohortId: true } } },
+        select: {
+          id: true,
+          sessionId: true,
+          session: { select: { cohortId: true } },
+        },
       });
 
       if (!resource || resource.session?.cohortId !== cohortId) {
@@ -88,7 +113,9 @@ export class DiscussionsService {
 
     if (topicType === 'SESSION') {
       if (!dto.sessionId) {
-        throw new BadRequestException('Session is required for a session topic');
+        throw new BadRequestException(
+          'Session is required for a session topic',
+        );
       }
 
       const session = await this.prisma.session.findUnique({
@@ -103,7 +130,7 @@ export class DiscussionsService {
       sessionId = session.id;
     }
 
-    const discussion = await this.prisma.discussion.create({
+    const discussion = (await this.prisma.discussion.create({
       data: {
         title: dto.title,
         content: dto.content,
@@ -120,7 +147,7 @@ export class DiscussionsService {
           select: { id: true, title: true },
         },
       } as any,
-    }) as any;
+    })) as any;
 
     const session = sessionId
       ? await this.prisma.session.findUnique({
@@ -139,13 +166,13 @@ export class DiscussionsService {
       userId,
       5,
       'DISCUSSION_POST',
-      `Posted discussion: ${dto.title}`
+      `Posted discussion: ${dto.title}`,
     );
 
     // Broadcast new discussion to cohort in real-time
     this.discussionsGateway.broadcastNewDiscussion(discussionWithTopic);
 
-    // Notify all cohort members about new discussion  
+    // Notify all cohort members about new discussion
     if (cohortId) {
       const cohortMembers = await this.prisma.user.findMany({
         where: {
@@ -174,18 +201,26 @@ export class DiscussionsService {
   }
 
   async getDiscussions(filters: DiscussionFilterDto) {
-    const { page = 1, limit = 10, search, cohortId, resourceId, authorId, isPinned } = filters;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      cohortId,
+      resourceId,
+      authorId,
+      isPinned,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { content: { contains: search, mode: 'insensitive' } },
       ];
     }
-    
+
     if (cohortId) where.cohortId = cohortId;
     if (resourceId) where.resourceId = resourceId;
     if (authorId) where.authorId = authorId;
@@ -199,7 +234,13 @@ export class DiscussionsService {
         orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         include: {
           user: {
-            select: { id: true, firstName: true, lastName: true, email: true, role: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            },
           },
           resource: {
             select: { id: true, title: true },
@@ -213,7 +254,11 @@ export class DiscussionsService {
     ]);
 
     const sessionIds = Array.from(
-      new Set(discussions.map((discussion) => (discussion as any).sessionId).filter(Boolean))
+      new Set(
+        discussions
+          .map((discussion) => (discussion as any).sessionId)
+          .filter(Boolean),
+      ),
     ) as string[];
     const sessions = sessionIds.length
       ? await this.prisma.session.findMany({
@@ -221,12 +266,19 @@ export class DiscussionsService {
           select: { id: true, sessionNumber: true, title: true },
         })
       : [];
-    const sessionMap = new Map(sessions.map((session) => [session.id, session]));
+    const sessionMap = new Map(
+      sessions.map((session) => [session.id, session]),
+    );
     const discussionsWithTopics = discussions.map((discussion) => {
-      const discussionSessionId = (discussion as any).sessionId as string | undefined | null;
+      const discussionSessionId = (discussion as any).sessionId as
+        | string
+        | undefined
+        | null;
       return {
         ...discussion,
-        session: discussionSessionId ? sessionMap.get(discussionSessionId) || null : null,
+        session: discussionSessionId
+          ? sessionMap.get(discussionSessionId) || null
+          : null,
       };
     });
 
@@ -240,11 +292,17 @@ export class DiscussionsService {
   }
 
   async getDiscussion(id: string) {
-    const discussion = await this.prisma.discussion.findUnique({
+    const discussion = (await this.prisma.discussion.findUnique({
       where: { id },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
         },
         resource: {
           select: { id: true, title: true },
@@ -253,13 +311,13 @@ export class DiscussionsService {
           select: { comments: true, likes: true },
         },
       } as any,
-    }) as any;
+    })) as any;
 
     if (!discussion) {
       throw new NotFoundException('Discussion not found');
     }
 
-    const sessionId = (discussion as any).sessionId as string | undefined | null;
+    const sessionId = discussion.sessionId as string | undefined | null;
     const session = sessionId
       ? await this.prisma.session.findUnique({
           where: { id: sessionId },
@@ -294,24 +352,33 @@ export class DiscussionsService {
   }
 
   async getComments(discussionId: string, userId: string) {
-    const comments = await (this.prisma as any).discussionComment.findMany({
+    const comments = (await (this.prisma as any).discussionComment.findMany({
       where: { discussionId },
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'asc' }],
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
         },
         reactions: {
           select: { id: true, userId: true, type: true },
         },
       },
-    }) as any[];
+    })) as any[];
 
     return comments.map((comment) => {
-      const reactionCounts = (comment.reactions || []).reduce((acc: Record<string, number>, reaction: any) => {
-        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
-        return acc;
-      }, {});
+      const reactionCounts = (comment.reactions || []).reduce(
+        (acc: Record<string, number>, reaction: any) => {
+          acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+          return acc;
+        },
+        {},
+      );
 
       const userReactions = (comment.reactions || [])
         .filter((reaction: any) => reaction.userId === userId)
@@ -325,7 +392,11 @@ export class DiscussionsService {
     });
   }
 
-  async createComment(discussionId: string, userId: string, dto: CreateCommentDto) {
+  async createComment(
+    discussionId: string,
+    userId: string,
+    dto: CreateCommentDto,
+  ) {
     const discussion = await this.prisma.discussion.findUnique({
       where: { id: discussionId },
     });
@@ -336,7 +407,9 @@ export class DiscussionsService {
 
     // Check if discussion is locked
     if (discussion.isLocked) {
-      throw new ForbiddenException('This discussion is locked. No new comments allowed.');
+      throw new ForbiddenException(
+        'This discussion is locked. No new comments allowed.',
+      );
     }
 
     if (dto.parentId) {
@@ -346,7 +419,9 @@ export class DiscussionsService {
       });
 
       if (!parentComment || parentComment.discussionId !== discussionId) {
-        throw new BadRequestException('Parent comment does not belong to this discussion');
+        throw new BadRequestException(
+          'Parent comment does not belong to this discussion',
+        );
       }
     }
 
@@ -359,33 +434,44 @@ export class DiscussionsService {
       },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
         },
         reactions: {
           select: { id: true, userId: true, type: true },
         },
       },
-    }) as any;
+    });
 
     // Award 2 points for replying to a discussion (with monthly cap enforcement)
     const awarded = await this.awardPoints(
       userId,
       2,
       'DISCUSSION_REPLY',
-      `Replied to discussion: ${discussion.title}`
+      `Replied to discussion: ${discussion.title}`,
     );
 
     // Broadcast new comment to discussion participants in real-time
-    this.discussionsGateway.broadcastNewComment(comment, discussionId, discussion.cohortId);
+    this.discussionsGateway.broadcastNewComment(
+      comment,
+      discussionId,
+      discussion.cohortId,
+    );
 
     // Notify discussion author
     if (discussion.userId !== userId) {
-      const commenterName = `${comment.user?.firstName || ''} ${comment.user?.lastName || ''}`.trim();
+      const commenterName =
+        `${comment.user?.firstName || ''} ${comment.user?.lastName || ''}`.trim();
       const discussionWithAuthor = await this.prisma.discussion.findUnique({
         where: { id: discussionId },
         select: { title: true, userId: true },
       });
-      
+
       if (discussionWithAuthor) {
         await this.notificationsService.notifyDiscussionReply(
           discussionWithAuthor.userId,
@@ -415,8 +501,14 @@ export class DiscussionsService {
     }
 
     // Admin or Facilitator can delete any discussion
-    if (discussion.userId !== userId && userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
-      throw new ForbiddenException('Only administrators and facilitators can delete discussions');
+    if (
+      discussion.userId !== userId &&
+      userRole !== 'ADMIN' &&
+      userRole !== 'FACILITATOR'
+    ) {
+      throw new ForbiddenException(
+        'Only administrators and facilitators can delete discussions',
+      );
     }
 
     await this.prisma.discussion.delete({ where: { id } });
@@ -426,14 +518,18 @@ export class DiscussionsService {
   async deleteComment(commentId: string, userId: string, userRole: string) {
     const comment = await (this.prisma as any).discussionComment.findUnique({
       where: { id: commentId },
-    }) as any;
+    });
 
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
 
     // Users can delete their own comments, admins/facilitators can delete any
-    if (comment.userId !== userId && userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+    if (
+      comment.userId !== userId &&
+      userRole !== 'ADMIN' &&
+      userRole !== 'FACILITATOR'
+    ) {
       throw new ForbiddenException('You can only delete your own comments');
     }
 
@@ -441,7 +537,11 @@ export class DiscussionsService {
     return { message: 'Comment deleted successfully' };
   }
 
-  async updateComment(commentId: string, userId: string, dto: CreateCommentDto) {
+  async updateComment(
+    commentId: string,
+    userId: string,
+    dto: CreateCommentDto,
+  ) {
     const comment = await this.prisma.discussionComment.findUnique({
       where: { id: commentId },
     });
@@ -460,7 +560,13 @@ export class DiscussionsService {
       data: { content: dto.content },
       include: {
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
         },
       },
     });
@@ -470,7 +576,9 @@ export class DiscussionsService {
 
   async toggleCommentPin(commentId: string, userRole: string) {
     if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
-      throw new ForbiddenException('Only admins and facilitators can pin comments');
+      throw new ForbiddenException(
+        'Only admins and facilitators can pin comments',
+      );
     }
 
     const comment = await this.prisma.discussionComment.findUnique({
@@ -498,7 +606,9 @@ export class DiscussionsService {
       throw new NotFoundException('Comment not found');
     }
 
-    const existing = await (this.prisma as any).discussionCommentReaction.findUnique({
+    const existing = await (
+      this.prisma as any
+    ).discussionCommentReaction.findUnique({
       where: {
         commentId_userId_type: {
           commentId,
@@ -506,7 +616,7 @@ export class DiscussionsService {
           type: type as any,
         },
       },
-    }) as any;
+    });
 
     if (existing) {
       await (this.prisma as any).discussionCommentReaction.delete({
@@ -542,7 +652,7 @@ export class DiscussionsService {
     }
 
     // Get AI analysis
-    const resourceContext = discussion.resource 
+    const resourceContext = discussion.resource
       ? `${discussion.resource.title}: ${discussion.resource.description || ''}`
       : undefined;
 
@@ -609,7 +719,11 @@ export class DiscussionsService {
     const resources = await this.prisma.resource.findMany({
       where: { session: { cohortId } },
       orderBy: [{ sessionId: 'asc' }, { order: 'asc' }],
-      select: { id: true, title: true, session: { select: { sessionNumber: true, title: true } } },
+      select: {
+        id: true,
+        title: true,
+        session: { select: { sessionNumber: true, title: true } },
+      },
     });
 
     return [
@@ -631,7 +745,9 @@ export class DiscussionsService {
 
   async togglePin(discussionId: string, userRole: string) {
     if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
-      throw new ForbiddenException('Only admins and facilitators can pin discussions');
+      throw new ForbiddenException(
+        'Only admins and facilitators can pin discussions',
+      );
     }
 
     const discussion = await this.prisma.discussion.findUnique({
@@ -671,7 +787,9 @@ export class DiscussionsService {
 
   async toggleLock(discussionId: string, userRole: string) {
     if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
-      throw new ForbiddenException('Only admins and facilitators can lock discussions');
+      throw new ForbiddenException(
+        'Only admins and facilitators can lock discussions',
+      );
     }
 
     const discussion = await this.prisma.discussion.findUnique({

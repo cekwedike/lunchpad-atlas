@@ -26,7 +26,11 @@ export class NotificationsController {
   ) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    const limitNum = limit ? parseInt(limit, 10) : (userRole === 'ADMIN' ? 50 : 20);
+    const limitNum = limit
+      ? parseInt(limit, 10)
+      : userRole === 'ADMIN'
+        ? 50
+        : 20;
     const unreadOnlyBool = unreadOnly === 'true';
 
     // Admins see ALL notifications from all users
@@ -49,13 +53,13 @@ export class NotificationsController {
   async getUnreadCount(@Request() req: any) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     // Admins see count of ALL unread notifications
     if (userRole === 'ADMIN') {
       const count = await this.notificationsService.getAllUnreadCount();
       return { count };
     }
-    
+
     // Fellows and Facilitators see only their own unread count
     const count = await this.notificationsService.getUnreadCount(userId);
     return { count };
@@ -67,7 +71,7 @@ export class NotificationsController {
   async markAsRead(@Param('id') id: string, @Request() req: any) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     // Admins can mark any notification as read
     if (userRole === 'ADMIN') {
       await this.notificationsService.markAsReadAdmin(id);
@@ -82,7 +86,7 @@ export class NotificationsController {
   async markAllAsRead(@Request() req: any) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     // Admins mark all notifications in system as read
     if (userRole === 'ADMIN') {
       await this.notificationsService.markAllAsReadAdmin();
@@ -99,7 +103,7 @@ export class NotificationsController {
   async deleteNotification(@Param('id') id: string, @Request() req: any) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     // Admins can delete any notification
     if (userRole === 'ADMIN') {
       await this.notificationsService.deleteNotificationAdmin(id);
@@ -114,7 +118,7 @@ export class NotificationsController {
   async deleteAllRead(@Request() req: any) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     // Admins delete all read notifications in system
     if (userRole === 'ADMIN') {
       await this.notificationsService.deleteAllReadAdmin();

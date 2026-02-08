@@ -22,18 +22,22 @@ interface AuthenticatedSocket extends Socket {
   },
   namespace: '/discussions',
 })
-export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class DiscussionsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
-  private connectedUsers: Map<string, { userId: string; cohortId?: string }> = new Map();
+  private connectedUsers: Map<string, { userId: string; cohortId?: string }> =
+    new Map();
 
   constructor(private prisma: PrismaService) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const userId = client.handshake.auth.userId || client.handshake.query.userId;
-      
+      const userId =
+        client.handshake.auth.userId || client.handshake.query.userId;
+
       if (!userId) {
         console.log('Connection rejected: No userId provided');
         client.disconnect();
@@ -49,13 +53,18 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
       if (user?.cohortId) {
         client.userId = userId as string;
         client.cohortId = user.cohortId;
-        this.connectedUsers.set(client.id, { userId: userId as string, cohortId: user.cohortId });
+        this.connectedUsers.set(client.id, {
+          userId: userId as string,
+          cohortId: user.cohortId,
+        });
 
         // Join cohort room for discussion updates
         client.join(`cohort:${user.cohortId}`);
         client.join(`user:${userId}`);
 
-        console.log(`Discussion client connected: ${client.id} (User: ${userId}, Cohort: ${user.cohortId})`);
+        console.log(
+          `Discussion client connected: ${client.id} (User: ${userId}, Cohort: ${user.cohortId})`,
+        );
       } else {
         client.disconnect();
       }
@@ -68,7 +77,9 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
   handleDisconnect(client: AuthenticatedSocket) {
     const userInfo = this.connectedUsers.get(client.id);
     this.connectedUsers.delete(client.id);
-    console.log(`Discussion client disconnected: ${client.id} (User: ${userInfo?.userId})`);
+    console.log(
+      `Discussion client disconnected: ${client.id} (User: ${userInfo?.userId})`,
+    );
   }
 
   // ==================== BROADCAST METHODS ====================
@@ -76,13 +87,17 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
   broadcastNewDiscussion(discussion: any) {
     // Broadcast to all users in the cohort
     if (discussion.cohortId) {
-      this.server.to(`cohort:${discussion.cohortId}`).emit('discussion:new', discussion);
+      this.server
+        .to(`cohort:${discussion.cohortId}`)
+        .emit('discussion:new', discussion);
     }
   }
 
   broadcastDiscussionUpdate(discussion: any) {
     if (discussion.cohortId) {
-      this.server.to(`cohort:${discussion.cohortId}`).emit('discussion:updated', discussion);
+      this.server
+        .to(`cohort:${discussion.cohortId}`)
+        .emit('discussion:updated', discussion);
     }
   }
 
@@ -94,7 +109,9 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
   }
 
   broadcastDiscussionDeleted(discussionId: string, cohortId: string) {
-    this.server.to(`cohort:${cohortId}`).emit('discussion:deleted', { discussionId });
+    this.server
+      .to(`cohort:${cohortId}`)
+      .emit('discussion:deleted', { discussionId });
   }
 
   // Notify specific user
@@ -110,7 +127,10 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     client.join(`discussion:${data.discussionId}`);
-    return { success: true, message: `Subscribed to discussion ${data.discussionId}` };
+    return {
+      success: true,
+      message: `Subscribed to discussion ${data.discussionId}`,
+    };
   }
 
   @SubscribeMessage('discussion:unsubscribe')
@@ -119,7 +139,10 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     client.leave(`discussion:${data.discussionId}`);
-    return { success: true, message: `Unsubscribed from discussion ${data.discussionId}` };
+    return {
+      success: true,
+      message: `Unsubscribed from discussion ${data.discussionId}`,
+    };
   }
 
   @SubscribeMessage('discussion:typing')
@@ -131,10 +154,12 @@ export class DiscussionsGateway implements OnGatewayConnection, OnGatewayDisconn
     if (!userId) return;
 
     // Broadcast typing status to other users viewing the same discussion
-    client.to(`discussion:${data.discussionId}`).emit('discussion:user_typing', {
-      userId,
-      discussionId: data.discussionId,
-      isTyping: data.isTyping,
-    });
+    client
+      .to(`discussion:${data.discussionId}`)
+      .emit('discussion:user_typing', {
+        userId,
+        discussionId: data.discussionId,
+        isTyping: data.isTyping,
+      });
   }
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
 import { AchievementsService } from '../achievements/achievements.service';
@@ -7,7 +11,7 @@ import { AchievementsService } from '../achievements/achievements.service';
 export class ResourcesService {
   constructor(
     private prisma: PrismaService,
-    private achievementsService: AchievementsService
+    private achievementsService: AchievementsService,
   ) {}
 
   /**
@@ -18,7 +22,7 @@ export class ResourcesService {
     userId: string,
     points: number,
     eventType: string,
-    description: string
+    description: string,
   ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -34,8 +38,9 @@ export class ResourcesService {
     // Check if monthly reset is needed
     const now = new Date();
     const lastReset = user.lastPointReset;
-    const needsReset = !lastReset || 
-      lastReset.getMonth() !== now.getMonth() || 
+    const needsReset =
+      !lastReset ||
+      lastReset.getMonth() !== now.getMonth() ||
       lastReset.getFullYear() !== now.getFullYear();
 
     let currentMonthPoints = user.currentMonthPoints;
@@ -79,7 +84,7 @@ export class ResourcesService {
     resourceId: string,
     userId: string,
     session?: any,
-    userRole?: string
+    userRole?: string,
   ): Promise<'LOCKED' | 'UNLOCKED' | 'IN_PROGRESS' | 'COMPLETED'> {
     // Check user progress first
     const progress = await this.prisma.resourceProgress.findUnique({
@@ -160,7 +165,7 @@ export class ResourcesService {
           r.id,
           userId,
           r.session,
-          user?.role
+          user?.role,
         );
 
         return {
@@ -169,7 +174,7 @@ export class ResourcesService {
           completedAt: r.progress[0]?.completedAt,
           progress: undefined, // Remove progress array from response
         };
-      })
+      }),
     );
 
     return {
@@ -205,14 +210,14 @@ export class ResourcesService {
       resourceId,
       userId,
       resource.session,
-      user?.role
+      user?.role,
     );
 
     // Check if user can access this resource
     if (state === 'LOCKED') {
       const unlockDate = new Date(resource.session.unlockDate);
       throw new ForbiddenException(
-        `Resource is locked. It will unlock on ${unlockDate.toISOString()}`
+        `Resource is locked. It will unlock on ${unlockDate.toISOString()}`,
       );
     }
 
@@ -251,14 +256,14 @@ export class ResourcesService {
       // For articles: scrollDepth must be >= 80%
       if (resource.type === 'ARTICLE' && existingProgress.scrollDepth < 80) {
         validationErrors.push(
-          `Article requires 80% scroll depth. Current: ${existingProgress.scrollDepth}%`
+          `Article requires 80% scroll depth. Current: ${existingProgress.scrollDepth}%`,
         );
       }
 
       // For videos: watchPercentage must be >= 85%
       if (resource.type === 'VIDEO' && existingProgress.watchPercentage < 85) {
         validationErrors.push(
-          `Video requires 85% watch completion. Current: ${existingProgress.watchPercentage}%`
+          `Video requires 85% watch completion. Current: ${existingProgress.watchPercentage}%`,
         );
       }
 
@@ -268,7 +273,7 @@ export class ResourcesService {
       if (!existingProgress.minimumThresholdMet) {
         const requiredMinutes = Math.ceil(resource.estimatedMinutes * 0.7);
         validationErrors.push(
-          `Must spend at least ${requiredMinutes} minutes (70% of ${resource.estimatedMinutes} min estimated time)`
+          `Must spend at least ${requiredMinutes} minutes (70% of ${resource.estimatedMinutes} min estimated time)`,
         );
       }
 
@@ -283,7 +288,7 @@ export class ResourcesService {
     } else {
       // No progress tracked yet - user tried to mark complete without engaging
       throw new ForbiddenException(
-        'Must engage with resource before completing. Start reading/watching to track your progress.'
+        'Must engage with resource before completing. Start reading/watching to track your progress.',
       );
     }
 
@@ -307,7 +312,7 @@ export class ResourcesService {
     if (!alreadyCompleted) {
       // Calculate engagement quality bonus (0-20% extra points based on engagement quality)
       const qualityBonus = Math.floor(
-        resource.pointValue * existingProgress.engagementQuality * 0.2
+        resource.pointValue * existingProgress.engagementQuality * 0.2,
       );
       const totalPoints = resource.pointValue + qualityBonus;
 
@@ -316,17 +321,21 @@ export class ResourcesService {
         userId,
         totalPoints,
         'RESOURCE_COMPLETE',
-        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}`
+        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}`,
       );
 
       // Check and award achievements
-      const newAchievements = await this.achievementsService.checkAndAwardAchievements(userId);
+      const newAchievements =
+        await this.achievementsService.checkAndAwardAchievements(userId);
 
       return {
         ...progress,
         pointsAwarded: awarded ? totalPoints : 0,
-        cappedMessage: awarded ? null : 'Monthly point cap reached - no points awarded',
-        newAchievements: newAchievements.length > 0 ? newAchievements : undefined,
+        cappedMessage: awarded
+          ? null
+          : 'Monthly point cap reached - no points awarded',
+        newAchievements:
+          newAchievements.length > 0 ? newAchievements : undefined,
       };
     }
 
@@ -341,7 +350,7 @@ export class ResourcesService {
   async trackEngagement(
     resourceId: string,
     userId: string,
-    dto: TrackEngagementDto
+    dto: TrackEngagementDto,
   ) {
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
@@ -398,7 +407,7 @@ export class ResourcesService {
     if (dto.watchPercentage !== undefined) {
       updateData.watchPercentage = Math.max(
         progress.watchPercentage,
-        dto.watchPercentage
+        dto.watchPercentage,
       );
     }
 
@@ -416,11 +425,12 @@ export class ResourcesService {
     let qualityScore = 0;
 
     if (resource.type === 'ARTICLE') {
-      const scrollScore = (updateData.scrollDepth || progress.scrollDepth) / 100;
+      const scrollScore =
+        (updateData.scrollDepth || progress.scrollDepth) / 100;
       const timeScore = Math.min(
         (updateData.timeSpent || progress.timeSpent) /
           (resource.estimatedMinutes * 60),
-        1
+        1,
       );
       qualityScore = scrollScore * 0.6 + timeScore * 0.4;
     } else if (resource.type === 'VIDEO') {
@@ -429,7 +439,7 @@ export class ResourcesService {
       const timeScore = Math.min(
         (updateData.timeSpent || progress.timeSpent) /
           (resource.estimatedMinutes * 60),
-        1
+        1,
       );
       qualityScore = watchScore * 0.7 + timeScore * 0.3;
     } else {
@@ -437,7 +447,7 @@ export class ResourcesService {
       qualityScore = Math.min(
         (updateData.timeSpent || progress.timeSpent) /
           (resource.estimatedMinutes * 60),
-        1
+        1,
       );
     }
 

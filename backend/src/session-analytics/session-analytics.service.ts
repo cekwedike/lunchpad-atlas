@@ -33,8 +33,8 @@ export class SessionAnalyticsService {
     const apiKey = this.config.get<string>('GEMINI_API_KEY');
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({ 
-        model: 'gemini-2.5-flash',  // Updated to latest Gemini 2.5 Flash model
+      this.model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash', // Updated to latest Gemini 2.5 Flash model
         generationConfig: {
           temperature: 0.7,
           responseMimeType: 'application/json',
@@ -46,7 +46,10 @@ export class SessionAnalyticsService {
   /**
    * Analyze session transcript using Google Gemini
    */
-  async analyzeSessionWithAI(sessionId: string, transcript: string): Promise<AIAnalysisResult> {
+  async analyzeSessionWithAI(
+    sessionId: string,
+    transcript: string,
+  ): Promise<AIAnalysisResult> {
     if (!this.model) {
       throw new Error('Gemini API key not configured');
     }
@@ -85,15 +88,17 @@ Consider:
     const result = await this.model.generateContent([
       {
         role: 'user',
-        parts: [{
-          text: `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
-        }],
+        parts: [
+          {
+            text: `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
+          },
+        ],
       },
     ]);
 
     const response = await result.response;
     const analysis = JSON.parse(response.text());
-    
+
     return {
       engagementScore: analysis.engagementScore,
       participationRate: analysis.participationRate,
@@ -208,19 +213,26 @@ Consider:
     const analytics = sessions.flatMap((session) => session.sessionAnalytics);
 
     // Calculate cohort-wide averages
-    const avgEngagement = analytics.length > 0
-      ? analytics.reduce((sum, a) => sum + (a.engagementScore || 0), 0) / analytics.length
-      : 0;
+    const avgEngagement =
+      analytics.length > 0
+        ? analytics.reduce((sum, a) => sum + (a.engagementScore || 0), 0) /
+          analytics.length
+        : 0;
 
-    const avgParticipation = analytics.length > 0
-      ? analytics.reduce((sum, a) => sum + (a.participationRate || 0), 0) / analytics.length
-      : 0;
+    const avgParticipation =
+      analytics.length > 0
+        ? analytics.reduce((sum, a) => sum + (a.participationRate || 0), 0) /
+          analytics.length
+        : 0;
 
     const allTopics = analytics.flatMap((a) => (a.keyTopics as string[]) || []);
-    const topicCounts = allTopics.reduce((acc, topic) => {
-      acc[topic] = (acc[topic] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const topicCounts = allTopics.reduce(
+      (acc, topic) => {
+        acc[topic] = (acc[topic] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       cohortId,
@@ -264,9 +276,11 @@ Provide insights on:
     const result = await this.model.generateContent([
       {
         role: 'user',
-        parts: [{
-          text: `System: You are an expert education analyst providing cohort-level insights.\n\n${prompt}`,
-        }],
+        parts: [
+          {
+            text: `System: You are an expert education analyst providing cohort-level insights.\n\n${prompt}`,
+          },
+        ],
       },
     ]);
 

@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
@@ -17,7 +22,7 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     try {
       const hashedPassword = await bcrypt.hash(dto.password, 10);
-      
+
       // For FELLOW role, find or create default 2026 cohort and assign
       let cohortId: string | undefined = undefined;
       if (!dto.role || dto.role === 'FELLOW') {
@@ -32,7 +37,7 @@ export class AuthService {
         if (!defaultCohort) {
           const startDate = new Date('2026-01-01');
           const endDate = new Date('2026-12-31');
-          
+
           defaultCohort = await this.prisma.cohort.create({
             data: {
               name: '2026',
@@ -45,7 +50,7 @@ export class AuthService {
 
         cohortId = defaultCohort.id;
       }
-      
+
       const user = await this.prisma.user.create({
         data: {
           email: dto.email.toLowerCase().trim(),
@@ -105,8 +110,9 @@ export class AuthService {
 
   private generateTokens(user: any): AuthResponseDto {
     const payload = { sub: user.id, email: user.email, role: user.role };
-    const name = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    
+    const name =
+      user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim();
+
     return {
       accessToken: this.jwtService.sign(payload),
       user: {

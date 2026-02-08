@@ -32,7 +32,9 @@ export class DiscussionScoringService {
       throw new Error('Gemini API key not configured');
     }
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = this.genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+    });
 
     const prompt = `Analyze the quality of this discussion post from a career development learning platform:
 
@@ -66,7 +68,7 @@ Return ONLY valid JSON, no other text.`;
     try {
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      
+
       // Extract JSON from response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -77,9 +79,10 @@ Return ONLY valid JSON, no other text.`;
 
       // Calculate overall score (weighted average)
       const score = Math.round(
-        (analysis.depth * 0.35 + 
-         analysis.relevance * 0.35 + 
-         analysis.constructiveness * 0.30) * 10
+        (analysis.depth * 0.35 +
+          analysis.relevance * 0.35 +
+          analysis.constructiveness * 0.3) *
+          10,
       );
 
       return {
@@ -118,9 +121,9 @@ Return ONLY valid JSON, no other text.`;
           discussion.content,
         );
         results.set(discussion.id, analysis);
-        
+
         // Rate limiting - wait 1 second between requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error) {
         console.error(`Failed to score discussion ${discussion.id}:`, error);
       }

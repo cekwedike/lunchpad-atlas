@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ResourcesService } from './resources.service';
 import { PrismaService } from '../prisma.service';
+import { AchievementsService } from '../achievements/achievements.service';
 
 describe('ResourcesService', () => {
   let service: ResourcesService;
@@ -14,16 +15,21 @@ describe('ResourcesService', () => {
       count: jest.fn(),
     },
     resourceProgress: {
-      findFirst: jest.fn(),
-      upsert: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
     pointsLog: {
       create: jest.fn(),
     },
     user: {
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     $transaction: jest.fn((callback) => callback(mockPrismaService)),
+  };
+
+  const mockAchievementsService = {
+    checkAndAwardAchievements: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,6 +37,7 @@ describe('ResourcesService', () => {
       providers: [
         ResourcesService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AchievementsService, useValue: mockAchievementsService },
       ],
     }).compile();
 
@@ -59,6 +66,8 @@ describe('ResourcesService', () => {
         },
       ];
 
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'FELLOW' });
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue({ state: 'COMPLETED' });
       mockPrismaService.resource.findMany.mockResolvedValue(mockResources);
       mockPrismaService.resource.count.mockResolvedValue(1);
 
@@ -94,6 +103,8 @@ describe('ResourcesService', () => {
         },
       ];
 
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'FELLOW' });
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue({ state: 'LOCKED' });
       mockPrismaService.resource.findMany.mockResolvedValue(mockResources);
       mockPrismaService.resource.count.mockResolvedValue(1);
 
@@ -110,16 +121,38 @@ describe('ResourcesService', () => {
 
       const mockResource = {
         id: resourceId,
+        title: 'Test Resource',
         pointValue: 100,
+        estimatedMinutes: 10,
+        type: 'VIDEO',
+      };
+
+      const existingProgress = {
+        state: 'IN_PROGRESS',
+        scrollDepth: 0,
+        watchPercentage: 90,
+        minimumThresholdMet: true,
+        engagementQuality: 0.5,
       };
 
       mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
-      mockPrismaService.resourceProgress.findFirst.mockResolvedValue(null);
-      mockPrismaService.resourceProgress.upsert.mockResolvedValue({
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue(existingProgress);
+      mockPrismaService.resourceProgress.update.mockResolvedValue({
         id: 'progress-1',
         state: 'COMPLETED',
         completedAt: new Date(),
       });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        currentMonthPoints: 0,
+        monthlyPointsCap: 1000,
+        lastPointReset: new Date(),
+      });
+      mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
+
+      const qualityBonus = Math.floor(
+        mockResource.pointValue * existingProgress.engagementQuality * 0.2,
+      );
+      const totalPoints = mockResource.pointValue + qualityBonus;
 
       const result = await service.markComplete(resourceId, userId);
 
@@ -128,7 +161,7 @@ describe('ResourcesService', () => {
       expect(mockPrismaService.pointsLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId,
-          points: 100,
+          points: totalPoints,
           eventType: 'RESOURCE_COMPLETE',
         }),
       });
@@ -140,17 +173,25 @@ describe('ResourcesService', () => {
 
       const mockResource = {
         id: resourceId,
+        title: 'Test Resource',
         pointValue: 100,
+        estimatedMinutes: 10,
+        type: 'VIDEO',
       };
 
       mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
-      mockPrismaService.resourceProgress.findFirst.mockResolvedValue({
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue({
         state: 'COMPLETED',
+        scrollDepth: 0,
+        watchPercentage: 90,
+        minimumThresholdMet: true,
+        engagementQuality: 0.2,
       });
-      mockPrismaService.resourceProgress.upsert.mockResolvedValue({
+      mockPrismaService.resourceProgress.update.mockResolvedValue({
         id: 'progress-1',
         state: 'COMPLETED',
       });
+      mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
 
       await service.markComplete(resourceId, userId);
 
@@ -160,9 +201,9 @@ describe('ResourcesService', () => {
     it('should throw NotFoundException if resource does not exist', async () => {
       mockPrismaService.resource.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.markComplete('nonexistent', '123'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.markComplete('nonexistent', '123')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

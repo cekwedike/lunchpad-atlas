@@ -8,7 +8,12 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [NotificationsModule],
-  providers: [DiscussionsService, DiscussionScoringService, DiscussionsGateway, PrismaService],
+  providers: [
+    DiscussionsService,
+    DiscussionScoringService,
+    DiscussionsGateway,
+    PrismaService,
+  ],
   controllers: [DiscussionsController],
   exports: [DiscussionsService, DiscussionsGateway],
 })

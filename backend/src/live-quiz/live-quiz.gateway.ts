@@ -22,7 +22,9 @@ interface QuizRoom {
   },
   namespace: '/live-quiz',
 })
-export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class LiveQuizGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -49,7 +51,8 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('joinQuiz')
   async handleJoinQuiz(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { quizId: string; userId: string; displayName: string }
+    @MessageBody()
+    data: { quizId: string; userId: string; displayName: string },
   ) {
     const { quizId, userId, displayName } = data;
 
@@ -101,7 +104,7 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('startQuiz')
   async handleStartQuiz(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { quizId: string }
+    @MessageBody() data: { quizId: string },
   ) {
     try {
       const quiz = await this.liveQuizService.startQuiz(data.quizId);
@@ -124,17 +127,19 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('nextQuestion')
   async handleNextQuestion(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { quizId: string; questionIndex: number }
+    @MessageBody() data: { quizId: string; questionIndex: number },
   ) {
     try {
       const quiz = await this.liveQuizService.nextQuestion(
         data.quizId,
-        data.questionIndex
+        data.questionIndex,
       );
 
       if (quiz.status === 'COMPLETED') {
         // Quiz finished
-        const leaderboard = await this.liveQuizService.getLeaderboard(data.quizId);
+        const leaderboard = await this.liveQuizService.getLeaderboard(
+          data.quizId,
+        );
         this.server.to(data.quizId).emit('quizCompleted', {
           quizId: quiz.id,
           leaderboard,
@@ -169,7 +174,7 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
       questionId: string;
       selectedAnswer: number;
       timeToAnswer: number;
-    }
+    },
   ) {
     try {
       const result = await this.liveQuizService.submitAnswer({
@@ -180,7 +185,9 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
       });
 
       // Update leaderboard in real-time
-      const leaderboard = await this.liveQuizService.getLeaderboard(data.quizId);
+      const leaderboard = await this.liveQuizService.getLeaderboard(
+        data.quizId,
+      );
       this.server.to(data.quizId).emit('leaderboardUpdate', {
         leaderboard: leaderboard.slice(0, 10), // Top 10
       });
@@ -203,10 +210,12 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('getLeaderboard')
   async handleGetLeaderboard(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { quizId: string }
+    @MessageBody() data: { quizId: string },
   ) {
     try {
-      const leaderboard = await this.liveQuizService.getLeaderboard(data.quizId);
+      const leaderboard = await this.liveQuizService.getLeaderboard(
+        data.quizId,
+      );
       return { success: true, leaderboard };
     } catch (error) {
       return { success: false, error: error.message };
@@ -223,7 +232,7 @@ export class LiveQuizGateway implements OnGatewayConnection, OnGatewayDisconnect
       questionId: string;
       correctAnswer: number;
       statistics: any;
-    }
+    },
   ) {
     this.server.to(data.quizId).emit('resultsShown', {
       questionId: data.questionId,

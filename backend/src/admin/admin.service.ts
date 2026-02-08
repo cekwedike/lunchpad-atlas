@@ -1,7 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreateCohortDto, UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
-import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
+import {
+  CreateCohortDto,
+  UpdateCohortDto,
+  UpdateSessionDto,
+} from './dto/admin.dto';
+import {
+  CreateResourceDto,
+  UpdateResourceDto,
+} from '../resources/dto/create-resource.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from '../chat/chat.service';
 
@@ -53,12 +64,15 @@ export class AdminService {
     });
 
     // Auto-create default chat channel for this cohort
-    await this.chatService.createChannel({
-      cohortId: cohort.id,
-      name: `${cohort.name} - General Chat`,
-      description: `Main chat room for ${cohort.name} cohort`,
-      type: 'COHORT_WIDE',
-    }, adminId);
+    await this.chatService.createChannel(
+      {
+        cohortId: cohort.id,
+        name: `${cohort.name} - General Chat`,
+        description: `Main chat room for ${cohort.name} cohort`,
+        type: 'COHORT_WIDE',
+      },
+      adminId,
+    );
 
     // Log admin action
     await this.prisma.adminAuditLog.create({
@@ -167,7 +181,7 @@ export class AdminService {
           deleted: {
             cohort: cohort.name,
             usersDeleted: cohort.fellows.length,
-            users: cohort.fellows.map(u => ({
+            users: cohort.fellows.map((u) => ({
               email: u.email,
               name: `${u.firstName} ${u.lastName}`,
             })),
@@ -183,7 +197,11 @@ export class AdminService {
     };
   }
 
-  async updateSession(sessionId: string, dto: UpdateSessionDto, adminId: string) {
+  async updateSession(
+    sessionId: string,
+    dto: UpdateSessionDto,
+    adminId: string,
+  ) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
     });
@@ -297,12 +315,16 @@ export class AdminService {
       }),
     ]);
 
-    const weeklyGrowth = newUsersLastWeek === 0
-      ? (newUsersThisWeek > 0 ? 100 : 0)
-      : Math.round(((newUsersThisWeek - newUsersLastWeek) / newUsersLastWeek) * 100);
-    const engagementRate = totalUsers === 0
-      ? 0
-      : Math.round((activeUsers / totalUsers) * 100);
+    const weeklyGrowth =
+      newUsersLastWeek === 0
+        ? newUsersThisWeek > 0
+          ? 100
+          : 0
+        : Math.round(
+            ((newUsersThisWeek - newUsersLastWeek) / newUsersLastWeek) * 100,
+          );
+    const engagementRate =
+      totalUsers === 0 ? 0 : Math.round((activeUsers / totalUsers) * 100);
 
     return {
       totalUsers,
@@ -378,7 +400,11 @@ export class AdminService {
     return resource;
   }
 
-  async updateResource(resourceId: string, dto: UpdateResourceDto, adminId: string) {
+  async updateResource(
+    resourceId: string,
+    dto: UpdateResourceDto,
+    adminId: string,
+  ) {
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
     });
@@ -458,7 +484,7 @@ export class AdminService {
     // Check if any users have started this resource
     if (resource.progress && resource.progress.length > 0) {
       throw new BadRequestException(
-        `Cannot delete resource: ${resource.progress.length} user(s) have already started this resource`
+        `Cannot delete resource: ${resource.progress.length} user(s) have already started this resource`,
       );
     }
 

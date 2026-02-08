@@ -14,7 +14,12 @@ export interface UserFilters {
 
 export interface UserActivityEntry {
   timestamp: Date;
-  type: 'resource_completed' | 'discussion_created' | 'points_awarded' | 'quiz_completed' | 'login';
+  type:
+    | 'resource_completed'
+    | 'discussion_created'
+    | 'points_awarded'
+    | 'quiz_completed'
+    | 'login';
   description: string;
   metadata?: any;
 }
@@ -105,9 +110,7 @@ export class AdminUserService {
             },
           },
         },
-        orderBy: [
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ createdAt: 'desc' }],
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -199,7 +202,8 @@ export class AdminUserService {
       select: { firstName: true, lastName: true },
     });
 
-    const adminName = `${admin?.firstName || ''} ${admin?.lastName || ''}`.trim() || 'Admin';
+    const adminName =
+      `${admin?.firstName || ''} ${admin?.lastName || ''}`.trim() || 'Admin';
 
     await this.notificationsService.notifyUserPromoted(userId, role, adminName);
     await this.notificationsService.notifyAdminsUserUpdated(
@@ -311,7 +315,10 @@ export class AdminUserService {
   /**
    * Get user activity timeline
    */
-  async getUserActivity(userId: string, limit = 50): Promise<UserActivityEntry[]> {
+  async getUserActivity(
+    userId: string,
+    limit = 50,
+  ): Promise<UserActivityEntry[]> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -321,53 +328,54 @@ export class AdminUserService {
     }
 
     // Gather activities from different sources
-    const [resourceActivities, discussionActivities, quizActivities] = await Promise.all([
-      // Resource completion activities
-      this.prisma.resourceProgress.findMany({
-        where: {
-          userId,
-          state: 'COMPLETED',
-        },
-        include: {
-          resource: {
-            select: {
-              title: true,
-              type: true,
+    const [resourceActivities, discussionActivities, quizActivities] =
+      await Promise.all([
+        // Resource completion activities
+        this.prisma.resourceProgress.findMany({
+          where: {
+            userId,
+            state: 'COMPLETED',
+          },
+          include: {
+            resource: {
+              select: {
+                title: true,
+                type: true,
+              },
             },
           },
-        },
-        orderBy: { completedAt: 'desc' },
-        take: limit,
-      }),
+          orderBy: { completedAt: 'desc' },
+          take: limit,
+        }),
 
-      // Discussion creation activities
-      this.prisma.discussion.findMany({
-        where: { userId },
-        include: {
-          resource: {
-            select: {
-              title: true,
+        // Discussion creation activities
+        this.prisma.discussion.findMany({
+          where: { userId },
+          include: {
+            resource: {
+              select: {
+                title: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      }),
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }),
 
-      // Quiz submission activities
-      this.prisma.quizResponse.findMany({
-        where: { userId },
-        include: {
-          quiz: {
-            select: {
-              title: true,
+        // Quiz submission activities
+        this.prisma.quizResponse.findMany({
+          where: { userId },
+          include: {
+            quiz: {
+              select: {
+                title: true,
+              },
             },
           },
-        },
-        orderBy: { completedAt: 'desc' },
-        take: limit,
-      }),
-    ]);
+          orderBy: { completedAt: 'desc' },
+          take: limit,
+        }),
+      ]);
 
     // Combine and format activities
     const activities: UserActivityEntry[] = [];
@@ -495,7 +503,9 @@ export class AdminUserService {
       averageQuizScore: averageQuizScore._avg.score
         ? Math.round(averageQuizScore._avg.score * 10) / 10
         : 0,
-      totalTimeSpentMinutes: totalTimeSpent._sum.timeSpent ? Math.round(totalTimeSpent._sum.timeSpent / 60) : 0,
+      totalTimeSpentMinutes: totalTimeSpent._sum.timeSpent
+        ? Math.round(totalTimeSpent._sum.timeSpent / 60)
+        : 0,
     };
   }
 

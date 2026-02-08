@@ -12,7 +12,9 @@ import { NotificationsModule } from '../notifications/notifications.module';
     PassportModule,
     NotificationsModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-development-jwt-secret-change-in-production',
+      secret:
+        process.env.JWT_SECRET ||
+        'your-development-jwt-secret-change-in-production',
       signOptions: { expiresIn: '7d' },
     }),
   ],

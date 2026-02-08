@@ -1,7 +1,27 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { DiscussionsService } from './discussions.service';
-import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto, CommentReactionDto } from './dto/discussion.dto';
+import {
+  CreateDiscussionDto,
+  CreateCommentDto,
+  DiscussionFilterDto,
+  CommentReactionDto,
+} from './dto/discussion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('discussions')
@@ -29,7 +49,11 @@ export class DiscussionsController {
 
   @Post()
   createDiscussion(@Request() req, @Body() dto: CreateDiscussionDto) {
-    return this.discussionsService.createDiscussion(req.user.id, req.user.role, dto);
+    return this.discussionsService.createDiscussion(
+      req.user.id,
+      req.user.role,
+      dto,
+    );
   }
 
   @Post(':id/like')
@@ -43,13 +67,21 @@ export class DiscussionsController {
   }
 
   @Post(':id/comments')
-  createComment(@Param('id') id: string, @Request() req, @Body() dto: CreateCommentDto) {
+  createComment(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() dto: CreateCommentDto,
+  ) {
     return this.discussionsService.createComment(id, req.user.id, dto);
   }
 
   @Delete(':id')
   deleteDiscussion(@Param('id') id: string, @Request() req) {
-    return this.discussionsService.deleteDiscussion(id, req.user.id, req.user.role);
+    return this.discussionsService.deleteDiscussion(
+      id,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Post(':id/score-quality')
@@ -88,7 +120,11 @@ export class DiscussionsController {
   @Delete('comments/:commentId')
   @ApiOperation({ summary: 'Delete a comment (own comments or admin)' })
   deleteComment(@Param('commentId') commentId: string, @Request() req) {
-    return this.discussionsService.deleteComment(commentId, req.user.id, req.user.role);
+    return this.discussionsService.deleteComment(
+      commentId,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Post('comments/:commentId/pin')
@@ -104,7 +140,11 @@ export class DiscussionsController {
     @Request() req,
     @Body() dto: CommentReactionDto,
   ) {
-    return this.discussionsService.reactToComment(commentId, req.user.id, dto.type);
+    return this.discussionsService.reactToComment(
+      commentId,
+      req.user.id,
+      dto.type,
+    );
   }
 
   @Post('comments/:commentId')

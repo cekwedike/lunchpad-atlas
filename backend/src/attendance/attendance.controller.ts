@@ -33,11 +33,14 @@ export class AttendanceController {
   @Get('session/:sessionId/qr-code')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Generate QR code for session check-in (Facilitator/Admin only)' })
+  @ApiOperation({
+    summary: 'Generate QR code for session check-in (Facilitator/Admin only)',
+  })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'QR code generated successfully' })
   async generateQRCode(@Param('sessionId') sessionId: string) {
-    const qrCodeDataUrl = await this.attendanceService.generateSessionQRCode(sessionId);
+    const qrCodeDataUrl =
+      await this.attendanceService.generateSessionQRCode(sessionId);
     return { qrCode: qrCodeDataUrl };
   }
 
@@ -45,7 +48,10 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Check in to a session' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({ status: 201, description: 'Checked in successfully' })
-  @ApiResponse({ status: 400, description: 'Already checked in or invalid session' })
+  @ApiResponse({
+    status: 400,
+    description: 'Already checked in or invalid session',
+  })
   async checkIn(
     @Param('sessionId') sessionId: string,
     @Body()
@@ -64,7 +70,10 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Check out from a session' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'Checked out successfully' })
-  @ApiResponse({ status: 400, description: 'Not checked in or already checked out' })
+  @ApiResponse({
+    status: 400,
+    description: 'Not checked in or already checked out',
+  })
   async checkOut(@Param('sessionId') sessionId: string, @Request() req) {
     return this.attendanceService.checkOut(req.user.id, sessionId);
   }
@@ -79,16 +88,26 @@ export class AttendanceController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get my attendance history' })
-  @ApiQuery({ name: 'cohortId', required: false, description: 'Filter by cohort' })
+  @ApiQuery({
+    name: 'cohortId',
+    required: false,
+    description: 'Filter by cohort',
+  })
   @ApiResponse({ status: 200, description: 'Attendance history retrieved' })
   async getMyHistory(@Query('cohortId') cohortId: string, @Request() req) {
-    return this.attendanceService.getUserAttendanceHistory(req.user.id, cohortId);
+    return this.attendanceService.getUserAttendanceHistory(
+      req.user.id,
+      cohortId,
+    );
   }
 
   @Get('session/:sessionId/report')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get comprehensive attendance report for session (Facilitator/Admin only)' })
+  @ApiOperation({
+    summary:
+      'Get comprehensive attendance report for session (Facilitator/Admin only)',
+  })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'Attendance report generated' })
   async getSessionReport(@Param('sessionId') sessionId: string): Promise<any> {
@@ -98,9 +117,14 @@ export class AttendanceController {
   @Get('cohort/:cohortId/stats')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get cohort attendance statistics (Facilitator/Admin only)' })
+  @ApiOperation({
+    summary: 'Get cohort attendance statistics (Facilitator/Admin only)',
+  })
   @ApiParam({ name: 'cohortId', description: 'Cohort ID' })
-  @ApiResponse({ status: 200, description: 'Cohort attendance stats retrieved' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cohort attendance stats retrieved',
+  })
   async getCohortStats(@Param('cohortId') cohortId: string) {
     return this.attendanceService.getCohortAttendanceStats(cohortId);
   }

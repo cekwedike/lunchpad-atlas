@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsArray, IsString, IsNumber, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsArray,
+  IsString,
+  IsNumber,
+  IsOptional,
+} from 'class-validator';
 
 export class SubmitQuizDto {
   @IsNotEmpty()

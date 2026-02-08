@@ -27,20 +27,21 @@ export class AchievementsService {
     });
 
     // Get user stats for checking criteria
-    const [resourceCount, quizCount, perfectQuizzes, discussionCount] = await Promise.all([
-      this.prisma.resourceProgress.count({
-        where: { userId, state: 'COMPLETED' },
-      }),
-      this.prisma.quizResponse.count({
-        where: { userId, passed: true },
-      }),
-      this.prisma.quizResponse.count({
-        where: { userId, score: 100 },
-      }),
-      this.prisma.discussion.count({
-        where: { userId },
-      }),
-    ]);
+    const [resourceCount, quizCount, perfectQuizzes, discussionCount] =
+      await Promise.all([
+        this.prisma.resourceProgress.count({
+          where: { userId, state: 'COMPLETED' },
+        }),
+        this.prisma.quizResponse.count({
+          where: { userId, passed: true },
+        }),
+        this.prisma.quizResponse.count({
+          where: { userId, score: 100 },
+        }),
+        this.prisma.discussion.count({
+          where: { userId },
+        }),
+      ]);
 
     const userStats = {
       resourceCount,
@@ -52,11 +53,12 @@ export class AchievementsService {
     // Check each achievement's criteria
     for (const achievement of availableAchievements) {
       let criteriaObj: any = {};
-      
+
       try {
-        criteriaObj = typeof achievement.criteria === 'string' 
-          ? JSON.parse(achievement.criteria as string)
-          : achievement.criteria;
+        criteriaObj =
+          typeof achievement.criteria === 'string'
+            ? JSON.parse(achievement.criteria)
+            : achievement.criteria;
       } catch (e) {
         console.error('Failed to parse achievement criteria:', achievement.id);
         continue;
@@ -76,8 +78,8 @@ export class AchievementsService {
 
         // Award points (not using totalPoints field since it doesn't exist)
         // Points are tracked through PointsLog only
-        
-        // Log achievement points  
+
+        // Log achievement points
         await this.prisma.pointsLog.create({
           data: {
             userId,

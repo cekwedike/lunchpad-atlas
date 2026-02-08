@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -24,8 +28,13 @@ export class ChatService {
       throw new ForbiddenException('User not found');
     }
 
-    if (user.role === 'FACILITATOR' && user.cohortId !== createChannelDto.cohortId) {
-      throw new ForbiddenException('Facilitators can only create channels for their cohort');
+    if (
+      user.role === 'FACILITATOR' &&
+      user.cohortId !== createChannelDto.cohortId
+    ) {
+      throw new ForbiddenException(
+        'Facilitators can only create channels for their cohort',
+      );
     }
 
     const channel = await this.prisma.channel.create({
@@ -38,7 +47,11 @@ export class ChatService {
     });
 
     if (cohort) {
-      const recipients = await this.getChatNotificationRecipients(cohort.id, cohort.facilitatorId, userId);
+      const recipients = await this.getChatNotificationRecipients(
+        cohort.id,
+        cohort.facilitatorId,
+        userId,
+      );
 
       if (recipients.length > 0) {
         await this.notificationsService.notifyChatRoomCreated(
@@ -72,10 +85,7 @@ export class ChatService {
         cohortId,
         isArchived: false,
       },
-      orderBy: [
-        { type: 'asc' },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
       include: {
         cohort: {
           select: { id: true, name: true },
@@ -89,11 +99,7 @@ export class ChatService {
       where: {
         isArchived: false,
       },
-      orderBy: [
-        { cohortId: 'asc' },
-        { type: 'asc' },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ cohortId: 'asc' }, { type: 'asc' }, { createdAt: 'asc' }],
       include: {
         cohort: {
           select: { id: true, name: true },
@@ -121,7 +127,9 @@ export class ChatService {
     });
 
     if (!user || (user.role !== 'ADMIN' && user.role !== 'FACILITATOR')) {
-      throw new ForbiddenException('Only admins and facilitators can archive channels');
+      throw new ForbiddenException(
+        'Only admins and facilitators can archive channels',
+      );
     }
 
     if (user.role === 'FACILITATOR') {
@@ -131,7 +139,9 @@ export class ChatService {
       });
 
       if (!channel || channel.cohortId !== user.cohortId) {
-        throw new ForbiddenException('Facilitators can only archive channels for their cohort');
+        throw new ForbiddenException(
+          'Facilitators can only archive channels for their cohort',
+        );
       }
     }
 
@@ -148,7 +158,9 @@ export class ChatService {
     });
 
     if (!user || (user.role !== 'ADMIN' && user.role !== 'FACILITATOR')) {
-      throw new ForbiddenException('Only admins and facilitators can delete channels');
+      throw new ForbiddenException(
+        'Only admins and facilitators can delete channels',
+      );
     }
 
     if (user.role === 'FACILITATOR') {
@@ -158,7 +170,9 @@ export class ChatService {
       });
 
       if (!channel || channel.cohortId !== user.cohortId) {
-        throw new ForbiddenException('Facilitators can only delete channels for their cohort');
+        throw new ForbiddenException(
+          'Facilitators can only delete channels for their cohort',
+        );
       }
     }
 
@@ -187,8 +201,14 @@ export class ChatService {
       throw new ForbiddenException('You do not have access to this channel');
     }
 
-    if (channel.isLocked && user?.role !== 'ADMIN' && user?.role !== 'FACILITATOR') {
-      throw new ForbiddenException('This chat room is locked for announcements only');
+    if (
+      channel.isLocked &&
+      user?.role !== 'ADMIN' &&
+      user?.role !== 'FACILITATOR'
+    ) {
+      throw new ForbiddenException(
+        'This chat room is locked for announcements only',
+      );
     }
 
     // Create message
@@ -236,10 +256,13 @@ export class ChatService {
     );
 
     if (recipients.length > 0) {
-      const senderName = `${message.user?.firstName || ''} ${message.user?.lastName || ''}`.trim() || 'Someone';
-      const preview = createMessageDto.content.length > 120
-        ? `${createMessageDto.content.slice(0, 117)}...`
-        : createMessageDto.content;
+      const senderName =
+        `${message.user?.firstName || ''} ${message.user?.lastName || ''}`.trim() ||
+        'Someone';
+      const preview =
+        createMessageDto.content.length > 120
+          ? `${createMessageDto.content.slice(0, 117)}...`
+          : createMessageDto.content;
 
       await this.notificationsService.notifyBulkChatMessage(
         recipients,
@@ -301,7 +324,9 @@ export class ChatService {
     });
 
     if (!user || (user.role !== 'ADMIN' && user.role !== 'FACILITATOR')) {
-      throw new ForbiddenException('Only admins and facilitators can lock channels');
+      throw new ForbiddenException(
+        'Only admins and facilitators can lock channels',
+      );
     }
 
     const channel = await this.prisma.channel.findUnique({
@@ -314,7 +339,9 @@ export class ChatService {
     }
 
     if (user.role === 'FACILITATOR' && user.cohortId !== channel.cohortId) {
-      throw new ForbiddenException('Facilitators can only lock channels for their cohort');
+      throw new ForbiddenException(
+        'Facilitators can only lock channels for their cohort',
+      );
     }
 
     const updated = await this.prisma.channel.update({
@@ -368,7 +395,9 @@ export class ChatService {
       user?.role !== 'ADMIN' &&
       user?.role !== 'FACILITATOR'
     ) {
-      throw new ForbiddenException('You do not have permission to delete this message');
+      throw new ForbiddenException(
+        'You do not have permission to delete this message',
+      );
     }
 
     return this.prisma.chatMessage.update({
@@ -392,7 +421,9 @@ export class ChatService {
     });
 
     if (!user || (user.role !== 'ADMIN' && user.role !== 'FACILITATOR')) {
-      throw new ForbiddenException('Only admins and facilitators can flag messages');
+      throw new ForbiddenException(
+        'Only admins and facilitators can flag messages',
+      );
     }
 
     return this.prisma.chatMessage.update({

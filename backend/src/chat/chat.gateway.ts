@@ -37,11 +37,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       // Extract userId from auth token in handshake
       const token = client.handshake.auth.token;
-      
+
       // TODO: Validate JWT token and extract userId
       // For now, we'll expect userId to be passed directly
       const userId = client.handshake.auth.userId;
-      
+
       if (!userId) {
         client.disconnect();
         return;
@@ -99,7 +99,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join channel room
       client.join(`channel:${data.channelId}`);
-      
+
       return {
         success: true,
         message: `Joined channel: ${channel.name}`,
@@ -182,7 +182,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new Error('User not authenticated');
       }
 
-      const message = await this.chatService.deleteMessage(data.messageId, userId);
+      const message = await this.chatService.deleteMessage(
+        data.messageId,
+        userId,
+      );
 
       // Broadcast deletion to channel
       this.server.to(`channel:${message.channelId}`).emit('message_deleted', {

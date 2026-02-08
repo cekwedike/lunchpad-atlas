@@ -1,4 +1,12 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsBoolean, IsUrl, Min } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsUrl,
+  Min,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateResourceDto {
@@ -6,7 +14,10 @@ export class CreateResourceDto {
   @IsString()
   sessionId: string;
 
-  @ApiProperty({ enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'], description: 'Type of resource' })
+  @ApiProperty({
+    enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'],
+    description: 'Type of resource',
+  })
   @IsEnum(['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'])
   type: 'VIDEO' | 'ARTICLE' | 'EXERCISE' | 'QUIZ';
 
@@ -19,11 +30,17 @@ export class CreateResourceDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'URL to the resource (YouTube link, article URL, etc.)' })
+  @ApiProperty({
+    description: 'URL to the resource (YouTube link, article URL, etc.)',
+  })
   @IsUrl()
   url: string;
 
-  @ApiProperty({ description: 'Duration in minutes (for videos) or estimated read time (for articles)', required: false })
+  @ApiProperty({
+    description:
+      'Duration in minutes (for videos) or estimated read time (for articles)',
+    required: false,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -35,12 +52,18 @@ export class CreateResourceDto {
   @Min(1)
   estimatedMinutes?: number;
 
-  @ApiProperty({ description: 'Whether this is a core resource (required) or optional', default: true })
+  @ApiProperty({
+    description: 'Whether this is a core resource (required) or optional',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   isCore?: boolean;
 
-  @ApiProperty({ description: 'Points awarded for completing this resource', default: 100 })
+  @ApiProperty({
+    description: 'Points awarded for completing this resource',
+    default: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -53,12 +76,19 @@ export class CreateResourceDto {
 }
 
 export class UpdateResourceDto {
-  @ApiProperty({ description: 'Session ID this resource belongs to', required: false })
+  @ApiProperty({
+    description: 'Session ID this resource belongs to',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   sessionId?: string;
 
-  @ApiProperty({ enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'], description: 'Type of resource', required: false })
+  @ApiProperty({
+    enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'],
+    description: 'Type of resource',
+    required: false,
+  })
   @IsOptional()
   @IsEnum(['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'])
   type?: 'VIDEO' | 'ARTICLE' | 'EXERCISE' | 'QUIZ';
@@ -84,18 +114,27 @@ export class UpdateResourceDto {
   @Min(0)
   duration?: number;
 
-  @ApiProperty({ description: 'Estimated minutes to complete', required: false })
+  @ApiProperty({
+    description: 'Estimated minutes to complete',
+    required: false,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   estimatedMinutes?: number;
 
-  @ApiProperty({ description: 'Whether this is a core resource', required: false })
+  @ApiProperty({
+    description: 'Whether this is a core resource',
+    required: false,
+  })
   @IsOptional()
   @IsBoolean()
   isCore?: boolean;
 
-  @ApiProperty({ description: 'Points awarded for completing this resource', required: false })
+  @ApiProperty({
+    description: 'Points awarded for completing this resource',
+    required: false,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)

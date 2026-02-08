@@ -28,7 +28,10 @@ export class ChatController {
 
   @Post('channels')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
-  createChannel(@Body() createChannelDto: CreateChannelDto, @Request() req: any) {
+  createChannel(
+    @Body() createChannelDto: CreateChannelDto,
+    @Request() req: any,
+  ) {
     return this.chatService.createChannel(createChannelDto, req.user.id);
   }
 
@@ -44,10 +47,16 @@ export class ChatController {
   }
 
   @Get('channels/:channelId')
-  async getChannelById(@Param('channelId') channelId: string, @Request() req: any) {
+  async getChannelById(
+    @Param('channelId') channelId: string,
+    @Request() req: any,
+  ) {
     const channel = await this.chatService.getChannelById(channelId);
 
-    if (req.user.role !== UserRole.ADMIN && req.user.cohortId !== channel.cohortId) {
+    if (
+      req.user.role !== UserRole.ADMIN &&
+      req.user.cohortId !== channel.cohortId
+    ) {
       throw new ForbiddenException('You do not have access to this channel');
     }
 
@@ -62,7 +71,10 @@ export class ChatController {
 
   @Patch('channels/:channelId/lock')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
-  toggleChannelLock(@Param('channelId') channelId: string, @Request() req: any) {
+  toggleChannelLock(
+    @Param('channelId') channelId: string,
+    @Request() req: any,
+  ) {
     return this.chatService.toggleChannelLock(channelId, req.user.id);
   }
 
@@ -75,7 +87,10 @@ export class ChatController {
   // ==================== MESSAGES ====================
 
   @Post('messages')
-  createMessage(@Body() createMessageDto: CreateMessageDto, @Request() req: any) {
+  createMessage(
+    @Body() createMessageDto: CreateMessageDto,
+    @Request() req: any,
+  ) {
     return this.chatService.createMessage(createMessageDto, req.user.id);
   }
 

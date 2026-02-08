@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import {
   CreateLiveQuizDto,
@@ -151,8 +155,8 @@ export class LiveQuizService {
         this.prisma.liveQuizParticipant.update({
           where: { id: participant.id },
           data: { rank: index + 1 },
-        })
-      )
+        }),
+      ),
     );
 
     return this.prisma.liveQuiz.update({
@@ -189,7 +193,9 @@ export class LiveQuizService {
     }
 
     if (quiz.status === 'COMPLETED' || quiz.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot join a completed or cancelled quiz');
+      throw new BadRequestException(
+        'Cannot join a completed or cancelled quiz',
+      );
     }
 
     // Check if already joined
@@ -249,7 +255,7 @@ export class LiveQuizService {
       isCorrect,
       question.pointValue,
       submitDto.timeToAnswer,
-      question.timeLimit
+      question.timeLimit,
     );
 
     // Create answer
@@ -289,12 +295,15 @@ export class LiveQuizService {
     isCorrect: boolean,
     basePoints: number,
     timeToAnswer: number,
-    timeLimit: number
+    timeLimit: number,
   ): number {
     if (!isCorrect) return 0;
 
     const timeInSeconds = timeToAnswer / 1000;
-    const percentageTimeLeft = Math.max(0, (timeLimit - timeInSeconds) / timeLimit);
+    const percentageTimeLeft = Math.max(
+      0,
+      (timeLimit - timeInSeconds) / timeLimit,
+    );
     const timeBonus = Math.floor(basePoints * 0.5 * percentageTimeLeft); // Up to 50% bonus
 
     return basePoints + timeBonus;

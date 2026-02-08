@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
 import { AchievementsService } from '../achievements/achievements.service';
@@ -7,7 +11,7 @@ import { AchievementsService } from '../achievements/achievements.service';
 export class QuizzesService {
   constructor(
     private prisma: PrismaService,
-    private achievementsService: AchievementsService
+    private achievementsService: AchievementsService,
   ) {}
 
   /**
@@ -18,7 +22,7 @@ export class QuizzesService {
     userId: string,
     points: number,
     eventType: string,
-    description: string
+    description: string,
   ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -34,8 +38,9 @@ export class QuizzesService {
     // Check if monthly reset is needed
     const now = new Date();
     const lastReset = user.lastPointReset;
-    const needsReset = !lastReset || 
-      lastReset.getMonth() !== now.getMonth() || 
+    const needsReset =
+      !lastReset ||
+      lastReset.getMonth() !== now.getMonth() ||
       lastReset.getFullYear() !== now.getFullYear();
 
     let currentMonthPoints = user.currentMonthPoints;
@@ -180,7 +185,7 @@ export class QuizzesService {
         userId,
         totalPoints,
         'QUIZ_SUBMIT',
-        `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}`
+        `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}`,
       );
 
       if (awarded) {
@@ -208,7 +213,8 @@ export class QuizzesService {
     // Check and award achievements if quiz was passed
     let newAchievements: any[] = [];
     if (passed) {
-      newAchievements = await this.achievementsService.checkAndAwardAchievements(userId);
+      newAchievements =
+        await this.achievementsService.checkAndAwardAchievements(userId);
     }
 
     return {

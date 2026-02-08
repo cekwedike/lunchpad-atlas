@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as QRCode from 'qrcode';
 
@@ -72,11 +76,7 @@ export class AttendanceService {
   /**
    * Check in user for session
    */
-  async checkIn(
-    userId: string,
-    sessionId: string,
-    data: CheckInData = {},
-  ) {
+  async checkIn(userId: string, sessionId: string, data: CheckInData = {}) {
     // Verify session exists
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
@@ -227,7 +227,8 @@ export class AttendanceService {
     let duration: number | null = null;
     if (attendance.checkOutTime) {
       duration = Math.round(
-        (attendance.checkOutTime.getTime() - attendance.checkInTime.getTime()) / 60000,
+        (attendance.checkOutTime.getTime() - attendance.checkInTime.getTime()) /
+          60000,
       );
     }
 
@@ -276,7 +277,8 @@ export class AttendanceService {
       let duration: number | null = null;
       if (record.checkOutTime) {
         duration = Math.round(
-          (record.checkOutTime.getTime() - record.checkInTime.getTime()) / 60000,
+          (record.checkOutTime.getTime() - record.checkInTime.getTime()) /
+            60000,
         );
       }
 
@@ -327,7 +329,8 @@ export class AttendanceService {
 
     const totalFellows = session.cohort.fellows.length;
     const attendedCount = session.attendance.length;
-    const attendanceRate = totalFellows > 0 ? (attendedCount / totalFellows) * 100 : 0;
+    const attendanceRate =
+      totalFellows > 0 ? (attendedCount / totalFellows) * 100 : 0;
 
     // Calculate late and excused counts
     const lateCount = session.attendance.filter((a) => a.isLate).length;
@@ -338,7 +341,8 @@ export class AttendanceService {
       let duration: number | null = null;
       if (record.checkOutTime) {
         duration = Math.round(
-          (record.checkOutTime.getTime() - record.checkInTime.getTime()) / 60000,
+          (record.checkOutTime.getTime() - record.checkInTime.getTime()) /
+            60000,
         );
       }
 
@@ -419,7 +423,8 @@ export class AttendanceService {
     const sessionStats = cohort.sessions.map((session) => {
       const attended = session.attendance.length;
       const late = session.attendance.filter((a) => a.isLate).length;
-      const attendanceRate = totalFellows > 0 ? (attended / totalFellows) * 100 : 0;
+      const attendanceRate =
+        totalFellows > 0 ? (attended / totalFellows) * 100 : 0;
 
       totalAttendances += attended;
       totalLateArrivals += late;
@@ -436,7 +441,9 @@ export class AttendanceService {
     });
 
     const overallAttendanceRate =
-      totalPossibleAttendances > 0 ? (totalAttendances / totalPossibleAttendances) * 100 : 0;
+      totalPossibleAttendances > 0
+        ? (totalAttendances / totalPossibleAttendances) * 100
+        : 0;
 
     return {
       cohortId: cohort.id,
@@ -454,13 +461,9 @@ export class AttendanceService {
   /**
    * Mark attendance as excused (facilitator only)
    */
-  async markExcused(
-    sessionId: string,
-    userId: string,
-    notes?: string,
-  ) {
+  async markExcused(sessionId: string, userId: string, notes?: string) {
     // Check if attendance record exists
-    let attendance = await this.prisma.attendance.findUnique({
+    const attendance = await this.prisma.attendance.findUnique({
       where: {
         userId_sessionId: {
           userId,

@@ -46,21 +46,23 @@ export class AnalyticsExportService {
       'AI Processed At',
     ].join(',');
 
-    const rows = analytics.map((a) => [
-      a.session.sessionNumber,
-      `"${a.session.title}"`,
-      a.session.scheduledDate.toISOString().split('T')[0],
-      a.totalFellows,
-      a.fellowsAttended,
-      a.avgResourcesCompleted.toFixed(2),
-      a.avgPoints.toFixed(2),
-      a.engagementScore?.toFixed(2) || 'N/A',
-      a.participationRate?.toFixed(2) || 'N/A',
-      a.averageAttention?.toFixed(2) || 'N/A',
-      a.questionCount,
-      a.interactionCount,
-      a.aiProcessedAt?.toISOString() || 'N/A',
-    ].join(','));
+    const rows = analytics.map((a) =>
+      [
+        a.session.sessionNumber,
+        `"${a.session.title}"`,
+        a.session.scheduledDate.toISOString().split('T')[0],
+        a.totalFellows,
+        a.fellowsAttended,
+        a.avgResourcesCompleted.toFixed(2),
+        a.avgPoints.toFixed(2),
+        a.engagementScore?.toFixed(2) || 'N/A',
+        a.participationRate?.toFixed(2) || 'N/A',
+        a.averageAttention?.toFixed(2) || 'N/A',
+        a.questionCount,
+        a.interactionCount,
+        a.aiProcessedAt?.toISOString() || 'N/A',
+      ].join(','),
+    );
 
     return [headers, ...rows].join('\n');
   }
@@ -100,9 +102,13 @@ export class AnalyticsExportService {
         ].join(',');
       }
 
-      const attendanceRate = analytics.totalFellows > 0
-        ? ((analytics.fellowsAttended / analytics.totalFellows) * 100).toFixed(2)
-        : '0';
+      const attendanceRate =
+        analytics.totalFellows > 0
+          ? (
+              (analytics.fellowsAttended / analytics.totalFellows) *
+              100
+            ).toFixed(2)
+          : '0';
 
       return [
         session.sessionNumber,
@@ -153,35 +159,41 @@ export class AnalyticsExportService {
     ].join(',');
 
     const rows: string[] = [];
-    
+
     resources.forEach((resource) => {
       resource.progress.forEach((prog) => {
-        rows.push([
-          `"${resource.title}"`,
-          resource.type,
-          `"${prog.user.firstName} ${prog.user.lastName}"`,
-          prog.user.email,
-          prog.state,
-          (prog.timeSpent / 60).toFixed(2),
-          prog.watchPercentage,
-          prog.scrollDepth,
-          prog.playbackSpeed.toFixed(2),
-          prog.pauseCount,
-          prog.seekCount,
-          prog.attentionSpanScore.toFixed(2),
-          prog.engagementQuality.toFixed(2),
-          prog.pointsAwarded,
-          prog.completedAt?.toISOString() || 'N/A',
-        ].join(','));
+        rows.push(
+          [
+            `"${resource.title}"`,
+            resource.type,
+            `"${prog.user.firstName} ${prog.user.lastName}"`,
+            prog.user.email,
+            prog.state,
+            (prog.timeSpent / 60).toFixed(2),
+            prog.watchPercentage,
+            prog.scrollDepth,
+            prog.playbackSpeed.toFixed(2),
+            prog.pauseCount,
+            prog.seekCount,
+            prog.attentionSpanScore.toFixed(2),
+            prog.engagementQuality.toFixed(2),
+            prog.pointsAwarded,
+            prog.completedAt?.toISOString() || 'N/A',
+          ].join(','),
+        );
       });
     });
 
     return [headers, ...rows].join('\n');
   }
 
-  async exportLeaderboardToCSV(cohortId: string, month?: number, year?: number): Promise<string> {
+  async exportLeaderboardToCSV(
+    cohortId: string,
+    month?: number,
+    year?: number,
+  ): Promise<string> {
     const where: any = { cohortId };
-    
+
     if (month && year) {
       where.month = month;
       where.year = year;
@@ -219,14 +231,16 @@ export class AnalyticsExportService {
 
     leaderboards.forEach((board) => {
       board.entries.forEach((entry) => {
-        rows.push([
-          board.month,
-          board.year,
-          entry.rank,
-          `"${entry.user.firstName} ${entry.user.lastName}"`,
-          entry.user.email,
-          entry.totalPoints,
-        ].join(','));
+        rows.push(
+          [
+            board.month,
+            board.year,
+            entry.rank,
+            `"${entry.user.firstName} ${entry.user.lastName}"`,
+            entry.user.email,
+            entry.totalPoints,
+          ].join(','),
+        );
       });
     });
 
@@ -266,22 +280,37 @@ export class AnalyticsExportService {
     // Calculate overall statistics
     const totalSessions = cohort.sessions.length;
     const totalFellows = cohort.fellows.length;
-    const sessionsWithAnalytics = cohort.sessions.filter(s => s.sessionAnalytics.length > 0).length;
+    const sessionsWithAnalytics = cohort.sessions.filter(
+      (s) => s.sessionAnalytics.length > 0,
+    ).length;
 
-    const avgEngagement = cohort.sessions
-      .filter(s => s.sessionAnalytics[0]?.engagementScore)
-      .reduce((sum, s) => sum + (s.sessionAnalytics[0].engagementScore || 0), 0) / sessionsWithAnalytics || 0;
+    const avgEngagement =
+      cohort.sessions
+        .filter((s) => s.sessionAnalytics[0]?.engagementScore)
+        .reduce(
+          (sum, s) => sum + (s.sessionAnalytics[0].engagementScore || 0),
+          0,
+        ) / sessionsWithAnalytics || 0;
 
-    const totalResources = cohort.sessions.reduce((sum, s) => sum + s.resources.length, 0);
+    const totalResources = cohort.sessions.reduce(
+      (sum, s) => sum + s.resources.length,
+      0,
+    );
     const completedProgress = cohort.sessions.reduce(
-      (sum, s) => sum + s.resources.reduce(
-        (rSum, r) => rSum + r.progress.filter(p => p.state === 'COMPLETED').length,
-        0
-      ),
-      0
+      (sum, s) =>
+        sum +
+        s.resources.reduce(
+          (rSum, r) =>
+            rSum + r.progress.filter((p) => p.state === 'COMPLETED').length,
+          0,
+        ),
+      0,
     );
 
-    const completionRate = totalResources > 0 ? (completedProgress / (totalResources * totalFellows)) * 100 : 0;
+    const completionRate =
+      totalResources > 0
+        ? (completedProgress / (totalResources * totalFellows)) * 100
+        : 0;
 
     return {
       cohort: {
@@ -298,11 +327,12 @@ export class AnalyticsExportService {
         avgEngagementScore: avgEngagement.toFixed(2),
         overallCompletionRate: completionRate.toFixed(2) + '%',
       },
-      topPerformers: cohort.leaderboards[0]?.entries.slice(0, 5).map(e => ({
-        rank: e.rank,
-        userId: e.userId,
-        totalPoints: e.totalPoints,
-      })) || [],
+      topPerformers:
+        cohort.leaderboards[0]?.entries.slice(0, 5).map((e) => ({
+          rank: e.rank,
+          userId: e.userId,
+          totalPoints: e.totalPoints,
+        })) || [],
     };
   }
 }

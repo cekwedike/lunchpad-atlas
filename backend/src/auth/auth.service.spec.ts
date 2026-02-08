@@ -77,7 +77,7 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.user.create.mockRejectedValue(
-        new Error('Unique constraint failed')
+        new Error('Unique constraint failed'),
       );
 
       await expect(service.register(registerDto)).rejects.toThrow();

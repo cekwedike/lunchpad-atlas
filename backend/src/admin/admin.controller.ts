@@ -1,9 +1,35 @@
-import { Controller, Patch, Body, Get, Param, UseGuards, Request, Query, Put, Post, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Patch,
+  Body,
+  Get,
+  Param,
+  UseGuards,
+  Request,
+  Query,
+  Put,
+  Post,
+  Delete,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminUserService } from './admin-user.service';
-import { CreateCohortDto, UpdateCohortDto, UpdateSessionDto } from './dto/admin.dto';
-import { CreateResourceDto, UpdateResourceDto } from '../resources/dto/create-resource.dto';
+import {
+  CreateCohortDto,
+  UpdateCohortDto,
+  UpdateSessionDto,
+} from './dto/admin.dto';
+import {
+  CreateResourceDto,
+  UpdateResourceDto,
+} from '../resources/dto/create-resource.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -32,10 +58,7 @@ export class AdminController {
   @Post('cohorts')
   @ApiOperation({ summary: 'Create a new cohort (Admin only)' })
   @ApiResponse({ status: 201, description: 'Cohort created successfully' })
-  createCohort(
-    @Body() dto: CreateCohortDto,
-    @Request() req
-  ) {
+  createCohort(@Body() dto: CreateCohortDto, @Request() req) {
     return this.adminService.createCohort(dto, req.user.id);
   }
 
@@ -48,7 +71,7 @@ export class AdminController {
   updateCohort(
     @Param('id') cohortId: string,
     @Body() dto: UpdateCohortDto,
-    @Request() req
+    @Request() req,
   ) {
     return this.adminService.updateCohort(cohortId, dto, req.user.id);
   }
@@ -56,12 +79,12 @@ export class AdminController {
   @Delete('cohorts/:id')
   @ApiOperation({ summary: 'Delete a cohort and all its users (Admin only)' })
   @ApiParam({ name: 'id', description: 'Cohort ID' })
-  @ApiResponse({ status: 200, description: 'Cohort and all users deleted successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cohort and all users deleted successfully',
+  })
   @ApiResponse({ status: 404, description: 'Cohort not found' })
-  deleteCohort(
-    @Param('id') cohortId: string,
-    @Request() req
-  ) {
+  deleteCohort(@Param('id') cohortId: string, @Request() req) {
     return this.adminService.deleteCohort(cohortId, req.user.id);
   }
 
@@ -74,7 +97,7 @@ export class AdminController {
   updateSession(
     @Param('id') sessionId: string,
     @Body() dto: UpdateSessionDto,
-    @Request() req
+    @Request() req,
   ) {
     return this.adminService.updateSession(sessionId, dto, req.user.id);
   }
@@ -85,10 +108,7 @@ export class AdminController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Audit logs retrieved' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
-  getAuditLogs(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number
-  ) {
+  getAuditLogs(@Query('page') page?: number, @Query('limit') limit?: number) {
     return this.adminService.getAuditLogs(page, limit);
   }
 
@@ -102,9 +122,21 @@ export class AdminController {
 
   @Get('users')
   @ApiOperation({ summary: 'Get all users with filters' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by name or email' })
-  @ApiQuery({ name: 'role', required: false, enum: ['FELLOW', 'FACILITATOR', 'ADMIN'] })
-  @ApiQuery({ name: 'cohortId', required: false, description: 'Filter by cohort ID' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by name or email',
+  })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enum: ['FELLOW', 'FACILITATOR', 'ADMIN'],
+  })
+  @ApiQuery({
+    name: 'cohortId',
+    required: false,
+    description: 'Filter by cohort ID',
+  })
   @ApiQuery({ name: 'hasActivity', required: false, type: Boolean })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -119,7 +151,7 @@ export class AdminController {
     // Parse role parameter - can be single or comma-separated
     let parsedRole: UserRole | UserRole[] | undefined;
     if (role) {
-      const roles = role.split(',').map(r => r.trim() as UserRole);
+      const roles = role.split(',').map((r) => r.trim() as UserRole);
       parsedRole = roles.length === 1 ? roles[0] : roles;
     }
 
@@ -151,10 +183,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Get user activity timeline' })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  getUserActivity(
-    @Param('id') userId: string,
-    @Query('limit') limit?: number,
-  ) {
+  getUserActivity(@Param('id') userId: string, @Query('limit') limit?: number) {
     return this.adminUserService.getUserActivity(userId, limit ? +limit : 50);
   }
 
@@ -196,9 +225,7 @@ export class AdminController {
 
   @Put('users/bulk/update-role')
   @ApiOperation({ summary: 'Bulk update user roles' })
-  bulkUpdateRole(
-    @Body() body: { userIds: string[]; role: UserRole },
-  ) {
+  bulkUpdateRole(@Body() body: { userIds: string[]; role: UserRole }) {
     return this.adminUserService.bulkUpdateRole(body.userIds, body.role);
   }
 
@@ -207,10 +234,7 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  deleteUser(
-    @Param('id') userId: string,
-    @Request() req,
-  ) {
+  deleteUser(@Param('id') userId: string, @Request() req) {
     return this.adminUserService.deleteUser(userId, req.user.id);
   }
 
@@ -221,16 +245,25 @@ export class AdminController {
   @ApiOperation({ summary: 'Create a new resource (Admin/Facilitator)' })
   @ApiResponse({ status: 201, description: 'Resource created successfully' })
   @ApiResponse({ status: 404, description: 'Session not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin or Facilitator role required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Facilitator role required',
+  })
   createResource(@Body() dto: CreateResourceDto, @Request() req) {
     return this.adminService.createResource(dto, req.user.id);
   }
 
   @Get('resources')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
-  @ApiOperation({ summary: 'Get all resources with optional filters (Admin/Facilitator only)' })
+  @ApiOperation({
+    summary: 'Get all resources with optional filters (Admin/Facilitator only)',
+  })
   @ApiQuery({ name: 'sessionId', required: false })
-  @ApiQuery({ name: 'type', required: false, enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'] })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'],
+  })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -252,7 +285,9 @@ export class AdminController {
 
   @Get('sessions/:sessionId/resources')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
-  @ApiOperation({ summary: 'Get all resources for a session (Admin/Facilitator)' })
+  @ApiOperation({
+    summary: 'Get all resources for a session (Admin/Facilitator)',
+  })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   getResourcesBySession(@Param('sessionId') sessionId: string) {
     return this.adminService.getResourcesBySession(sessionId);
@@ -264,11 +299,14 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'Resource ID' })
   @ApiResponse({ status: 200, description: 'Resource updated successfully' })
   @ApiResponse({ status: 404, description: 'Resource not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin or Facilitator role required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Facilitator role required',
+  })
   updateResource(
     @Param('id') resourceId: string,
     @Body() dto: UpdateResourceDto,
-    @Request() req
+    @Request() req,
   ) {
     return this.adminService.updateResource(resourceId, dto, req.user.id);
   }
@@ -278,9 +316,15 @@ export class AdminController {
   @ApiOperation({ summary: 'Delete a resource (Admin/Facilitator)' })
   @ApiParam({ name: 'id', description: 'Resource ID' })
   @ApiResponse({ status: 200, description: 'Resource deleted successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot delete - users have started this resource' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete - users have started this resource',
+  })
   @ApiResponse({ status: 404, description: 'Resource not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin or Facilitator role required' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Facilitator role required',
+  })
   deleteResource(@Param('id') resourceId: string, @Request() req) {
     return this.adminService.deleteResource(resourceId, req.user.id);
   }

@@ -1,5 +1,18 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { QuizzesService } from './quizzes.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,7 +40,11 @@ export class QuizzesController {
   }
 
   @Post(':id/submit')
-  submitQuiz(@Param('id') id: string, @Request() req, @Body() dto: SubmitQuizDto) {
+  submitQuiz(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() dto: SubmitQuizDto,
+  ) {
     return this.quizzesService.submitQuiz(id, req.user.id, dto);
   }
 }

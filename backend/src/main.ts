@@ -6,25 +6,27 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable CORS for frontend
   const allowedOrigins = Array.from(
-    new Set([
-      process.env.FRONTEND_URL,
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',
-    ].filter(Boolean))
+    new Set(
+      [
+        process.env.FRONTEND_URL,
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:5173',
+      ].filter(Boolean),
+    ),
   );
 
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
   });
-  
+
   // Set global API prefix
   app.setGlobalPrefix('api/v1');
-  
+
   // Enable validation
   app.useGlobalPipes(
     new ValidationPipe({
@@ -33,14 +35,16 @@ async function bootstrap() {
       transform: true, // Enable class-transformer
     }),
   );
-  
+
   // Global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // Swagger API Documentation
   const config = new DocumentBuilder()
     .setTitle('ATLAS API')
-    .setDescription('Accelerating Talent for Leadership & Success - Gamified Learning Management System')
+    .setDescription(
+      'Accelerating Talent for Leadership & Success - Gamified Learning Management System',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .addTag('auth', 'Authentication endpoints')
@@ -50,13 +54,13 @@ async function bootstrap() {
     .addTag('quizzes', 'Quiz and assessment endpoints')
     .addTag('leaderboard', 'Leaderboard and rankings endpoints')
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
-  
+
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  
+
   console.log(`🚀 Backend API running on: http://localhost:${port}/api/v1`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }

@@ -64,7 +64,12 @@ export class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const from = options.from || this.configService.get('EMAIL_FROM', 'ATLAS Platform <noreply@atlas.com>');
+      const from =
+        options.from ||
+        this.configService.get(
+          'EMAIL_FROM',
+          'ATLAS Platform <noreply@atlas.com>',
+        );
 
       await this.transporter.sendMail({
         from,
@@ -83,7 +88,10 @@ export class EmailService {
   /**
    * Send welcome email to new user
    */
-  async sendWelcomeEmail(email: string, data: WelcomeEmailData): Promise<boolean> {
+  async sendWelcomeEmail(
+    email: string,
+    data: WelcomeEmailData,
+  ): Promise<boolean> {
     const html = this.getWelcomeTemplate(data);
 
     return this.sendEmail({
@@ -96,7 +104,10 @@ export class EmailService {
   /**
    * Send notification email
    */
-  async sendNotificationEmail(email: string, data: NotificationEmailData): Promise<boolean> {
+  async sendNotificationEmail(
+    email: string,
+    data: NotificationEmailData,
+  ): Promise<boolean> {
     const html = this.getNotificationTemplate(data);
 
     return this.sendEmail({
@@ -109,7 +120,10 @@ export class EmailService {
   /**
    * Send weekly summary email
    */
-  async sendWeeklySummaryEmail(email: string, data: WeeklySummaryData): Promise<boolean> {
+  async sendWeeklySummaryEmail(
+    email: string,
+    data: WeeklySummaryData,
+  ): Promise<boolean> {
     const html = this.getWeeklySummaryTemplate(data);
 
     return this.sendEmail({
@@ -387,11 +401,15 @@ export class EmailService {
         ${data.message}
       </div>
 
-      ${data.actionUrl ? `
+      ${
+        data.actionUrl
+          ? `
       <center>
         <a href="${data.actionUrl}" class="button">${data.actionText || 'View Now'}</a>
       </center>
-      ` : ''}
+      `
+          : ''
+      }
 
       <p>Keep up the great work!</p>
       <p><strong>The ATLAS Team</strong></p>
@@ -410,7 +428,9 @@ export class EmailService {
    * Weekly Summary Email Template
    */
   private getWeeklySummaryTemplate(data: WeeklySummaryData): string {
-    const percentile = Math.round((1 - (data.rank - 1) / data.totalParticipants) * 100);
+    const percentile = Math.round(
+      (1 - (data.rank - 1) / data.totalParticipants) * 100,
+    );
 
     return `
 <!DOCTYPE html>
@@ -522,12 +542,16 @@ export class EmailService {
         <p style="margin: 10px 0 0 0; opacity: 0.9;">Top ${percentile}% of ${data.totalParticipants} participants</p>
       </div>
 
-      ${data.upcomingSession ? `
+      ${
+        data.upcomingSession
+          ? `
       <div style="background: #e7f3ff; border-left: 4px solid #0066cc; padding: 15px; margin: 20px 0;">
         <strong>📅 Upcoming Session:</strong> ${data.upcomingSession.title}<br>
         <span style="color: #6c757d;">${new Date(data.upcomingSession.date).toLocaleString()}</span>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       <center>
         <a href="${this.configService.get('FRONTEND_URL')}/leaderboard" class="button">View Full Leaderboard</a>

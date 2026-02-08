@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Query, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import type * as express from 'express';
 
@@ -25,7 +34,10 @@ export class SessionAnalyticsController {
     @Param('sessionId') sessionId: string,
     @Body() data: { transcript: string },
   ) {
-    return this.sessionAnalyticsService.processSessionAnalytics(sessionId, data.transcript);
+    return this.sessionAnalyticsService.processSessionAnalytics(
+      sessionId,
+      data.transcript,
+    );
   }
 
   @Get('session/:sessionId')
@@ -50,30 +62,51 @@ export class SessionAnalyticsController {
   @Get('export/session/:sessionId/csv')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Export session analytics as CSV' })
-  async exportSessionCSV(@Param('sessionId') sessionId: string, @Res() res: express.Response) {
-    const csv = await this.analyticsExportService.exportSessionAnalyticsToCSV(sessionId);
+  async exportSessionCSV(
+    @Param('sessionId') sessionId: string,
+    @Res() res: express.Response,
+  ) {
+    const csv =
+      await this.analyticsExportService.exportSessionAnalyticsToCSV(sessionId);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=session-${sessionId}-analytics.csv`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=session-${sessionId}-analytics.csv`,
+    );
     res.send(csv);
   }
 
   @Get('export/cohort/:cohortId/csv')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Export cohort analytics as CSV' })
-  async exportCohortCSV(@Param('cohortId') cohortId: string, @Res() res: express.Response) {
-    const csv = await this.analyticsExportService.exportCohortAnalyticsToCSV(cohortId);
+  async exportCohortCSV(
+    @Param('cohortId') cohortId: string,
+    @Res() res: express.Response,
+  ) {
+    const csv =
+      await this.analyticsExportService.exportCohortAnalyticsToCSV(cohortId);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=cohort-${cohortId}-analytics.csv`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=cohort-${cohortId}-analytics.csv`,
+    );
     res.send(csv);
   }
 
   @Get('export/resource-progress/:sessionId/csv')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Export resource progress as CSV' })
-  async exportResourceProgressCSV(@Param('sessionId') sessionId: string, @Res() res: express.Response) {
-    const csv = await this.analyticsExportService.exportResourceProgressToCSV(sessionId);
+  async exportResourceProgressCSV(
+    @Param('sessionId') sessionId: string,
+    @Res() res: express.Response,
+  ) {
+    const csv =
+      await this.analyticsExportService.exportResourceProgressToCSV(sessionId);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=resource-progress-${sessionId}.csv`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=resource-progress-${sessionId}.csv`,
+    );
     res.send(csv);
   }
 
@@ -92,7 +125,10 @@ export class SessionAnalyticsController {
       year ? parseInt(year) : undefined,
     );
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=leaderboard-${cohortId}.csv`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=leaderboard-${cohortId}.csv`,
+    );
     res.send(csv);
   }
 

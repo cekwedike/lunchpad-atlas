@@ -189,14 +189,14 @@ describe('DiscussionsService', () => {
         },
       };
 
-      mockPrismaService.discussion.findUnique.mockResolvedValue(
-        mockDiscussion,
-      );
-      mockPrismaService.discussionComment.create.mockResolvedValue(
-        mockComment,
-      );
+      mockPrismaService.discussion.findUnique.mockResolvedValue(mockDiscussion);
+      mockPrismaService.discussionComment.create.mockResolvedValue(mockComment);
 
-      const result = await service.createComment(discussionId, userId, createDto);
+      const result = await service.createComment(
+        discussionId,
+        userId,
+        createDto,
+      );
 
       expect(result).toEqual(mockComment);
     });

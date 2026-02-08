@@ -1,4 +1,11 @@
-import { IsString, IsUUID, IsEnum, IsOptional, IsNotEmpty, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsEnum,
+  IsOptional,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import { ChannelType } from '@prisma/client';
 
 export class CreateChannelDto {
