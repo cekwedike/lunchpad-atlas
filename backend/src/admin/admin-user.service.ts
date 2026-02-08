@@ -205,7 +205,17 @@ export class AdminUserService {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
-    return user;
+    const now = new Date();
+    const lastActiveAt = user.lastLoginAt;
+    const lastActiveSeconds = lastActiveAt
+      ? Math.max(0, Math.floor((now.getTime() - lastActiveAt.getTime()) / 1000))
+      : null;
+
+    return {
+      ...user,
+      lastActiveAt,
+      lastActiveSeconds,
+    };
   }
 
   /**
