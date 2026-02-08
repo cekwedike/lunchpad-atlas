@@ -64,14 +64,18 @@ export class DiscussionsService {
       );
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { cohortId: true },
+    });
+
     // Get user's cohortId if not provided
-    let cohortId = dto.cohortId;
-    if (!cohortId) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { cohortId: true },
-      });
-      cohortId = user?.cohortId || '';
+    let cohortId = dto.cohortId || user?.cohortId || '';
+
+    if (userRole === 'FACILITATOR' && user?.cohortId && cohortId !== user.cohortId) {
+      throw new ForbiddenException(
+        'Facilitators can only create discussions for their cohort',
+      );
     }
 
     if (!cohortId) {
@@ -743,7 +747,7 @@ export class DiscussionsService {
 
   // ==================== ADMIN METHODS ====================
 
-  async togglePin(discussionId: string, userRole: string) {
+  async togglePin(discussionId: string, userId: string, userRole: string) {
     if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
       throw new ForbiddenException(
         'Only admins and facilitators can pin discussions',
@@ -756,6 +760,19 @@ export class DiscussionsService {
 
     if (!discussion) {
       throw new NotFoundException('Discussion not found');
+    }
+
+    if (userRole === 'FACILITATOR') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { cohortId: true },
+      });
+
+      if (!user?.cohortId || user.cohortId !== discussion.cohortId) {
+        throw new ForbiddenException(
+          'Facilitators can only pin discussions for their cohort',
+        );
+      }
     }
 
     const updated = await this.prisma.discussion.update({
@@ -785,7 +802,7 @@ export class DiscussionsService {
     return updated;
   }
 
-  async toggleLock(discussionId: string, userRole: string) {
+  async toggleLock(discussionId: string, userId: string, userRole: string) {
     if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
       throw new ForbiddenException(
         'Only admins and facilitators can lock discussions',
@@ -798,6 +815,19 @@ export class DiscussionsService {
 
     if (!discussion) {
       throw new NotFoundException('Discussion not found');
+    }
+
+    if (userRole === 'FACILITATOR') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { cohortId: true },
+      });
+
+      if (!user?.cohortId || user.cohortId !== discussion.cohortId) {
+        throw new ForbiddenException(
+          'Facilitators can only lock discussions for their cohort',
+        );
+      }
     }
 
     const updated = await this.prisma.discussion.update({

@@ -4,6 +4,7 @@ import {
   MinLength,
   IsEnum,
   IsOptional,
+  IsUUID,
 } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
@@ -31,6 +32,10 @@ export class RegisterDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+
+  @IsUUID()
+  @IsOptional()
+  cohortId?: string;
 }
 
 export class AuthResponseDto {

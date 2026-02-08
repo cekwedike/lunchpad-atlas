@@ -225,7 +225,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { name: string; email: string; password: string; role: 'FELLOW' | 'FACILITATOR' | 'ADMIN' }) =>
+    mutationFn: (data: { name: string; email: string; password: string; role: 'FELLOW' | 'FACILITATOR' | 'ADMIN'; cohortId?: string }) =>
       apiClient.post('/auth/register', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });

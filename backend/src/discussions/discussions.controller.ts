@@ -108,13 +108,13 @@ export class DiscussionsController {
   @Post(':id/pin')
   @ApiOperation({ summary: 'Toggle pin status (Admin only)' })
   togglePin(@Param('id') id: string, @Request() req) {
-    return this.discussionsService.togglePin(id, req.user.role);
+    return this.discussionsService.togglePin(id, req.user.id, req.user.role);
   }
 
   @Post(':id/lock')
   @ApiOperation({ summary: 'Toggle lock status (Admin only)' })
   toggleLock(@Param('id') id: string, @Request() req) {
-    return this.discussionsService.toggleLock(id, req.user.role);
+    return this.discussionsService.toggleLock(id, req.user.id, req.user.role);
   }
 
   @Delete('comments/:commentId')

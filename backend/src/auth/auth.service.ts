@@ -23,9 +23,25 @@ export class AuthService {
     try {
       const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-      // For FELLOW role, find or create default 2026 cohort and assign
-      let cohortId: string | undefined = undefined;
-      if (!dto.role || dto.role === 'FELLOW') {
+        // Resolve cohort assignment
+        let cohortId: string | undefined = dto.cohortId || undefined;
+
+        if (dto.role === 'FACILITATOR') {
+          if (!cohortId) {
+            throw new BadRequestException('Facilitators must be assigned to a cohort');
+          }
+
+          const cohort = await this.prisma.cohort.findUnique({
+            where: { id: cohortId },
+          });
+
+          if (!cohort) {
+            throw new BadRequestException('Cohort not found');
+          }
+        }
+
+        // For FELLOW role, find or create default 2026 cohort and assign
+        if (!dto.role || dto.role === 'FELLOW') {
         // Find the default 2026 cohort
         let defaultCohort = await this.prisma.cohort.findFirst({
           where: {
@@ -48,7 +64,7 @@ export class AuthService {
           });
         }
 
-        cohortId = defaultCohort.id;
+        cohortId = cohortId || defaultCohort.id;
       }
 
       const user = await this.prisma.user.create({

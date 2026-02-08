@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -209,6 +209,10 @@ export class AdminUserService {
 
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (role === 'FACILITATOR' && !user.cohortId) {
+      throw new BadRequestException('Facilitators must be assigned to a cohort');
     }
 
     const updatedUser = await this.prisma.user.update({
