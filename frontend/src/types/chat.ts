@@ -6,6 +6,7 @@ export interface Channel {
   description?: string;
   sessionId?: string;
   isArchived: boolean;
+  isLocked?: boolean;
   createdAt: Date;
   updatedAt: Date;
   cohort?: {

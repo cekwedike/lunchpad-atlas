@@ -164,8 +164,9 @@ export class AdminController {
   updateUserRole(
     @Param('id') userId: string,
     @Body() body: { role: UserRole },
+    @Request() req,
   ) {
-    return this.adminUserService.updateUserRole(userId, body.role);
+    return this.adminUserService.updateUserRole(userId, body.role, req.user.id);
   }
 
   @Put('users/:id/cohort')

@@ -4,12 +4,14 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
 import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
 import { Prisma } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -54,6 +56,8 @@ export class AuthService {
           cohortId,
         },
       });
+
+      await this.notificationsService.notifyAdminsUserRegistered(user.id);
 
       return this.generateTokens(user);
     } catch (error) {

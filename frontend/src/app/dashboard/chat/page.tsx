@@ -15,11 +15,11 @@ import {
   Users,
   MessageCircle,
 } from "lucide-react";
-import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
+import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 import type { ChatMessage } from "@/types/chat";
 
@@ -32,17 +32,21 @@ export default function ChatRoomPage() {
   const queryClient = useQueryClient();
 
   const isAdmin = profile?.role === 'ADMIN';
+  const canManageChats = isAdmin || profile?.role === 'FACILITATOR';
   const cohortId = (profile?.cohortId ?? undefined) as string | undefined;
   const { data: cohortChannels } = useCohortChannels(cohortId);
   const { data: allChannels } = useAllChannels(isAdmin);
   const channels = isAdmin ? allChannels : cohortChannels;
   const selectedChannelId = searchParams.get('channelId');
-  const mainChannel = selectedChannelId
+  const channelFromList = selectedChannelId
     ? channels?.find((channel) => channel.id === selectedChannelId)
     : channels?.[0];
-  const cohortChatName = mainChannel?.cohort?.name || mainChannel?.name?.replace(/ - General Chat$/, '') || 'Cohort Chat';
+  const { data: channelById } = useChannelById(selectedChannelId || undefined, !!selectedChannelId && !channelFromList);
+  const mainChannel = channelFromList ?? channelById;
+  const cohortChatName = mainChannel?.name || mainChannel?.cohort?.name || 'Cohort Chat';
   const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
   const sendMessage = useSendMessage();
+  const toggleChannelLock = useToggleChannelLock();
 
   const handleSocketNewMessage = useCallback((message: ChatMessage) => {
     if (!mainChannel?.id || message.channelId !== mainChannel.id) return;
@@ -82,6 +86,11 @@ export default function ChatRoomPage() {
 
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !mainChannel) return;
+
+    if (mainChannel.isLocked && !canManageChats) {
+      toast.error("Chat is locked", { description: "This room is read-only right now." });
+      return;
+    }
     
     try {
       await sendMessage.mutateAsync({ 
@@ -143,7 +152,22 @@ export default function ChatRoomPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  {mainChannel?.isLocked && (
+                    <Badge className="bg-amber-100 text-amber-700 border border-amber-200">
+                      Locked
+                    </Badge>
+                  )}
+                  {canManageChats && mainChannel && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleChannelLock.mutate(mainChannel.id)}
+                      disabled={toggleChannelLock.isPending}
+                    >
+                      {mainChannel.isLocked ? "Unlock" : "Lock"}
+                    </Button>
+                  )}
                   <div className="h-2 w-2 rounded-full bg-green-500" />
                   <Users className="h-4 w-4 ml-1" />
                 </div>
@@ -155,6 +179,9 @@ export default function ChatRoomPage() {
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
                     const isOwnMessage = message.userId === profile?.id;
+                    const displayName = isOwnMessage
+                      ? 'You'
+                      : `${message.user?.firstName || 'Unknown'}${message.user?.lastName ? ` ${message.user.lastName}` : ''}`;
                     return (
                       <div
                         key={message.id}
@@ -168,22 +195,20 @@ export default function ChatRoomPage() {
                           </Avatar>
                           <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                             <div className={`rounded-lg px-4 py-2 ${isOwnMessage ? 'bg-blue-600 text-white' : 'bg-white border'}`}>
-                              {!isOwnMessage && (
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs font-semibold text-gray-700">
-                                    {message.user?.firstName}
-                                  </span>
-                                  {message.user?.role && (
-                                    <Badge className={`text-xs ${getRoleBadgeColor(message.user.role)}`}>
-                                      {getRoleDisplayName(message.user.role)}
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-xs font-semibold ${isOwnMessage ? 'text-white/90' : 'text-gray-700'}`}>
+                                  {displayName}
+                                </span>
+                                {message.user?.role && (
+                                  <Badge className={`text-xs ${getRoleBadgeColor(message.user.role)}`}>
+                                    {getRoleDisplayName(message.user.role)}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                             </div>
                             <span className="text-xs text-gray-500 mt-1">
-                              {formatRelativeTimeWAT(message.createdAt)}
+                              {formatLocalTimestamp(message.createdAt)}
                             </span>
                           </div>
                         </div>
@@ -202,6 +227,11 @@ export default function ChatRoomPage() {
             </ScrollArea>
 
             <div className="border-t p-4 bg-white flex-shrink-0">
+              {mainChannel?.isLocked && !canManageChats && (
+                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  This chat room is locked for announcements. You can read messages but cannot post.
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 <Input
                   placeholder="Type a message..."
@@ -209,12 +239,12 @@ export default function ChatRoomPage() {
                   onChange={(e) => setChatMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="flex-1"
-                  disabled={!mainChannel}
+                  disabled={!mainChannel || (mainChannel.isLocked && !canManageChats)}
                 />
                 <Button
                   size="icon"
                   onClick={handleSendMessage}
-                  disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending}
+                  disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Send className="h-4 w-4" />

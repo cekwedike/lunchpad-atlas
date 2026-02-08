@@ -7,6 +7,7 @@ export class ChannelEntity implements Channel {
   name: string;
   description: string | null;
   sessionId: string | null;
+  isLocked: boolean;
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;

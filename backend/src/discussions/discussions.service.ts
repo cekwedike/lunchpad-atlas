@@ -294,7 +294,7 @@ export class DiscussionsService {
   }
 
   async getComments(discussionId: string, userId: string) {
-    const comments = await this.prisma.discussionComment.findMany({
+    const comments = await (this.prisma as any).discussionComment.findMany({
       where: { discussionId },
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'asc' }],
       include: {
@@ -305,17 +305,17 @@ export class DiscussionsService {
           select: { id: true, userId: true, type: true },
         },
       },
-    });
+    }) as any[];
 
     return comments.map((comment) => {
-      const reactionCounts = comment.reactions.reduce<Record<string, number>>((acc, reaction) => {
+      const reactionCounts = (comment.reactions || []).reduce((acc: Record<string, number>, reaction: any) => {
         acc[reaction.type] = (acc[reaction.type] || 0) + 1;
         return acc;
       }, {});
 
-      const userReactions = comment.reactions
-        .filter((reaction) => reaction.userId === userId)
-        .map((reaction) => reaction.type);
+      const userReactions = (comment.reactions || [])
+        .filter((reaction: any) => reaction.userId === userId)
+        .map((reaction: any) => reaction.type);
 
       return {
         ...comment,
@@ -350,7 +350,7 @@ export class DiscussionsService {
       }
     }
 
-    const comment = await this.prisma.discussionComment.create({
+    const comment = await (this.prisma as any).discussionComment.create({
       data: {
         content: dto.content,
         userId: userId,
@@ -365,7 +365,7 @@ export class DiscussionsService {
           select: { id: true, userId: true, type: true },
         },
       },
-    });
+    }) as any;
 
     // Award 2 points for replying to a discussion (with monthly cap enforcement)
     const awarded = await this.awardPoints(
@@ -380,7 +380,7 @@ export class DiscussionsService {
 
     // Notify discussion author
     if (discussion.userId !== userId) {
-      const commenterName = `${comment.user.firstName} ${comment.user.lastName}`;
+      const commenterName = `${comment.user?.firstName || ''} ${comment.user?.lastName || ''}`.trim();
       const discussionWithAuthor = await this.prisma.discussion.findUnique({
         where: { id: discussionId },
         select: { title: true, userId: true },
@@ -424,9 +424,9 @@ export class DiscussionsService {
   }
 
   async deleteComment(commentId: string, userId: string, userRole: string) {
-    const comment = await this.prisma.discussionComment.findUnique({
+    const comment = await (this.prisma as any).discussionComment.findUnique({
       where: { id: commentId },
-    });
+    }) as any;
 
     if (!comment) {
       throw new NotFoundException('Comment not found');
@@ -481,9 +481,11 @@ export class DiscussionsService {
       throw new NotFoundException('Comment not found');
     }
 
-    return this.prisma.discussionComment.update({
+    const isPinned = !!(comment as any).isPinned;
+
+    return (this.prisma as any).discussionComment.update({
       where: { id: commentId },
-      data: { isPinned: !comment.isPinned },
+      data: { isPinned: !isPinned },
     });
   }
 
@@ -496,7 +498,7 @@ export class DiscussionsService {
       throw new NotFoundException('Comment not found');
     }
 
-    const existing = await this.prisma.discussionCommentReaction.findUnique({
+    const existing = await (this.prisma as any).discussionCommentReaction.findUnique({
       where: {
         commentId_userId_type: {
           commentId,
@@ -504,16 +506,16 @@ export class DiscussionsService {
           type: type as any,
         },
       },
-    });
+    }) as any;
 
     if (existing) {
-      await this.prisma.discussionCommentReaction.delete({
+      await (this.prisma as any).discussionCommentReaction.delete({
         where: { id: existing.id },
       });
       return { reacted: false };
     }
 
-    await this.prisma.discussionCommentReaction.create({
+    await (this.prisma as any).discussionCommentReaction.create({
       data: {
         commentId,
         userId,

@@ -30,37 +30,89 @@ export default function NewDiscussionPage() {
   const [selectedTopic, setSelectedTopic] = useState("general");
 
   const isAdmin = profile?.role === 'ADMIN';
+  const isFacilitator = profile?.role === 'FACILITATOR';
+  const canCreateDiscussion = isAdmin || isFacilitator;
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
+  const availableCohorts = isAdmin
+    ? cohorts
+    : isFacilitator
+      ? (profile?.facilitatedCohorts || [])
+      : [];
 
   useEffect(() => {
-    if (!isAdmin && profile?.cohortId) {
-      setSelectedCohortId(profile.cohortId);
+    if (!profile?.role) return;
+    if (profile.role !== 'FELLOW') return;
+
+    toast.error("Only admins and facilitators can create discussions");
+    router.push('/dashboard/discussions');
+  }, [profile?.role, router]);
+
+  useEffect(() => {
+    if (!canCreateDiscussion || selectedCohortId) return;
+
+    if (isAdmin && cohorts.length === 1) {
+      setSelectedCohortId(cohorts[0].id);
     }
-  }, [isAdmin, profile?.cohortId]);
 
-  useEffect(() => {
-    if (!isAdmin || selectedCohortId || cohorts.length !== 1) return;
-    setSelectedCohortId(cohorts[0].id);
-  }, [isAdmin, selectedCohortId, cohorts]);
+    if (isFacilitator && availableCohorts.length === 1) {
+      setSelectedCohortId(availableCohorts[0].id);
+    }
+  }, [canCreateDiscussion, isAdmin, isFacilitator, cohorts, availableCohorts, selectedCohortId]);
 
   useEffect(() => {
     setSelectedTopic("general");
   }, [selectedCohortId]);
 
-  const cohortIdForTopics = isAdmin ? selectedCohortId : profile?.cohortId;
+  const cohortIdForTopics = canCreateDiscussion ? selectedCohortId : profile?.cohortId;
   const { data: topicOptions } = useDiscussionTopics(cohortIdForTopics || undefined);
   const topics = topicOptions || [];
 
+  if (profile?.role === 'FELLOW') {
+    return (
+      <DashboardLayout>
+        <div className="max-w-2xl mx-auto p-6">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-2xl">Discussions are read-only for fellows</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-gray-600">
+              <p>
+                Fellows can view and participate in discussions, but creating new discussions is limited to
+                admins and facilitators.
+              </p>
+              <Button onClick={() => router.push('/dashboard/discussions')}>
+                Back to Discussions
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!title.trim() || !content.trim()) {
+
+    const trimmedTitle = title.trim();
+    const trimmedContent = content.trim();
+
+    if (!trimmedTitle || !trimmedContent) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    const cohortId = isAdmin ? selectedCohortId : profile?.cohortId;
+    if (trimmedTitle.length < 5) {
+      toast.error("Title is too short", { description: "Use at least 5 characters." });
+      return;
+    }
+
+    if (trimmedContent.length < 20) {
+      toast.error("Content is too short", { description: "Use at least 20 characters." });
+      return;
+    }
+
+    const cohortId = canCreateDiscussion ? selectedCohortId : profile?.cohortId;
     if (!cohortId) {
       toast.error("Select a cohort to create discussions");
       return;
@@ -74,8 +126,8 @@ export default function NewDiscussionPage() {
         : selectedOption?.type || 'GENERAL';
 
       const result = await createDiscussion.mutateAsync({
-        title: title.trim(),
-        content: content.trim(),
+        title: trimmedTitle,
+        content: trimmedContent,
         cohortId,
         topicType,
         sessionId: topicType === 'SESSION' ? selectedOption?.value : undefined,
@@ -85,7 +137,7 @@ export default function NewDiscussionPage() {
       toast.success("Discussion created!");
       router.push(`/dashboard/discussions/${result.id}`);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create discussion");
+      toast.error(error?.message || "Failed to create discussion");
     }
   };
 
@@ -133,17 +185,22 @@ export default function NewDiscussionPage() {
                 <select
                   id="cohort"
                   className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
-                  value={isAdmin ? selectedCohortId : profile?.cohortId || ""}
+                  value={selectedCohortId}
                   onChange={(e) => setSelectedCohortId(e.target.value)}
-                  disabled={!isAdmin || cohortsLoading}
+                  disabled={(!isAdmin && !isFacilitator) || cohortsLoading}
                 >
                   <option value="">-- Select a cohort --</option>
-                  {cohorts.map((cohort: any) => (
+                  {availableCohorts.map((cohort: any) => (
                     <option key={cohort.id} value={cohort.id}>
                       {cohort.name}
                     </option>
                   ))}
                 </select>
+                {isFacilitator && availableCohorts.length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    No cohorts assigned to your facilitator account yet.
+                  </p>
+                )}
               </div>
 
               {!resourceId && (
@@ -181,6 +238,9 @@ export default function NewDiscussionPage() {
                 <p className="text-xs text-gray-500">
                   {title.length}/200 characters
                 </p>
+                {title.trim().length > 0 && title.trim().length < 5 && (
+                  <p className="text-xs text-amber-600">Title should be at least 5 characters.</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -197,6 +257,9 @@ export default function NewDiscussionPage() {
                 <p className="text-xs text-gray-500">
                   Be clear and constructive. This is a space for learning and collaboration.
                 </p>
+                {content.trim().length > 0 && content.trim().length < 20 && (
+                  <p className="text-xs text-amber-600">Content should be at least 20 characters.</p>
+                )}
               </div>
 
               <div className="flex gap-3">
@@ -206,7 +269,9 @@ export default function NewDiscussionPage() {
                     createDiscussion.isPending
                     || !title.trim()
                     || !content.trim()
-                    || !(isAdmin ? selectedCohortId : profile?.cohortId)
+                    || title.trim().length < 5
+                    || content.trim().length < 20
+                    || !selectedCohortId
                   }
                   className="gap-2"
                 >

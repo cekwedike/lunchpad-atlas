@@ -104,6 +104,7 @@ model User {
   notifications      Notification[]
   liveQuizParticipants LiveQuizParticipant[]
   attendance         Attendance[]
+  chatMessages       ChatMessage[]
 
   @@index([email])
   @@index([cohortId])
@@ -538,6 +539,7 @@ model Channel {
   description String?
   sessionId   String? // For SESSION_SPECIFIC channels
   isArchived  Boolean     @default(false)
+  isLocked    Boolean     @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -563,6 +565,7 @@ model ChatMessage {
 
   // Relations
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([channelId])
   @@index([userId])

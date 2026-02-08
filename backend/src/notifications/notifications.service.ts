@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { NotificationType } from '@prisma/client';
 import { EmailService } from '../email/email.service';
+import { NotificationsGateway } from './notifications.gateway';
 
 export interface CreateNotificationDto {
   userId: string;
@@ -18,6 +19,7 @@ export class NotificationsService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private notificationsGateway: NotificationsGateway,
   ) {}
 
   // ==================== CREATE NOTIFICATIONS ====================
@@ -32,6 +34,10 @@ export class NotificationsService {
         data: dto.data || {},
       },
     });
+
+    this.notificationsGateway.sendNotificationToUser(dto.userId, notification);
+    const unreadCount = await this.getUnreadCount(dto.userId);
+    this.notificationsGateway.sendUnreadCountUpdate(dto.userId, unreadCount);
 
     this.sendNotificationEmail(dto).catch((error) => {
       console.error('Failed to send notification email:', error);
@@ -51,6 +57,24 @@ export class NotificationsService {
       })),
     });
 
+    const grouped = notifications.reduce<Record<string, CreateNotificationDto[]>>((acc, item) => {
+      if (!acc[item.userId]) acc[item.userId] = [];
+      acc[item.userId].push(item);
+      return acc;
+    }, {});
+
+    await Promise.all(
+      Object.entries(grouped).map(async ([userId, userNotifications]) => {
+        const lastNotification = userNotifications[userNotifications.length - 1];
+        this.notificationsGateway.sendNotificationToUser(userId, {
+          ...lastNotification,
+          createdAt: new Date(),
+        });
+        const unreadCount = await this.getUnreadCount(userId);
+        this.notificationsGateway.sendUnreadCountUpdate(userId, unreadCount);
+      }),
+    );
+
     this.sendBulkNotificationEmails(notifications).catch((error) => {
       console.error('Failed to send bulk notification emails:', error);
     });
@@ -67,6 +91,7 @@ export class NotificationsService {
 
     if (!data) return undefined;
 
+    if (data.channelId) return `${baseUrl}/dashboard/chat?channelId=${data.channelId}`;
     if (data.discussionId) return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
     if (data.resourceId) return `${baseUrl}/dashboard/resources/${data.resourceId}`;
     if (data.sessionId) return `${baseUrl}/dashboard/sessions/${data.sessionId}`;
@@ -264,14 +289,33 @@ export class NotificationsService {
     senderName: string,
     channelName: string,
     messagePreview: string,
+    channelId: string,
   ) {
     return this.createNotification({
       userId,
-      type: 'SESSION_REMINDER',
+      type: 'SYSTEM_ALERT',
       title: `New message in ${channelName}`,
       message: `${senderName}: ${messagePreview}`,
-      data: { senderName, channelName },
+      data: { senderName, channelName, channelId },
     });
+  }
+
+  async notifyBulkChatMessage(
+    userIds: string[],
+    senderName: string,
+    channelName: string,
+    messagePreview: string,
+    channelId: string,
+  ) {
+    const notifications = userIds.map((userId) => ({
+      userId,
+      type: 'SYSTEM_ALERT' as NotificationType,
+      title: `New message in ${channelName}`,
+      message: `${senderName}: ${messagePreview}`,
+      data: { senderName, channelName, channelId },
+    }));
+
+    return this.createBulkNotifications(notifications);
   }
 
   async notifyDiscussionPinned(
@@ -281,7 +325,7 @@ export class NotificationsService {
   ) {
     return this.createNotification({
       userId,
-      type: 'SESSION_REMINDER',
+      type: 'SYSTEM_ALERT',
       title: 'Discussion Pinned',
       message: `\"${discussionTitle}\" has been pinned by an admin`,
       data: { discussionId },
@@ -295,7 +339,7 @@ export class NotificationsService {
   ) {
     return this.createNotification({
       userId,
-      type: 'SESSION_REMINDER',
+      type: 'SYSTEM_ALERT',
       title: 'Discussion Locked',
       message: `\"${discussionTitle}\" has been locked. No new comments can be added.`,
       data: { discussionId },
@@ -503,8 +547,8 @@ export class NotificationsService {
 
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: 'LEADERBOARD_UPDATE' as NotificationType, // Reusing existing type
-      title: '👤 User Updated',
+      type: 'USER_PROMOTED' as NotificationType,
+      title: '👤 User Role Updated',
       message: `${adminName} updated ${updatedUser?.firstName} ${updatedUser?.lastName} - ${changes}`,
       data: { updatedUserId, changes, adminName },
     }));
@@ -525,7 +569,7 @@ export class NotificationsService {
 
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: 'LEADERBOARD_UPDATE' as NotificationType,
+      type: 'USER_REGISTERED' as NotificationType,
       title: '✨ New User Created',
       message: `${adminName} created new ${newUser?.role}: ${newUser?.firstName} ${newUser?.lastName} (${newUser?.email})`,
       data: { newUserId, adminName },
@@ -534,7 +578,12 @@ export class NotificationsService {
     return this.createBulkNotifications(notifications);
   }
 
-  async notifyAdminsCohortUpdated(cohortId: string, adminName: string, changes: string) {
+  async notifyAdminsCohortUpdated(
+    cohortId: string,
+    adminName: string,
+    changes: string,
+    type: NotificationType = 'COHORT_UPDATED',
+  ) {
     const admins = await this.prisma.user.findMany({
       where: { role: 'ADMIN' },
       select: { id: true },
@@ -545,18 +594,27 @@ export class NotificationsService {
       select: { name: true },
     });
 
+    const title = type === 'COHORT_CREATED'
+      ? '📚 Cohort Created'
+      : '📚 Cohort Updated';
+
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: 'LEADERBOARD_UPDATE' as NotificationType,
-      title: '📚 Cohort Updated',
-      message: `${adminName} updated cohort "${cohort?.name}" - ${changes}`,
+      type: type as NotificationType,
+      title,
+      message: `${adminName} ${changes} cohort "${cohort?.name}"`,
       data: { cohortId, changes, adminName },
     }));
 
     return this.createBulkNotifications(notifications);
   }
 
-  async notifyAdminsResourceUpdated(resourceId: string, adminName: string, action: string) {
+  async notifyAdminsResourceUpdated(
+    resourceId: string,
+    adminName: string,
+    action: string,
+    type: NotificationType = 'RESOURCE_UPDATED',
+  ) {
     const admins = await this.prisma.user.findMany({
       where: { role: 'ADMIN' },
       select: { id: true },
@@ -567,10 +625,14 @@ export class NotificationsService {
       select: { title: true },
     });
 
+    const title = type === 'RESOURCE_CREATED'
+      ? '📖 Resource Created'
+      : '📖 Resource Updated';
+
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: 'RESOURCE_UNLOCK' as NotificationType,
-      title: '📖 Resource Updated',
+      type: type as NotificationType,
+      title,
       message: `${adminName} ${action} resource: "${resource?.title}"`,
       data: { resourceId, action, adminName },
     }));
@@ -578,7 +640,12 @@ export class NotificationsService {
     return this.createBulkNotifications(notifications);
   }
 
-  async notifyAdminsSessionUpdated(sessionId: string, adminName: string, action: string) {
+  async notifyAdminsSessionUpdated(
+    sessionId: string,
+    adminName: string,
+    action: string,
+    type: NotificationType = 'SESSION_UPDATED',
+  ) {
     const admins = await this.prisma.user.findMany({
       where: { role: 'ADMIN' },
       select: { id: true },
@@ -589,12 +656,84 @@ export class NotificationsService {
       select: { title: true },
     });
 
+    const title = type === 'SESSION_CREATED'
+      ? '📅 Session Created'
+      : '📅 Session Updated';
+
     const notifications = admins.map((admin) => ({
       userId: admin.id,
-      type: 'SESSION_REMINDER' as NotificationType,
-      title: '📅 Session Updated',
+      type: type as NotificationType,
+      title,
       message: `${adminName} ${action} session: "${session?.title}"`,
       data: { sessionId, action, adminName },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyChatRoomCreated(
+    userIds: string[],
+    channelName: string,
+    cohortName: string,
+    channelId: string,
+  ) {
+    const notifications = userIds.map((userId) => ({
+      userId,
+      type: 'SYSTEM_ALERT' as NotificationType,
+      title: 'New Chat Room',
+      message: `${channelName} is now available for ${cohortName}.`,
+      data: { channelId },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyChatRoomLockUpdated(
+    userIds: string[],
+    channelName: string,
+    cohortName: string,
+    channelId: string,
+    isLocked: boolean,
+  ) {
+    const statusLabel = isLocked ? 'locked' : 'unlocked';
+    const notifications = userIds.map((userId) => ({
+      userId,
+      type: 'SYSTEM_ALERT' as NotificationType,
+      title: `Chat Room ${isLocked ? 'Locked' : 'Unlocked'}`,
+      message: `${channelName} for ${cohortName} has been ${statusLabel}.`,
+      data: { channelId },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyUserPromoted(userId: string, newRole: string, adminName: string) {
+    return this.createNotification({
+      userId,
+      type: 'USER_PROMOTED',
+      title: 'Role Updated',
+      message: `${adminName} updated your role to ${newRole}.`,
+      data: { newRole },
+    });
+  }
+
+  async notifyAdminsUserRegistered(newUserId: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const newUser = await this.prisma.user.findUnique({
+      where: { id: newUserId },
+      select: { firstName: true, lastName: true, email: true, role: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'USER_REGISTERED' as NotificationType,
+      title: 'New User Registered',
+      message: `${newUser?.firstName} ${newUser?.lastName} (${newUser?.email}) registered as ${newUser?.role}.`,
+      data: { newUserId },
     }));
 
     return this.createBulkNotifications(notifications);

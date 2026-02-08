@@ -52,6 +52,8 @@ export interface User {
   lastName: string;
   role: UserRole;
   cohortId: string | null;
+  cohort?: { id: string; name: string } | null;
+  facilitatedCohorts?: Array<{ id: string; name: string }>;
   points: number; // Alias for totalPoints for convenience
   totalPoints: number;
   currentStreak: number;

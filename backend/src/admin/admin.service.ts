@@ -58,7 +58,7 @@ export class AdminService {
       name: `${cohort.name} - General Chat`,
       description: `Main chat room for ${cohort.name} cohort`,
       type: 'COHORT_WIDE',
-    });
+    }, adminId);
 
     // Log admin action
     await this.prisma.adminAuditLog.create({
@@ -80,6 +80,7 @@ export class AdminService {
       cohort.id,
       `${admin?.firstName} ${admin?.lastName}`,
       'created',
+      'COHORT_CREATED',
     );
 
     return cohort;
@@ -120,6 +121,7 @@ export class AdminService {
       cohortId,
       `${admin?.firstName} ${admin?.lastName}`,
       `updated ${changes}`,
+      'COHORT_UPDATED',
     );
 
     return updatedCohort;
@@ -224,6 +226,7 @@ export class AdminService {
       sessionId,
       `${admin?.firstName} ${admin?.lastName}`,
       'updated',
+      'SESSION_UPDATED',
     );
 
     return updatedSession;
@@ -360,6 +363,18 @@ export class AdminService {
       },
     });
 
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+
+    await this.notificationsService.notifyAdminsResourceUpdated(
+      resource.id,
+      `${admin?.firstName} ${admin?.lastName}`,
+      'created',
+      'RESOURCE_CREATED',
+    );
+
     return resource;
   }
 
@@ -413,6 +428,18 @@ export class AdminService {
       },
     });
 
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+
+    await this.notificationsService.notifyAdminsResourceUpdated(
+      resourceId,
+      `${admin?.firstName} ${admin?.lastName}`,
+      'updated',
+      'RESOURCE_UPDATED',
+    );
+
     return updatedResource;
   }
 
@@ -449,6 +476,18 @@ export class AdminService {
         changes: { deleted: resource },
       },
     });
+
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+
+    await this.notificationsService.notifyAdminsResourceUpdated(
+      resourceId,
+      `${admin?.firstName} ${admin?.lastName}`,
+      'deleted',
+      'RESOURCE_UPDATED',
+    );
 
     return { success: true, message: 'Resource deleted successfully' };
   }

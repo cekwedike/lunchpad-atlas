@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   Patch,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
@@ -27,13 +28,13 @@ export class ChatController {
 
   @Post('channels')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
-  createChannel(@Body() createChannelDto: CreateChannelDto) {
-    return this.chatService.createChannel(createChannelDto);
+  createChannel(@Body() createChannelDto: CreateChannelDto, @Request() req: any) {
+    return this.chatService.createChannel(createChannelDto, req.user.id);
   }
 
   @Get('channels/cohort/:cohortId')
-  getCohortChannels(@Param('cohortId') cohortId: string) {
-    return this.chatService.getCohortChannels(cohortId);
+  getCohortChannels(@Param('cohortId') cohortId: string, @Request() req: any) {
+    return this.chatService.getCohortChannels(cohortId, req.user.id);
   }
 
   @Get('channels')
@@ -43,21 +44,39 @@ export class ChatController {
   }
 
   @Get('channels/:channelId')
-  getChannelById(@Param('channelId') channelId: string) {
-    return this.chatService.getChannelById(channelId);
+  async getChannelById(@Param('channelId') channelId: string, @Request() req: any) {
+    const channel = await this.chatService.getChannelById(channelId);
+
+    if (req.user.role !== UserRole.ADMIN && req.user.cohortId !== channel.cohortId) {
+      throw new ForbiddenException('You do not have access to this channel');
+    }
+
+    return channel;
   }
 
   @Patch('channels/:channelId/archive')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   archiveChannel(@Param('channelId') channelId: string, @Request() req: any) {
-    return this.chatService.archiveChannel(channelId, req.user.userId);
+    return this.chatService.archiveChannel(channelId, req.user.id);
+  }
+
+  @Patch('channels/:channelId/lock')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  toggleChannelLock(@Param('channelId') channelId: string, @Request() req: any) {
+    return this.chatService.toggleChannelLock(channelId, req.user.id);
+  }
+
+  @Delete('channels/:channelId')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  deleteChannel(@Param('channelId') channelId: string, @Request() req: any) {
+    return this.chatService.deleteChannel(channelId, req.user.id);
   }
 
   // ==================== MESSAGES ====================
 
   @Post('messages')
   createMessage(@Body() createMessageDto: CreateMessageDto, @Request() req: any) {
-    return this.chatService.createMessage(createMessageDto, req.user.userId);
+    return this.chatService.createMessage(createMessageDto, req.user.id);
   }
 
   @Get('messages/:channelId')
@@ -70,7 +89,7 @@ export class ChatController {
     const limitNum = limit ? parseInt(limit, 10) : 50;
     return this.chatService.getChannelMessages(
       channelId,
-      req.user.userId,
+      req.user.id,
       limitNum,
       before,
     );
@@ -78,13 +97,13 @@ export class ChatController {
 
   @Delete('messages/:messageId')
   deleteMessage(@Param('messageId') messageId: string, @Request() req: any) {
-    return this.chatService.deleteMessage(messageId, req.user.userId);
+    return this.chatService.deleteMessage(messageId, req.user.id);
   }
 
   @Patch('messages/:messageId/flag')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   flagMessage(@Param('messageId') messageId: string, @Request() req: any) {
-    return this.chatService.flagMessage(messageId, req.user.userId);
+    return this.chatService.flagMessage(messageId, req.user.id);
   }
 
   // ==================== ADMIN UTILITIES ====================

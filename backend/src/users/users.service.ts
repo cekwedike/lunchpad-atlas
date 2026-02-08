@@ -18,6 +18,12 @@ export class UsersService {
         role: true,
         cohortId: true,
         createdAt: true,
+        cohort: {
+          select: { id: true, name: true },
+        },
+        facilitatedCohorts: {
+          select: { id: true, name: true },
+        },
       },
     });
 

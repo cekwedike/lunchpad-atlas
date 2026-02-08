@@ -21,6 +21,6 @@ export class LeaderboardController {
     @Request() req,
     @Query() filterDto: LeaderboardFilterDto,
   ) {
-    return this.leaderboardService.getUserRank(req.user.userId, filterDto);
+    return this.leaderboardService.getUserRank(req.user.id, filterDto);
   }
 }

@@ -1,18 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Notification, NotificationResponse } from '@/types/notification';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { apiClient } from '@/lib/api-client';
 
 // Fetch notifications
 export function useNotifications(userId: string) {
   return useQuery<NotificationResponse>({
     queryKey: ['notifications', userId],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/notifications?userId=${userId}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to fetch notifications');
-      return response.json();
+      const data = await apiClient.get<any>('/notifications');
+      const notifications = Array.isArray(data) ? data : (data?.notifications ?? []);
+      const unreadCount = Array.isArray(data)
+        ? data.filter((item: Notification) => !item.isRead).length
+        : (data?.unreadCount ?? 0);
+      const total = Array.isArray(data) ? notifications.length : (data?.total ?? notifications.length);
+
+      return { notifications, total, unreadCount };
     },
     refetchInterval: 30000, // Refetch every 30 seconds
   });
@@ -23,11 +25,7 @@ export function useUnreadCount(userId: string) {
   return useQuery<{ count: number }>({
     queryKey: ['notifications', 'unread', userId],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/notifications/unread-count?userId=${userId}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to fetch unread count');
-      return response.json();
+      return apiClient.get<{ count: number }>('/notifications/unread-count');
     },
     refetchInterval: 10000, // Refetch every 10 seconds
   });
@@ -39,12 +37,7 @@ export function useMarkAsRead() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to mark as read');
-      return response.json();
+      return apiClient.patch(`/notifications/${notificationId}/read`);
     },
     onSuccess: (_, notificationId) => {
       // Invalidate and refetch
@@ -59,12 +52,7 @@ export function useMarkAllAsRead() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      const response = await fetch(`${API_URL}/notifications/mark-all-read?userId=${userId}`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to mark all as read');
-      return response.json();
+      return apiClient.patch('/notifications/mark-all-read');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -78,12 +66,7 @@ export function useDeleteNotification() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to delete notification');
-      return response.json();
+      return apiClient.delete(`/notifications/${notificationId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

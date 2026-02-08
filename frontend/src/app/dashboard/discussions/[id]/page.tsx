@@ -31,7 +31,7 @@ import {
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { formatToWAT, formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
+import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 import type { CommentReactionType } from "@/types/api";
 import {
@@ -49,6 +49,7 @@ export default function DiscussionDetailPage() {
   
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; author?: string } | null>(null);
+  const [deleteDiscussionModalOpen, setDeleteDiscussionModalOpen] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -219,8 +220,6 @@ export default function DiscussionDetailPage() {
   };
 
   const handleDeleteDiscussion = async () => {
-    if (!confirm('Delete this discussion? This cannot be undone.')) return;
-
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/discussions/${discussionId}`, {
         method: 'DELETE',
@@ -287,8 +286,8 @@ export default function DiscussionDetailPage() {
                   Pinned
                 </Badge>
               )}
-              <span className="text-sm text-gray-500" title={formatToWAT(comment.createdAt)}>
-                {formatRelativeTimeWAT(comment.createdAt)}
+              <span className="text-sm text-gray-500">
+                {formatLocalTimestamp(comment.createdAt)}
               </span>
             </div>
             <p className="text-gray-700 break-words">{comment.content}</p>
@@ -309,6 +308,11 @@ export default function DiscussionDetailPage() {
                   {reactionCounts[reaction.type] || 0}
                 </button>
               ))}
+              {replies.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => setReplyTo({ id: comment.id, author: comment.user?.firstName })}
@@ -411,7 +415,7 @@ export default function DiscussionDetailPage() {
                         <Lock className="h-4 w-4 mr-2" />
                         {discussion.isLocked ? "Unlock" : "Lock"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleDeleteDiscussion} className="text-red-600">
+                      <DropdownMenuItem onClick={() => setDeleteDiscussionModalOpen(true)} className="text-red-600">
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete discussion
                       </DropdownMenuItem>
@@ -437,8 +441,8 @@ export default function DiscussionDetailPage() {
                       )}
                     </div>
                     {discussion.scoredAt ? (
-                      <div className="text-xs text-gray-500" title={formatToWAT(discussion.scoredAt)}>
-                        Scored {formatRelativeTimeWAT(discussion.scoredAt)}
+                      <div className="text-xs text-gray-500">
+                        Scored {formatLocalTimestamp(discussion.scoredAt)}
                       </div>
                     ) : (
                       <div className="text-xs text-gray-500">Not scored yet</div>
@@ -514,8 +518,8 @@ export default function DiscussionDetailPage() {
                   )}
                 </div>
                 <span>•</span>
-                <span title={formatToWAT(discussion.createdAt)}>
-                  {formatRelativeTimeWAT(discussion.createdAt)}
+                <span>
+                  {formatLocalTimestamp(discussion.createdAt)}
                 </span>
               </div>
 
@@ -611,6 +615,33 @@ export default function DiscussionDetailPage() {
           </CardContent>
         </Card>
       </div>
+      {deleteDiscussionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">Delete discussion</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to delete this discussion? This cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDiscussionModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={async () => {
+                  await handleDeleteDiscussion();
+                  setDeleteDiscussionModalOpen(false);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

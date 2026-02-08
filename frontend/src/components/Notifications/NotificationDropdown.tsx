@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Bell,
   BookOpen,
@@ -23,7 +24,7 @@ import {
 } from '@/hooks/api/useNotifications';
 import { useNotificationsSocket } from '@/hooks/useNotificationsSocket';
 import { Notification, NotificationType } from '@/types/notification';
-import { formatDistanceToNow } from 'date-fns';
+import { formatLocalTimestamp } from '@/lib/date-utils';
 
 interface NotificationDropdownProps {
   userId: string;
@@ -40,6 +41,16 @@ const notificationIcons: Record<NotificationType, React.ElementType> = {
   [NotificationType.SESSION_REMINDER]: Calendar,
   [NotificationType.LEADERBOARD_UPDATE]: TrendingUp,
   [NotificationType.POINT_CAP_WARNING]: AlertCircle,
+  [NotificationType.USER_REGISTERED]: CheckCircle2,
+  [NotificationType.COHORT_CREATED]: BookOpen,
+  [NotificationType.COHORT_UPDATED]: BookOpen,
+  [NotificationType.RESOURCE_CREATED]: BookOpen,
+  [NotificationType.RESOURCE_UPDATED]: BookOpen,
+  [NotificationType.SESSION_CREATED]: Calendar,
+  [NotificationType.SESSION_UPDATED]: Calendar,
+  [NotificationType.USER_PROMOTED]: TrendingUp,
+  [NotificationType.DISCUSSION_FLAGGED]: AlertCircle,
+  [NotificationType.SYSTEM_ALERT]: AlertCircle,
 };
 
 const notificationColors: Record<NotificationType, string> = {
@@ -51,9 +62,20 @@ const notificationColors: Record<NotificationType, string> = {
   [NotificationType.SESSION_REMINDER]: 'text-green-500',
   [NotificationType.LEADERBOARD_UPDATE]: 'text-indigo-500',
   [NotificationType.POINT_CAP_WARNING]: 'text-amber-500',
+  [NotificationType.USER_REGISTERED]: 'text-blue-500',
+  [NotificationType.COHORT_CREATED]: 'text-blue-500',
+  [NotificationType.COHORT_UPDATED]: 'text-blue-500',
+  [NotificationType.RESOURCE_CREATED]: 'text-blue-500',
+  [NotificationType.RESOURCE_UPDATED]: 'text-blue-500',
+  [NotificationType.SESSION_CREATED]: 'text-green-500',
+  [NotificationType.SESSION_UPDATED]: 'text-green-500',
+  [NotificationType.USER_PROMOTED]: 'text-indigo-500',
+  [NotificationType.DISCUSSION_FLAGGED]: 'text-red-500',
+  [NotificationType.SYSTEM_ALERT]: 'text-amber-500',
 };
 
 export function NotificationDropdown({ userId, userRole, onClose }: NotificationDropdownProps) {
+  const router = useRouter();
   const { data, refetch } = useNotifications(userId);
   const markAsReadMutation = useMarkAsRead();
   const markAllAsReadMutation = useMarkAllAsRead();
@@ -65,6 +87,9 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
   useNotificationsSocket({
     userId,
     onNotification: (notification) => {
+      refetch();
+    },
+    onUnreadCountUpdate: () => {
       refetch();
     },
   });
@@ -86,14 +111,25 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
     deleteNotificationMutation.mutate(notificationId);
   };
 
+  const getNotificationUrl = (notification: Notification) => {
+    if (notification.data?.url) return notification.data.url as string;
+    if (notification.data?.channelId) return `/dashboard/chat?channelId=${notification.data.channelId}`;
+    if (notification.data?.discussionId) return `/dashboard/discussions/${notification.data.discussionId}`;
+    if (notification.data?.resourceId) return `/dashboard/resources/${notification.data.resourceId}`;
+    if (notification.data?.sessionId) return `/dashboard/sessions/${notification.data.sessionId}`;
+    if (notification.data?.quizId) return `/dashboard/quizzes/${notification.data.quizId}`;
+
+    return null;
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.isRead) {
       markAsReadMutation.mutate(notification.id);
     }
     
-    // Handle navigation based on notification type and data
-    if (notification.data?.url) {
-      window.location.href = notification.data.url;
+    const url = getNotificationUrl(notification);
+    if (url) {
+      router.push(url);
     }
     
     onClose();
@@ -193,9 +229,7 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
                             {notification.message}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(new Date(notification.createdAt), {
-                              addSuffix: true,
-                            })}
+                            {formatLocalTimestamp(notification.createdAt)}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -241,7 +275,7 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
               className="w-full"
               onClick={() => {
                 // Navigate to full notifications page
-                window.location.href = '/notifications';
+                router.push('/notifications');
                 onClose();
               }}
             >

@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Channel, ChatMessage, CreateChannelDto, SendMessageDto } from '@/types/chat';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+import { apiClient } from '@/lib/api-client';
 
 // ==================== CHANNELS ====================
 
@@ -10,13 +9,8 @@ export function useCohortChannels(cohortId: string | undefined) {
     queryKey: ['channels', cohortId],
     queryFn: async () => {
       if (!cohortId) throw new Error('Cohort ID required');
-      
-      const response = await fetch(`${API_BASE}/chat/channels/cohort/${cohortId}`, {
-        credentials: 'include',
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch channels');
-      return response.json();
+
+      return apiClient.get<Channel[]>(`/chat/channels/cohort/${cohortId}`);
     },
     enabled: !!cohortId,
   });
@@ -26,12 +20,7 @@ export function useAllChannels(enabled: boolean) {
   return useQuery<Channel[]>({
     queryKey: ['channels', 'all'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/chat/channels`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch channels');
-      return response.json();
+      return apiClient.get<Channel[]>('/chat/channels');
     },
     enabled,
   });
@@ -42,18 +31,22 @@ export function useCreateChannel() {
   
   return useMutation({
     mutationFn: async (data: CreateChannelDto) => {
-      const response = await fetch(`${API_BASE}/chat/channels`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) throw new Error('Failed to create channel');
-      return response.json();
+      return apiClient.post<Channel>('/chat/channels', data);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (createdChannel, variables) => {
+      queryClient.setQueryData<Channel[]>(['channels', variables.cohortId], (current) => {
+        if (!current) return current;
+        if (current.some((channel) => channel.id === createdChannel.id)) return current;
+        return [...current, createdChannel];
+      });
+      queryClient.setQueryData<Channel[]>(['channels', 'all'], (current) => {
+        if (!current) return current;
+        if (current.some((channel) => channel.id === createdChannel.id)) return current;
+        return [...current, createdChannel];
+      });
       queryClient.invalidateQueries({ queryKey: ['channels', variables.cohortId] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
     },
   });
 }
@@ -63,16 +56,25 @@ export function useArchiveChannel() {
   
   return useMutation({
     mutationFn: async (channelId: string) => {
-      const response = await fetch(`${API_BASE}/chat/channels/${channelId}/archive`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) throw new Error('Failed to archive channel');
-      return response.json();
+      return apiClient.patch<Channel>(`/chat/channels/${channelId}/archive`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
+    },
+  });
+}
+
+export function useDeleteChannel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (channelId: string) => {
+      return apiClient.delete<Channel>(`/chat/channels/${channelId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
     },
   });
 }
@@ -82,17 +84,38 @@ export function useInitializeCohortChannels() {
 
   return useMutation({
     mutationFn: async (cohortId: string) => {
-      const response = await fetch(`${API_BASE}/chat/channels/initialize/${cohortId}`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (!response.ok) throw new Error('Failed to initialize cohort channels');
-      return response.json();
+      return apiClient.post<Channel[]>(`/chat/channels/initialize/${cohortId}`);
     },
     onSuccess: (_, cohortId) => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['channels', cohortId] });
+    },
+  });
+}
+
+export function useChannelById(channelId?: string, enabled: boolean = true) {
+  return useQuery<Channel>({
+    queryKey: ['channels', 'by-id', channelId],
+    queryFn: async () => {
+      if (!channelId) throw new Error('Channel ID required');
+      return apiClient.get<Channel>(`/chat/channels/${channelId}`);
+    },
+    enabled: enabled && !!channelId,
+  });
+}
+
+export function useToggleChannelLock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (channelId: string) => {
+      return apiClient.patch<Channel>(`/chat/channels/${channelId}/lock`);
+    },
+    onSuccess: (_, channelId) => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', 'by-id', channelId] });
     },
   });
 }
@@ -104,15 +127,11 @@ export function useChannelMessages(channelId: string | undefined, limit = 50) {
     queryKey: ['messages', channelId, limit],
     queryFn: async () => {
       if (!channelId) throw new Error('Channel ID required');
-      
-      const response = await fetch(
-        `${API_BASE}/chat/messages/${channelId}?limit=${limit}`,
-        { credentials: 'include' }
+
+      const messages = await apiClient.get<ChatMessage[]>(
+        `/chat/messages/${channelId}?limit=${limit}`
       );
-      
-      if (!response.ok) throw new Error('Failed to fetch messages');
-      const messages = await response.json();
-      
+
       // Reverse to show oldest first
       return messages.reverse();
     },
@@ -126,15 +145,7 @@ export function useSendMessage() {
   
   return useMutation({
     mutationFn: async (data: SendMessageDto) => {
-      const response = await fetch(`${API_BASE}/chat/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) throw new Error('Failed to send message');
-      return response.json();
+      return apiClient.post<ChatMessage>('/chat/messages', data);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['messages', variables.channelId] });
@@ -147,13 +158,7 @@ export function useDeleteMessage() {
   
   return useMutation({
     mutationFn: async (messageId: string) => {
-      const response = await fetch(`${API_BASE}/chat/messages/${messageId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete message');
-      return response.json();
+      return apiClient.delete<ChatMessage>(`/chat/messages/${messageId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
@@ -166,13 +171,7 @@ export function useFlagMessage() {
   
   return useMutation({
     mutationFn: async (messageId: string) => {
-      const response = await fetch(`${API_BASE}/chat/messages/${messageId}/flag`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) throw new Error('Failed to flag message');
-      return response.json();
+      return apiClient.patch<ChatMessage>(`/chat/messages/${messageId}/flag`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });

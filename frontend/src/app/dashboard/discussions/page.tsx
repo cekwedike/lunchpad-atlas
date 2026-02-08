@@ -24,10 +24,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useDiscussions } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useArchiveChannel } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useDeleteChannel } from "@/hooks/api/useChat";
 import { useCohorts } from "@/hooks/api/useAdmin";
 import { useResource } from "@/hooks/api/useResources";
-import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
+import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -39,6 +39,8 @@ export default function DiscussionsPage() {
   const [filterPinned, setFilterPinned] = useState(false);
   const [selectedCohortId, setSelectedCohortId] = useState("");
   const [chatRoomName, setChatRoomName] = useState("");
+  const [deleteChatModal, setDeleteChatModal] = useState<{ id: string; name: string } | null>(null);
+  const [showChatCreate, setShowChatCreate] = useState(false);
 
   const resourceId = searchParams.get('resourceId') || undefined;
   const { data: resource } = useResource(resourceId || "");
@@ -56,10 +58,19 @@ export default function DiscussionsPage() {
   const canManageChats = isAdmin || isFacilitator;
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
-  const { data: cohortChannels } = useCohortChannels(profile?.cohortId ?? undefined);
+  const facilitatorCohorts = profile?.facilitatedCohorts || [];
+  const availableChatCohorts = isAdmin
+    ? cohorts
+    : isFacilitator
+      ? facilitatorCohorts
+      : [];
+  const chatCohortId = isAdmin
+    ? undefined
+    : (profile?.cohortId ?? selectedCohortId ?? undefined);
+  const { data: cohortChannels } = useCohortChannels(chatCohortId);
   const { data: allChannels } = useAllChannels(isAdmin);
   const createChannel = useCreateChannel();
-  const archiveChannel = useArchiveChannel();
+  const deleteChannel = useDeleteChannel();
   const channels = isAdmin ? allChannels : cohortChannels;
   const mainChannel = channels?.[0];
   const { data: messages } = useChannelMessages(mainChannel?.id);
@@ -124,6 +135,7 @@ export default function DiscussionsPage() {
 
       if (createdChannel?.id) {
         setChatRoomName("");
+        setShowChatCreate(false);
         router.push(`/dashboard/chat?channelId=${createdChannel.id}`);
       }
     } catch (error: any) {
@@ -131,23 +143,28 @@ export default function DiscussionsPage() {
     }
   };
 
-  const handleArchiveChannel = async (channelId: string) => {
-    if (!confirm("Archive this chat room?")) return;
-
+  const handleDeleteChannel = async (channelId: string) => {
     try {
-      await archiveChannel.mutateAsync(channelId);
-      toast.success("Chat room archived");
+      await deleteChannel.mutateAsync(channelId);
+      toast.success("Chat room deleted");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to archive chat room");
+      toast.error(error?.message || "Failed to delete chat room");
     }
   };
 
   useEffect(() => {
     if (!canManageChats || selectedCohortId) return;
-    if (profile?.cohortId) {
+
+    if (isAdmin && profile?.cohortId) {
       setSelectedCohortId(profile.cohortId);
+      return;
     }
-  }, [canManageChats, profile?.cohortId, selectedCohortId]);
+
+    if (isFacilitator && facilitatorCohorts.length === 1) {
+      setSelectedCohortId(facilitatorCohorts[0].id);
+      return;
+    }
+  }, [canManageChats, isAdmin, isFacilitator, facilitatorCohorts, profile?.cohortId, selectedCohortId]);
 
   return (
     <DashboardLayout>
@@ -169,15 +186,19 @@ export default function DiscussionsPage() {
                   </div>
                 )}
               </div>
-              <Button
+              {canCreateDiscussion ? (
+                <Button
                 onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
                 className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
-                disabled={!canCreateDiscussion}
-                title={!canCreateDiscussion ? "Only Admins and Facilitators can create discussions" : ""}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Start Discussion
-              </Button>
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Start Discussion
+                </Button>
+              ) : (
+                <div className="text-xs text-gray-500">
+                  Only admins and facilitators can create discussions.
+                </div>
+              )}
             </div>
 
             {/* Search and Filter Bar */}
@@ -289,7 +310,7 @@ export default function DiscussionsPage() {
                             ? "Try a different search term"
                             : "Be the first to start a discussion!"}
                         </p>
-                        {!searchQuery && (
+                        {!searchQuery && canCreateDiscussion && (
                           <Button
                             onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
                             className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -343,7 +364,7 @@ export default function DiscussionsPage() {
                                 </div>
                                 <span>•</span>
                                 <span>
-                                  {formatRelativeTimeWAT(discussion.createdAt)}
+                                  {formatLocalTimestamp(discussion.createdAt)}
                                 </span>
                                 <span>•</span>
                                 <div className="flex items-center gap-1">
@@ -371,16 +392,26 @@ export default function DiscussionsPage() {
           <div className="lg:col-span-2 flex flex-col space-y-4">
             <Card className="bg-white shadow-sm">
               <CardHeader className="pb-3 border-b">
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center justify-between">
                   <MessageCircle className="h-6 w-6 text-blue-600" />
-                  Chats
+                  <span>Chats</span>
                 </CardTitle>
+                {canManageChats && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowChatCreate((prev) => !prev)}
+                    className="mt-2 w-full"
+                  >
+                    {showChatCreate ? "Hide chat form" : "Create chat room"}
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="p-4">
                 {channels && channels.length > 0 ? (
                   <div className="space-y-3">
                     {channels.map((channel) => {
-                      const channelTitle = channel.cohort?.name || channel.name.replace(/ - General Chat$/, '');
+                      const channelTitle = channel.name || channel.cohort?.name || 'Chat Room';
                       const isActive = channel.id === mainChannel?.id;
                       return (
                         <Link
@@ -395,6 +426,11 @@ export default function DiscussionsPage() {
                                 <div className="text-lg font-semibold text-gray-900">
                                   {channelTitle}
                                 </div>
+                                {channel.isLocked && (
+                                  <Badge className="mt-1 bg-amber-100 text-amber-700 border border-amber-200">
+                                    Locked
+                                  </Badge>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 text-sm text-gray-500">
                                 <div className="h-2 w-2 rounded-full bg-green-500" />
@@ -404,11 +440,11 @@ export default function DiscussionsPage() {
                                     type="button"
                                     onClick={(event) => {
                                       event.preventDefault();
-                                      handleArchiveChannel(channel.id);
+                                      setDeleteChatModal({ id: channel.id, name: channelTitle });
                                     }}
                                     className="ml-2 text-xs text-red-600 hover:text-red-700"
                                   >
-                                    Archive
+                                    Delete
                                   </button>
                                 )}
                               </div>
@@ -418,7 +454,7 @@ export default function DiscussionsPage() {
                                 {isActive && lastMessage ? lastMessage.content : "Open to view messages"}
                               </div>
                               <div className="text-xs text-gray-500">
-                                {isActive && lastMessage ? formatRelativeTimeWAT(lastMessage.createdAt) : ""}
+                                {isActive && lastMessage ? formatLocalTimestamp(lastMessage.createdAt) : ""}
                               </div>
                             </div>
                             <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
@@ -434,62 +470,52 @@ export default function DiscussionsPage() {
                   <div className="text-center py-6 text-gray-500">
                     <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                     <p>No chat room yet</p>
-                    {canManageChats ? (
-                      <div className="mt-3 space-y-3">
-                        <p className="text-sm">Create a cohort chat to get started</p>
-                        <div className="mx-auto max-w-xs text-left">
-                          <label htmlFor="cohort-chat-select" className="text-xs font-medium text-gray-700">
-                            Cohort
-                          </label>
-                          {isAdmin ? (
-                            <select
-                              id="cohort-chat-select"
-                              className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
-                              value={selectedCohortId}
-                              onChange={(e) => setSelectedCohortId(e.target.value)}
-                              disabled={cohortsLoading}
-                            >
-                              <option value="">-- Select a cohort --</option>
-                              {cohorts.map((cohort: any) => (
-                                <option key={cohort.id} value={cohort.id}>
-                                  {cohort.name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <Input
-                              id="cohort-chat-select"
-                              value={profile?.cohortId || "Your cohort"}
-                              disabled
-                              className="mt-1"
-                            />
-                          )}
-                        </div>
-                        {selectedCohortId && (
-                          <div className="mx-auto max-w-xs text-left">
-                            <label htmlFor="chat-room-name" className="text-xs font-medium text-gray-700">
-                              Chat room name
-                            </label>
-                            <Input
-                              id="chat-room-name"
-                              value={chatRoomName}
-                              onChange={(event) => setChatRoomName(event.target.value)}
-                              placeholder="e.g., General, Help Desk"
-                              className="mt-1"
-                            />
-                          </div>
-                        )}
-                        <Button
-                          onClick={handleStartChat}
-                          disabled={!selectedCohortId || !chatRoomName.trim() || createChannel.isPending}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          {createChannel.isPending ? "Creating..." : "Start Chat"}
-                        </Button>
-                      </div>
-                    ) : (
+                    {!canManageChats && (
                       <p className="text-sm mt-2">Ask an admin to create a cohort</p>
                     )}
+                  </div>
+                )}
+                {canManageChats && showChatCreate && (
+                  <div className="mt-6 space-y-3 border-t pt-4">
+                    <p className="text-sm text-gray-600">Create a cohort chat room</p>
+                    <div className="text-left">
+                      <label htmlFor="cohort-chat-select" className="text-xs font-medium text-gray-700">
+                        Cohort
+                      </label>
+                      <select
+                        id="cohort-chat-select"
+                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                        value={selectedCohortId}
+                        onChange={(e) => setSelectedCohortId(e.target.value)}
+                        disabled={cohortsLoading && isAdmin}
+                      >
+                        <option value="">-- Select a cohort --</option>
+                        {availableChatCohorts.map((cohort: any) => (
+                          <option key={cohort.id} value={cohort.id}>
+                            {cohort.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="text-left">
+                      <label htmlFor="chat-room-name" className="text-xs font-medium text-gray-700">
+                        Chat room name
+                      </label>
+                      <Input
+                        id="chat-room-name"
+                        value={chatRoomName}
+                        onChange={(event) => setChatRoomName(event.target.value)}
+                        placeholder="e.g., General, Help Desk"
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleStartChat}
+                      disabled={!selectedCohortId || !chatRoomName.trim() || createChannel.isPending}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {createChannel.isPending ? "Creating..." : "Start Chat"}
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -497,6 +523,33 @@ export default function DiscussionsPage() {
           </div>
         </div>
       </div>
+      {deleteChatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">Delete chat room</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to delete "{deleteChatModal.name}"? This cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteChatModal(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={async () => {
+                  await handleDeleteChannel(deleteChatModal.id);
+                  setDeleteChatModal(null);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

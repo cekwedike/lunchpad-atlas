@@ -8,7 +8,7 @@ const SOCKET_URL = RAW_SOCKET_URL.replace(/\/api\/v1\/?$/, '');
 interface UseNotificationsSocketOptions {
   userId: string;
   onNotification?: (notification: Notification) => void;
-  onNotificationRead?: (notificationId: string) => void;
+  onUnreadCountUpdate?: (count: number) => void;
 }
 
 /**
@@ -16,7 +16,7 @@ interface UseNotificationsSocketOptions {
  */
 export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
-  const { userId, onNotification, onNotificationRead } = options;
+  const { userId, onNotification, onUnreadCountUpdate } = options;
 
   useEffect(() => {
     // Initialize socket connection
@@ -40,27 +40,22 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
 
     // Notification events
     if (onNotification) {
-      socket.on('notification', onNotification);
+      socket.on('new_notification', onNotification);
     }
 
-    if (onNotificationRead) {
-      socket.on('notification_read', onNotificationRead);
+    if (onUnreadCountUpdate) {
+      socket.on('unread_count_update', (payload: { count: number }) => {
+        onUnreadCountUpdate(payload.count);
+      });
     }
 
     // Cleanup
     return () => {
       socket.disconnect();
     };
-  }, [userId, onNotification, onNotificationRead]);
-
-  const markAsRead = useCallback((notificationId: string) => {
-    if (!socketRef.current) return;
-    
-    socketRef.current.emit('mark_read', { notificationId });
-  }, []);
+  }, [userId, onNotification, onUnreadCountUpdate]);
 
   return {
-    markAsRead,
     isConnected: socketRef.current?.connected ?? false,
   };
 }

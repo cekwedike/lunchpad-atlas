@@ -180,7 +180,7 @@ export class AdminUserService {
   /**
    * Update user role
    */
-  async updateUserRole(userId: string, role: UserRole) {
+  async updateUserRole(userId: string, role: UserRole, adminId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -189,10 +189,26 @@ export class AdminUserService {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { role },
     });
+
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { firstName: true, lastName: true },
+    });
+
+    const adminName = `${admin?.firstName || ''} ${admin?.lastName || ''}`.trim() || 'Admin';
+
+    await this.notificationsService.notifyUserPromoted(userId, role, adminName);
+    await this.notificationsService.notifyAdminsUserUpdated(
+      userId,
+      adminName,
+      `role changed to ${role}`,
+    );
+
+    return updatedUser;
   }
 
   /**

@@ -1,4 +1,4 @@
-import { format, formatDistance, formatRelative, subDays, addDays, differenceInDays, differenceInHours, differenceInMinutes, isPast, isFuture } from 'date-fns';
+import { format, formatDistance, formatRelative, formatDistanceToNowStrict, subDays, addDays, differenceInDays, differenceInHours, differenceInMinutes, isPast, isFuture } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 const WAT_TIMEZONE = 'Africa/Lagos';
@@ -30,6 +30,39 @@ export function formatRelativeTimeWAT(date: Date | string): string {
   } catch (error) {
     // Fallback
     return formatDistance(dateObj, new Date(), { addSuffix: true });
+  }
+}
+
+/**
+ * Format relative time with exact WAT timestamp (e.g., "2 minutes ago • Feb 7, 2026 3:45 PM WAT")
+ */
+export function formatRelativeTimeWATDetailed(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  try {
+    const watDate = toZonedTime(dateObj, WAT_TIMEZONE);
+    const relative = formatDistanceToNowStrict(watDate, { addSuffix: true });
+    return `${relative} • ${formatToWAT(watDate)}`;
+  } catch (error) {
+    const relative = formatDistanceToNowStrict(dateObj, { addSuffix: true });
+    return `${relative} • ${formatToWAT(dateObj)}`;
+  }
+}
+
+/**
+ * Format a timestamp in the viewer's local timezone (no relative prefix)
+ */
+export function formatLocalTimestamp(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(dateObj);
+  } catch (error) {
+    return dateObj.toLocaleString();
   }
 }
 
