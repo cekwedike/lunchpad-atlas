@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useDiscussions } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { useAllChannels, useCohortChannels, useChannelMessages } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useInitializeCohortChannels } from "@/hooks/api/useChat";
+import { useCohorts } from "@/hooks/api/useAdmin";
 import { useResource } from "@/hooks/api/useResources";
-import { formatDistanceToNow } from "date-fns";
 import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function DiscussionsPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function DiscussionsPage() {
   const { data: profile } = useProfile();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPinned, setFilterPinned] = useState(false);
+  const [selectedCohortId, setSelectedCohortId] = useState("");
 
   const resourceId = searchParams.get('resourceId') || undefined;
   const { data: resource } = useResource(resourceId || "");
@@ -49,8 +51,11 @@ export default function DiscussionsPage() {
 
   // Chat functionality
   const isAdmin = profile?.role === 'ADMIN';
+  const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
+  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
   const { data: cohortChannels } = useCohortChannels(profile?.cohortId ?? undefined);
   const { data: allChannels } = useAllChannels(isAdmin);
+  const initializeCohortChannels = useInitializeCohortChannels();
   const channels = isAdmin ? allChannels : cohortChannels;
   const mainChannel = channels?.[0];
   const { data: messages } = useChannelMessages(mainChannel?.id);
@@ -102,6 +107,30 @@ export default function DiscussionsPage() {
 
   const canCreateDiscussion = profile?.role === 'ADMIN' || profile?.role === 'FACILITATOR';
   const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
+
+  const handleStartChat = async () => {
+    if (!selectedCohortId) return;
+
+    try {
+      const createdChannels = await initializeCohortChannels.mutateAsync(selectedCohortId);
+      const firstChannel = Array.isArray(createdChannels) ? createdChannels[0] : null;
+
+      if (firstChannel?.id) {
+        router.push(`/dashboard/chat?channelId=${firstChannel.id}`);
+      } else {
+        toast.error("Chat created, but no channel was returned");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to start chat");
+    }
+  };
+
+  useEffect(() => {
+    if (!isAdmin || selectedCohortId) return;
+    if (profile?.cohortId) {
+      setSelectedCohortId(profile.cohortId);
+    }
+  }, [isAdmin, profile?.cohortId, selectedCohortId]);
 
   return (
     <DashboardLayout>
@@ -256,7 +285,14 @@ export default function DiscussionsPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  filteredDiscussions.map((discussion: any) => (
+                  filteredDiscussions.map((discussion: any) => {
+                    const topicLabel = discussion.resource?.title
+                      ? `Resource: ${discussion.resource.title}`
+                      : discussion.session?.title
+                        ? `Session ${discussion.session.sessionNumber}: ${discussion.session.title}`
+                        : 'General';
+
+                    return (
                     <Link key={discussion.id} href={`/dashboard/discussions/${discussion.id}`}>
                       <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="p-6">
@@ -272,6 +308,9 @@ export default function DiscussionsPage() {
                                 {discussion.isLocked && (
                                   <Lock className="h-4 w-4 text-red-600" />
                                 )}
+                                <Badge className="text-xs bg-blue-50 text-blue-700 border border-blue-100">
+                                  {topicLabel}
+                                </Badge>
                               </div>
                               <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                                 {discussion.content}
@@ -304,7 +343,8 @@ export default function DiscussionsPage() {
                         </CardContent>
                       </Card>
                     </Link>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>
@@ -365,7 +405,39 @@ export default function DiscussionsPage() {
                   <div className="text-center py-6 text-gray-500">
                     <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                     <p>No chat room yet</p>
-                    <p className="text-sm mt-2">Ask an admin to create a cohort</p>
+                    {isAdmin ? (
+                      <div className="mt-3 space-y-3">
+                        <p className="text-sm">Create a cohort chat to get started</p>
+                        <div className="mx-auto max-w-xs text-left">
+                          <label htmlFor="cohort-chat-select" className="text-xs font-medium text-gray-700">
+                            Cohort
+                          </label>
+                          <select
+                            id="cohort-chat-select"
+                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                            value={selectedCohortId}
+                            onChange={(e) => setSelectedCohortId(e.target.value)}
+                            disabled={cohortsLoading}
+                          >
+                            <option value="">-- Select a cohort --</option>
+                            {cohorts.map((cohort: any) => (
+                              <option key={cohort.id} value={cohort.id}>
+                                {cohort.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <Button
+                          onClick={handleStartChat}
+                          disabled={!selectedCohortId || initializeCohortChannels.isPending}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          {initializeCohortChannels.isPending ? "Creating..." : "Start Chat"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm mt-2">Ask an admin to create a cohort</p>
+                    )}
                   </div>
                 )}
               </CardContent>

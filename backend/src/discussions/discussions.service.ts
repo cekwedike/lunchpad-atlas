@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dto/discussion.dto';
+import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto, DiscussionTopicType } from './dto/discussion.dto';
 import { DiscussionScoringService } from './discussion-scoring.service';
 import { DiscussionsGateway } from './discussions.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -58,17 +58,69 @@ export class DiscussionsService {
       cohortId = user?.cohortId || '';
     }
 
+    if (!cohortId) {
+      throw new BadRequestException('Cohort is required to create a discussion');
+    }
+
+    const topicType: DiscussionTopicType = dto.topicType
+      || (dto.resourceId ? 'RESOURCE' : dto.sessionId ? 'SESSION' : 'GENERAL');
+
+    let resourceId: string | null = null;
+    let sessionId: string | null = null;
+
+    if (topicType === 'RESOURCE') {
+      if (!dto.resourceId) {
+        throw new BadRequestException('Resource is required for a resource discussion');
+      }
+
+      const resource = await this.prisma.resource.findUnique({
+        where: { id: dto.resourceId },
+        select: { id: true, sessionId: true, session: { select: { cohortId: true } } },
+      });
+
+      if (!resource || resource.session?.cohortId !== cohortId) {
+        throw new NotFoundException('Resource not found for this cohort');
+      }
+
+      resourceId = resource.id;
+      sessionId = resource.sessionId;
+    }
+
+    if (topicType === 'SESSION') {
+      if (!dto.sessionId) {
+        throw new BadRequestException('Session is required for a session topic');
+      }
+
+      const session = await this.prisma.session.findUnique({
+        where: { id: dto.sessionId },
+        select: { id: true, cohortId: true },
+      });
+
+      if (!session || session.cohortId !== cohortId) {
+        throw new NotFoundException('Session not found for this cohort');
+      }
+
+      sessionId = session.id;
+    }
+
     const discussion = await this.prisma.discussion.create({
       data: {
         title: dto.title,
         content: dto.content,
         userId: userId,
         cohortId: cohortId,
-        resourceId: dto.resourceId || '',
+        resourceId,
+        sessionId,
       },
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, role: true },
+        },
+        session: {
+          select: { id: true, sessionNumber: true, title: true },
+        },
+        resource: {
+          select: { id: true, title: true },
         },
       },
     });
@@ -140,6 +192,12 @@ export class DiscussionsService {
           user: {
             select: { id: true, firstName: true, lastName: true, email: true, role: true },
           },
+          session: {
+            select: { id: true, sessionNumber: true, title: true },
+          },
+          resource: {
+            select: { id: true, title: true },
+          },
           _count: {
             select: { comments: true, likes: true },
           },
@@ -163,6 +221,12 @@ export class DiscussionsService {
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, email: true, role: true },
+        },
+        session: {
+          select: { id: true, sessionNumber: true, title: true },
+        },
+        resource: {
+          select: { id: true, title: true },
         },
         _count: {
           select: { comments: true, likes: true },
@@ -402,6 +466,38 @@ export class DiscussionsService {
         },
       },
     });
+  }
+
+  async getDiscussionTopics(cohortId: string) {
+    if (!cohortId) {
+      throw new BadRequestException('Cohort is required');
+    }
+
+    const sessions = await this.prisma.session.findMany({
+      where: { cohortId },
+      orderBy: { sessionNumber: 'asc' },
+      select: { id: true, sessionNumber: true, title: true },
+    });
+
+    const resources = await this.prisma.resource.findMany({
+      where: { session: { cohortId } },
+      orderBy: [{ sessionId: 'asc' }, { order: 'asc' }],
+      select: { id: true, title: true, session: { select: { sessionNumber: true, title: true } } },
+    });
+
+    return [
+      { type: 'GENERAL', value: 'general', label: 'General' },
+      ...sessions.map((session) => ({
+        type: 'SESSION',
+        value: session.id,
+        label: `Session ${session.sessionNumber}: ${session.title}`,
+      })),
+      ...resources.map((resource) => ({
+        type: 'RESOURCE',
+        value: resource.id,
+        label: `Resource: ${resource.title} (Session ${resource.session.sessionNumber})`,
+      })),
+    ];
   }
 
   // ==================== ADMIN METHODS ====================

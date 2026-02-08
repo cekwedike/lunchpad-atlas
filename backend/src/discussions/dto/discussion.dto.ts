@@ -1,4 +1,6 @@
-import { IsString, IsNotEmpty, MinLength, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, IsOptional, IsIn } from 'class-validator';
+
+export type DiscussionTopicType = 'GENERAL' | 'SESSION' | 'RESOURCE';
 
 export class CreateDiscussionDto {
   @IsString()
@@ -14,6 +16,14 @@ export class CreateDiscussionDto {
   @IsOptional()
   @IsString()
   cohortId?: string;
+
+  @IsOptional()
+  @IsIn(['GENERAL', 'SESSION', 'RESOURCE'])
+  topicType?: DiscussionTopicType;
+
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 
   @IsOptional()
   @IsString()

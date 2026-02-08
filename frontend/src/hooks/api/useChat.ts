@@ -77,6 +77,26 @@ export function useArchiveChannel() {
   });
 }
 
+export function useInitializeCohortChannels() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (cohortId: string) => {
+      const response = await fetch(`${API_BASE}/chat/channels/initialize/${cohortId}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error('Failed to initialize cohort channels');
+      return response.json();
+    },
+    onSuccess: (_, cohortId) => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['channels', cohortId] });
+    },
+  });
+}
+
 // ==================== MESSAGES ====================
 
 export function useChannelMessages(channelId: string | undefined, limit = 50) {

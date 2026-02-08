@@ -16,6 +16,12 @@ export class DiscussionsController {
     return this.discussionsService.getDiscussions(filters);
   }
 
+  @Get('topics')
+  @ApiOperation({ summary: 'Get available discussion topics for a cohort' })
+  getDiscussionTopics(@Query('cohortId') cohortId: string) {
+    return this.discussionsService.getDiscussionTopics(cohortId);
+  }
+
   @Get(':id')
   getDiscussion(@Param('id') id: string) {
     return this.discussionsService.getDiscussion(id);

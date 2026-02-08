@@ -3,6 +3,12 @@ import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import type { Discussion, DiscussionComment, CreateDiscussionRequest, CreateCommentRequest, PaginatedResponse } from '@/types/api';
 
+export interface DiscussionTopicOption {
+  type: 'GENERAL' | 'SESSION' | 'RESOURCE';
+  value: string;
+  label: string;
+}
+
 export function useDiscussions(cohortId?: string, filters?: { pinned?: boolean; resourceId?: string }) {
   return useQuery({
     queryKey: ['discussions', cohortId, filters],
@@ -15,6 +21,14 @@ export function useDiscussions(cohortId?: string, filters?: { pinned?: boolean; 
       const endpoint = `/discussions${params.toString() ? `?${params.toString()}` : ''}`;
       return apiClient.get<PaginatedResponse<Discussion>>(endpoint);
     },
+  });
+}
+
+export function useDiscussionTopics(cohortId?: string) {
+  return useQuery({
+    queryKey: ['discussion-topics', cohortId],
+    queryFn: () => apiClient.get<DiscussionTopicOption[]>(`/discussions/topics?cohortId=${cohortId}`),
+    enabled: !!cohortId,
   });
 }
 

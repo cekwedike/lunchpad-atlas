@@ -11,6 +11,9 @@ export const discussionSchema = z.object({
     .min(1, 'Content is required')
     .min(10, 'Content must be at least 10 characters')
     .max(5000, 'Content must be less than 5000 characters'),
+  cohortId: z.string().optional(),
+  topicType: z.enum(['GENERAL', 'SESSION', 'RESOURCE']).optional(),
+  sessionId: z.string().optional(),
   resourceId: z.string().optional(),
 });
 

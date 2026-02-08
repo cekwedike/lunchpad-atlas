@@ -140,6 +140,7 @@ model Session {
   // Relations
   cohort           Cohort             @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   resources        Resource[]
+  discussions      Discussion[]
   quizzes          Quiz[]
   sessionAnalytics SessionAnalytics[]
   liveQuizzes      LiveQuiz[]
@@ -212,7 +213,8 @@ model ResourceProgress {
 
 model Discussion {
   id              String   @id @default(uuid())
-  resourceId      String
+  resourceId      String?
+  sessionId       String?
   cohortId        String
   userId          String // Original poster
   title           String
@@ -226,13 +228,15 @@ model Discussion {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  resource Resource            @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource Resource?           @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  session  Session?            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   cohort   Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments DiscussionComment[]
   likes    DiscussionLike[]
 
   @@index([resourceId])
+  @@index([sessionId])
   @@index([cohortId])
   @@index([userId])
   @@index([qualityScore])

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Send } from "lucide-react";
-import { useCreateDiscussion } from "@/hooks/api/useDiscussions";
+import { useCreateDiscussion, useDiscussionTopics } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useResource } from "@/hooks/api/useResources";
+import { useCohorts } from "@/hooks/api/useAdmin";
 import { toast } from "sonner";
 
 export default function NewDiscussionPage() {
@@ -25,6 +26,31 @@ export default function NewDiscussionPage() {
   
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [selectedCohortId, setSelectedCohortId] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("general");
+
+  const isAdmin = profile?.role === 'ADMIN';
+  const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
+  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
+
+  useEffect(() => {
+    if (!isAdmin && profile?.cohortId) {
+      setSelectedCohortId(profile.cohortId);
+    }
+  }, [isAdmin, profile?.cohortId]);
+
+  useEffect(() => {
+    if (!isAdmin || selectedCohortId || cohorts.length !== 1) return;
+    setSelectedCohortId(cohorts[0].id);
+  }, [isAdmin, selectedCohortId, cohorts]);
+
+  useEffect(() => {
+    setSelectedTopic("general");
+  }, [selectedCohortId]);
+
+  const cohortIdForTopics = isAdmin ? selectedCohortId : profile?.cohortId;
+  const { data: topicOptions } = useDiscussionTopics(cohortIdForTopics || undefined);
+  const topics = topicOptions || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,16 +60,26 @@ export default function NewDiscussionPage() {
       return;
     }
 
-    if (!profile?.cohortId) {
-      toast.error("You must be part of a cohort to create discussions");
+    const cohortId = isAdmin ? selectedCohortId : profile?.cohortId;
+    if (!cohortId) {
+      toast.error("Select a cohort to create discussions");
       return;
     }
 
     try {
+      const isResourceDiscussion = !!resourceId;
+      const selectedOption = topics.find((topic) => topic.value === selectedTopic) || null;
+      const topicType = isResourceDiscussion
+        ? 'RESOURCE'
+        : selectedOption?.type || 'GENERAL';
+
       const result = await createDiscussion.mutateAsync({
         title: title.trim(),
         content: content.trim(),
-        resourceId,
+        cohortId,
+        topicType,
+        sessionId: topicType === 'SESSION' ? selectedOption?.value : undefined,
+        resourceId: topicType === 'RESOURCE' ? selectedOption?.value : resourceId,
       });
       
       toast.success("Discussion created!");
@@ -93,6 +129,46 @@ export default function NewDiscussionPage() {
                 </div>
               )}
               <div className="space-y-2">
+                <Label htmlFor="cohort">Cohort</Label>
+                <select
+                  id="cohort"
+                  className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                  value={isAdmin ? selectedCohortId : profile?.cohortId || ""}
+                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                  disabled={!isAdmin || cohortsLoading}
+                >
+                  <option value="">-- Select a cohort --</option>
+                  {cohorts.map((cohort: any) => (
+                    <option key={cohort.id} value={cohort.id}>
+                      {cohort.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!resourceId && (
+                <div className="space-y-2">
+                  <Label htmlFor="topic">Topic</Label>
+                  <select
+                    id="topic"
+                    className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                    value={selectedTopic}
+                    onChange={(e) => setSelectedTopic(e.target.value)}
+                    disabled={!cohortIdForTopics}
+                  >
+                    <option value="general">General</option>
+                    {topics
+                      .filter((topic) => topic.type !== 'GENERAL')
+                      .map((topic) => (
+                        <option key={topic.value} value={topic.value}>
+                          {topic.label}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
@@ -126,7 +202,12 @@ export default function NewDiscussionPage() {
               <div className="flex gap-3">
                 <Button
                   type="submit"
-                  disabled={createDiscussion.isPending || !title.trim() || !content.trim()}
+                  disabled={
+                    createDiscussion.isPending
+                    || !title.trim()
+                    || !content.trim()
+                    || !(isAdmin ? selectedCohortId : profile?.cohortId)
+                  }
                   className="gap-2"
                 >
                   <Send className="h-4 w-4" />

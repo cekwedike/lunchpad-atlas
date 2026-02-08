@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Download,
   FileSpreadsheet,
   BarChart3,
   Users,
   TrendingUp,
-  Calendar,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+
+const cx = (...classes: Array<string | null | undefined | false>) =>
+  classes.filter(Boolean).join(' ');
 
 interface AnalyticsExportPanelProps {
   sessionId?: string;
@@ -21,7 +18,11 @@ interface AnalyticsExportPanelProps {
 
 export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExportPanelProps) {
   const [loading, setLoading] = useState<string | null>(null);
-  const { toast } = useToast();
+  const notify = (title: string, description: string) => {
+    if (typeof window !== 'undefined') {
+      window.alert(`${title}\n${description}`);
+    }
+  };
 
   const handleExport = async (exportType: string, endpoint: string) => {
     setLoading(exportType);
@@ -46,16 +47,9 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast({
-        title: 'Export successful',
-        description: `${exportType} data has been downloaded`,
-      });
+      notify('Export successful', `${exportType} data has been downloaded`);
     } catch (error) {
-      toast({
-        title: 'Export failed',
-        description: 'Failed to download analytics data',
-        variant: 'destructive',
-      });
+      notify('Export failed', 'Failed to download analytics data');
     } finally {
       setLoading(null);
     }
@@ -147,18 +141,18 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="border-b border-gray-200 p-5">
+        <div className="flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Download className="h-5 w-5 text-gray-700" />
           Export Analytics
-        </CardTitle>
-        <CardDescription>
+        </div>
+        <p className="mt-1 text-sm text-gray-600">
           Download analytics data in CSV format for further analysis
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        </p>
+      </div>
+      <div className="p-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {exports.map((exportItem) => {
             const Icon = exportItem.icon;
             const colors = getColorClasses(exportItem.color);
@@ -167,7 +161,7 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
             return (
               <div
                 key={exportItem.id}
-                className={cn(
+                className={cx(
                   'p-4 rounded-lg border transition-all',
                   colors.bg,
                   colors.border,
@@ -175,8 +169,8 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <div className={cn('p-2 rounded-lg', colors.bg)}>
-                    <Icon className={cn('h-5 w-5', colors.text)} />
+                  <div className={cx('p-2 rounded-lg', colors.bg)}>
+                    <Icon className={cx('h-5 w-5', colors.text)} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
@@ -187,32 +181,31 @@ export function AnalyticsExportPanel({ sessionId, cohortId, type }: AnalyticsExp
                     <p className="text-xs text-gray-600 mb-3">
                       {exportItem.description}
                     </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <button
+                      type="button"
                       onClick={() => handleExport(exportItem.id, exportItem.endpoint)}
                       disabled={isLoading}
-                      className="w-full"
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-900 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-2" />
+                        <span className="inline-flex items-center">
+                          <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-2" />
                           Exporting...
-                        </>
+                        </span>
                       ) : (
-                        <>
+                        <span className="inline-flex items-center">
                           <FileSpreadsheet className="h-3 w-3 mr-2" />
                           Download CSV
-                        </>
+                        </span>
                       )}
-                    </Button>
+                    </button>
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

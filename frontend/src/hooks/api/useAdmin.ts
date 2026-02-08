@@ -135,13 +135,14 @@ export function useUpdateSession() {
 }
 
 // Get cohorts (for admin view)
-export function useCohorts() {
+export function useCohorts(enabled = true) {
   return useQuery({
     queryKey: ['cohorts'],
     queryFn: async () => {
       const data = await apiClient.get('/admin/cohorts');
       return Array.isArray(data) ? data : [];
     },
+    enabled,
   });
 }
 

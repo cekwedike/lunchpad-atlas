@@ -127,6 +127,7 @@ export interface Discussion {
   userId: string; // Changed from authorId to match backend
   cohortId: string;
   resourceId: string | null;
+  sessionId?: string | null;
   isPinned: boolean;
   isLocked: boolean; // NEW: Admin lock feature
   qualityScore: number | null;
@@ -138,6 +139,8 @@ export interface Discussion {
   updatedAt: Date;
   user?: User; // Changed from author to match backend
   likes?: Array<{ userId: string; id: string }>; // For checking if current user liked
+  session?: { id: string; sessionNumber: number; title: string } | null;
+  resource?: { id: string; title: string } | null;
   _count?: {
     comments: number;
     likes: number;
@@ -275,6 +278,9 @@ export interface PaginatedResponse<T> {
 export interface CreateDiscussionRequest {
   title: string;
   content: string;
+  cohortId?: string;
+  topicType?: 'GENERAL' | 'SESSION' | 'RESOURCE';
+  sessionId?: string;
   resourceId?: string;
 }
 
