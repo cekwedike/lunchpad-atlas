@@ -153,11 +153,16 @@ export interface DiscussionComment {
   discussionId: string;
   userId: string; // Changed from authorId to match backend
   parentId: string | null;
+  isPinned?: boolean;
   likeCount: number;
   createdAt: Date;
   updatedAt: Date;
   user?: User; // Changed from author to match backend
+  reactionCounts?: Record<CommentReactionType, number>;
+  userReactions?: CommentReactionType[];
 }
+
+export type CommentReactionType = 'LIKE' | 'CELEBRATE' | 'SUPPORT' | 'INSIGHTFUL' | 'LOVE';
 
 export interface Quiz {
   id: string;

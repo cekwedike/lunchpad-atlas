@@ -293,15 +293,35 @@ export class DiscussionsService {
     return { liked: true };
   }
 
-  async getComments(discussionId: string) {
-    return this.prisma.discussionComment.findMany({
+  async getComments(discussionId: string, userId: string) {
+    const comments = await this.prisma.discussionComment.findMany({
       where: { discussionId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ isPinned: 'desc' }, { createdAt: 'asc' }],
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, email: true, role: true },
         },
+        reactions: {
+          select: { id: true, userId: true, type: true },
+        },
       },
+    });
+
+    return comments.map((comment) => {
+      const reactionCounts = comment.reactions.reduce<Record<string, number>>((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      }, {});
+
+      const userReactions = comment.reactions
+        .filter((reaction) => reaction.userId === userId)
+        .map((reaction) => reaction.type);
+
+      return {
+        ...comment,
+        reactionCounts,
+        userReactions,
+      };
     });
   }
 
@@ -319,15 +339,30 @@ export class DiscussionsService {
       throw new ForbiddenException('This discussion is locked. No new comments allowed.');
     }
 
+    if (dto.parentId) {
+      const parentComment = await this.prisma.discussionComment.findUnique({
+        where: { id: dto.parentId },
+        select: { id: true, discussionId: true },
+      });
+
+      if (!parentComment || parentComment.discussionId !== discussionId) {
+        throw new BadRequestException('Parent comment does not belong to this discussion');
+      }
+    }
+
     const comment = await this.prisma.discussionComment.create({
       data: {
         content: dto.content,
         userId: userId,
         discussionId,
+        parentId: dto.parentId || null,
       },
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, email: true, role: true },
+        },
+        reactions: {
+          select: { id: true, userId: true, type: true },
         },
       },
     });
@@ -363,6 +398,8 @@ export class DiscussionsService {
 
     return {
       ...comment,
+      reactionCounts: {},
+      userReactions: [],
       pointsAwarded: awarded ? 2 : 0,
       cappedMessage: awarded ? null : 'Monthly point cap reached',
     };
@@ -395,8 +432,8 @@ export class DiscussionsService {
       throw new NotFoundException('Comment not found');
     }
 
-    // Users can delete their own comments, admins can delete any
-    if (comment.userId !== userId && userRole !== 'ADMIN') {
+    // Users can delete their own comments, admins/facilitators can delete any
+    if (comment.userId !== userId && userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
       throw new ForbiddenException('You can only delete your own comments');
     }
 
@@ -429,6 +466,62 @@ export class DiscussionsService {
     });
 
     return updated;
+  }
+
+  async toggleCommentPin(commentId: string, userRole: string) {
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException('Only admins and facilitators can pin comments');
+    }
+
+    const comment = await this.prisma.discussionComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    return this.prisma.discussionComment.update({
+      where: { id: commentId },
+      data: { isPinned: !comment.isPinned },
+    });
+  }
+
+  async reactToComment(commentId: string, userId: string, type: string) {
+    const comment = await this.prisma.discussionComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    const existing = await this.prisma.discussionCommentReaction.findUnique({
+      where: {
+        commentId_userId_type: {
+          commentId,
+          userId,
+          type: type as any,
+        },
+      },
+    });
+
+    if (existing) {
+      await this.prisma.discussionCommentReaction.delete({
+        where: { id: existing.id },
+      });
+      return { reacted: false };
+    }
+
+    await this.prisma.discussionCommentReaction.create({
+      data: {
+        commentId,
+        userId,
+        type: type as any,
+      },
+    });
+
+    return { reacted: true };
   }
 
   // AI Quality Scoring
@@ -535,8 +628,8 @@ export class DiscussionsService {
   // ==================== ADMIN METHODS ====================
 
   async togglePin(discussionId: string, userRole: string) {
-    if (userRole !== 'ADMIN') {
-      throw new ForbiddenException('Only admins can pin discussions');
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException('Only admins and facilitators can pin discussions');
     }
 
     const discussion = await this.prisma.discussion.findUnique({
@@ -575,8 +668,8 @@ export class DiscussionsService {
   }
 
   async toggleLock(discussionId: string, userRole: string) {
-    if (userRole !== 'ADMIN') {
-      throw new ForbiddenException('Only admins can lock discussions');
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException('Only admins and facilitators can lock discussions');
     }
 
     const discussion = await this.prisma.discussion.findUnique({

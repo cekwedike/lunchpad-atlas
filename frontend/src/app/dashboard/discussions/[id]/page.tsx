@@ -16,13 +16,14 @@ import {
   MessageCircle,
   Send,
   Trash2,
-  Edit,
   MoreVertical,
 } from "lucide-react";
 import {
   useDiscussion,
   useDiscussionComments,
   useCreateComment,
+  useReactToComment,
+  useToggleCommentPin,
   useLikeDiscussion,
   useTogglePin,
   useToggleLock,
@@ -32,6 +33,7 @@ import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { formatToWAT, formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
+import type { CommentReactionType } from "@/types/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,12 +48,15 @@ export default function DiscussionDetailPage() {
   const { data: profile } = useProfile();
   
   const [commentText, setCommentText] = useState("");
+  const [replyTo, setReplyTo] = useState<{ id: string; author?: string } | null>(null);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { data: discussion, refetch } = useDiscussion(discussionId);
   const { data: commentsData, refetch: refetchComments } = useDiscussionComments(discussionId);
   const createComment = useCreateComment(discussionId);
+  const reactToComment = useReactToComment();
+  const toggleCommentPin = useToggleCommentPin();
   const likeDiscussion = useLikeDiscussion(discussionId);
   const togglePin = useTogglePin();
   const toggleLock = useToggleLock();
@@ -130,8 +135,10 @@ export default function DiscussionDetailPage() {
     try {
       const result = await createComment.mutateAsync({
         content: commentText,
+        parentId: replyTo?.id,
       });
       setCommentText("");
+      setReplyTo(null);
       emitTyping(discussionId, false);
       // Manually refetch to ensure fresh data
       await refetchComments();
@@ -195,6 +202,38 @@ export default function DiscussionDetailPage() {
     }
   };
 
+  const handleReactToComment = async (commentId: string, type: CommentReactionType) => {
+    try {
+      await reactToComment.mutateAsync({ commentId, type });
+    } catch (error) {
+      toast.error("Failed to react to comment");
+    }
+  };
+
+  const handleToggleCommentPin = async (commentId: string) => {
+    try {
+      await toggleCommentPin.mutateAsync(commentId);
+    } catch (error) {
+      toast.error("Failed to pin comment");
+    }
+  };
+
+  const handleDeleteDiscussion = async () => {
+    if (!confirm('Delete this discussion? This cannot be undone.')) return;
+
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/discussions/${discussionId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      toast.success("Discussion deleted");
+      router.push('/dashboard/discussions');
+    } catch (error: any) {
+      toast.error("Failed to delete discussion");
+    }
+  };
+
   const comments = commentsData || [];
   const isAdmin = profile?.role === "ADMIN";
   const isFacilitator = profile?.role === "FACILITATOR";
@@ -204,6 +243,110 @@ export default function DiscussionDetailPage() {
   const canModerateDiscussion = isAdmin || isFacilitator;
   const canScoreQuality = canModerateDiscussion;
   const qualityAnalysis = (discussion?.qualityAnalysis || {}) as any;
+  const reactionOptions: Array<{ type: CommentReactionType; label: string; emoji: string }> = [
+    { type: 'LIKE', label: 'Like', emoji: '👍' },
+    { type: 'CELEBRATE', label: 'Celebrate', emoji: '🎉' },
+    { type: 'SUPPORT', label: 'Support', emoji: '🤝' },
+    { type: 'INSIGHTFUL', label: 'Insightful', emoji: '💡' },
+    { type: 'LOVE', label: 'Love', emoji: '❤️' },
+  ];
+
+  const commentsByParent = comments.reduce<Record<string, any[]>>((acc, comment: any) => {
+    const key = comment.parentId || 'root';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(comment);
+    return acc;
+  }, {});
+
+  const renderComment = (comment: any, depth: number = 0) => {
+    const isOwnComment = comment.userId === profile?.id;
+    const canDelete = isOwnComment || canModerateDiscussion;
+    const reactionCounts = comment.reactionCounts || {};
+    const userReactions = new Set(comment.userReactions || []);
+    const replies = commentsByParent[comment.id] || [];
+    const isReply = depth > 0;
+
+    return (
+      <div key={comment.id} className={isReply ? "mt-3 border-l border-gray-200 pl-4" : "border-l-2 border-gray-200 pl-4 py-2 hover:bg-gray-50 rounded-r transition-colors"}>
+        <div className="flex items-start gap-3">
+          <Avatar className={isReply ? "h-7 w-7 mt-1 flex-shrink-0" : "h-8 w-8 mt-1 flex-shrink-0"}>
+            <div className={`${isReply ? 'bg-indigo-600 text-xs' : 'bg-purple-600 text-sm'} h-full w-full flex items-center justify-center text-white font-medium`}>
+              {comment.user?.firstName?.[0]}{comment.user?.lastName?.[0]}
+            </div>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="font-medium text-gray-900">
+                {comment.user?.firstName}
+              </span>
+              <Badge className={`text-xs ${getRoleBadgeColor(comment.user?.role)}`}>
+                {getRoleDisplayName(comment.user?.role)}
+              </Badge>
+              {comment.isPinned && (
+                <Badge className="text-xs bg-amber-50 text-amber-700 border border-amber-200">
+                  Pinned
+                </Badge>
+              )}
+              <span className="text-sm text-gray-500" title={formatToWAT(comment.createdAt)}>
+                {formatRelativeTimeWAT(comment.createdAt)}
+              </span>
+            </div>
+            <p className="text-gray-700 break-words">{comment.content}</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {reactionOptions.map((reaction) => (
+                <button
+                  key={`${comment.id}-${reaction.type}`}
+                  type="button"
+                  onClick={() => handleReactToComment(comment.id, reaction.type)}
+                  className={`rounded-full border px-2 py-1 text-xs transition ${
+                    userReactions.has(reaction.type)
+                      ? 'border-blue-300 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="mr-1">{reaction.emoji}</span>
+                  {reactionCounts[reaction.type] || 0}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setReplyTo({ id: comment.id, author: comment.user?.firstName })}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                Reply
+              </button>
+              {canModerateDiscussion && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleCommentPin(comment.id)}
+                  className="text-xs text-amber-600 hover:text-amber-700"
+                >
+                  {comment.isPinned ? 'Unpin' : 'Pin'}
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => handleDeleteComment(comment.id)}
+                  className="text-xs text-red-600 hover:text-red-700"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+
+            {replies.length > 0 && (
+              <div className="mt-4">
+                {replies
+                  .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                  .map((reply) => renderComment(reply, depth + 1))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (!discussion) {
     return (
@@ -252,7 +395,7 @@ export default function DiscussionDetailPage() {
                     )}
                   </div>
                 </div>
-                {isAdmin && (
+                {canModerateDiscussion && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -267,6 +410,10 @@ export default function DiscussionDetailPage() {
                       <DropdownMenuItem onClick={handleToggleLock}>
                         <Lock className="h-4 w-4 mr-2" />
                         {discussion.isLocked ? "Unlock" : "Lock"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleDeleteDiscussion} className="text-red-600">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete discussion
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -399,6 +546,18 @@ export default function DiscussionDetailPage() {
             {/* Comment Input */}
             {!isLocked ? (
               <div className="space-y-3">
+                {replyTo && (
+                  <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                    <span>Replying to {replyTo.author || 'comment'}</span>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTo(null)}
+                      className="text-blue-700 hover:text-blue-900"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <Textarea
                   placeholder="Share your thoughts..."
                   value={commentText}
@@ -439,48 +598,14 @@ export default function DiscussionDetailPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {comments.map((comment: any) => {
-                  const isOwnComment = comment.userId === profile?.id;
-                  const canDelete = isOwnComment || isAdmin;
-                  
-                  return (
-                    <div
-                      key={comment.id}
-                      className="border-l-2 border-gray-200 pl-4 py-2 hover:bg-gray-50 rounded-r transition-colors"
-                    >
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
-                          <div className="h-full w-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                            {comment.user?.firstName?.[0]}{comment.user?.lastName?.[0]}
-                          </div>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="font-medium text-gray-900">
-                              {comment.user?.firstName}
-                            </span>
-                            <Badge className={`text-xs ${getRoleBadgeColor(comment.user?.role)}`}>
-                              {getRoleDisplayName(comment.user?.role)}
-                            </Badge>
-                            <span className="text-sm text-gray-500" title={formatToWAT(comment.createdAt)}>
-                              {formatRelativeTimeWAT(comment.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-gray-700 break-words">{comment.content}</p>
-                        </div>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-colors"
-                            title="Delete comment"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {(commentsByParent.root || [])
+                  .sort((a: any, b: any) => {
+                    if (a.isPinned === b.isPinned) {
+                      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                    }
+                    return a.isPinned ? -1 : 1;
+                  })
+                  .map((comment: any) => renderComment(comment))}
               </div>
             )}
           </CardContent>

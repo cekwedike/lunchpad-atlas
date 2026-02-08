@@ -56,6 +56,14 @@ enum AchievementType {
   LEADERBOARD // Ranking-based (e.g., top 3 in month)
 }
 
+enum CommentReactionType {
+  LIKE
+  CELEBRATE
+  SUPPORT
+  INSIGHTFUL
+  LOVE
+}
+
 // ==================== CORE TABLES ====================
 
 model User {
@@ -85,6 +93,7 @@ model User {
   resourceProgress   ResourceProgress[]
   discussions        Discussion[]
   comments           DiscussionComment[]
+  commentReactions   DiscussionCommentReaction[]
   discussionLikes    DiscussionLike[]
   pointsLog          PointsLog[]
   userAchievements   UserAchievement[]
@@ -247,17 +256,39 @@ model DiscussionComment {
   id           String   @id @default(uuid())
   discussionId String
   userId       String
+  parentId     String?
   content      String
+  isPinned     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   // Relations
   discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent     DiscussionComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    DiscussionComment[] @relation("CommentReplies")
+  reactions  DiscussionCommentReaction[]
 
   @@index([discussionId])
   @@index([userId])
+  @@index([parentId])
   @@map("discussion_comments")
+}
+
+model DiscussionCommentReaction {
+  id        String               @id @default(uuid())
+  commentId String
+  userId    String
+  type      CommentReactionType
+  createdAt DateTime             @default(now())
+
+  comment DiscussionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, type])
+  @@index([commentId])
+  @@index([userId])
+  @@map("discussion_comment_reactions")
 }
 
 model DiscussionLike {

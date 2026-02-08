@@ -24,7 +24,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useDiscussions } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { useAllChannels, useCohortChannels, useChannelMessages, useInitializeCohortChannels } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useArchiveChannel } from "@/hooks/api/useChat";
 import { useCohorts } from "@/hooks/api/useAdmin";
 import { useResource } from "@/hooks/api/useResources";
 import { formatRelativeTimeWAT, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
@@ -38,6 +38,7 @@ export default function DiscussionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPinned, setFilterPinned] = useState(false);
   const [selectedCohortId, setSelectedCohortId] = useState("");
+  const [chatRoomName, setChatRoomName] = useState("");
 
   const resourceId = searchParams.get('resourceId') || undefined;
   const { data: resource } = useResource(resourceId || "");
@@ -51,11 +52,14 @@ export default function DiscussionsPage() {
 
   // Chat functionality
   const isAdmin = profile?.role === 'ADMIN';
+  const isFacilitator = profile?.role === 'FACILITATOR';
+  const canManageChats = isAdmin || isFacilitator;
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
   const { data: cohortChannels } = useCohortChannels(profile?.cohortId ?? undefined);
   const { data: allChannels } = useAllChannels(isAdmin);
-  const initializeCohortChannels = useInitializeCohortChannels();
+  const createChannel = useCreateChannel();
+  const archiveChannel = useArchiveChannel();
   const channels = isAdmin ? allChannels : cohortChannels;
   const mainChannel = channels?.[0];
   const { data: messages } = useChannelMessages(mainChannel?.id);
@@ -109,28 +113,41 @@ export default function DiscussionsPage() {
   const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
 
   const handleStartChat = async () => {
-    if (!selectedCohortId) return;
+    if (!selectedCohortId || !chatRoomName.trim()) return;
 
     try {
-      const createdChannels = await initializeCohortChannels.mutateAsync(selectedCohortId);
-      const firstChannel = Array.isArray(createdChannels) ? createdChannels[0] : null;
+      const createdChannel = await createChannel.mutateAsync({
+        cohortId: selectedCohortId,
+        type: 'COHORT_WIDE',
+        name: chatRoomName.trim(),
+      });
 
-      if (firstChannel?.id) {
-        router.push(`/dashboard/chat?channelId=${firstChannel.id}`);
-      } else {
-        toast.error("Chat created, but no channel was returned");
+      if (createdChannel?.id) {
+        setChatRoomName("");
+        router.push(`/dashboard/chat?channelId=${createdChannel.id}`);
       }
     } catch (error: any) {
-      toast.error(error?.message || "Failed to start chat");
+      toast.error(error?.message || "Failed to create chat room");
+    }
+  };
+
+  const handleArchiveChannel = async (channelId: string) => {
+    if (!confirm("Archive this chat room?")) return;
+
+    try {
+      await archiveChannel.mutateAsync(channelId);
+      toast.success("Chat room archived");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to archive chat room");
     }
   };
 
   useEffect(() => {
-    if (!isAdmin || selectedCohortId) return;
+    if (!canManageChats || selectedCohortId) return;
     if (profile?.cohortId) {
       setSelectedCohortId(profile.cohortId);
     }
-  }, [isAdmin, profile?.cohortId, selectedCohortId]);
+  }, [canManageChats, profile?.cohortId, selectedCohortId]);
 
   return (
     <DashboardLayout>
@@ -382,6 +399,18 @@ export default function DiscussionsPage() {
                               <div className="flex items-center gap-2 text-sm text-gray-500">
                                 <div className="h-2 w-2 rounded-full bg-green-500" />
                                 <Users className="h-4 w-4" />
+                                {canManageChats && (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      handleArchiveChannel(channel.id);
+                                    }}
+                                    className="ml-2 text-xs text-red-600 hover:text-red-700"
+                                  >
+                                    Archive
+                                  </button>
+                                )}
                               </div>
                             </div>
                             <div className="mt-3 flex items-center justify-between">
@@ -405,34 +434,57 @@ export default function DiscussionsPage() {
                   <div className="text-center py-6 text-gray-500">
                     <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                     <p>No chat room yet</p>
-                    {isAdmin ? (
+                    {canManageChats ? (
                       <div className="mt-3 space-y-3">
                         <p className="text-sm">Create a cohort chat to get started</p>
                         <div className="mx-auto max-w-xs text-left">
                           <label htmlFor="cohort-chat-select" className="text-xs font-medium text-gray-700">
                             Cohort
                           </label>
-                          <select
-                            id="cohort-chat-select"
-                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
-                            value={selectedCohortId}
-                            onChange={(e) => setSelectedCohortId(e.target.value)}
-                            disabled={cohortsLoading}
-                          >
-                            <option value="">-- Select a cohort --</option>
-                            {cohorts.map((cohort: any) => (
-                              <option key={cohort.id} value={cohort.id}>
-                                {cohort.name}
-                              </option>
-                            ))}
-                          </select>
+                          {isAdmin ? (
+                            <select
+                              id="cohort-chat-select"
+                              className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                              value={selectedCohortId}
+                              onChange={(e) => setSelectedCohortId(e.target.value)}
+                              disabled={cohortsLoading}
+                            >
+                              <option value="">-- Select a cohort --</option>
+                              {cohorts.map((cohort: any) => (
+                                <option key={cohort.id} value={cohort.id}>
+                                  {cohort.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input
+                              id="cohort-chat-select"
+                              value={profile?.cohortId || "Your cohort"}
+                              disabled
+                              className="mt-1"
+                            />
+                          )}
                         </div>
+                        {selectedCohortId && (
+                          <div className="mx-auto max-w-xs text-left">
+                            <label htmlFor="chat-room-name" className="text-xs font-medium text-gray-700">
+                              Chat room name
+                            </label>
+                            <Input
+                              id="chat-room-name"
+                              value={chatRoomName}
+                              onChange={(event) => setChatRoomName(event.target.value)}
+                              placeholder="e.g., General, Help Desk"
+                              className="mt-1"
+                            />
+                          </div>
+                        )}
                         <Button
                           onClick={handleStartChat}
-                          disabled={!selectedCohortId || initializeCohortChannels.isPending}
+                          disabled={!selectedCohortId || !chatRoomName.trim() || createChannel.isPending}
                           className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
-                          {initializeCohortChannels.isPending ? "Creating..." : "Start Chat"}
+                          {createChannel.isPending ? "Creating..." : "Start Chat"}
                         </Button>
                       </div>
                     ) : (

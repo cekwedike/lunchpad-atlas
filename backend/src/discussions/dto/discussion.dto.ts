@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MinLength, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, IsOptional, IsIn, IsUUID } from 'class-validator';
 
 export type DiscussionTopicType = 'GENERAL' | 'SESSION' | 'RESOURCE';
 
@@ -35,6 +35,15 @@ export class CreateCommentDto {
   @IsNotEmpty()
   @MinLength(1)
   content: string;
+
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
+}
+
+export class CommentReactionDto {
+  @IsIn(['LIKE', 'CELEBRATE', 'SUPPORT', 'INSIGHTFUL', 'LOVE'])
+  type: string;
 }
 
 export class DiscussionFilterDto {

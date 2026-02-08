@@ -1686,53 +1686,17 @@ async function main() {
 
   console.log('✅ Created quiz responses');
 
-  // Create discussions
-  const discussion1 = await prisma.discussion.create({
-    data: {
-      resourceId: resource4.id,
-      cohortId: cohort.id,
-      userId: fellow1.id,
-      title: 'How do you stay motivated during job search?',
-      content: 'Job searching can be really tough. What are your strategies for staying positive and motivated throughout the process?',
-      isPinned: true,
+  // Remove any previously seeded discussions
+  await prisma.discussion.deleteMany({
+    where: {
+      title: {
+        in: [
+          'How do you stay motivated during job search?',
+          'Best resources for learning technical skills?',
+        ],
+      },
     },
   });
-
-  const discussion2 = await prisma.discussion.create({
-    data: {
-      resourceId: resource4.id,
-      cohortId: cohort.id,
-      userId: fellow2.id,
-      title: 'Best resources for learning technical skills?',
-      content: 'I want to improve my technical skills, especially in data analysis. What online courses do you recommend?',
-      isPinned: false,
-    },
-  });
-
-  console.log('✅ Created discussions');
-
-  // Create discussion comments
-  await prisma.discussionComment.createMany({
-    data: [
-      {
-        discussionId: discussion1.id,
-        userId: fellow2.id,
-        content: 'Great question! I set small daily goals and celebrate tiny wins.',
-      },
-      {
-        discussionId: discussion1.id,
-        userId: facilitator.id,
-        content: 'Remember that job searching is a marathon, not a sprint. Take breaks and practice self-care.',
-      },
-      {
-        discussionId: discussion2.id,
-        userId: fellow1.id,
-        content: "I've been using Coursera and DataCamp. Both have great courses!",
-      },
-    ],
-  });
-
-  console.log('✅ Created discussion comments');
 
   // Create points logs
   await prisma.pointsLog.createMany({

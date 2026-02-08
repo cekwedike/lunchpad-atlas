@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
-import type { Discussion, DiscussionComment, CreateDiscussionRequest, CreateCommentRequest, PaginatedResponse } from '@/types/api';
+import type { Discussion, DiscussionComment, CreateDiscussionRequest, CreateCommentRequest, PaginatedResponse, CommentReactionType } from '@/types/api';
 
 export interface DiscussionTopicOption {
   type: 'GENERAL' | 'SESSION' | 'RESOURCE';
@@ -77,6 +77,37 @@ export function useCreateComment(discussionId: string) {
     },
     onError: (error: any) => {
       toast.error('Failed to add comment', error.message);
+    },
+  });
+}
+
+export function useToggleCommentPin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      apiClient.post(`/discussions/comments/${commentId}/pin`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussion-comments'] });
+      toast.success('Comment pin updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to pin comment', error.message);
+    },
+  });
+}
+
+export function useReactToComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ commentId, type }: { commentId: string; type: CommentReactionType }) =>
+      apiClient.post(`/discussions/comments/${commentId}/reactions`, { type }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussion-comments'] });
+    },
+    onError: (error: any) => {
+      toast.error('Failed to react to comment', error.message);
     },
   });
 }

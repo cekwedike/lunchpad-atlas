@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { DiscussionsService } from './discussions.service';
-import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto } from './dto/discussion.dto';
+import { CreateDiscussionDto, CreateCommentDto, DiscussionFilterDto, CommentReactionDto } from './dto/discussion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('discussions')
@@ -38,8 +38,8 @@ export class DiscussionsController {
   }
 
   @Get(':id/comments')
-  getComments(@Param('id') id: string) {
-    return this.discussionsService.getComments(id);
+  getComments(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.getComments(id, req.user.id);
   }
 
   @Post(':id/comments')
@@ -89,6 +89,22 @@ export class DiscussionsController {
   @ApiOperation({ summary: 'Delete a comment (own comments or admin)' })
   deleteComment(@Param('commentId') commentId: string, @Request() req) {
     return this.discussionsService.deleteComment(commentId, req.user.id, req.user.role);
+  }
+
+  @Post('comments/:commentId/pin')
+  @ApiOperation({ summary: 'Toggle comment pin (Admin/Facilitator)' })
+  toggleCommentPin(@Param('commentId') commentId: string, @Request() req) {
+    return this.discussionsService.toggleCommentPin(commentId, req.user.role);
+  }
+
+  @Post('comments/:commentId/reactions')
+  @ApiOperation({ summary: 'Toggle comment reaction' })
+  reactToComment(
+    @Param('commentId') commentId: string,
+    @Request() req,
+    @Body() dto: CommentReactionDto,
+  ) {
+    return this.discussionsService.reactToComment(commentId, req.user.id, dto.type);
   }
 
   @Post('comments/:commentId')
