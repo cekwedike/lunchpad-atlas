@@ -43,7 +43,16 @@ export function useDiscussion(id: string) {
 export function useDiscussionComments(discussionId: string) {
   return useQuery({
     queryKey: ['discussion-comments', discussionId],
-    queryFn: () => apiClient.get<DiscussionComment[]>(`/discussions/${discussionId}/comments`),
+    queryFn: async () => {
+      const data = await apiClient.get<any>(`/discussions/${discussionId}/comments`);
+      if (Array.isArray(data)) {
+        return data as DiscussionComment[];
+      }
+      if (Array.isArray(data?.comments)) {
+        return data.comments as DiscussionComment[];
+      }
+      return [] as DiscussionComment[];
+    },
     enabled: !!discussionId,
   });
 }

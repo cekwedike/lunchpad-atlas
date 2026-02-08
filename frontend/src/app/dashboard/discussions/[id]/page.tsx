@@ -233,7 +233,7 @@ export default function DiscussionDetailPage() {
     }
   };
 
-  const comments = commentsData || [];
+  const comments = Array.isArray(commentsData) ? commentsData : [];
   const isAdmin = profile?.role === "ADMIN";
   const isFacilitator = profile?.role === "FACILITATOR";
   const isOwner = discussion?.userId === profile?.id;
@@ -602,7 +602,9 @@ export default function DiscussionDetailPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {(commentsByParent.root || [])
+                {((commentsByParent.root && commentsByParent.root.length > 0)
+                  ? commentsByParent.root
+                  : comments)
                   .sort((a: any, b: any) => {
                     if (a.isPinned === b.isPinned) {
                       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
