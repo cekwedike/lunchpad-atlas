@@ -65,8 +65,8 @@ export class DiscussionsService {
     const topicType: DiscussionTopicType = dto.topicType
       || (dto.resourceId ? 'RESOURCE' : dto.sessionId ? 'SESSION' : 'GENERAL');
 
-    let resourceId: string | null = null;
-    let sessionId: string | null = null;
+    let resourceId: string | undefined;
+    let sessionId: string | undefined;
 
     if (topicType === 'RESOURCE') {
       if (!dto.resourceId) {
@@ -109,21 +109,30 @@ export class DiscussionsService {
         content: dto.content,
         userId: userId,
         cohortId: cohortId,
-        resourceId,
-        sessionId,
-      },
+        resourceId: resourceId ?? null,
+        sessionId: sessionId ?? null,
+      } as any,
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, role: true },
         },
-        session: {
-          select: { id: true, sessionNumber: true, title: true },
-        },
         resource: {
           select: { id: true, title: true },
         },
-      },
-    });
+      } as any,
+    }) as any;
+
+    const session = sessionId
+      ? await this.prisma.session.findUnique({
+          where: { id: sessionId },
+          select: { id: true, sessionNumber: true, title: true },
+        })
+      : null;
+
+    const discussionWithTopic = {
+      ...discussion,
+      session,
+    };
 
     // Award 5 points for creating a discussion (with monthly cap enforcement)
     const awarded = await this.awardPoints(
@@ -134,7 +143,7 @@ export class DiscussionsService {
     );
 
     // Broadcast new discussion to cohort in real-time
-    this.discussionsGateway.broadcastNewDiscussion(discussion);
+    this.discussionsGateway.broadcastNewDiscussion(discussionWithTopic);
 
     // Notify all cohort members about new discussion  
     if (cohortId) {
@@ -158,7 +167,7 @@ export class DiscussionsService {
     }
 
     return {
-      ...discussion,
+      ...discussionWithTopic,
       pointsAwarded: awarded ? 5 : 0,
       cappedMessage: awarded ? null : 'Monthly point cap reached',
     };
@@ -192,9 +201,6 @@ export class DiscussionsService {
           user: {
             select: { id: true, firstName: true, lastName: true, email: true, role: true },
           },
-          session: {
-            select: { id: true, sessionNumber: true, title: true },
-          },
           resource: {
             select: { id: true, title: true },
           },
@@ -206,8 +212,26 @@ export class DiscussionsService {
       this.prisma.discussion.count({ where }),
     ]);
 
+    const sessionIds = Array.from(
+      new Set(discussions.map((discussion) => (discussion as any).sessionId).filter(Boolean))
+    ) as string[];
+    const sessions = sessionIds.length
+      ? await this.prisma.session.findMany({
+          where: { id: { in: sessionIds } },
+          select: { id: true, sessionNumber: true, title: true },
+        })
+      : [];
+    const sessionMap = new Map(sessions.map((session) => [session.id, session]));
+    const discussionsWithTopics = discussions.map((discussion) => {
+      const discussionSessionId = (discussion as any).sessionId as string | undefined | null;
+      return {
+        ...discussion,
+        session: discussionSessionId ? sessionMap.get(discussionSessionId) || null : null,
+      };
+    });
+
     return {
-      data: discussions,
+      data: discussionsWithTopics,
       total,
       page,
       limit,
@@ -222,23 +246,31 @@ export class DiscussionsService {
         user: {
           select: { id: true, firstName: true, lastName: true, email: true, role: true },
         },
-        session: {
-          select: { id: true, sessionNumber: true, title: true },
-        },
         resource: {
           select: { id: true, title: true },
         },
         _count: {
           select: { comments: true, likes: true },
         },
-      },
-    });
+      } as any,
+    }) as any;
 
     if (!discussion) {
       throw new NotFoundException('Discussion not found');
     }
 
-    return discussion;
+    const sessionId = (discussion as any).sessionId as string | undefined | null;
+    const session = sessionId
+      ? await this.prisma.session.findUnique({
+          where: { id: sessionId },
+          select: { id: true, sessionNumber: true, title: true },
+        })
+      : null;
+
+    return {
+      ...discussion,
+      session,
+    };
   }
 
   async likeDiscussion(discussionId: string, userId: string) {
