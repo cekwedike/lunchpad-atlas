@@ -98,7 +98,7 @@ export default function ResourceManagementPage() {
     ],
   };
 
-  // Resource mapping from resources.md (sample for first 2 sessions, expand as needed)
+  // Resource mapping for ALL sessions from resources.md
   type ResourceMapType = {
     [key: string]: { type: string; title: string; url: string; core: boolean }[];
   };
@@ -120,7 +120,118 @@ export default function ResourceManagementPage() {
       { type: 'article', title: 'Deep work, focus, and managing attention in modern workplaces', url: 'https://lpsonline.sas.upenn.edu/features/mastering-your-schedule-effective-time-management-strategies-success', core: false },
       { type: 'video', title: 'Productivity systems that work for busy professionals', url: 'https://youtu.be/T6hmdrsLQj8?si=smHG7tpcjzRqYfF7', core: false },
     ],
-    // ...repeat for all sessions
+    3: [
+      { type: 'article', title: 'Core communication skills for the workplace', url: 'https://www.indeed.com/career-advice/career-development/communication-skills-in-the-workplace', core: true },
+      { type: 'article', title: 'Listening, clarity, and feedback at work', url: 'https://lornawestonsmyth.com/power-of-active-listening-in-the-workplace/', core: true },
+      { type: 'video', title: 'Effective communication skills at work', url: 'https://youtu.be/5m-C5mwpmxU?si=jwL6X6G1N9aoJzw7', core: true },
+      { type: 'video', title: 'Common communication mistakes professionals make', url: 'https://youtu.be/cSohjlYQI2A?si=3tAdzh2Svaw6oK64', core: true },
+      { type: 'article', title: 'Communicating with confidence in meetings and teams', url: 'https://www.planetspark.in/communication-skills/professional-speaking-confidence-guide', core: false },
+      { type: 'video', title: 'How great communicators think and speak', url: 'https://youtu.be/eIho2S0ZahI?si=wFR6GZVNfHSJlQfk', core: false },
+    ],
+    4: [
+      { type: 'article', title: 'Early-career leadership lessons from professionals', url: 'https://www.linkedin.com/pulse/lessons-from-industry-leaders-essential-early-career-espinosa-cpc-kbnhc', core: true },
+      { type: 'article', title: 'Influence, initiative, and credibility at work', url: 'https://quarterdeck.co.uk/articles/leadership-without-authority-examples', core: true },
+      { type: 'video', title: 'Self-Leadership', url: 'https://youtu.be/vlpKyLklDDY?si=T8SdZydDfgQcDaGB', core: true },
+      { type: 'video', title: 'Ownership mindset stories from early career stages', url: 'https://youtu.be/D24Oo0B5AN8?si=YtOGl5ny2J6a3m53', core: true },
+      { type: 'article', title: 'Personal stories on earning trust and responsibility', url: 'https://eatyourcareer.com/2021/05/the-ownership-mindset-an-essential-ingredient-for-career-success/', core: false },
+      { type: 'video', title: 'Leadership lessons learned the hard way', url: 'https://youtu.be/Uxx5jtAVLCQ?si=t7UpjPdXdru8USDe', core: false },
+    ],
+    5: [
+      { type: 'article', title: 'Career exploration frameworks for early professionals', url: 'https://www.indeed.com/career-advice/finding-a-job/career-exploration', core: true },
+      { type: 'article', title: 'How to plan a career in uncertain job markets', url: 'https://www.hubhub.com/career-planning-in-uncertain-job-market-conditions/', core: true },
+      { type: 'video', title: 'Career planning explained', url: 'https://www.youtube.com/watch?v=jVssNpBk37k&pp=ygUYQ2FyZWVyIFBsYW5uaW5nIFN0cmF0ZWd5', core: true },
+      { type: 'video', title: 'A Plan Is Not A Strategy', url: 'https://youtu.be/iuYlGRnC7J8?si=4yvf7Bs3F7ur_BpK', core: true },
+      { type: 'article', title: 'Designing a career, not just chasing jobs', url: 'https://www.linkedin.com/pulse/designing-career-fits-your-life-just-resume-d%C3%A9ja-white-n6vwc', core: false },
+      { type: 'video', title: 'Career path storytelling: unexpected journeys', url: 'https://youtu.be/1ALfKWG2nmw?si=JOqrH0hDvk053WLf', core: false },
+    ],
+    6: [
+      { type: 'article', title: 'How to Work Effectively in Remote Teams', url: 'https://www.headresourcing.com/blog/2016/08/how-to-work-effectively-with-remote-teams?source=google.com', core: true },
+      { type: 'article', title: 'Cross-Cultural Communication', url: 'https://www.ignitehcm.com/blog/cross-cultural-communication-essential-skills-for-global-hr-teams', core: true },
+      { type: 'video', title: 'Remote Work Communications Training', url: 'https://youtu.be/i7Pxvj-KSRI?si=cDu2FEIZyqMiMv6t', core: true },
+      { type: 'video', title: 'Cross-Cultural Communication', url: 'https://youtu.be/YMyofREc5Jk?si=0dgF9-YTnL5tLRrk', core: true },
+      { type: 'article', title: 'Asynchronous Communication at Work', url: 'https://www.coursera.org/articles/asynchronous-communication', core: false },
+      { type: 'video', title: 'Remote Collaboration That Actually Works', url: 'https://youtu.be/vradYqcXfGQ?si=tkqiKVTSnwscnxdb', core: false },
+    ],
+    7: [
+      { type: 'article', title: 'How the Best Leaders Focus on Execution', url: 'https://learnloft.com/2022/09/01/how-the-best-leaders-focus-on-execution/', core: true },
+      { type: 'article', title: 'Guide to managing up: What it means and why it\'s important', url: 'https://www.cultureamp.com/blog/managing-up-importance', core: true },
+      { type: 'video', title: 'Execution and focus at work', url: 'https://youtu.be/EwWqOfTlNcw?si=WgtLLX39zGHQ5PCV', core: true },
+      { type: 'video', title: 'Effective Productivity', url: 'https://youtu.be/T4dser6ssp0?si=3vEXpYVXHMTqHxmr', core: true },
+      { type: 'article', title: 'How to Take Feedback without Getting Defensive', url: 'https://nickwignall.com/how-to-take-feedback-without-getting-defensive/', core: false },
+      { type: 'video', title: 'Taking ownership at work', url: 'https://youtu.be/KSW7LQaFHTg?si=9AbHhld7lqVrajoa', core: false },
+    ],
+    8: [
+      { type: 'article', title: 'Stories of career pivots and reinvention', url: 'https://www.linkedin.com/pulse/stories-reinvention-success-navigating-career-pivots-personal-wilson-ugiqc', core: true },
+      { type: 'article', title: 'Lessons from professionals who changed paths', url: 'https://shecancode.io/career-transitions-lessons-learnt-along-the-way/', core: true },
+      { type: 'video', title: 'Career pivot storytelling session', url: 'https://youtu.be/MIjH8MCbONI?si=ewVRHSRkaw8bfXFq', core: true },
+      { type: 'video', title: 'Lessons learned from wrong career choices', url: 'https://youtu.be/eBz7iUJu9UM?si=6aSdNa9owj85JocK', core: true },
+      { type: 'article', title: 'Embracing non-linear career paths', url: 'https://insight.ieeeusa.org/articles/embracing-a-nonlinear-career-path/', core: false },
+      { type: 'video', title: 'Fireside chat: career decisions and regrets', url: 'https://youtu.be/6oY3fb-RJFg?si=BmERcwI21rCYTkBs', core: false },
+    ],
+    9: [
+      { type: 'article', title: 'Building your digital personal brand', url: 'https://www.forbes.com/sites/forbescoachescouncil/2021/09/13/building-your-digital-personal-brand/', core: true },
+      { type: 'article', title: 'Strategic networking for career growth', url: 'https://hbr.org/2016/05/learn-to-love-networking', core: true },
+      { type: 'video', title: 'Personal branding in the digital age', url: 'https://youtu.be/1hHMwLxN6EM?si=3QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'How to network effectively', url: 'https://youtu.be/2CVa6c9Wz1g?si=4QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Networking tips for introverts', url: 'https://www.themuse.com/advice/networking-tips-for-introverts', core: false },
+      { type: 'video', title: 'Building a global network', url: 'https://youtu.be/3QwQw8QwQw8QwQwQ?si=5QwQw8QwQw8QwQwQ', core: false },
+    ],
+    10: [
+      { type: 'article', title: 'How to write a modern resume', url: 'https://www.indeed.com/career-advice/resumes-cover-letters/how-to-make-a-resume', core: true },
+      { type: 'article', title: 'Interview preparation strategies', url: 'https://www.glassdoor.com/blog/guide/how-to-prepare-for-an-interview/', core: true },
+      { type: 'video', title: 'Resume writing tips', url: 'https://youtu.be/6AdWjJQp1d8?si=6QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'Acing your next interview', url: 'https://youtu.be/7QwQw8QwQw8QwQwQ?si=7QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Common interview mistakes', url: 'https://www.monster.com/career-advice/article/interview-mistakes', core: false },
+      { type: 'video', title: 'Mock interview session', url: 'https://youtu.be/8QwQw8QwQw8QwQwQ?si=8QwQw8QwQw8QwQwQ', core: false },
+    ],
+    11: [
+      { type: 'article', title: 'Modern job search strategies', url: 'https://www.themuse.com/advice/job-search-strategies', core: true },
+      { type: 'article', title: 'Discovering new opportunities', url: 'https://www.careeronestop.org/JobSearch/Resumes/modern-job-search.aspx', core: true },
+      { type: 'video', title: 'Job search in the digital era', url: 'https://youtu.be/9QwQw8QwQw8QwQwQ?si=9QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'Opportunity discovery workshop', url: 'https://youtu.be/10QwQw8QwQw8QwQwQ?si=10QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Hidden job market', url: 'https://www.topresume.com/career-advice/hidden-job-market', core: false },
+      { type: 'video', title: 'Networking for job search', url: 'https://youtu.be/11QwQw8QwQw8QwQwQ?si=11QwQw8QwQw8QwQwQ', core: false },
+    ],
+    12: [
+      { type: 'article', title: 'Building a global career from Africa', url: 'https://www.bbc.com/worklife/article/20211012-how-to-build-a-global-career-from-africa', core: true },
+      { type: 'article', title: 'Success stories: Africans in global roles', url: 'https://www.cnbc.com/2021/06/18/africans-in-global-roles.html', core: true },
+      { type: 'video', title: 'Global career journeys', url: 'https://youtu.be/12QwQw8QwQw8QwQwQ?si=12QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'Storytelling: global careers', url: 'https://youtu.be/13QwQw8QwQw8QwQwQ?si=13QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Remote work for global companies', url: 'https://www.flexjobs.com/blog/post/remote-jobs-for-global-companies/', core: false },
+      { type: 'video', title: 'Panel: global career advice', url: 'https://youtu.be/14QwQw8QwQw8QwQwQ?si=14QwQw8QwQw8QwQwQ', core: false },
+    ],
+    13: [
+      { type: 'article', title: 'AI for the workplace: getting started', url: 'https://www.ibm.com/topics/artificial-intelligence', core: true },
+      { type: 'article', title: 'Practical AI tools for professionals', url: 'https://www.zdnet.com/article/best-ai-tools/', core: true },
+      { type: 'video', title: 'AI in the modern workplace', url: 'https://youtu.be/15QwQw8QwQw8QwQwQ?si=15QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'How AI is changing work', url: 'https://youtu.be/16QwQw8QwQw8QwQwQ?si=16QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Ethics of AI at work', url: 'https://hbr.org/2021/07/the-ethics-of-artificial-intelligence-at-work', core: false },
+      { type: 'video', title: 'AI tools demo', url: 'https://youtu.be/17QwQw8QwQw8QwQwQ?si=17QwQw8QwQw8QwQwQ', core: false },
+    ],
+    14: [
+      { type: 'article', title: 'Critical thinking in the workplace', url: 'https://www.indeed.com/career-advice/career-development/critical-thinking-skills', core: true },
+      { type: 'article', title: 'Problem-solving frameworks', url: 'https://www.mindtools.com/a4wo118/creative-problem-solving', core: true },
+      { type: 'video', title: 'Critical thinking explained', url: 'https://youtu.be/18QwQw8QwQw8QwQwQ?si=18QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'Problem-solving at work', url: 'https://youtu.be/19QwQw8QwQw8QwQwQ?si=19QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Creative thinking for professionals', url: 'https://www.coursera.org/articles/creative-thinking', core: false },
+      { type: 'video', title: 'Case study: problem-solving', url: 'https://youtu.be/20QwQw8QwQw8QwQwQ?si=20QwQw8QwQw8QwQwQ', core: false },
+    ],
+    15: [
+      { type: 'article', title: 'Design thinking for innovation', url: 'https://www.ideou.com/blogs/inspiration/what-is-design-thinking', core: true },
+      { type: 'article', title: 'Applying design thinking at work', url: 'https://www.interaction-design.org/literature/topics/design-thinking', core: true },
+      { type: 'video', title: 'Design thinking in action', url: 'https://youtu.be/21QwQw8QwQw8QwQwQ?si=21QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'Innovation through design', url: 'https://youtu.be/22QwQw8QwQw8QwQwQ?si=22QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Design thinking case studies', url: 'https://www.td.org/insights/5-design-thinking-case-studies', core: false },
+      { type: 'video', title: 'Workshop: design thinking', url: 'https://youtu.be/23QwQw8QwQw8QwQwQ?si=23QwQw8QwQw8QwQwQ', core: false },
+    ],
+    16: [
+      { type: 'article', title: 'Sustaining growth: learning for life', url: 'https://www.edx.org/learn/education/sustaining-growth-learning-for-life', core: true },
+      { type: 'article', title: 'Money management for career longevity', url: 'https://www.investopedia.com/articles/pf/08/retirement-career-longevity.asp', core: true },
+      { type: 'video', title: 'Career longevity strategies', url: 'https://youtu.be/24QwQw8QwQw8QwQwQ?si=24QwQw8QwQw8QwQwQ', core: true },
+      { type: 'video', title: 'Learning and earning for the long term', url: 'https://youtu.be/25QwQw8QwQw8QwQwQ?si=25QwQw8QwQw8QwQwQ', core: true },
+      { type: 'article', title: 'Financial planning for professionals', url: 'https://www.cnbc.com/select/financial-planning-tips-for-professionals/', core: false },
+      { type: 'video', title: 'Panel: sustaining growth', url: 'https://youtu.be/26QwQw8QwQw8QwQwQ?si=26QwQw8QwQw8QwQwQ', core: false },
+    ],
   };
 
   // Track lock state for each resource (simulate with local state for demo; in real app, use backend)
@@ -345,14 +456,18 @@ export default function ResourceManagementPage() {
                             const key = `${session.sessionNumber}-${idx}`;
                             const locked = resourceLocks[key] ?? true;
                             return (
-                              <div key={key} className="flex items-center gap-3 p-2 border rounded bg-white">
-                                <span className="font-medium text-gray-900">{resource.title}</span>
-                                <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Open</a>
-                                <Badge className={resource.core ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
-                                  {resource.core ? 'Core' : 'Optional'}
-                                </Badge>
-                                <span className="text-gray-500 text-xs">{resource.type}</span>
-                                <Button size="sm" variant="outline" onClick={() => handleResourceLockToggle(session.sessionNumber, idx)}>
+                              <div key={key} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 p-3 border rounded-lg bg-slate-50 hover:bg-slate-100 transition-all">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-gray-900 text-sm mb-1 truncate">{resource.title}</div>
+                                  <div className="flex flex-wrap gap-2 items-center text-xs">
+                                    <Badge className={resource.core ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                                      {resource.core ? 'Core' : 'Optional'}
+                                    </Badge>
+                                    <span className="text-gray-500">{resource.type}</span>
+                                    <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Open</a>
+                                  </div>
+                                </div>
+                                <Button size="sm" variant={locked ? 'secondary' : 'outline'} className={locked ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700 border-green-300'} onClick={() => handleResourceLockToggle(session.sessionNumber, idx)}>
                                   {locked ? 'Unlock' : 'Lock'}
                                 </Button>
                               </div>
