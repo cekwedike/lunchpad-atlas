@@ -109,11 +109,6 @@ export function Sidebar() {
       icon: MessageSquare,
     },
     {
-      title: 'Leaderboard',
-      href: '/leaderboard',
-      icon: Trophy,
-    },
-    {
       title: 'Profile',
       href: '/profile',
       icon: User,
@@ -155,11 +150,6 @@ export function Sidebar() {
       title: 'Discussions',
       href: '/dashboard/discussions',
       icon: MessageSquare,
-    },
-    {
-      title: 'Leaderboard',
-      href: '/leaderboard',
-      icon: Trophy,
     },
     {
       title: 'Resources (View)',

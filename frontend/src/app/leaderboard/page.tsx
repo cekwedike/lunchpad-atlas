@@ -20,6 +20,7 @@ export default function LeaderboardPage() {
   const { data: profile } = useProfile();
   const isAdmin = profile?.role === 'ADMIN';
   const isFacilitator = profile?.role === 'FACILITATOR';
+  const isFellow = profile?.role === 'FELLOW';
   const { data: cohortsData } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
   const availableCohorts = isAdmin
@@ -94,119 +95,155 @@ export default function LeaderboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Leaderboard</h1>
-            <p className="text-muted-foreground mt-1">See how you rank among your cohort</p>
-            <p className="text-xs text-emerald-600 mt-1">{lastUpdatedLabel}</p>
+      <div
+        className="space-y-8"
+        style={{
+          fontFamily: '"Space Grotesk", "IBM Plex Sans", ui-sans-serif, system-ui',
+        }}
+      >
+        <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top,_#dbeafe,_#ffffff)] p-6 sm:p-8">
+          <div className="absolute -left-20 -top-16 h-56 w-56 rounded-full bg-gradient-to-br from-emerald-300/40 to-sky-400/20 blur-2xl" />
+          <div className="absolute -bottom-24 right-10 h-48 w-48 rounded-full bg-gradient-to-br from-amber-200/50 to-rose-200/40 blur-2xl" />
+          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-xl">
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Live Cohort Rankings</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900 sm:text-4xl">Leaderboard</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                Compete, climb, and earn momentum. This board updates in real time for active cohorts only.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                  {lastUpdatedLabel}
+                </span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500">
+                  {selectedCohortId ? 'Cohort locked' : 'Select cohort'}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={() => refetch()}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 border-slate-300"
+                type="button"
+                disabled={isFetching}
+              >
+                <RefreshCw className="w-4 h-4" />
+                {isFetching ? 'Refreshing...' : 'Refresh'}
+              </Button>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search fellow..."
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-56 border-slate-200"
+                />
+              </div>
+            </div>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-            type="button"
-            disabled={isFetching}
-          >
-            <RefreshCw className="w-4 h-4" />
-            {isFetching ? 'Refreshing...' : 'Refresh'}
-          </Button>
-        </div>
+        </section>
 
-        {/* User's Current Rank */}
-        {userRank && (
-          <Card>
-            <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
-              <h2 className="text-lg font-bold mb-3">Your Rank</h2>
-              <div className="flex items-center gap-4">
-                <div className="text-4xl font-bold text-atlas-navy">#{userRank.rank ?? "--"}</div>
-                <div className="flex-1">
-                  <p className="font-semibold">{userRank.userName || "You"}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {userRank.points} points • {userRank.streak} day streak
-                  </p>
-                  {(userRank.bonusPoints || userRank.chatBonus || userRank.streakBonus) && (
-                    <p className="text-xs text-slate-600 mt-1">
-                      Bonus {userRank.bonusPoints ?? 0} • Chat {userRank.chatBonus ?? 0} • Streak {userRank.streakBonus ?? 0}
-                    </p>
-                  )}
+        {isFellow ? (
+          <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <Card className="border-slate-200">
+            <div className="p-6 space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Active Months</h2>
+                  <p className="text-xs text-slate-500">Only months inside the cohort run are eligible.</p>
                 </div>
+                {availableCohorts.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <span>Cohort</span>
+                    <select
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+                      value={selectedCohortId || ''}
+                      onChange={(event) => setSelectedCohortId(event.target.value)}
+                    >
+                      {availableCohorts.map((cohort: any) => (
+                        <option key={cohort.id} value={cohort.id}>
+                          {cohort.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-lg bg-white/70 p-3">
-                  <div className="text-xs text-slate-500">Base Points</div>
-                  <div className="text-lg font-semibold text-slate-900">{userRank.basePoints ?? 0}</div>
-                </div>
-                <div className="rounded-lg bg-white/70 p-3">
-                  <div className="text-xs text-slate-500">Engagement Bonus</div>
-                  <div className="text-lg font-semibold text-slate-900">{userRank.bonusPoints ?? 0}</div>
-                </div>
-                <div className="rounded-lg bg-white/70 p-3">
-                  <div className="text-xs text-slate-500">Chat + Comment Count</div>
-                  <div className="text-lg font-semibold text-slate-900">{userRank.chatCount ?? 0}</div>
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {monthOptions.length === 0 ? (
+                  <span className="text-sm text-slate-500">
+                    No active cohort months available
+                  </span>
+                ) : (
+                  monthOptions.map((month) => (
+                    <Button
+                      key={`${month.year}-${month.month}`}
+                      variant={month.month === selectedMonth?.month && month.year === selectedMonth?.year ? "default" : "outline"}
+                      onClick={() => setSelectedMonth({ month: month.month, year: month.year })}
+                      className="rounded-full"
+                    >
+                      {month.label}
+                    </Button>
+                  ))
+                )}
               </div>
+            </div>
+          </Card>
+
+          {userRank && (
+            <Card className="border-slate-200 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-700 text-white">
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/60">Your Position</p>
+                    <p className="mt-2 text-4xl font-semibold">#{userRank.rank ?? '--'}</p>
+                  </div>
+                  <div className="rounded-full border border-white/20 px-3 py-1 text-xs text-white/70">
+                    {userRank.points} pts
+                  </div>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold">{userRank.userName || 'You'}</p>
+                  <p className="text-xs text-white/70">{userRank.streak} day streak</p>
+                </div>
+                {(isAdmin || isFacilitator) && (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg bg-white/10 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">Base</div>
+                      <div className="text-lg font-semibold">{userRank.basePoints ?? 0}</div>
+                    </div>
+                    <div className="rounded-lg bg-white/10 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">Bonus</div>
+                      <div className="text-lg font-semibold">{userRank.bonusPoints ?? 0}</div>
+                    </div>
+                    <div className="rounded-lg bg-white/10 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">Chat + Comments</div>
+                      <div className="text-lg font-semibold">{userRank.chatCount ?? 0}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+        </section>
+        ) : (
+          <Card className="border-slate-200 bg-white">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-slate-900">Leaderboard access</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Leaderboards are visible to fellows only. Admins and facilitators can adjust points without
+                appearing in the rankings.
+              </p>
             </div>
           </Card>
         )}
 
-        {/* Month Selector */}
-        <Card>
-          <div className="p-6 space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-bold">Select Month</h2>
-              {availableCohorts.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>Cohort</span>
-                  <select
-                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
-                    value={selectedCohortId || ''}
-                    onChange={(event) => setSelectedCohortId(event.target.value)}
-                  >
-                    {availableCohorts.map((cohort: any) => (
-                      <option key={cohort.id} value={cohort.id}>
-                        {cohort.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3 overflow-x-auto">
-              {monthOptions.length === 0 ? (
-                <span className="text-sm text-slate-500">
-                  No active cohort months available
-                </span>
-              ) : (
-                monthOptions.map((month) => (
-                  <Button
-                    key={`${month.year}-${month.month}`}
-                    variant={month.month === selectedMonth?.month && month.year === selectedMonth?.year ? "default" : "outline"}
-                    onClick={() => setSelectedMonth({ month: month.month, year: month.year })}
-                  >
-                    {month.label}
-                  </Button>
-                ))
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name..."
-            value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
+        {isFellow ? (
+          isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {[...Array(4)].map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <div className="p-6">
                   <div className="h-4 bg-gray-200 rounded w-3/4" />
@@ -214,116 +251,90 @@ export default function LeaderboardPage() {
               </Card>
             ))}
           </div>
-        ) : filteredEntries && filteredEntries.length > 0 ? (
-          <>
-            {/* Top 3 Podium */}
-            {topThree.length >= 3 && (
-              <div className="grid grid-cols-3 gap-4 mb-8">
-                {/* 2nd Place */}
-                <div className="order-1 pt-12">
-                  <Card className="bg-gradient-to-br from-gray-300 to-gray-400">
-                    <div className="p-6 text-center">
-                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-2xl font-bold text-gray-700">{topThree[1]?.userName?.slice(0, 2).toUpperCase() || "?"}</span>
+          ) : filteredEntries && filteredEntries.length > 0 ? (
+            <>
+              {topThree.length >= 3 && (
+                <section className="grid gap-6 md:grid-cols-3">
+                  <Card className="border-slate-200 bg-gradient-to-b from-slate-100 to-white">
+                    <div className="p-6 text-center space-y-3">
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Second</div>
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-white text-2xl font-semibold">
+                        {topThree[1]?.userName?.slice(0, 2).toUpperCase() || "?"}
                       </div>
-                      <Medal className="w-8 h-8 mx-auto mb-2 text-white" />
-                      <p className="font-bold text-white">{topThree[1]?.userName || "Unknown"}</p>
-                      <p className="text-sm text-white/90">{topThree[1]?.points} points</p>
+                      <p className="font-semibold text-slate-900">{topThree[1]?.userName || "Unknown"}</p>
+                      <p className="text-sm text-slate-500">{topThree[1]?.points} pts</p>
+                      <Medal className="mx-auto h-6 w-6 text-slate-400" />
                     </div>
                   </Card>
-                </div>
-
-                {/* 1st Place */}
-                <div className="order-2">
-                  <Card className="bg-gradient-to-br from-yellow-400 to-yellow-600">
-                    <div className="p-6 text-center">
-                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-3xl font-bold text-yellow-600">{topThree[0]?.userName?.slice(0, 2).toUpperCase() || "?"}</span>
+                  <Card className="border-amber-300 bg-gradient-to-b from-amber-200 via-amber-100 to-white">
+                    <div className="p-6 text-center space-y-3">
+                      <div className="text-xs uppercase tracking-[0.2em] text-amber-700">Champion</div>
+                      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-white text-3xl font-semibold">
+                        {topThree[0]?.userName?.slice(0, 2).toUpperCase() || "?"}
                       </div>
-                      <Crown className="w-10 h-10 mx-auto mb-2 text-white" />
-                      <p className="font-bold text-white text-lg">{topThree[0]?.userName || "Unknown"}</p>
-                      <p className="text-white/90">{topThree[0]?.points} points</p>
+                      <p className="font-semibold text-slate-900">{topThree[0]?.userName || "Unknown"}</p>
+                      <p className="text-sm text-slate-500">{topThree[0]?.points} pts</p>
+                      <Crown className="mx-auto h-8 w-8 text-amber-500" />
                     </div>
                   </Card>
-                </div>
-
-                {/* 3rd Place */}
-                <div className="order-3 pt-20">
-                  <Card className="bg-gradient-to-br from-orange-400 to-orange-600">
-                    <div className="p-6 text-center">
-                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-xl font-bold text-orange-600">{topThree[2]?.userName?.slice(0, 2).toUpperCase() || "?"}</span>
+                  <Card className="border-orange-200 bg-gradient-to-b from-orange-100 to-white">
+                    <div className="p-6 text-center space-y-3">
+                      <div className="text-xs uppercase tracking-[0.2em] text-orange-500">Third</div>
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white text-xl font-semibold">
+                        {topThree[2]?.userName?.slice(0, 2).toUpperCase() || "?"}
                       </div>
-                      <Award className="w-7 h-7 mx-auto mb-2 text-white" />
-                      <p className="font-bold text-white">{topThree[2]?.userName || "Unknown"}</p>
-                      <p className="text-sm text-white/90">{topThree[2]?.points} points</p>
+                      <p className="font-semibold text-slate-900">{topThree[2]?.userName || "Unknown"}</p>
+                      <p className="text-sm text-slate-500">{topThree[2]?.points} pts</p>
+                      <Award className="mx-auto h-6 w-6 text-orange-400" />
                     </div>
                   </Card>
-                </div>
-              </div>
-            )}
+                </section>
+              )}
 
-            {/* Remaining Rankings */}
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rank</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fellow</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Streak</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Change</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {remaining.map((entry) => {
-                      const isCurrentUser = entry.userId === profile?.id;
-                      return (
-                        <tr key={entry.userId} className={isCurrentUser ? "bg-blue-50" : "hover:bg-gray-50"}>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {getRankIcon(entry.rank)}
+              <section className="space-y-3">
+                {remaining.map((entry) => {
+                  const isCurrentUser = entry.userId === profile?.id;
+                  return (
+                    <Card key={entry.userId} className={isCurrentUser ? "border-blue-200 bg-blue-50/60" : "border-slate-200"}>
+                      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white text-sm font-semibold">
+                            #{entry.rank}
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                              {entry.userName || "Unknown"}
+                              {entry.rank === 1 && <Crown className="h-4 w-4 text-amber-500" />}
+                            </p>
+                            <p className="text-xs text-slate-500">{entry.streak} day streak</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div>
+                            <p className="text-xs text-slate-500">Total Points</p>
+                            <p className="text-lg font-semibold text-slate-900">{entry.points}</p>
+                          </div>
+                          {(isAdmin || isFacilitator) && (
+                            <div>
+                              <p className="text-xs text-slate-500">Bonus</p>
+                              <p className="text-sm font-semibold text-emerald-600">+{entry.bonusPoints ?? 0}</p>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-atlas-navy text-white rounded-full flex items-center justify-center font-semibold">
-                                {entry.userName?.slice(0, 2).toUpperCase() || "?"}
-                              </div>
-                              <span className="font-medium flex items-center gap-2">
-                                {entry.userName || "Unknown"}
-                                {entry.rank === 1 && <Crown className="h-4 w-4 text-yellow-500" />}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 font-semibold">
-                            {entry.points}
-                            {(entry.bonusPoints || entry.chatBonus || entry.streakBonus) && (
-                              <div className="text-xs text-slate-500">
-                                +{entry.bonusPoints ?? 0} bonus
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">{entry.streak} days</td>
-                          <td className="px-6 py-4">
-                            {/* Rank change tracking not yet implemented */}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </>
-        ) : (
-          <EmptyState
-            icon={Trophy}
-            title="No leaderboard data"
-            description="Check back later to see rankings"
-          />
-        )}
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </section>
+            </>
+          ) : (
+            <EmptyState
+              icon={Trophy}
+              title="No leaderboard data"
+              description="Check back later to see rankings"
+            />
+          )
+        ) : null}
       </div>
     </DashboardLayout>
   );

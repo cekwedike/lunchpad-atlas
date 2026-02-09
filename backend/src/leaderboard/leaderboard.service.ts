@@ -196,17 +196,6 @@ export class LeaderboardService {
       select: { userId: true, createdAt: true },
     });
 
-    const discussionComments = await this.prisma.discussionComment.findMany({
-      where: {
-        userId: { in: fellowIds },
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      select: { userId: true, createdAt: true },
-    });
-
     const pointsEvents = await this.prisma.pointsLog.findMany({
       where: pointsWhere,
       select: { userId: true, createdAt: true },
@@ -223,17 +212,6 @@ export class LeaderboardService {
         chatDays.set(message.userId, new Set());
       }
       chatDays.get(message.userId)?.add(key);
-    });
-
-    discussionComments.forEach((comment) => {
-      chatCounts.set(comment.userId, (chatCounts.get(comment.userId) || 0) + 1);
-      const date = new Date(comment.createdAt);
-      date.setHours(0, 0, 0, 0);
-      const key = date.toISOString().split('T')[0];
-      if (!chatDays.has(comment.userId)) {
-        chatDays.set(comment.userId, new Set());
-      }
-      chatDays.get(comment.userId)?.add(key);
     });
 
     discussionComments.forEach((comment) => {
