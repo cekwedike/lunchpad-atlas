@@ -188,7 +188,10 @@ export function useDeleteCohort() {
 }
 
 // Get all users (for admin)
-export function useAdminUsers(filters?: { role?: string; cohortId?: string; search?: string }) {
+export function useAdminUsers(
+  filters?: { role?: string; cohortId?: string; search?: string },
+  options?: { enabled?: boolean },
+) {
   const params = new URLSearchParams();
   if (filters?.role) params.append('role', filters.role);
   if (filters?.cohortId) params.append('cohortId', filters.cohortId);
@@ -203,6 +206,7 @@ export function useAdminUsers(filters?: { role?: string; cohortId?: string; sear
       console.log('Admin users API response:', response);
       return response;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

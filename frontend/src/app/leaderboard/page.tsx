@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Trophy, Medal, Award, Crown, Search, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { useLeaderboard, useLeaderboardRank, useLeaderboardMonths } from "@/hooks/api/useLeaderboard";
 import { useProfile } from "@/hooks/api/useProfile";
-import { useCohorts } from "@/hooks/api/useAdmin";
+import { useCohorts, useAdminUsers } from "@/hooks/api/useAdmin";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
@@ -22,11 +22,19 @@ export default function LeaderboardPage() {
   const [adjustPoints, setAdjustPoints] = useState("");
   const [adjustDescription, setAdjustDescription] = useState("");
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [fellowSearchInput, setFellowSearchInput] = useState("");
+  const [debouncedFellowSearch, setDebouncedFellowSearch] = useState("");
+  const [selectedFellow, setSelectedFellow] = useState<any | null>(null);
+  const [adjustCohortId, setAdjustCohortId] = useState<string | null>(null);
 
   const { data: profile } = useProfile();
   const isAdmin = profile?.role === 'ADMIN';
   const isFacilitator = profile?.role === 'FACILITATOR';
   const isFellow = profile?.role === 'FELLOW';
+  const canAdjustPoints = isAdmin || isFacilitator;
+  const canViewLeaderboard = isFellow || isAdmin || isFacilitator;
+  const normalizedFellowSearch = debouncedFellowSearch.trim();
+  const shouldSearchFellows = canAdjustPoints && normalizedFellowSearch.length >= 2;
   const { data: cohortsData } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
   const availableCohorts = isAdmin
@@ -34,6 +42,17 @@ export default function LeaderboardPage() {
     : isFacilitator
       ? (profile?.facilitatedCohorts || [])
       : [];
+  const { data: fellowsData, isLoading: fellowsLoading } = useAdminUsers(
+    shouldSearchFellows
+      ? {
+          role: 'FELLOW',
+          cohortId: adjustCohortId || undefined,
+          search: normalizedFellowSearch,
+        }
+      : undefined,
+    { enabled: shouldSearchFellows },
+  );
+  const fellows = (fellowsData as any)?.users || [];
 
   useEffect(() => {
     if (selectedCohortId) return;
@@ -45,6 +64,25 @@ export default function LeaderboardPage() {
       setSelectedCohortId(availableCohorts[0].id);
     }
   }, [profile?.cohortId, availableCohorts, selectedCohortId]);
+
+  useEffect(() => {
+    if (adjustCohortId) return;
+    if (selectedCohortId) {
+      setAdjustCohortId(selectedCohortId);
+      return;
+    }
+    if (availableCohorts.length > 0) {
+      setAdjustCohortId(availableCohorts[0].id);
+    }
+  }, [adjustCohortId, selectedCohortId, availableCohorts]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedFellowSearch(fellowSearchInput);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [fellowSearchInput]);
 
   const { data: monthsData } = useLeaderboardMonths(selectedCohortId || undefined);
   const monthOptions = monthsData?.months || [];
@@ -101,7 +139,7 @@ export default function LeaderboardPage() {
 
   const handleAdjustPoints = async () => {
     if (!adjustUserId.trim()) {
-      toast.error('User ID is required');
+      toast.error('Select a fellow');
       return;
     }
 
@@ -125,6 +163,9 @@ export default function LeaderboardPage() {
       });
       toast.success('Points adjusted');
       setAdjustUserId('');
+      setSelectedFellow(null);
+      setFellowSearchInput('');
+      setDebouncedFellowSearch('');
       setAdjustPoints('');
       setAdjustDescription('');
       refetch();
@@ -151,7 +192,7 @@ export default function LeaderboardPage() {
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Live Cohort Rankings</p>
               <h1 className="mt-2 text-3xl font-semibold text-slate-900 sm:text-4xl">Leaderboard</h1>
               <p className="mt-2 text-sm text-slate-600">
-                Compete, climb, and earn momentum. This board updates in real time for active cohorts only.
+                Chase the crown with your cohort in real time. Finish #1 to become the LaunchPad Fellow of the Month.
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
@@ -187,7 +228,7 @@ export default function LeaderboardPage() {
           </div>
         </section>
 
-        {isFellow ? (
+        {canViewLeaderboard ? (
           <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <Card className="border-slate-200">
             <div className="p-6 space-y-4">
@@ -234,7 +275,7 @@ export default function LeaderboardPage() {
             </div>
           </Card>
 
-          {userRank && (
+          {userRank && isFellow && (
             <Card className="border-slate-200 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-700 text-white">
               <div className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
@@ -270,66 +311,134 @@ export default function LeaderboardPage() {
             </Card>
           )}
         </section>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <Card className="border-slate-200 bg-white">
-              <div className="p-6">
-                <h2 className="text-lg font-semibold text-slate-900">Leaderboard access</h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  Leaderboards are visible to fellows only. Admins and facilitators can adjust points without
-                  appearing in the rankings.
-                </p>
+        ) : null}
+
+        {canAdjustPoints && (
+          <Card className="border-slate-200 bg-white">
+            <div className="p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Award or Deduct Points</h2>
+                <p className="text-xs text-slate-500">Every change is recorded for transparency.</p>
               </div>
-            </Card>
-            {(isAdmin || isFacilitator) && (
-              <Card className="border-slate-200 bg-white">
-                <div className="p-6 space-y-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Adjust points</h2>
-                    <p className="text-xs text-slate-500">Manual adjustments are logged for auditing.</p>
-                  </div>
-                  <div className="grid gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-slate-600">Fellow User ID</label>
-                      <Input
-                        value={adjustUserId}
-                        onChange={(event) => setAdjustUserId(event.target.value)}
-                        placeholder="User ID"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-600">Points (+/-)</label>
-                      <Input
-                        value={adjustPoints}
-                        onChange={(event) => setAdjustPoints(event.target.value)}
-                        placeholder="e.g. 15 or -5"
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-600">Reason</label>
-                      <Input
-                        value={adjustDescription}
-                        onChange={(event) => setAdjustDescription(event.target.value)}
-                        placeholder="Reason for adjustment"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={handleAdjustPoints}
-                      disabled={isAdjusting}
-                      className="justify-center"
-                    >
-                      {isAdjusting ? 'Adjusting...' : 'Adjust points'}
-                    </Button>
-                  </div>
+              <div className="grid gap-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Cohort</label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-sm"
+                    value={adjustCohortId || ''}
+                    onChange={(event) => {
+                      setAdjustCohortId(event.target.value || null);
+                      setSelectedFellow(null);
+                      setAdjustUserId('');
+                      setFellowSearchInput('');
+                      setDebouncedFellowSearch('');
+                    }}
+                  >
+                    <option value="">Select cohort</option>
+                    {availableCohorts.map((cohort: any) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </Card>
-            )}
-          </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Fellow</label>
+                  <Input
+                    value={fellowSearchInput}
+                    onChange={(event) => {
+                      setFellowSearchInput(event.target.value);
+                      if (selectedFellow) {
+                        setSelectedFellow(null);
+                        setAdjustUserId('');
+                      }
+                    }}
+                    placeholder="Search by name or email"
+                    disabled={!adjustCohortId}
+                  />
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white">
+                    {!adjustCohortId ? (
+                      <div className="px-3 py-2 text-xs text-slate-500">Select a cohort to search fellows</div>
+                    ) : !shouldSearchFellows ? (
+                      <div className="px-3 py-2 text-xs text-slate-500">Type at least 2 characters</div>
+                    ) : fellowsLoading ? (
+                      <div className="px-3 py-2 text-xs text-slate-500">Loading fellows...</div>
+                    ) : fellows.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-slate-500">No fellows found</div>
+                    ) : (
+                      fellows.map((user: any) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            setAdjustUserId(user.id);
+                            setSelectedFellow(user);
+                            setFellowSearchInput(`${user.firstName} ${user.lastName}`.trim());
+                            setDebouncedFellowSearch(`${user.firstName} ${user.lastName}`.trim());
+                          }}
+                          className={`flex w-full items-start gap-2 px-3 py-2 text-left text-xs transition hover:bg-slate-50 ${
+                            selectedFellow?.id === user.id ? 'bg-slate-100' : ''
+                          }`}
+                        >
+                          <span className="font-medium text-slate-900">
+                            {user.firstName} {user.lastName}
+                          </span>
+                          <span className="text-slate-500">{user.email}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  {selectedFellow && (
+                    <div className="mt-2 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                      <span>
+                        Selected: {selectedFellow.firstName} {selectedFellow.lastName}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-emerald-700 underline-offset-2 hover:underline"
+                        onClick={() => {
+                          setSelectedFellow(null);
+                          setAdjustUserId('');
+                          setFellowSearchInput('');
+                          setDebouncedFellowSearch('');
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Points (+/-)</label>
+                  <Input
+                    value={adjustPoints}
+                    onChange={(event) => setAdjustPoints(event.target.value)}
+                    placeholder="e.g. 15 or -5"
+                    inputMode="numeric"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Reason</label>
+                  <Input
+                    value={adjustDescription}
+                    onChange={(event) => setAdjustDescription(event.target.value)}
+                    placeholder="Reason for adjustment"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleAdjustPoints}
+                  disabled={isAdjusting}
+                  className="justify-center"
+                >
+                  {isAdjusting ? 'Adjusting...' : 'Adjust points'}
+                </Button>
+              </div>
+            </div>
+          </Card>
         )}
 
-        {isFellow ? (
+        {canViewLeaderboard ? (
           isLoading ? (
           <div className="grid gap-4 md:grid-cols-2">
             {[...Array(4)].map((_, i) => (
