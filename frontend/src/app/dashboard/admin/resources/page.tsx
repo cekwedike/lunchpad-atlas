@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
   Plus, Video, FileText, Edit, Trash2, Search, RefreshCw, 
-  ExternalLink, Save, X, Calendar 
+  ExternalLink, Save, X 
 } from "lucide-react";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useCohorts, useSessions, useAdminResources, useCreateResource, useUpdateResource, useDeleteResource } from "@/hooks/api/useAdmin";
+import { useCohorts, useAdminResources, useCreateResource, useUpdateResource, useDeleteResource } from "@/hooks/api/useAdmin";
 import { ResourceType } from "@/types/api";
+import { BookOpen, Target, Globe, Lightbulb } from "lucide-react";
 import { format } from "date-fns";
 
 export default function ResourceManagementPage() {
@@ -34,13 +35,78 @@ export default function ResourceManagementPage() {
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts();
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
 
-  // Fetch sessions for selected cohort
-  const { data: sessionsData, isLoading: sessionsLoading } = useSessions(selectedCohortId);
-  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
 
-  // Fetch resources for selected session
+  // Curriculum structure (copied from Resources (View) page)
+  const CURRICULUM = {
+    months: [
+      {
+        id: 1,
+        number: "Month 1",
+        title: "FOUNDATIONS: SELF, OWNERSHIP & COMMUNICATION",
+        theme: "Mindset, professionalism, and how work really gets done",
+        icon: BookOpen,
+        color: "blue",
+        sessions: [
+          { sessionNumber: 1, title: "Ownership Mindset & Leadership at Work", date: "2026-04-11", unlockDate: "2026-04-06" },
+          { sessionNumber: 2, title: "Goal Setting & Time Management", date: "2026-04-18", unlockDate: "2026-04-13" },
+          { sessionNumber: 3, title: "Effective Communication Skills", date: "2026-04-25", unlockDate: "2026-04-20" },
+          { sessionNumber: 4, title: "Storytelling: Leading Early - Growth Without a Title", date: "2026-05-02", unlockDate: "2026-04-27" },
+        ],
+      },
+      {
+        id: 2,
+        number: "Month 2",
+        title: "CAREER POSITIONING & PROFESSIONAL IDENTITY",
+        theme: "Direction, collaboration, and execution in today's workplace",
+        icon: Target,
+        color: "purple",
+        sessions: [
+          { sessionNumber: 5, title: "Career Exploration, Goal Setting & Path Design", date: "2026-05-09", unlockDate: "2026-05-04" },
+          { sessionNumber: 6, title: "Remote, Hybrid & Cross-Cultural Collaboration", date: "2026-05-16", unlockDate: "2026-05-11" },
+          { sessionNumber: 7, title: "Execution at Work: From Tasks to Impact", date: "2026-05-23", unlockDate: "2026-05-18" },
+          { sessionNumber: 8, title: "Storytelling: Rejection, Redirection & Career Pivots", date: "2026-05-30", unlockDate: "2026-05-25" },
+        ],
+      },
+      {
+        id: 3,
+        number: "Month 3",
+        title: "VISIBILITY, OPPORTUNITY & CAREER GROWTH",
+        theme: "Positioning, opportunity access, and long-term relevance",
+        icon: Globe,
+        color: "green",
+        sessions: [
+          { sessionNumber: 9, title: "Digital Personal Branding & Strategic Networking", date: "2026-06-06", unlockDate: "2026-06-01" },
+          { sessionNumber: 10, title: "Resume Writing & Interview Preparation", date: "2026-06-13", unlockDate: "2026-06-08" },
+          { sessionNumber: 11, title: "Modern Job Search & Opportunity Discovery", date: "2026-06-20", unlockDate: "2026-06-15" },
+          { sessionNumber: 12, title: "Storytelling: Building a Global Career from Africa", date: "2026-06-27", unlockDate: "2026-06-22" },
+        ],
+      },
+      {
+        id: 4,
+        number: "Month 4",
+        title: "SUSTAINABILITY, INNOVATION & FUTURE READINESS",
+        theme: "Staying relevant, resilient, and prepared for long-term growth",
+        icon: Lightbulb,
+        color: "orange",
+        sessions: [
+          { sessionNumber: 13, title: "AI for the Workplace", date: "2026-07-04", unlockDate: "2026-06-29" },
+          { sessionNumber: 14, title: "Critical Thinking & Problem-Solving", date: "2026-07-11", unlockDate: "2026-07-06" },
+          { sessionNumber: 15, title: "Design Thinking for Career & Workplace Innovation", date: "2026-07-18", unlockDate: "2026-07-13" },
+          { sessionNumber: 16, title: "Storytelling: Sustaining Growth: Learning, Money & Career Longevity", date: "2026-07-25", unlockDate: "2026-07-20" },
+        ],
+      },
+    ],
+  };
+
+  // Helper: get resources for a session number
+  const getSessionResources = (sessionNumber: number) => {
+    if (!resources) return [];
+    return (resources as any[]).filter(r => r.session?.sessionNumber === sessionNumber);
+  };
+
+  // Fetch all resources for selected cohort
+  // Fetch all resources (filter by cohort in display logic)
   const { data: resourcesData, isLoading: resourcesLoading, refetch: refetchResources } = useAdminResources({
-    sessionId: selectedSessionId || undefined,
     type: typeFilter !== "all" ? typeFilter : undefined,
     search: searchQuery || undefined,
   });
@@ -145,10 +211,9 @@ export default function ResourceManagementPage() {
         });
       } else {
         // Create new resource
-        // Find first session for selected cohort
-        const session = sessions[0];
-        if (!session) throw new Error("No session found for this cohort. Please create a session first.");
-        await createResourceMutation.mutateAsync({ ...formData, sessionId: session.id });
+        // Prompt admin to select a session, or default to sessionNumber 1
+        const sessionNumber = selectedSessionId ? selectedSessionId : "1";
+        await createResourceMutation.mutateAsync({ ...formData, sessionId: sessionNumber });
       }
       setIsAddDialogOpen(false);
       setEditingResource(null);
@@ -226,91 +291,83 @@ export default function ResourceManagementPage() {
             ))}
           </select>
         </div>
-        {/* Session Cards */}
+        {/* Session Cards with resources listed under each */}
         {selectedCohortId && (
           <div className="mb-6">
             <Label className="text-sm font-medium text-gray-900 mb-2 block">Sessions</Label>
-            {sessionsLoading ? (
-              <div className="text-gray-500">Loading sessions...</div>
-            ) : sessions.length === 0 ? (
-              <div className="text-gray-500">No sessions found for this cohort.</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sessions.map((session: any) => (
-                  <Card
-                    key={session.id}
-                    className={`cursor-pointer border-2 transition-all ${selectedSessionId === session.id ? 'border-blue-600 shadow-lg' : 'border-gray-200 hover:border-blue-400'}`}
-                    onClick={() => setSelectedSessionId(session.id)}
-                  >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {CURRICULUM.months.flatMap(month => month.sessions).map((session) => {
+                const sessionResources = getSessionResources(session.sessionNumber);
+                return (
+                  <Card key={session.sessionNumber} className="border-2 border-gray-200">
                     <CardHeader>
                       <CardTitle className="text-base font-semibold text-atlas-navy">Session {session.sessionNumber}: {session.title}</CardTitle>
                       <CardDescription className="text-xs text-gray-500">
-                        {session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "No date"}
+                        {session.date ? format(new Date(session.date), "MMM dd, yyyy") : "No date"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-xs text-gray-700 min-h-[40px]">{session.description || 'No description'}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {/* Resources Table */}
-        {selectedSessionId && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-atlas-navy">Resources for Selected Session</h2>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" /> Add Resource
-              </Button>
-            </div>
-            {resourcesLoading ? (
-              <div className="p-8 text-center text-gray-600">Loading resources...</div>
-            ) : resources.length === 0 ? (
-              <div className="p-8 text-center text-gray-600">No resources found for this session.</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {resources.map((resource: any) => (
-                  <Card key={resource.id} className="shadow-md border border-gray-200 flex flex-col h-full">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        {getResourceIcon(resource.type)}
-                        <span className="text-base font-semibold text-gray-900 capitalize">{resource.title}</span>
+                      <div className="text-xs text-gray-700 min-h-[24px] mb-2">
+                        {sessionResources.length} resources
                       </div>
-                      <CardDescription className="mb-1 text-xs text-gray-500">
-                        {resource.description || 'No description'}
-                      </CardDescription>
-                      <div className="flex flex-wrap gap-2 text-xs mt-2">
-                        <Badge className={resource.isCore ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
-                          {resource.isCore ? 'Core' : 'Optional'}
-                        </Badge>
-                        <span className="text-gray-500">{resource.type}</span>
-                        <span className="text-gray-500">{resource.estimatedMinutes || resource.duration || 0} min</span>
-                        <span className="text-gray-500">{resource.pointValue} pts</span>
-                        <Button size="sm" variant="outline" onClick={() => handleToggleLock(resource)}>
-                          {resource.state === 'LOCKED' ? 'Unlock' : 'Lock'}
+                      {resourcesLoading ? (
+                        <div className="p-4 text-center text-gray-600">Loading resources...</div>
+                      ) : sessionResources.length === 0 ? (
+                        <div className="p-4 text-center text-gray-400 text-xs">No resources for this session.</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {sessionResources.map((resource: any) => (
+                            <Card key={resource.id} className="shadow border border-gray-200 flex flex-col">
+                              <CardHeader className="pb-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {getResourceIcon(resource.type)}
+                                  <span className="text-base font-semibold text-gray-900 capitalize">{resource.title}</span>
+                                </div>
+                                <CardDescription className="mb-1 text-xs text-gray-500">
+                                  {resource.description || 'No description'}
+                                </CardDescription>
+                                <div className="flex flex-wrap gap-2 text-xs mt-2">
+                                  <Badge className={resource.isCore ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                                    {resource.isCore ? 'Core' : 'Optional'}
+                                  </Badge>
+                                  <span className="text-gray-500">{resource.type}</span>
+                                  <span className="text-gray-500">{resource.estimatedMinutes || resource.duration || 0} min</span>
+                                  <span className="text-gray-500">{resource.pointValue} pts</span>
+                                  <Button size="sm" variant="outline" onClick={() => handleToggleLock(resource)}>
+                                    {resource.state === 'LOCKED' ? 'Unlock' : 'Lock'}
+                                  </Button>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="flex-1 flex flex-col justify-between">
+                                <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs break-all">
+                                  {resource.url}
+                                </a>
+                              </CardContent>
+                              <CardFooter className="flex gap-2 justify-end border-t pt-3">
+                                <Button size="sm" variant="outline" onClick={() => handleEditResource(resource)}>
+                                  <Edit className="h-4 w-4" /> Edit
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteResource(resource.id)}>
+                                  <Trash2 className="h-4 w-4" /> Delete
+                                </Button>
+                              </CardFooter>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex justify-end mt-2">
+                        <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => {
+                          setSelectedSessionId(String(session.sessionNumber));
+                          setIsAddDialogOpen(true);
+                        }}>
+                          <Plus className="h-4 w-4 mr-2" /> Add Resource
                         </Button>
                       </div>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col justify-between">
-                      <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs break-all">
-                        {resource.url}
-                      </a>
                     </CardContent>
-                    <CardFooter className="flex gap-2 justify-end border-t pt-3">
-                      <Button size="sm" variant="outline" onClick={() => handleEditResource(resource)}>
-                        <Edit className="h-4 w-4" /> Edit
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteResource(resource.id)}>
-                        <Trash2 className="h-4 w-4" /> Delete
-                      </Button>
-                    </CardFooter>
                   </Card>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         )}
         {isAddDialogOpen && (
