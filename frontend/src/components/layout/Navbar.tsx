@@ -20,7 +20,7 @@ import { NotificationBell } from '@/components/Notifications';
 
 export function Navbar() {
   const router = useRouter();
-  const { user, isAuthenticated, isGuestMode } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { toggleSidebar } = useUIStore();
   const { logout } = useAuth();
 
@@ -77,7 +77,7 @@ export function Navbar() {
         {/* Right: Actions and User Menu */}
         <div className="flex items-center gap-2">
           {/* Points Display */}
-          {isAuthenticated && !isGuestMode && user && (
+          {isAuthenticated && user && (
             <div className="hidden items-center gap-2 rounded-lg bg-amber-50 px-3 py-1.5 sm:flex">
               <Trophy className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-semibold text-amber-900">
@@ -87,7 +87,7 @@ export function Navbar() {
           )}
 
           {/* Notifications */}
-          {isAuthenticated && !isGuestMode && user && (
+          {isAuthenticated && user && (
             <NotificationBell userId={user.id} userRole={user.role} />
           )}
 
@@ -107,37 +107,33 @@ export function Navbar() {
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-bold leading-none text-slate-900">
-                      {isGuestMode ? 'Guest Mode' : user?.name}
+                      {user?.name}
                     </p>
                     <p className="text-xs leading-none text-slate-500 mt-1">
-                      {isGuestMode ? 'Exploring ATLAS' : user?.email}
+                      {user?.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {!isGuestMode && (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile#settings" className="cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile#settings" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={handleLogout} 
                   className="cursor-pointer text-red-600 font-semibold hover:text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-700"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  {isGuestMode ? 'Exit Guest Mode' : 'Sign Out'}
+                  Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

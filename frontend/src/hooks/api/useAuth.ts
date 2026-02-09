@@ -96,7 +96,6 @@ export function useLogout() {
       
       // Clear cookies
       document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
-      document.cookie = 'isGuestMode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
       
       // Clear all queries
       queryClient.clear();

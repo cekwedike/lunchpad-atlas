@@ -5,9 +5,7 @@ import type { User } from '@/types/api';
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  isGuestMode: boolean;
   setUser: (user: User | null) => void;
-  setGuestMode: (isGuest: boolean) => void;
   logout: () => void;
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
@@ -18,14 +16,11 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      isGuestMode: false,
       _hasHydrated: false,
       setUser: (user) =>
-        set({ user, isAuthenticated: !!user, isGuestMode: false }),
-      setGuestMode: (isGuest) =>
-        set({ isGuestMode: isGuest, isAuthenticated: false, user: null }),
+        set({ user, isAuthenticated: !!user }),
       logout: () =>
-        set({ user: null, isAuthenticated: false, isGuestMode: false }),
+        set({ user: null, isAuthenticated: false }),
       setHasHydrated: (state) => {
         set({
           _hasHydrated: state

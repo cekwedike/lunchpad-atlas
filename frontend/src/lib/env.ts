@@ -7,7 +7,6 @@ export const env = {
   appName: process.env.NEXT_PUBLIC_APP_NAME || 'ATLAS',
   
   // Features
-  enableGuestMode: process.env.NEXT_PUBLIC_ENABLE_GUEST_MODE === 'true',
   enableAnalytics: process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true',
   
   // Analytics (optional)

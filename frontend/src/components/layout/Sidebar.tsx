@@ -35,7 +35,7 @@ interface NavItem {
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar } = useUIStore();
-  const { user, isGuestMode } = useAuthStore();
+  const { user } = useAuthStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Role-based navigation items
@@ -170,7 +170,7 @@ export function Sidebar() {
 
   // Determine which items to show based on user role
   const getNavItems = (): NavItem[] => {
-    if (isGuestMode || !user?.role) {
+    if (!user?.role) {
       return getFellowItems();
     }
 
@@ -189,10 +189,6 @@ export function Sidebar() {
 
   // Role badge config
   const getRoleBadge = () => {
-    if (isGuestMode) {
-      return { label: 'Guest', icon: User, color: 'from-slate-500 to-slate-600' };
-    }
-    
     switch (user?.role) {
       case UserRole.ADMIN:
         return { label: 'Admin', icon: Shield, color: 'from-emerald-500 to-teal-500' };
@@ -316,17 +312,6 @@ export function Sidebar() {
             </Button>
           </div>
 
-          {/* Guest Mode Notice */}
-          {isGuestMode && !isCollapsed && (
-            <div className="border-t border-slate-200 p-4">
-              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-                <p className="text-xs font-bold text-amber-900">Guest Mode</p>
-                <p className="mt-1 text-xs text-amber-700">
-                  Limited features available
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </aside>
 

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LogIn, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useLogin } from "@/hooks/api/useAuth";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
@@ -15,7 +14,6 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const [showPassword, setShowPassword] = useState(false);
-  const { enterGuestMode } = useAuth();
   const { mutate: login, isPending } = useLogin();
 
   const {
@@ -43,10 +41,6 @@ export default function LoginPage() {
     });
   };
 
-  const handleGuestMode = () => {
-    enterGuestMode();
-    router.push("/dashboard/fellow");
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b0b45] via-[#1a1a6e] to-[#0b0b45] flex flex-col items-center justify-center p-8" suppressHydrationWarning>
@@ -150,16 +144,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center" suppressHydrationWarning>
-            <button
-              onClick={handleGuestMode}
-              className="text-white/70 hover:text-white text-sm transition-colors"
-              disabled={isPending}
-              suppressHydrationWarning
-            >
-              Continue as Guest
-            </button>
-          </div>
         </div>
 
         <p className="text-white/60 text-center text-sm mt-6" suppressHydrationWarning>

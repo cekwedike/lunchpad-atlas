@@ -10,12 +10,10 @@ import type { User, LoginRequest, RegisterRequest, LoginResponse } from '@/types
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  isGuestMode: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
-  enterGuestMode: () => void;
   refreshUser: () => Promise<void>;
 }
 
@@ -23,7 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, isAuthenticated, isGuestMode, setUser, setGuestMode, logout: storeLogout } = useAuthStore();
+  const { user, isAuthenticated, setUser, logout: storeLogout } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -115,23 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Clear cookies
       document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
-      document.cookie = 'isGuestMode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
       
       toast.info('Logged out', 'See you next time!');
       router.push('/login');
     }
   };
 
-  const enterGuestMode = () => {
-    setGuestMode(true);
-    // Set guest mode cookie for middleware
-    document.cookie = 'isGuestMode=true; path=/; max-age=604800'; // 7 days
-    toast.info('Guest mode', 'Limited features available');
-    router.push('/dashboard/fellow');
-  };
-
   const refreshUser = async () => {
-    if (isAuthenticated && !isGuestMode) {
+    if (isAuthenticated) {
       try {
         const userData = await apiClient.get<User>('/users/me');
         setUser(userData);
@@ -146,12 +135,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isAuthenticated,
-        isGuestMode,
         isLoading,
         login,
         register,
         logout,
-        enterGuestMode,
         refreshUser,
       }}
     >

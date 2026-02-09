@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { User, UserAchievement } from '@/types/api';
 
 export function useProfile(userId?: string) {
-  const { user: currentUser, isAuthenticated, isGuestMode } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
 
@@ -14,13 +14,13 @@ export function useProfile(userId?: string) {
       const endpoint = userId ? `/users/${userId}` : '/users/me';
       return apiClient.get<User>(endpoint);
     },
-    enabled: userId ? !!userId : (hasToken && !isGuestMode),
+    enabled: userId ? !!userId : hasToken,
     retry: false,
   });
 }
 
 export function useUserAchievements(userId?: string) {
-  const { user: currentUser, isAuthenticated, isGuestMode } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
 
@@ -32,7 +32,7 @@ export function useUserAchievements(userId?: string) {
         : '/users/me/achievements';
       return apiClient.get<UserAchievement[]>(endpoint);
     },
-    enabled: userId ? !!userId : (hasToken && !isGuestMode),
+    enabled: userId ? !!userId : hasToken,
     retry: false,
   });
 }

@@ -6,7 +6,6 @@ import type { Resource, ResourceProgress, PaginatedResponse, MarkResourceComplet
 import { useAuthStore } from '@/stores/authStore';
 
 export function useResources(sessionId?: string) {
-  const { isGuestMode } = useAuthStore();
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
   
   return useQuery({
@@ -23,7 +22,7 @@ export function useResources(sessionId?: string) {
       // Fallback if response structure is different
       return Array.isArray(response) ? response : [];
     },
-    enabled: hasToken && !isGuestMode,
+    enabled: hasToken,
     retry: false,
   });
 }

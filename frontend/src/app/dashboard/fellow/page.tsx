@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
 export default function FellowDashboard() {
-  const { user, isGuestMode, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { user, _hasHydrated } = useAuthStore();
   const queryClient = useQueryClient();
   
   const { data: profile, isLoading: profileLoading, error: profileError } = useProfile();
@@ -69,7 +69,7 @@ export default function FellowDashboard() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold text-white mb-2">
-                    Welcome back, {isGuestMode ? 'Guest' : profile?.name?.split(' ')[0] || user?.name}!
+                    Welcome back, {profile?.name?.split(' ')[0] || user?.name}!
                   </h1>
                   <p className="text-cyan-200 text-lg">
                     {streak > 0 ? `${streak} day streak! You're on fire!` : "Let's start your learning journey today"}
