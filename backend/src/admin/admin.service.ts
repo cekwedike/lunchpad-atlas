@@ -280,7 +280,7 @@ export class AdminService {
 
     const [
       totalUsers,
-      activeUsers,
+      activeFellows,
       resourceCount,
       cohortCount,
       fellowCount,
@@ -292,6 +292,7 @@ export class AdminService {
       this.prisma.user.count(),
       this.prisma.user.count({
         where: {
+          role: 'FELLOW',
           OR: [
             { resourceProgress: { some: {} } },
             { discussions: { some: {} } },
@@ -304,13 +305,14 @@ export class AdminService {
       this.prisma.user.count({ where: { role: 'FELLOW' } }),
       this.prisma.user.count({ where: { role: 'FACILITATOR' } }),
       this.prisma.user.count({ where: { role: 'ADMIN' } }),
-      this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo }, role: 'FELLOW' } }),
       this.prisma.user.count({
         where: {
           createdAt: {
             gte: fourteenDaysAgo,
             lt: sevenDaysAgo,
           },
+          role: 'FELLOW',
         },
       }),
     ]);
@@ -324,11 +326,11 @@ export class AdminService {
             ((newUsersThisWeek - newUsersLastWeek) / newUsersLastWeek) * 100,
           );
     const engagementRate =
-      totalUsers === 0 ? 0 : Math.round((activeUsers / totalUsers) * 100);
+      fellowCount === 0 ? 0 : Math.round((activeFellows / fellowCount) * 100);
 
     return {
       totalUsers,
-      activeUsers,
+      activeUsers: activeFellows,
       engagementRate,
       weeklyGrowth,
       resourceCount,

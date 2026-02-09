@@ -1,6 +1,8 @@
 'use client';
 
 import { Search, Menu, Trophy, User, LogOut, Settings } from 'lucide-react';
+import { useProfile } from '@/hooks/api/useProfile';
+import { useLeaderboardRank } from '@/hooks/api/useLeaderboard';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,11 @@ import { NotificationBell } from '@/components/Notifications';
 export function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
+  const { data: profile } = useProfile();
+  // Only show leaderboard trophy for fellows
+  const showTrophy = isAuthenticated && user && user.role === 'FELLOW';
+  // Get leaderboard score for fellow
+  const { data: leaderboardRank } = useLeaderboardRank(user?.cohortId ?? undefined);
   const { toggleSidebar } = useUIStore();
   const { logout } = useAuth();
 
@@ -51,10 +58,10 @@ export function Navbar() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          
           <Link href="/dashboard/fellow" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-atlas-navy">
-              <Trophy className="h-5 w-5 text-white" />
+              {/* Only show trophy in logo for fellows */}
+              {showTrophy ? <Trophy className="h-5 w-5 text-white" /> : null}
             </div>
             <span className="hidden text-xl font-bold text-atlas-navy sm:block">
               ATLAS
@@ -76,12 +83,12 @@ export function Navbar() {
 
         {/* Right: Actions and User Menu */}
         <div className="flex items-center gap-2">
-          {/* Points Display */}
-          {isAuthenticated && user && (
+          {/* Points Display - only for fellows, show leaderboard score */}
+          {showTrophy && (
             <div className="hidden items-center gap-2 rounded-lg bg-amber-50 px-3 py-1.5 sm:flex">
               <Trophy className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-semibold text-amber-900">
-                {user.points || 0}
+                {leaderboardRank?.points ?? 0}
               </span>
             </div>
           )}
