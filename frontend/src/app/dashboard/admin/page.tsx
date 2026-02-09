@@ -39,13 +39,21 @@ export default function AdminDashboard() {
     ? activeChannels.filter((ch: any) => !ch.isArchived).map((ch: any) => ch.id)
     : [];
 
-  // Fetch recent messages for all active channels (limit 5 per channel)
-  const channelMessages = (activeChannelIds || []).map((channelId: string) => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useChannelMessages(channelId, 5).data || [];
-  });
-  // Flatten and sort by createdAt desc
-  const recentChatMessages = channelMessages.flat().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+  // To avoid hook order bugs, only call a fixed number of useChannelMessages hooks (max 5 channels)
+  const maxChannels = 5;
+  const safeChannelIds = Array.isArray(activeChannelIds) ? activeChannelIds.slice(0, maxChannels) : [];
+  const channelMessages1 = useChannelMessages(safeChannelIds[0], 5).data || [];
+  const channelMessages2 = useChannelMessages(safeChannelIds[1], 5).data || [];
+  const channelMessages3 = useChannelMessages(safeChannelIds[2], 5).data || [];
+  const channelMessages4 = useChannelMessages(safeChannelIds[3], 5).data || [];
+  const channelMessages5 = useChannelMessages(safeChannelIds[4], 5).data || [];
+  const recentChatMessages = [
+    ...channelMessages1,
+    ...channelMessages2,
+    ...channelMessages3,
+    ...channelMessages4,
+    ...channelMessages5,
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
   // Metrics for fellows only
   const fellowCount = metrics?.roleCounts?.fellowCount || 0;
@@ -200,65 +208,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent Discussions */}
-          <Card className="bg-white border-gray-200 shadow-sm">
-            <CardHeader className="border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold text-gray-900">Recent Discussions</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleViewDiscussions}
-                  className="text-blue-600 hover:text-blue-700 h-8"
-                >
-                  View All
-                </Button>
-              </div>
-              <CardDescription className="text-gray-600">Latest community activity</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-3">
-                {recentDiscussions && recentDiscussions.length > 0 ? (
-                  recentDiscussions.map((discussion: any) => (
-                    <div
-                      key={discussion.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/dashboard/discussions/${discussion.id}`)}
-                    >
-                      <MessageSquare className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {discussion.title}
-                          </p>
-                          {discussion.isPinned && (
-                            <Pin className="h-3 w-3 text-amber-600" />
-                          )}
-                          {discussion.isLocked && (
-                            <Lock className="h-3 w-3 text-red-600" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                          <span>{discussion.user?.firstName} {discussion.user?.lastName}</span>
-                          <span>•</span>
-                          <span>{formatDistanceToNow(new Date(discussion.createdAt), { addSuffix: true })}</span>
-                        </div>
-                        {discussion._count && (
-                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                            <span>{discussion._count.comments || 0} comments</span>
-                            <span>•</span>
-                            <span>{discussion._count.likes || 0} likes</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-4">No recent discussions</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Recent Discussions removed as requested */}
 
           {/* Recent Chats */}
           <Card className="bg-white border-gray-200 shadow-sm mt-6">
