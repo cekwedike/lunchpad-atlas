@@ -11,11 +11,17 @@ import { useLeaderboard, useLeaderboardRank, useLeaderboardMonths } from "@/hook
 import { useProfile } from "@/hooks/api/useProfile";
 import { useCohorts } from "@/hooks/api/useAdmin";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { apiClient } from "@/lib/api-client";
 
 export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
+  const [adjustUserId, setAdjustUserId] = useState("");
+  const [adjustPoints, setAdjustPoints] = useState("");
+  const [adjustDescription, setAdjustDescription] = useState("");
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
   const { data: profile } = useProfile();
   const isAdmin = profile?.role === 'ADMIN';
@@ -92,6 +98,42 @@ export default function LeaderboardPage() {
   const lastUpdatedLabel = leaderboard?.data?.length
     ? `Live update • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     : 'Live update';
+
+  const handleAdjustPoints = async () => {
+    if (!adjustUserId.trim()) {
+      toast.error('User ID is required');
+      return;
+    }
+
+    const parsedPoints = Number(adjustPoints);
+    if (!Number.isFinite(parsedPoints) || parsedPoints === 0) {
+      toast.error('Points must be a non-zero number');
+      return;
+    }
+
+    if (!adjustDescription.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+
+    try {
+      setIsAdjusting(true);
+      await apiClient.post('/leaderboard/adjust-points', {
+        userId: adjustUserId.trim(),
+        points: parsedPoints,
+        description: adjustDescription.trim(),
+      });
+      toast.success('Points adjusted');
+      setAdjustUserId('');
+      setAdjustPoints('');
+      setAdjustDescription('');
+      refetch();
+    } catch (error: any) {
+      toast.error('Failed to adjust points', error?.message || 'Try again');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -229,15 +271,62 @@ export default function LeaderboardPage() {
           )}
         </section>
         ) : (
-          <Card className="border-slate-200 bg-white">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900">Leaderboard access</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Leaderboards are visible to fellows only. Admins and facilitators can adjust points without
-                appearing in the rankings.
-              </p>
-            </div>
-          </Card>
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card className="border-slate-200 bg-white">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-slate-900">Leaderboard access</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Leaderboards are visible to fellows only. Admins and facilitators can adjust points without
+                  appearing in the rankings.
+                </p>
+              </div>
+            </Card>
+            {(isAdmin || isFacilitator) && (
+              <Card className="border-slate-200 bg-white">
+                <div className="p-6 space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">Adjust points</h2>
+                    <p className="text-xs text-slate-500">Manual adjustments are logged for auditing.</p>
+                  </div>
+                  <div className="grid gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-slate-600">Fellow User ID</label>
+                      <Input
+                        value={adjustUserId}
+                        onChange={(event) => setAdjustUserId(event.target.value)}
+                        placeholder="User ID"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-600">Points (+/-)</label>
+                      <Input
+                        value={adjustPoints}
+                        onChange={(event) => setAdjustPoints(event.target.value)}
+                        placeholder="e.g. 15 or -5"
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-600">Reason</label>
+                      <Input
+                        value={adjustDescription}
+                        onChange={(event) => setAdjustDescription(event.target.value)}
+                        placeholder="Reason for adjustment"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAdjustPoints}
+                      disabled={isAdjusting}
+                      className="justify-center"
+                    >
+                      {isAdjusting ? 'Adjusting...' : 'Adjust points'}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
         )}
 
         {isFellow ? (
