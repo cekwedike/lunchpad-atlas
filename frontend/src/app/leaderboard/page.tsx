@@ -7,23 +7,61 @@ import { Input } from "@/components/ui/input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Trophy, Medal, Award, Crown, Search, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
-import { useLeaderboard, useLeaderboardRank } from "@/hooks/api/useLeaderboard";
+import { useLeaderboard, useLeaderboardRank, useLeaderboardMonths } from "@/hooks/api/useLeaderboard";
 import { useProfile } from "@/hooks/api/useProfile";
+import { useCohorts } from "@/hooks/api/useAdmin";
 import { useState, useEffect } from "react";
 
 export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
 
   const { data: profile } = useProfile();
-  const { data: leaderboard, isLoading, error, refetch } = useLeaderboard(undefined, selectedMonth);
-  const { data: userRank } = useLeaderboardRank(undefined, selectedMonth);
+  const isAdmin = profile?.role === 'ADMIN';
+  const isFacilitator = profile?.role === 'FACILITATOR';
+  const { data: cohortsData } = useCohorts(isAdmin);
+  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
+  const availableCohorts = isAdmin
+    ? cohorts
+    : isFacilitator
+      ? (profile?.facilitatedCohorts || [])
+      : [];
 
-  // Auto-refresh every 30 seconds for live updates
+  useEffect(() => {
+    if (selectedCohortId) return;
+    if (profile?.cohortId) {
+      setSelectedCohortId(profile.cohortId);
+      return;
+    }
+    if (availableCohorts.length > 0) {
+      setSelectedCohortId(availableCohorts[0].id);
+    }
+  }, [profile?.cohortId, availableCohorts, selectedCohortId]);
+
+  const { data: monthsData } = useLeaderboardMonths(selectedCohortId || undefined);
+  const monthOptions = monthsData?.months || [];
+
+  useEffect(() => {
+    if (selectedMonth || monthOptions.length === 0) return;
+    const latest = monthOptions[monthOptions.length - 1];
+    setSelectedMonth({ month: latest.month, year: latest.year });
+  }, [selectedMonth, monthOptions]);
+
+  const { data: leaderboard, isLoading, error, refetch, isFetching } = useLeaderboard(
+    selectedCohortId || undefined,
+    selectedMonth || undefined,
+  );
+  const { data: userRank } = useLeaderboardRank(
+    selectedCohortId || undefined,
+    selectedMonth || undefined,
+  );
+
+  // Auto-refresh every 10 seconds for live updates
   useEffect(() => {
     const interval = setInterval(() => {
       refetch();
-    }, 30000); // 30 seconds
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [refetch]);
@@ -50,32 +88,29 @@ export default function LeaderboardPage() {
     return <span className="text-lg font-bold text-gray-600">#{rank}</span>;
   };
 
-  const getMonthOptions = () => {
-    const months = [];
-    const now = new Date();
-    for (let i = 0; i < 4; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(date);
-    }
-    return months;
-  };
+  const lastUpdatedLabel = leaderboard?.data?.length
+    ? `Live update • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : 'Live update';
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Leaderboard</h1>
             <p className="text-muted-foreground mt-1">See how you rank among your cohort</p>
+            <p className="text-xs text-emerald-600 mt-1">{lastUpdatedLabel}</p>
           </div>
           <Button
             onClick={() => refetch()}
             variant="outline"
             size="sm"
             className="flex items-center gap-2"
+            type="button"
+            disabled={isFetching}
           >
             <RefreshCw className="w-4 h-4" />
-            Refresh
+            {isFetching ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
 
@@ -88,7 +123,28 @@ export default function LeaderboardPage() {
                 <div className="text-4xl font-bold text-atlas-navy">#{userRank.rank ?? "--"}</div>
                 <div className="flex-1">
                   <p className="font-semibold">{userRank.userName || "You"}</p>
-                  <p className="text-sm text-muted-foreground">{userRank.points} points • {userRank.streak} day streak</p>
+                  <p className="text-sm text-muted-foreground">
+                    {userRank.points} points • {userRank.streak} day streak
+                  </p>
+                  {(userRank.bonusPoints || userRank.chatBonus || userRank.streakBonus) && (
+                    <p className="text-xs text-slate-600 mt-1">
+                      Bonus {userRank.bonusPoints ?? 0} • Chat {userRank.chatBonus ?? 0} • Streak {userRank.streakBonus ?? 0}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg bg-white/70 p-3">
+                  <div className="text-xs text-slate-500">Base Points</div>
+                  <div className="text-lg font-semibold text-slate-900">{userRank.basePoints ?? 0}</div>
+                </div>
+                <div className="rounded-lg bg-white/70 p-3">
+                  <div className="text-xs text-slate-500">Engagement Bonus</div>
+                  <div className="text-lg font-semibold text-slate-900">{userRank.bonusPoints ?? 0}</div>
+                </div>
+                <div className="rounded-lg bg-white/70 p-3">
+                  <div className="text-xs text-slate-500">Chat + Comment Count</div>
+                  <div className="text-lg font-semibold text-slate-900">{userRank.chatCount ?? 0}</div>
                 </div>
               </div>
             </div>
@@ -97,18 +153,42 @@ export default function LeaderboardPage() {
 
         {/* Month Selector */}
         <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-bold mb-4">Select Month</h2>
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-bold">Select Month</h2>
+              {availableCohorts.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <span>Cohort</span>
+                  <select
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+                    value={selectedCohortId || ''}
+                    onChange={(event) => setSelectedCohortId(event.target.value)}
+                  >
+                    {availableCohorts.map((cohort: any) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="flex gap-3 overflow-x-auto">
-              {getMonthOptions().map((month) => (
-                <Button
-                  key={month.toISOString()}
-                  variant={month.getMonth() === selectedMonth.getMonth() ? "default" : "outline"}
-                  onClick={() => setSelectedMonth(month)}
-                >
-                  {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </Button>
-              ))}
+              {monthOptions.length === 0 ? (
+                <span className="text-sm text-slate-500">
+                  No active cohort months available
+                </span>
+              ) : (
+                monthOptions.map((month) => (
+                  <Button
+                    key={`${month.year}-${month.month}`}
+                    variant={month.month === selectedMonth?.month && month.year === selectedMonth?.year ? "default" : "outline"}
+                    onClick={() => setSelectedMonth({ month: month.month, year: month.year })}
+                  >
+                    {month.label}
+                  </Button>
+                ))
+              )}
             </div>
           </div>
         </Card>
@@ -211,10 +291,20 @@ export default function LeaderboardPage() {
                               <div className="w-10 h-10 bg-atlas-navy text-white rounded-full flex items-center justify-center font-semibold">
                                 {entry.userName?.slice(0, 2).toUpperCase() || "?"}
                               </div>
-                              <span className="font-medium">{entry.userName || "Unknown"}</span>
+                              <span className="font-medium flex items-center gap-2">
+                                {entry.userName || "Unknown"}
+                                {entry.rank === 1 && <Crown className="h-4 w-4 text-yellow-500" />}
+                              </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 font-semibold">{entry.points}</td>
+                          <td className="px-6 py-4 font-semibold">
+                            {entry.points}
+                            {(entry.bonusPoints || entry.chatBonus || entry.streakBonus) && (
+                              <div className="text-xs text-slate-500">
+                                +{entry.bonusPoints ?? 0} bonus
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4">{entry.streak} days</td>
                           <td className="px-6 py-4">
                             {/* Rank change tracking not yet implemented */}

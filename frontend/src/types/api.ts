@@ -253,8 +253,14 @@ export interface LeaderboardRow {
   email: string;
   cohortId?: string | null;
   points: number;
+  basePoints?: number;
+  bonusPoints?: number;
+  chatBonus?: number;
+  chatCount?: number;
+  chatStreak?: number;
   rank: number;
   streak: number;
+  streakBonus?: number;
 }
 
 export interface LeaderboardResponse {
@@ -269,7 +275,13 @@ export interface LeaderboardRankResponse {
   rank: number | null;
   totalUsers: number;
   points: number;
+  basePoints?: number;
+  bonusPoints?: number;
+  chatBonus?: number;
+  chatCount?: number;
+  chatStreak?: number;
   streak: number;
+  streakBonus?: number;
   userId?: string;
   userName?: string;
   email?: string;

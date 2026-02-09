@@ -26,14 +26,23 @@ export class LeaderboardController {
     return this.leaderboardService.getUserRank(req.user.id, filterDto);
   }
 
+  @Get('months')
+  async getAvailableMonths(@Request() req, @Query('cohortId') cohortId?: string) {
+    return this.leaderboardService.getAvailableMonths(
+      req.user.id,
+      req.user.role,
+      cohortId,
+    );
+  }
+
   @Post('adjust-points')
   async adjustPoints(
     @Request() req,
     @Body() dto: LeaderboardAdjustPointsDto,
   ) {
-    if (req.user.role !== 'ADMIN') {
-      throw new ForbiddenException('Only admins can adjust leaderboard points');
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'FACILITATOR') {
+      throw new ForbiddenException('Only admins or facilitators can adjust leaderboard points');
     }
-    return this.leaderboardService.adjustPoints(req.user.id, dto);
+    return this.leaderboardService.adjustPoints(req.user.id, req.user.role, dto);
   }
 }
