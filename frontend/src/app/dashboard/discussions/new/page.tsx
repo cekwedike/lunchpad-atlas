@@ -58,6 +58,7 @@ export default function NewDiscussionPage() {
   }, [selectedCohortId]);
 
   const cohortIdForTopics = isFellow ? profile?.cohortId : selectedCohortId;
+  const cohortIdForSubmit = isFellow ? profile?.cohortId : selectedCohortId;
   const { data: topicOptions } = useDiscussionTopics(cohortIdForTopics || undefined);
   const topics = topicOptions || [];
 
@@ -266,12 +267,14 @@ export default function NewDiscussionPage() {
                     || !content.trim()
                     || title.trim().length < 5
                     || content.trim().length < 20
-                    || !selectedCohortId
+                    || !cohortIdForSubmit
                   }
                   className="gap-2"
                 >
                   <Send className="h-4 w-4" />
-                  {createDiscussion.isPending ? "Posting..." : "Post Discussion"}
+                  {createDiscussion.isPending
+                    ? "Posting..."
+                    : (isFellow ? "Submit for Approval" : "Post Discussion")}
                 </Button>
                 <Button
                   type="button"

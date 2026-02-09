@@ -559,6 +559,31 @@ export default function DiscussionDetailPage() {
           )}
         </div>
 
+        {discussion.isApproved === false && (
+          <Card className="bg-amber-50 border border-amber-200">
+            <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-amber-900">Pending approval</div>
+                <div className="text-sm text-amber-700">
+                  {canApproveDiscussion
+                    ? "Approve this discussion to publish it to the cohort."
+                    : "This discussion will be visible once a facilitator approves it."}
+                </div>
+              </div>
+              {canApproveDiscussion && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleApproveDiscussion}
+                  disabled={approveDiscussion.isPending}
+                >
+                  Approve discussion
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Discussion Card */}
         <Card className="bg-white">
           <CardContent className="p-6">
