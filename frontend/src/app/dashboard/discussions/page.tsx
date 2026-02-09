@@ -183,6 +183,16 @@ export default function DiscussionsPage() {
     }
   }, [canManageChats, isAdmin, isFacilitator, facilitatorCohorts, profile?.cohortId, selectedCohortId]);
 
+  useEffect(() => {
+    if (!canManageChats) return;
+
+    const interval = setInterval(() => {
+      refetchPendingCount();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [canManageChats, refetchPendingCount]);
+
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-4rem)] bg-gray-50">
