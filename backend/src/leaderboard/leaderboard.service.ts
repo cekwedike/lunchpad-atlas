@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { LeaderboardFilterDto } from './dto/leaderboard.dto';
+import { LeaderboardFilterDto, LeaderboardAdjustPointsDto } from './dto/leaderboard.dto';
 
 @Injectable()
 export class LeaderboardService {
   constructor(private prisma: PrismaService) {}
 
   async getLeaderboard(filterDto: LeaderboardFilterDto) {
-    const { month, cohortId, page = 1, limit = 20 } = filterDto;
+    const { month, cohortId, year, page = 1, limit = 20 } = filterDto;
     const skip = (page - 1) * limit;
 
     // Calculate date range for month filtering
@@ -15,7 +15,7 @@ export class LeaderboardService {
     let endDate: Date | undefined;
 
     if (month) {
-      const currentYear = new Date().getFullYear();
+      const currentYear = year || new Date().getFullYear();
       startDate = new Date(currentYear, month - 1, 1);
       endDate = new Date(currentYear, month, 0, 23, 59, 59, 999);
     } else {
@@ -39,10 +39,13 @@ export class LeaderboardService {
         gte: startDate,
         lte: endDate,
       },
+      user: {
+        role: 'FELLOW',
+      },
     };
 
     if (cohortId) {
-      where.user = { cohortId };
+      where.user.cohortId = cohortId;
     }
 
     // Get aggregated points by user
@@ -112,14 +115,36 @@ export class LeaderboardService {
   }
 
   async getUserRank(userId: string, filterDto: LeaderboardFilterDto) {
-    const { month, cohortId } = filterDto;
+    const { month, cohortId, year } = filterDto;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, firstName: true, lastName: true, email: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== 'FELLOW') {
+      return {
+        rank: null,
+        totalUsers: 0,
+        points: 0,
+        streak: 0,
+        userId,
+        userName: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        message: 'Only fellows appear on the leaderboard',
+      };
+    }
 
     // Calculate date range
     let startDate: Date | undefined;
     let endDate: Date | undefined;
 
     if (month) {
-      const currentYear = new Date().getFullYear();
+      const currentYear = year || new Date().getFullYear();
       startDate = new Date(currentYear, month - 1, 1);
       endDate = new Date(currentYear, month, 0, 23, 59, 59, 999);
     } else {
@@ -141,10 +166,13 @@ export class LeaderboardService {
         gte: startDate,
         lte: endDate,
       },
+      user: {
+        role: 'FELLOW',
+      },
     };
 
     if (cohortId) {
-      where.user = { cohortId };
+      where.user.cohortId = cohortId;
     }
 
     // Get all users ranked by points
@@ -177,11 +205,6 @@ export class LeaderboardService {
 
     const userPoints = allRankings[userRankIndex]._sum.points || 0;
     const streak = await this.calculateStreak(userId);
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, firstName: true, lastName: true, email: true },
-    });
-
     return {
       rank: userRankIndex + 1,
       totalUsers: allRankings.length,
@@ -193,6 +216,63 @@ export class LeaderboardService {
         : 'Unknown',
       email: user?.email || '',
     };
+  }
+
+  async adjustPoints(adminId: string, dto: LeaderboardAdjustPointsDto) {
+    const { userId, points, description } = dto;
+
+    if (!Number.isFinite(points) || points === 0) {
+      throw new BadRequestException('Points must be a non-zero number');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        currentMonthPoints: true,
+        lastPointReset: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== 'FELLOW') {
+      throw new BadRequestException('Only fellows can receive leaderboard points');
+    }
+
+    const now = new Date();
+    const lastReset = user.lastPointReset;
+    const needsReset =
+      !lastReset ||
+      lastReset.getMonth() !== now.getMonth() ||
+      lastReset.getFullYear() !== now.getFullYear();
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        currentMonthPoints: needsReset
+          ? points
+          : { increment: points },
+        lastPointReset: needsReset ? now : undefined,
+      },
+    });
+
+    const log = await this.prisma.pointsLog.create({
+      data: {
+        userId,
+        points,
+        eventType: 'ADMIN_ADJUSTMENT' as any,
+        description,
+        metadata: {
+          adjustedBy: adminId,
+        },
+      },
+    });
+
+    return { success: true, logId: log.id };
   }
 
   private async calculateStreak(userId: string): Promise<number> {

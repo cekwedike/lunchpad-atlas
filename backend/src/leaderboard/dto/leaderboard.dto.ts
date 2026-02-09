@@ -10,6 +10,12 @@ export class LeaderboardFilterDto {
   month?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(2000)
+  @Type(() => Number)
+  year?: number;
+
+  @IsOptional()
   @IsString()
   cohortId?: string;
 
@@ -25,4 +31,16 @@ export class LeaderboardFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number = 20;
+}
+
+export class LeaderboardAdjustPointsDto {
+  @IsString()
+  userId: string;
+
+  @IsInt()
+  @Type(() => Number)
+  points: number;
+
+  @IsString()
+  description: string;
 }

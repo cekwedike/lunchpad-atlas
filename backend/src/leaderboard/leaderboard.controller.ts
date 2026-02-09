@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Request, Post, Body, ForbiddenException } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,7 +6,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { LeaderboardService } from './leaderboard.service';
-import { LeaderboardFilterDto } from './dto/leaderboard.dto';
+import { LeaderboardFilterDto, LeaderboardAdjustPointsDto } from './dto/leaderboard.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('leaderboard')
@@ -24,5 +24,16 @@ export class LeaderboardController {
   @Get('rank')
   async getUserRank(@Request() req, @Query() filterDto: LeaderboardFilterDto) {
     return this.leaderboardService.getUserRank(req.user.id, filterDto);
+  }
+
+  @Post('adjust-points')
+  async adjustPoints(
+    @Request() req,
+    @Body() dto: LeaderboardAdjustPointsDto,
+  ) {
+    if (req.user.role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can adjust leaderboard points');
+    }
+    return this.leaderboardService.adjustPoints(req.user.id, dto);
   }
 }
