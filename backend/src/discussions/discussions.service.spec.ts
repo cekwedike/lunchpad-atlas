@@ -153,10 +153,13 @@ describe('DiscussionsService', () => {
       mockPrismaService.discussion.findMany.mockResolvedValue(mockDiscussions);
       mockPrismaService.discussion.count.mockResolvedValue(1);
 
-      const result = await service.getDiscussions(filters);
+      const result = await service.getDiscussions(filters, 'ADMIN');
 
       expect(result).toEqual({
-        data: mockDiscussions,
+        data: mockDiscussions.map((discussion) => ({
+          ...discussion,
+          session: null,
+        })),
         total: 1,
         page: 1,
         limit: 10,
@@ -170,7 +173,7 @@ describe('DiscussionsService', () => {
       mockPrismaService.discussion.findMany.mockResolvedValue([]);
       mockPrismaService.discussion.count.mockResolvedValue(0);
 
-      await service.getDiscussions(filters);
+      await service.getDiscussions(filters, 'ADMIN');
 
       expect(mockPrismaService.discussion.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
