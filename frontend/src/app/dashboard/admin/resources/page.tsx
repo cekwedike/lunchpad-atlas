@@ -98,10 +98,37 @@ export default function ResourceManagementPage() {
     ],
   };
 
-  // Helper: get resources for a session number
-  const getSessionResources = (sessionNumber: number) => {
-    if (!resources) return [];
-    return (resources as any[]).filter(r => r.session?.sessionNumber === sessionNumber);
+  // Resource mapping from resources.md (sample for first 2 sessions, expand as needed)
+  type ResourceMapType = {
+    [key: string]: { type: string; title: string; url: string; core: boolean }[];
+  };
+  const RESOURCE_MAP: ResourceMapType = {
+    1: [
+      { type: 'article', title: '360° Leadership: The Art of Influence Without Authority', url: 'https://medium.com/@contact.jitendra07/360-leadership-the-art-of-influence-without-authority-3ace7b3e1a9b', core: true },
+      { type: 'article', title: 'Developing an ownership mindset early in your career', url: 'https://www.indeed.com/career-advice/career-development/ownership-mindset', core: true },
+      { type: 'article', title: 'Ownership Mindset', url: 'https://www.atlassian.com/blog/leadership/how-leaders-build-ownership-mindset', core: true },
+      { type: 'video', title: 'Leadership Vs. Authority | Simon Sinek', url: 'https://www.youtube.com/watch?v=pkclW79ZoZU', core: true },
+      { type: 'video', title: 'What ownership mindset looks like in real workplaces', url: 'https://youtu.be/ORlTz8lJL7k?si=ugc7Vd76qeRjWMp7', core: true },
+      { type: 'article', title: 'Building influence without formal power', url: 'https://online.hbs.edu/blog/post/influence-without-authority', core: false },
+      { type: 'video', title: 'Leadership Without Authority TEDx', url: 'https://www.youtube.com/watch?v=LZ6EXX3hLLg&pp=ygUhTGVhZGVyc2hpcCBXaXRob3V0IEF1dGhvcml0eSBURUR4', core: false },
+    ],
+    2: [
+      { type: 'article', title: 'SMART goal setting for professionals', url: 'https://www.indeed.com/career-advice/career-development/how-to-write-smart-goals', core: true },
+      { type: 'article', title: 'Time management strategies for high-performing employees', url: 'https://www.proofhub.com/articles/time-management-strategies', core: true },
+      { type: 'video', title: 'SMART Goals Explained', url: 'https://youtu.be/hj7Kw3fDNaw?si=xiWUYxNYgPFG-9yD', core: true },
+      { type: 'video', title: 'Brian Tracy Time Management', url: 'https://youtu.be/sJb2qmd5wsk?si=1SOr7s2Xs7CNjqtT', core: true },
+      { type: 'article', title: 'Deep work, focus, and managing attention in modern workplaces', url: 'https://lpsonline.sas.upenn.edu/features/mastering-your-schedule-effective-time-management-strategies-success', core: false },
+      { type: 'video', title: 'Productivity systems that work for busy professionals', url: 'https://youtu.be/T6hmdrsLQj8?si=smHG7tpcjzRqYfF7', core: false },
+    ],
+    // ...repeat for all sessions
+  };
+
+  // Track lock state for each resource (simulate with local state for demo; in real app, use backend)
+  const [resourceLocks, setResourceLocks] = useState<{ [key: string]: boolean }>({});
+  const handleResourceLockToggle = (sessionNumber: number, idx: number) => {
+    const key = `${sessionNumber}-${idx}`;
+    setResourceLocks((prev) => ({ ...prev, [key]: !prev[key] }));
+    // TODO: Call backend to update lock state and refetch for Resources (View)
   };
 
   // Fetch all resources for selected cohort
@@ -297,7 +324,7 @@ export default function ResourceManagementPage() {
             <Label className="text-sm font-medium text-gray-900 mb-2 block">Sessions</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {CURRICULUM.months.flatMap(month => month.sessions).map((session) => {
-                const sessionResources = getSessionResources(session.sessionNumber);
+                const sessionResources = RESOURCE_MAP[String(session.sessionNumber)] || [];
                 return (
                   <Card key={session.sessionNumber} className="border-2 border-gray-200">
                     <CardHeader>
@@ -310,49 +337,27 @@ export default function ResourceManagementPage() {
                       <div className="text-xs text-gray-700 min-h-[24px] mb-2">
                         {sessionResources.length} resources
                       </div>
-                      {resourcesLoading ? (
-                        <div className="p-4 text-center text-gray-600">Loading resources...</div>
-                      ) : sessionResources.length === 0 ? (
+                      {sessionResources.length === 0 ? (
                         <div className="p-4 text-center text-gray-400 text-xs">No resources for this session.</div>
                       ) : (
                         <div className="space-y-2">
-                          {sessionResources.map((resource: any) => (
-                            <Card key={resource.id} className="shadow border border-gray-200 flex flex-col">
-                              <CardHeader className="pb-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                  {getResourceIcon(resource.type)}
-                                  <span className="text-base font-semibold text-gray-900 capitalize">{resource.title}</span>
-                                </div>
-                                <CardDescription className="mb-1 text-xs text-gray-500">
-                                  {resource.description || 'No description'}
-                                </CardDescription>
-                                <div className="flex flex-wrap gap-2 text-xs mt-2">
-                                  <Badge className={resource.isCore ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
-                                    {resource.isCore ? 'Core' : 'Optional'}
-                                  </Badge>
-                                  <span className="text-gray-500">{resource.type}</span>
-                                  <span className="text-gray-500">{resource.estimatedMinutes || resource.duration || 0} min</span>
-                                  <span className="text-gray-500">{resource.pointValue} pts</span>
-                                  <Button size="sm" variant="outline" onClick={() => handleToggleLock(resource)}>
-                                    {resource.state === 'LOCKED' ? 'Unlock' : 'Lock'}
-                                  </Button>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="flex-1 flex flex-col justify-between">
-                                <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs break-all">
-                                  {resource.url}
-                                </a>
-                              </CardContent>
-                              <CardFooter className="flex gap-2 justify-end border-t pt-3">
-                                <Button size="sm" variant="outline" onClick={() => handleEditResource(resource)}>
-                                  <Edit className="h-4 w-4" /> Edit
+                          {sessionResources.map((resource, idx) => {
+                            const key = `${session.sessionNumber}-${idx}`;
+                            const locked = resourceLocks[key] ?? true;
+                            return (
+                              <div key={key} className="flex items-center gap-3 p-2 border rounded bg-white">
+                                <span className="font-medium text-gray-900">{resource.title}</span>
+                                <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Open</a>
+                                <Badge className={resource.core ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                                  {resource.core ? 'Core' : 'Optional'}
+                                </Badge>
+                                <span className="text-gray-500 text-xs">{resource.type}</span>
+                                <Button size="sm" variant="outline" onClick={() => handleResourceLockToggle(session.sessionNumber, idx)}>
+                                  {locked ? 'Unlock' : 'Lock'}
                                 </Button>
-                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteResource(resource.id)}>
-                                  <Trash2 className="h-4 w-4" /> Delete
-                                </Button>
-                              </CardFooter>
-                            </Card>
-                          ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                       <div className="flex justify-end mt-2">
