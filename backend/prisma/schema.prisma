@@ -594,6 +594,7 @@ enum NotificationType {
   INCOMPLETE_RESOURCE // Resource nearing deadline
   ACHIEVEMENT_EARNED // New achievement unlocked
   DISCUSSION_REPLY // Reply to your discussion/comment
+  DISCUSSION_APPROVED // Discussion approved
   SESSION_REMINDER // Upcoming session reminder
   LEADERBOARD_UPDATE // Moved up in rankings
   POINT_CAP_WARNING // Approaching monthly point cap

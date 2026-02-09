@@ -37,6 +37,7 @@ export default function DiscussionsPage() {
   const { data: profile } = useProfile();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPinned, setFilterPinned] = useState(false);
+  const [filterPendingApproval, setFilterPendingApproval] = useState(false);
   const [selectedCohortId, setSelectedCohortId] = useState("");
   const [chatRoomName, setChatRoomName] = useState("");
   const [deleteChatModal, setDeleteChatModal] = useState<{ id: string; name: string } | null>(null);
@@ -48,6 +49,7 @@ export default function DiscussionsPage() {
   const { data: discussionsData, refetch } = useDiscussions(profile?.cohortId ?? undefined, {
     pinned: filterPinned || undefined,
     resourceId,
+    isApproved: filterPendingApproval ? false : undefined,
   });
   const approveDiscussion = useApproveDiscussion();
 
@@ -218,6 +220,14 @@ export default function DiscussionsPage() {
                   >
                     <Filter className="h-4 w-4" />
                     {filterPinned ? "Show All" : "Pinned Only"}
+                  </Button>
+                  <Button
+                    variant={filterPendingApproval ? "default" : "outline"}
+                    onClick={() => setFilterPendingApproval(!filterPendingApproval)}
+                    className="gap-2"
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    {filterPendingApproval ? "Show All" : "Pending Approval"}
                   </Button>
                 </div>
               </CardContent>

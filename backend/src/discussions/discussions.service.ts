@@ -280,7 +280,8 @@ export class DiscussionsService {
       resourceId,
       authorId,
       isPinned,
-    } = filters;
+      isApproved,
+    } = filters as any;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -299,6 +300,17 @@ export class DiscussionsService {
     if (resourceId) where.resourceId = resourceId;
     if (authorId) where.authorId = authorId;
     if (isPinned !== undefined) where.isPinned = isPinned;
+
+    const parsedIsApproved =
+      typeof isApproved === 'string' ? isApproved === 'true' : isApproved;
+
+    if (parsedIsApproved !== undefined) {
+      if (userRole === 'FELLOW' && parsedIsApproved === false) {
+        andFilters.push({ isApproved: false, userId: userId });
+      } else {
+        andFilters.push({ isApproved: parsedIsApproved });
+      }
+    }
 
     if (userRole === 'FELLOW') {
       andFilters.push({
@@ -1187,6 +1199,12 @@ export class DiscussionsService {
 
     this.discussionsGateway.broadcastNewDiscussion(updated);
     this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    await this.notificationsService.notifyDiscussionApproved(
+      discussion.userId,
+      discussion.title,
+      discussion.id,
+    );
 
     return updated;
   }

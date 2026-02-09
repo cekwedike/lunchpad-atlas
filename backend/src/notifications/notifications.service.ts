@@ -393,6 +393,20 @@ export class NotificationsService {
     });
   }
 
+  async notifyDiscussionApproved(
+    userId: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'DISCUSSION_APPROVED',
+      title: 'Discussion Approved',
+      message: `Your discussion "${discussionTitle}" has been approved.`,
+      data: { discussionId },
+    });
+  }
+
   // ==================== FETCH NOTIFICATIONS ====================
 
   async getUserNotifications(

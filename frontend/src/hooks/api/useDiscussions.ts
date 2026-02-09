@@ -9,7 +9,10 @@ export interface DiscussionTopicOption {
   label: string;
 }
 
-export function useDiscussions(cohortId?: string, filters?: { pinned?: boolean; resourceId?: string }) {
+export function useDiscussions(
+  cohortId?: string,
+  filters?: { pinned?: boolean; resourceId?: string; isApproved?: boolean },
+) {
   return useQuery({
     queryKey: ['discussions', cohortId, filters],
     queryFn: async () => {
@@ -17,6 +20,9 @@ export function useDiscussions(cohortId?: string, filters?: { pinned?: boolean; 
       if (cohortId) params.append('cohortId', cohortId);
       if (filters?.pinned) params.append('pinned', 'true');
       if (filters?.resourceId) params.append('resourceId', filters.resourceId);
+      if (filters?.isApproved !== undefined) {
+        params.append('isApproved', String(filters.isApproved));
+      }
       
       const endpoint = `/discussions${params.toString() ? `?${params.toString()}` : ''}`;
       return apiClient.get<PaginatedResponse<Discussion>>(endpoint);

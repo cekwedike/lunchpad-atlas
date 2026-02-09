@@ -70,6 +70,9 @@ export class DiscussionFilterDto {
   isPinned?: boolean;
 
   @IsOptional()
+  isApproved?: boolean;
+
+  @IsOptional()
   page?: number;
 
   @IsOptional()
