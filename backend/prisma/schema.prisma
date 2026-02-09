@@ -44,6 +44,8 @@ enum EventType {
   RESOURCE_COMPLETE
   DISCUSSION_POST
   DISCUSSION_COMMENT
+  DISCUSSION_QUALITY_SCORE
+  COMMENT_QUALITY_SCORE
   QUIZ_SUBMIT
   CHAT_MESSAGE
   SESSION_ATTEND
@@ -234,6 +236,7 @@ model Discussion {
   qualityScore    Int?     // AI-generated quality score (0-100)
   qualityAnalysis Json?    // AI analysis details
   scoredAt        DateTime? // When AI scoring was completed
+  isQualityVisible Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -260,6 +263,10 @@ model DiscussionComment {
   parentId     String?
   content      String
   isPinned     Boolean  @default(false)
+  qualityScore Int?
+  qualityAnalysis Json?
+  scoredAt     DateTime?
+  isQualityVisible Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

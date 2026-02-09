@@ -32,8 +32,8 @@ export class DiscussionsController {
   constructor(private discussionsService: DiscussionsService) {}
 
   @Get()
-  getDiscussions(@Query() filters: DiscussionFilterDto) {
-    return this.discussionsService.getDiscussions(filters);
+  getDiscussions(@Query() filters: DiscussionFilterDto, @Request() req) {
+    return this.discussionsService.getDiscussions(filters, req.user.role);
   }
 
   @Get('topics')
@@ -43,8 +43,8 @@ export class DiscussionsController {
   }
 
   @Get(':id')
-  getDiscussion(@Param('id') id: string) {
-    return this.discussionsService.getDiscussion(id);
+  getDiscussion(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.getDiscussion(id, req.user.role);
   }
 
   @Post()
@@ -63,7 +63,7 @@ export class DiscussionsController {
 
   @Get(':id/comments')
   getComments(@Param('id') id: string, @Request() req) {
-    return this.discussionsService.getComments(id, req.user.id);
+    return this.discussionsService.getComments(id, req.user.id, req.user.role);
   }
 
   @Post(':id/comments')
@@ -86,8 +86,22 @@ export class DiscussionsController {
 
   @Post(':id/score-quality')
   @ApiOperation({ summary: 'AI score discussion quality' })
-  scoreDiscussionQuality(@Param('id') id: string) {
-    return this.discussionsService.scoreDiscussionQuality(id);
+  scoreDiscussionQuality(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.scoreDiscussionQuality(
+      id,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
+  @Post(':id/quality-visibility')
+  @ApiOperation({ summary: 'Toggle discussion quality visibility' })
+  toggleDiscussionQualityVisibility(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.toggleDiscussionQualityVisibility(
+      id,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Get('quality/top')
@@ -144,6 +158,29 @@ export class DiscussionsController {
       commentId,
       req.user.id,
       dto.type,
+    );
+  }
+
+  @Post('comments/:commentId/score-quality')
+  @ApiOperation({ summary: 'AI score comment quality' })
+  scoreCommentQuality(@Param('commentId') commentId: string, @Request() req) {
+    return this.discussionsService.scoreCommentQuality(
+      commentId,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
+  @Post('comments/:commentId/quality-visibility')
+  @ApiOperation({ summary: 'Toggle comment quality visibility' })
+  toggleCommentQualityVisibility(
+    @Param('commentId') commentId: string,
+    @Request() req,
+  ) {
+    return this.discussionsService.toggleCommentQualityVisibility(
+      commentId,
+      req.user.id,
+      req.user.role,
     );
   }
 

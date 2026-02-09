@@ -17,7 +17,7 @@ export default function LeaderboardPage() {
 
   const { data: profile } = useProfile();
   const { data: leaderboard, isLoading, error, refetch } = useLeaderboard(undefined, selectedMonth);
-  const { data: userRank } = useLeaderboardRank(profile?.id || "");
+  const { data: userRank } = useLeaderboardRank(undefined, selectedMonth);
 
   // Auto-refresh every 30 seconds for live updates
   useEffect(() => {
@@ -36,8 +36,8 @@ export default function LeaderboardPage() {
     );
   }
 
-  const filteredEntries = leaderboard?.entries?.filter((entry) =>
-    entry.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredEntries = leaderboard?.data?.filter((entry) =>
+    entry.userName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const topThree = filteredEntries?.slice(0, 3) || [];
@@ -85,9 +85,9 @@ export default function LeaderboardPage() {
             <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
               <h2 className="text-lg font-bold mb-3">Your Rank</h2>
               <div className="flex items-center gap-4">
-                <div className="text-4xl font-bold text-atlas-navy">#{userRank.rank}</div>
+                <div className="text-4xl font-bold text-atlas-navy">#{userRank.rank ?? "--"}</div>
                 <div className="flex-1">
-                  <p className="font-semibold">{userRank.user?.name || "You"}</p>
+                  <p className="font-semibold">{userRank.userName || "You"}</p>
                   <p className="text-sm text-muted-foreground">{userRank.points} points • {userRank.streak} day streak</p>
                 </div>
               </div>
@@ -144,10 +144,10 @@ export default function LeaderboardPage() {
                   <Card className="bg-gradient-to-br from-gray-300 to-gray-400">
                     <div className="p-6 text-center">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-2xl font-bold text-gray-700">{topThree[1]?.user?.name?.slice(0, 2).toUpperCase() || "?"}</span>
+                        <span className="text-2xl font-bold text-gray-700">{topThree[1]?.userName?.slice(0, 2).toUpperCase() || "?"}</span>
                       </div>
                       <Medal className="w-8 h-8 mx-auto mb-2 text-white" />
-                      <p className="font-bold text-white">{topThree[1]?.user?.name || "Unknown"}</p>
+                      <p className="font-bold text-white">{topThree[1]?.userName || "Unknown"}</p>
                       <p className="text-sm text-white/90">{topThree[1]?.points} points</p>
                     </div>
                   </Card>
@@ -158,10 +158,10 @@ export default function LeaderboardPage() {
                   <Card className="bg-gradient-to-br from-yellow-400 to-yellow-600">
                     <div className="p-6 text-center">
                       <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-3xl font-bold text-yellow-600">{topThree[0]?.user?.name?.slice(0, 2).toUpperCase() || "?"}</span>
+                        <span className="text-3xl font-bold text-yellow-600">{topThree[0]?.userName?.slice(0, 2).toUpperCase() || "?"}</span>
                       </div>
                       <Crown className="w-10 h-10 mx-auto mb-2 text-white" />
-                      <p className="font-bold text-white text-lg">{topThree[0]?.user?.name || "Unknown"}</p>
+                      <p className="font-bold text-white text-lg">{topThree[0]?.userName || "Unknown"}</p>
                       <p className="text-white/90">{topThree[0]?.points} points</p>
                     </div>
                   </Card>
@@ -172,10 +172,10 @@ export default function LeaderboardPage() {
                   <Card className="bg-gradient-to-br from-orange-400 to-orange-600">
                     <div className="p-6 text-center">
                       <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-xl font-bold text-orange-600">{topThree[2]?.user?.name?.slice(0, 2).toUpperCase() || "?"}</span>
+                        <span className="text-xl font-bold text-orange-600">{topThree[2]?.userName?.slice(0, 2).toUpperCase() || "?"}</span>
                       </div>
                       <Award className="w-7 h-7 mx-auto mb-2 text-white" />
-                      <p className="font-bold text-white">{topThree[2]?.user?.name || "Unknown"}</p>
+                      <p className="font-bold text-white">{topThree[2]?.userName || "Unknown"}</p>
                       <p className="text-sm text-white/90">{topThree[2]?.points} points</p>
                     </div>
                   </Card>
@@ -209,9 +209,9 @@ export default function LeaderboardPage() {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-atlas-navy text-white rounded-full flex items-center justify-center font-semibold">
-                                {entry.user?.name?.slice(0, 2).toUpperCase() || "?"}
+                                {entry.userName?.slice(0, 2).toUpperCase() || "?"}
                               </div>
-                              <span className="font-medium">{entry.user?.name || "Unknown"}</span>
+                              <span className="font-medium">{entry.userName || "Unknown"}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4 font-semibold">{entry.points}</td>

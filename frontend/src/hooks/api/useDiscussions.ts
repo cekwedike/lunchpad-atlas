@@ -121,6 +121,40 @@ export function useReactToComment() {
   });
 }
 
+export function useScoreCommentQuality(discussionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      apiClient.post(`/discussions/comments/${commentId}/score-quality`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussion-comments', discussionId] });
+      queryClient.invalidateQueries({ queryKey: ['discussion', discussionId] });
+      toast.success('Comment quality scored');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to score comment', error.message);
+    },
+  });
+}
+
+export function useToggleCommentQualityVisibility(discussionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      apiClient.post(`/discussions/comments/${commentId}/quality-visibility`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussion-comments', discussionId] });
+      queryClient.invalidateQueries({ queryKey: ['discussion', discussionId] });
+      toast.success('Comment quality visibility updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update comment visibility', error.message);
+    },
+  });
+}
+
 export function useLikeDiscussion(discussionId: string) {
   const queryClient = useQueryClient();
 
@@ -213,6 +247,23 @@ export function useScoreDiscussionQuality(discussionId: string) {
     },
     onError: (error: any) => {
       toast.error('Failed to score discussion', error.message);
+    },
+  });
+}
+
+export function useToggleDiscussionQualityVisibility(discussionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.post(`/discussions/${discussionId}/quality-visibility`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussion', discussionId] });
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      toast.success('Quality visibility updated');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update visibility', error.message);
     },
   });
 }

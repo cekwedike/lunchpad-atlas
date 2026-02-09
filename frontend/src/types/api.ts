@@ -135,6 +135,7 @@ export interface Discussion {
   qualityScore: number | null;
   qualityAnalysis: any;
   scoredAt: Date | null;
+  isQualityVisible?: boolean;
   likeCount: number;
   commentCount: number;
   createdAt: Date;
@@ -156,6 +157,10 @@ export interface DiscussionComment {
   userId: string; // Changed from authorId to match backend
   parentId: string | null;
   isPinned?: boolean;
+  qualityScore?: number | null;
+  qualityAnalysis?: any;
+  scoredAt?: Date | null;
+  isQualityVisible?: boolean;
   likeCount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -237,6 +242,35 @@ export interface LeaderboardEntry {
   resourcesCompleted: number;
   streak: number;
   user?: User;
+}
+
+export interface LeaderboardRow {
+  userId: string;
+  userName: string;
+  email: string;
+  cohortId?: string | null;
+  points: number;
+  rank: number;
+  streak: number;
+}
+
+export interface LeaderboardResponse {
+  data: LeaderboardRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface LeaderboardRankResponse {
+  rank: number | null;
+  totalUsers: number;
+  points: number;
+  streak: number;
+  userId?: string;
+  userName?: string;
+  email?: string;
+  message?: string;
 }
 
 export interface MonthlyLeaderboard {

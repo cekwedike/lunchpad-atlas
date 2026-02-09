@@ -177,12 +177,21 @@ export class LeaderboardService {
 
     const userPoints = allRankings[userRankIndex]._sum.points || 0;
     const streak = await this.calculateStreak(userId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
 
     return {
       rank: userRankIndex + 1,
       totalUsers: allRankings.length,
       points: userPoints,
       streak,
+      userId,
+      userName: user
+        ? `${user.firstName} ${user.lastName}`.trim()
+        : 'Unknown',
+      email: user?.email || '',
     };
   }
 

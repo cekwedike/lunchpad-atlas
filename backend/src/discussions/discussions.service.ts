@@ -52,6 +52,63 @@ export class DiscussionsService {
     return true;
   }
 
+  private maskDiscussionQuality<T extends { isQualityVisible?: boolean }>(
+    discussion: T,
+    userRole: string,
+  ): T {
+    if (userRole === 'FELLOW' && !discussion.isQualityVisible) {
+      return {
+        ...discussion,
+        qualityScore: null,
+        qualityAnalysis: null,
+        scoredAt: null,
+      } as T;
+    }
+
+    return discussion;
+  }
+
+  private maskCommentQuality<T extends { isQualityVisible?: boolean }>(
+    comment: T,
+    userRole: string,
+  ): T {
+    if (userRole === 'FELLOW' && !comment.isQualityVisible) {
+      return {
+        ...comment,
+        qualityScore: null,
+        qualityAnalysis: null,
+        scoredAt: null,
+      } as T;
+    }
+
+    return comment;
+  }
+
+  private async assertCanScoreQuality(
+    userId: string,
+    userRole: string,
+    cohortId: string,
+  ) {
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException(
+        'Only admins and facilitators can score quality',
+      );
+    }
+
+    if (userRole === 'FACILITATOR') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { cohortId: true },
+      });
+
+      if (!user?.cohortId || user.cohortId !== cohortId) {
+        throw new ForbiddenException(
+          'Facilitators can only score content for their cohort',
+        );
+      }
+    }
+  }
+
   async createDiscussion(
     userId: string,
     userRole: string,
@@ -204,7 +261,7 @@ export class DiscussionsService {
     };
   }
 
-  async getDiscussions(filters: DiscussionFilterDto) {
+  async getDiscussions(filters: DiscussionFilterDto, userRole: string) {
     const {
       page = 1,
       limit = 10,
@@ -278,12 +335,13 @@ export class DiscussionsService {
         | string
         | undefined
         | null;
-      return {
+      const withSession = {
         ...discussion,
         session: discussionSessionId
           ? sessionMap.get(discussionSessionId) || null
           : null,
       };
+      return this.maskDiscussionQuality(withSession, userRole);
     });
 
     return {
@@ -295,7 +353,7 @@ export class DiscussionsService {
     };
   }
 
-  async getDiscussion(id: string) {
+  async getDiscussion(id: string, userRole: string) {
     const discussion = (await this.prisma.discussion.findUnique({
       where: { id },
       include: {
@@ -329,10 +387,13 @@ export class DiscussionsService {
         })
       : null;
 
-    return {
-      ...discussion,
-      session,
-    };
+    return this.maskDiscussionQuality(
+      {
+        ...discussion,
+        session,
+      },
+      userRole,
+    );
   }
 
   async likeDiscussion(discussionId: string, userId: string) {
@@ -380,7 +441,7 @@ export class DiscussionsService {
     return { liked: true };
   }
 
-  async getComments(discussionId: string, userId: string) {
+  async getComments(discussionId: string, userId: string, userRole: string) {
     const comments = (await (this.prisma as any).discussionComment.findMany({
       where: { discussionId },
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'asc' }],
@@ -413,11 +474,14 @@ export class DiscussionsService {
         .filter((reaction: any) => reaction.userId === userId)
         .map((reaction: any) => reaction.type);
 
-      return {
-        ...comment,
-        reactionCounts,
-        userReactions,
-      };
+      return this.maskCommentQuality(
+        {
+          ...comment,
+          reactionCounts,
+          userReactions,
+        },
+        userRole,
+      );
     });
   }
 
@@ -758,7 +822,11 @@ export class DiscussionsService {
   }
 
   // AI Quality Scoring
-  async scoreDiscussionQuality(discussionId: string) {
+  async scoreDiscussionQuality(
+    discussionId: string,
+    userId: string,
+    userRole: string,
+  ) {
     const discussion = await this.prisma.discussion.findUnique({
       where: { id: discussionId },
       include: {
@@ -772,6 +840,8 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
+    await this.assertCanScoreQuality(userId, userRole, discussion.cohortId);
+
     // Get AI analysis
     const resourceContext = discussion.resource
       ? `${discussion.resource.title}: ${discussion.resource.description || ''}`
@@ -784,7 +854,7 @@ export class DiscussionsService {
     );
 
     // Update discussion with quality score
-    return await this.prisma.discussion.update({
+    const updated = await this.prisma.discussion.update({
       where: { id: discussionId },
       data: {
         qualityScore: analysis.score,
@@ -797,6 +867,188 @@ export class DiscussionsService {
         },
       },
     });
+
+    const discussionScore = Math.max(0, Math.min(100, analysis.score));
+    const scoreDescription = `Quality score for discussion ${discussionId}`;
+
+    await this.prisma.pointsLog.deleteMany({
+      where: {
+        userId: discussion.userId,
+        eventType: 'DISCUSSION_QUALITY_SCORE' as any,
+        description: scoreDescription,
+      },
+    });
+
+    await this.awardPoints(
+      discussion.userId,
+      discussionScore,
+      'DISCUSSION_QUALITY_SCORE',
+      scoreDescription,
+    );
+
+    this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    return updated;
+  }
+
+  async toggleDiscussionQualityVisibility(
+    discussionId: string,
+    userId: string,
+    userRole: string,
+  ) {
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+      select: { id: true, isQualityVisible: true, cohortId: true },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    await this.assertCanScoreQuality(userId, userRole, discussion.cohortId);
+
+    const updated = await this.prisma.discussion.update({
+      where: { id: discussionId },
+      data: { isQualityVisible: !discussion.isQualityVisible },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+      },
+    });
+
+    this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    return updated;
+  }
+
+  async scoreCommentQuality(
+    commentId: string,
+    userId: string,
+    userRole: string,
+  ) {
+    const comment = await (this.prisma as any).discussionComment.findUnique({
+      where: { id: commentId },
+      include: {
+        discussion: {
+          select: { id: true, cohortId: true, title: true },
+        },
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    await this.assertCanScoreQuality(
+      userId,
+      userRole,
+      comment.discussion.cohortId,
+    );
+
+    const analysis = await this.discussionScoring.scoreComment(
+      comment.content,
+      comment.discussion.title,
+    );
+
+    const updated = await (this.prisma as any).discussionComment.update({
+      where: { id: commentId },
+      data: {
+        qualityScore: analysis.score,
+        qualityAnalysis: analysis as any,
+        scoredAt: new Date(),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    const commentScore = Math.max(0, Math.min(100, analysis.score));
+    const commentScoreDescription = `Quality score for comment ${commentId}`;
+
+    await this.prisma.pointsLog.deleteMany({
+      where: {
+        userId: comment.userId,
+        eventType: 'COMMENT_QUALITY_SCORE' as any,
+        description: commentScoreDescription,
+      },
+    });
+
+    await this.awardPoints(
+      comment.userId,
+      commentScore,
+      'COMMENT_QUALITY_SCORE',
+      commentScoreDescription,
+    );
+
+    if (comment.discussion?.cohortId) {
+      this.discussionsGateway.broadcastCommentUpdated(
+        comment.discussion.id,
+        updated,
+        comment.discussion.cohortId,
+      );
+    }
+
+    return updated;
+  }
+
+  async toggleCommentQualityVisibility(
+    commentId: string,
+    userId: string,
+    userRole: string,
+  ) {
+    const comment = await (this.prisma as any).discussionComment.findUnique({
+      where: { id: commentId },
+      include: {
+        discussion: {
+          select: { id: true, cohortId: true },
+        },
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    await this.assertCanScoreQuality(
+      userId,
+      userRole,
+      comment.discussion.cohortId,
+    );
+
+    const updated = await (this.prisma as any).discussionComment.update({
+      where: { id: commentId },
+      data: { isQualityVisible: !comment.isQualityVisible },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (comment.discussion?.cohortId) {
+      this.discussionsGateway.broadcastCommentUpdated(
+        comment.discussion.id,
+        updated,
+        comment.discussion.cohortId,
+      );
+    }
+
+    return updated;
   }
 
   async getHighQualityDiscussions(cohortId?: string, limit: number = 10) {

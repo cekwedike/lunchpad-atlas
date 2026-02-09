@@ -28,6 +28,9 @@ import {
   useTogglePin,
   useToggleLock,
   useScoreDiscussionQuality,
+  useScoreCommentQuality,
+  useToggleDiscussionQualityVisibility,
+  useToggleCommentQualityVisibility,
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
@@ -68,6 +71,9 @@ export default function DiscussionDetailPage() {
   const togglePin = useTogglePin();
   const toggleLock = useToggleLock();
   const scoreDiscussionQuality = useScoreDiscussionQuality(discussionId);
+  const toggleDiscussionQualityVisibility = useToggleDiscussionQualityVisibility(discussionId);
+  const scoreCommentQuality = useScoreCommentQuality(discussionId);
+  const toggleCommentQualityVisibility = useToggleCommentQualityVisibility(discussionId);
   
   const { socket, isConnected, subscribeToDiscussion, unsubscribeFromDiscussion, emitTyping } = useDiscussionsSocket();
 
@@ -228,6 +234,31 @@ export default function DiscussionDetailPage() {
     }
   };
 
+  const handleToggleQualityVisibility = async () => {
+    try {
+      await toggleDiscussionQualityVisibility.mutateAsync();
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update quality visibility");
+    }
+  };
+
+  const handleScoreCommentQuality = async (commentId: string) => {
+    try {
+      await scoreCommentQuality.mutateAsync(commentId);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to score comment");
+    }
+  };
+
+  const handleToggleCommentQualityVisibility = async (commentId: string) => {
+    try {
+      await toggleCommentQualityVisibility.mutateAsync(commentId);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update comment visibility");
+    }
+  };
+
   const handleDeleteComment = async () => {
     if (!commentToDelete) return;
 
@@ -292,6 +323,7 @@ export default function DiscussionDetailPage() {
   const isLiked = discussion?.likes?.some((like: any) => like.userId === profile?.id);
   const canModerateDiscussion = isAdmin || isFacilitator;
   const canScoreQuality = canModerateDiscussion;
+  const canViewDiscussionQuality = canModerateDiscussion || discussion?.isQualityVisible;
   const qualityAnalysis = (discussion?.qualityAnalysis || {}) as any;
   const reactionOptions: Array<{ type: CommentReactionType; label: string; emoji: string }> = [
     { type: 'LIKE', label: 'Like', emoji: '👍' },
@@ -311,6 +343,7 @@ export default function DiscussionDetailPage() {
   const renderComment = (comment: any, depth: number = 0) => {
     const isOwnComment = comment.userId === profile?.id;
     const canDelete = isOwnComment || canModerateDiscussion;
+    const showCommentQuality = canModerateDiscussion || (comment.isQualityVisible && comment.qualityScore !== null && comment.qualityScore !== undefined);
     const reactionCounts = comment.reactionCounts || {};
     const userReactions = new Set(comment.userReactions || []);
     const replies = commentsByParent[comment.id] || [];
@@ -342,6 +375,79 @@ export default function DiscussionDetailPage() {
               </span>
             </div>
             <p className="text-gray-700 break-words">{comment.content}</p>
+
+            {showCommentQuality && (
+              <div className="mt-2 space-y-2 text-xs text-gray-600">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-gray-700">Quality</span>
+                  <span className="font-semibold text-gray-900">
+                    {comment.qualityScore ?? "--"}
+                  </span>
+                  {comment.qualityAnalysis?.badge && (
+                    <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">
+                      {comment.qualityAnalysis.badge}
+                    </Badge>
+                  )}
+                  {canModerateDiscussion && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleScoreCommentQuality(comment.id)}
+                        className="text-xs text-slate-600 hover:text-slate-800"
+                      >
+                        {comment.qualityScore ? "Rescore" : "Score"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCommentQualityVisibility(comment.id)}
+                        className="text-xs text-emerald-600 hover:text-emerald-700"
+                      >
+                        {comment.isQualityVisible ? "Hide score" : "Share score"}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {(comment.qualityAnalysis?.depth || comment.qualityAnalysis?.relevance || comment.qualityAnalysis?.constructiveness) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="rounded-md bg-white border p-2">
+                      <div className="text-[10px] text-gray-500">Depth</div>
+                      <div className="font-semibold text-gray-900">{comment.qualityAnalysis.depth ?? "--"}/10</div>
+                    </div>
+                    <div className="rounded-md bg-white border p-2">
+                      <div className="text-[10px] text-gray-500">Relevance</div>
+                      <div className="font-semibold text-gray-900">{comment.qualityAnalysis.relevance ?? "--"}/10</div>
+                    </div>
+                    <div className="rounded-md bg-white border p-2">
+                      <div className="text-[10px] text-gray-500">Constructiveness</div>
+                      <div className="font-semibold text-gray-900">{comment.qualityAnalysis.constructiveness ?? "--"}/10</div>
+                    </div>
+                  </div>
+                )}
+
+                {Array.isArray(comment.qualityAnalysis?.insights) && comment.qualityAnalysis.insights.length > 0 && (
+                  <div>
+                    <div className="font-semibold text-gray-900">Insights</div>
+                    <ul className="list-disc pl-5 text-gray-700">
+                      {comment.qualityAnalysis.insights.map((insight: string, index: number) => (
+                        <li key={`comment-insight-${comment.id}-${index}`}>{insight}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {Array.isArray(comment.qualityAnalysis?.suggestions) && comment.qualityAnalysis.suggestions.length > 0 && (
+                  <div>
+                    <div className="font-semibold text-gray-900">Suggestions</div>
+                    <ul className="list-disc pl-5 text-gray-700">
+                      {comment.qualityAnalysis.suggestions.map((suggestion: string, index: number) => (
+                        <li key={`comment-suggestion-${comment.id}-${index}`}>{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {reactionOptions.map((reaction) => (
@@ -480,80 +586,93 @@ export default function DiscussionDetailPage() {
 
               <p className="text-gray-700 whitespace-pre-wrap">{discussion.content}</p>
 
-              <div className="rounded-lg border bg-slate-50 p-4 space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">Quality Score</div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-bold text-gray-900">
-                        {discussion.qualityScore ?? "--"}
-                      </span>
-                      {qualityAnalysis?.badge && (
-                        <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
-                          {qualityAnalysis.badge}
-                        </Badge>
+              {canViewDiscussionQuality && (
+                <div className="rounded-lg border bg-slate-50 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Quality Score</div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl font-bold text-gray-900">
+                          {discussion.qualityScore ?? "--"}
+                        </span>
+                        {qualityAnalysis?.badge && (
+                          <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
+                            {qualityAnalysis.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      {discussion.scoredAt ? (
+                        <div className="text-xs text-gray-500">
+                          Scored {formatLocalTimestamp(discussion.scoredAt)}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500">Not scored yet</div>
                       )}
                     </div>
-                    {discussion.scoredAt ? (
-                      <div className="text-xs text-gray-500">
-                        Scored {formatLocalTimestamp(discussion.scoredAt)}
+                    {canScoreQuality && (
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleScoreQuality}
+                          disabled={scoreDiscussionQuality.isPending}
+                          className="shrink-0"
+                        >
+                          {discussion.qualityScore ? "Rescore" : "Score now"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleToggleQualityVisibility}
+                          disabled={toggleDiscussionQualityVisibility.isPending}
+                          className="shrink-0"
+                        >
+                          {discussion.isQualityVisible ? "Hide score" : "Share score"}
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="text-xs text-gray-500">Not scored yet</div>
                     )}
                   </div>
-                  {canScoreQuality && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleScoreQuality}
-                      disabled={scoreDiscussionQuality.isPending}
-                      className="shrink-0"
-                    >
-                      {discussion.qualityScore ? "Rescore" : "Score now"}
-                    </Button>
+
+                  {(qualityAnalysis?.depth || qualityAnalysis?.relevance || qualityAnalysis?.constructiveness) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                      <div className="rounded-md bg-white border p-3">
+                        <div className="text-xs text-gray-500">Depth</div>
+                        <div className="font-semibold text-gray-900">{qualityAnalysis.depth ?? "--"}/10</div>
+                      </div>
+                      <div className="rounded-md bg-white border p-3">
+                        <div className="text-xs text-gray-500">Relevance</div>
+                        <div className="font-semibold text-gray-900">{qualityAnalysis.relevance ?? "--"}/10</div>
+                      </div>
+                      <div className="rounded-md bg-white border p-3">
+                        <div className="text-xs text-gray-500">Constructiveness</div>
+                        <div className="font-semibold text-gray-900">{qualityAnalysis.constructiveness ?? "--"}/10</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {Array.isArray(qualityAnalysis?.insights) && qualityAnalysis.insights.length > 0 && (
+                    <div className="text-sm">
+                      <div className="font-semibold text-gray-900 mb-1">Insights</div>
+                      <ul className="list-disc pl-5 text-gray-700">
+                        {qualityAnalysis.insights.map((insight: string, index: number) => (
+                          <li key={`insight-${index}`}>{insight}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {Array.isArray(qualityAnalysis?.suggestions) && qualityAnalysis.suggestions.length > 0 && (
+                    <div className="text-sm">
+                      <div className="font-semibold text-gray-900 mb-1">Suggestions</div>
+                      <ul className="list-disc pl-5 text-gray-700">
+                        {qualityAnalysis.suggestions.map((suggestion: string, index: number) => (
+                          <li key={`suggestion-${index}`}>{suggestion}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
-
-                {(qualityAnalysis?.depth || qualityAnalysis?.relevance || qualityAnalysis?.constructiveness) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                    <div className="rounded-md bg-white border p-3">
-                      <div className="text-xs text-gray-500">Depth</div>
-                      <div className="font-semibold text-gray-900">{qualityAnalysis.depth ?? "--"}/10</div>
-                    </div>
-                    <div className="rounded-md bg-white border p-3">
-                      <div className="text-xs text-gray-500">Relevance</div>
-                      <div className="font-semibold text-gray-900">{qualityAnalysis.relevance ?? "--"}/10</div>
-                    </div>
-                    <div className="rounded-md bg-white border p-3">
-                      <div className="text-xs text-gray-500">Constructiveness</div>
-                      <div className="font-semibold text-gray-900">{qualityAnalysis.constructiveness ?? "--"}/10</div>
-                    </div>
-                  </div>
-                )}
-
-                {Array.isArray(qualityAnalysis?.insights) && qualityAnalysis.insights.length > 0 && (
-                  <div className="text-sm">
-                    <div className="font-semibold text-gray-900 mb-1">Insights</div>
-                    <ul className="list-disc pl-5 text-gray-700">
-                      {qualityAnalysis.insights.map((insight: string, index: number) => (
-                        <li key={`insight-${index}`}>{insight}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {Array.isArray(qualityAnalysis?.suggestions) && qualityAnalysis.suggestions.length > 0 && (
-                  <div className="text-sm">
-                    <div className="font-semibold text-gray-900 mb-1">Suggestions</div>
-                    <ul className="list-disc pl-5 text-gray-700">
-                      {qualityAnalysis.suggestions.map((suggestion: string, index: number) => (
-                        <li key={`suggestion-${index}`}>{suggestion}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="flex items-center gap-4 text-sm text-gray-500 pt-4 border-t">
                 <div className="flex items-center gap-2">
