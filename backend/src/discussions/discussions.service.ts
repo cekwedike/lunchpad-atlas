@@ -346,12 +346,37 @@ export class DiscussionsService {
       await this.prisma.discussionLike.delete({
         where: { id: existing.id },
       });
+      const discussion = await this.prisma.discussion.findUnique({
+        where: { id: discussionId },
+        select: { cohortId: true },
+      });
+
+      if (discussion?.cohortId) {
+        this.discussionsGateway.broadcastDiscussionLiked(
+          discussionId,
+          discussion.cohortId,
+        );
+      }
+
       return { liked: false };
     }
 
     await this.prisma.discussionLike.create({
       data: { discussionId, userId },
     });
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+      select: { cohortId: true },
+    });
+
+    if (discussion?.cohortId) {
+      this.discussionsGateway.broadcastDiscussionLiked(
+        discussionId,
+        discussion.cohortId,
+      );
+    }
+
     return { liked: true };
   }
 
@@ -456,34 +481,60 @@ export class DiscussionsService {
     const awarded = await this.awardPoints(
       userId,
       2,
-      'DISCUSSION_REPLY',
-      `Replied to discussion: ${discussion.title}`,
+      'DISCUSSION_COMMENT',
+      `Commented on discussion: ${discussion.title}`,
     );
 
     // Broadcast new comment to discussion participants in real-time
-    this.discussionsGateway.broadcastNewComment(
-      comment,
-      discussionId,
-      discussion.cohortId,
-    );
+    try {
+      this.discussionsGateway.broadcastNewComment(
+        comment,
+        discussionId,
+        discussion.cohortId,
+      );
+    } catch (error) {
+      console.error('Failed to broadcast comment:', error);
+    }
 
     // Notify discussion author
-    if (discussion.userId !== userId) {
-      const commenterName =
-        `${comment.user?.firstName || ''} ${comment.user?.lastName || ''}`.trim();
-      const discussionWithAuthor = await this.prisma.discussion.findUnique({
-        where: { id: discussionId },
-        select: { title: true, userId: true },
-      });
+    try {
+      if (discussion.userId !== userId) {
+        const commenterName =
+          `${comment.user?.firstName || ''} ${comment.user?.lastName || ''}`.trim();
+        const discussionWithAuthor = await this.prisma.discussion.findUnique({
+          where: { id: discussionId },
+          select: { title: true, userId: true },
+        });
 
-      if (discussionWithAuthor) {
-        await this.notificationsService.notifyDiscussionReply(
-          discussionWithAuthor.userId,
-          commenterName,
-          discussionWithAuthor.title,
-          discussionId,
-        );
+        if (discussionWithAuthor) {
+          await this.notificationsService.notifyDiscussionReply(
+            discussionWithAuthor.userId,
+            commenterName,
+            discussionWithAuthor.title,
+            discussionId,
+          );
+        }
       }
+
+      if (dto.parentId) {
+        const parentComment = await this.prisma.discussionComment.findUnique({
+          where: { id: dto.parentId },
+          select: { userId: true },
+        });
+
+        if (parentComment?.userId && parentComment.userId !== userId) {
+          const commenterName =
+            `${comment.user?.firstName || ''} ${comment.user?.lastName || ''}`.trim();
+          await this.notificationsService.notifyDiscussionReply(
+            parentComment.userId,
+            commenterName,
+            discussion.title,
+            discussionId,
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send comment notifications:', error);
     }
 
     return {
@@ -588,6 +639,19 @@ export class DiscussionsService {
       },
     });
 
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: comment.discussionId },
+      select: { cohortId: true },
+    });
+
+    if (discussion?.cohortId) {
+      this.discussionsGateway.broadcastCommentUpdated(
+        comment.discussionId,
+        updated,
+        discussion.cohortId,
+      );
+    }
+
     return updated;
   }
 
@@ -608,10 +672,25 @@ export class DiscussionsService {
 
     const isPinned = !!(comment as any).isPinned;
 
-    return (this.prisma as any).discussionComment.update({
+    const updated = await (this.prisma as any).discussionComment.update({
       where: { id: commentId },
       data: { isPinned: !isPinned },
     });
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: comment.discussionId },
+      select: { cohortId: true },
+    });
+
+    if (discussion?.cohortId) {
+      this.discussionsGateway.broadcastCommentUpdated(
+        comment.discussionId,
+        updated,
+        discussion.cohortId,
+      );
+    }
+
+    return updated;
   }
 
   async reactToComment(commentId: string, userId: string, type: string) {
@@ -639,6 +718,18 @@ export class DiscussionsService {
       await (this.prisma as any).discussionCommentReaction.delete({
         where: { id: existing.id },
       });
+      const discussion = await this.prisma.discussion.findUnique({
+        where: { id: comment.discussionId },
+        select: { cohortId: true },
+      });
+
+      if (discussion?.cohortId) {
+        this.discussionsGateway.broadcastCommentReacted(
+          comment.discussionId,
+          commentId,
+          discussion.cohortId,
+        );
+      }
       return { reacted: false };
     }
 
@@ -649,6 +740,19 @@ export class DiscussionsService {
         type: type as any,
       },
     });
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: comment.discussionId },
+      select: { cohortId: true },
+    });
+
+    if (discussion?.cohortId) {
+      this.discussionsGateway.broadcastCommentReacted(
+        comment.discussionId,
+        commentId,
+        discussion.cohortId,
+      );
+    }
 
     return { reacted: true };
   }

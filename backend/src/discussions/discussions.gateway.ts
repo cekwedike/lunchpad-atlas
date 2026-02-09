@@ -115,6 +115,26 @@ export class DiscussionsGateway
     });
   }
 
+  broadcastCommentUpdated(discussionId: string, comment: any, cohortId: string) {
+    this.server.to(`cohort:${cohortId}`).emit('discussion:comment_updated', {
+      discussionId,
+      comment,
+    });
+  }
+
+  broadcastCommentReacted(discussionId: string, commentId: string, cohortId: string) {
+    this.server.to(`cohort:${cohortId}`).emit('discussion:comment_reacted', {
+      discussionId,
+      commentId,
+    });
+  }
+
+  broadcastDiscussionLiked(discussionId: string, cohortId: string) {
+    this.server.to(`cohort:${cohortId}`).emit('discussion:liked', {
+      discussionId,
+    });
+  }
+
   broadcastDiscussionDeleted(discussionId: string, cohortId: string) {
     this.server
       .to(`cohort:${cohortId}`)

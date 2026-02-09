@@ -110,6 +110,22 @@ export default function DiscussionDetailPage() {
       refetch();
     };
 
+    const handleCommentUpdated = (data: any) => {
+      if (data.discussionId !== discussionId) return;
+      refetchComments();
+      refetch();
+    };
+
+    const handleCommentReacted = (data: any) => {
+      if (data.discussionId !== discussionId) return;
+      refetchComments();
+    };
+
+    const handleDiscussionLiked = (data: any) => {
+      if (data.discussionId !== discussionId) return;
+      refetch();
+    };
+
     const handleUserTyping = (data: any) => {
       if (data.discussionId === discussionId && data.userId !== profile?.id) {
         setTypingUsers((prev) => {
@@ -127,12 +143,18 @@ export default function DiscussionDetailPage() {
     socket.on('discussion:updated', handleDiscussionUpdated);
     socket.on('discussion:new_comment', handleNewComment);
     socket.on('discussion:comment_deleted', handleCommentDeleted);
+    socket.on('discussion:comment_updated', handleCommentUpdated);
+    socket.on('discussion:comment_reacted', handleCommentReacted);
+    socket.on('discussion:liked', handleDiscussionLiked);
     socket.on('discussion:user_typing', handleUserTyping);
 
     return () => {
       socket.off('discussion:updated', handleDiscussionUpdated);
       socket.off('discussion:new_comment', handleNewComment);
       socket.off('discussion:comment_deleted', handleCommentDeleted);
+      socket.off('discussion:comment_updated', handleCommentUpdated);
+      socket.off('discussion:comment_reacted', handleCommentReacted);
+      socket.off('discussion:liked', handleDiscussionLiked);
       socket.off('discussion:user_typing', handleUserTyping);
     };
   }, [socket, discussionId, profile?.id, queryClient, refetch, refetchComments]);

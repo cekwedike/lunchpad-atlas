@@ -25,6 +25,22 @@ export class NotificationsService {
   // ==================== CREATE NOTIFICATIONS ====================
 
   async createNotification(dto: CreateNotificationDto) {
+    const recentDuplicate = await this.prisma.notification.findFirst({
+      where: {
+        userId: dto.userId,
+        type: dto.type,
+        message: dto.message,
+        createdAt: {
+          gte: new Date(Date.now() - 5000),
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (recentDuplicate) {
+      return recentDuplicate;
+    }
+
     const notification = await this.prisma.notification.create({
       data: {
         userId: dto.userId,
