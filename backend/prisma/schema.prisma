@@ -94,6 +94,7 @@ model User {
   cohort             Cohort?                @relation(fields: [cohortId], references: [id])
   resourceProgress   ResourceProgress[]
   discussions        Discussion[]
+  approvedDiscussions Discussion[] @relation("DiscussionApprover")
   comments           DiscussionComment[]
   commentReactions   DiscussionCommentReaction[]
   discussionLikes    DiscussionLike[]
@@ -233,6 +234,9 @@ model Discussion {
   content         String
   isPinned        Boolean  @default(false)
   isLocked        Boolean  @default(false) // Admin can lock discussions to prevent comments
+  isApproved     Boolean  @default(true)
+  approvedAt     DateTime?
+  approvedById   String?
   qualityScore    Int?     // AI-generated quality score (0-100)
   qualityAnalysis Json?    // AI analysis details
   scoredAt        DateTime? // When AI scoring was completed
@@ -245,6 +249,7 @@ model Discussion {
   session  Session?            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   cohort   Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy User?             @relation("DiscussionApprover", fields: [approvedById], references: [id])
   comments DiscussionComment[]
   likes    DiscussionLike[]
 
@@ -252,6 +257,7 @@ model Discussion {
   @@index([sessionId])
   @@index([cohortId])
   @@index([userId])
+  @@index([isApproved])
   @@index([qualityScore])
   @@map("discussions")
 }

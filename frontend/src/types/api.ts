@@ -132,6 +132,9 @@ export interface Discussion {
   sessionId?: string | null;
   isPinned: boolean;
   isLocked: boolean; // NEW: Admin lock feature
+  isApproved?: boolean;
+  approvedAt?: Date | null;
+  approvedById?: string | null;
   qualityScore: number | null;
   qualityAnalysis: any;
   scoredAt: Date | null;

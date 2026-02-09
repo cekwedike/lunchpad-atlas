@@ -29,7 +29,15 @@ export class DiscussionScoringService {
     resourceContext?: string,
   ): Promise<DiscussionQualityAnalysis> {
     if (!this.genAI) {
-      throw new Error('Gemini API key not configured');
+      return {
+        score: 50,
+        depth: 5,
+        relevance: 5,
+        constructiveness: 5,
+        insights: [],
+        suggestions: ['Gemini API key not configured'],
+        badge: null,
+      };
     }
 
     const model = this.genAI.getGenerativeModel({
@@ -114,7 +122,15 @@ Return ONLY valid JSON, no other text.`;
     discussionTitle?: string,
   ): Promise<DiscussionQualityAnalysis> {
     if (!this.genAI) {
-      throw new Error('Gemini API key not configured');
+      return {
+        score: 50,
+        depth: 5,
+        relevance: 5,
+        constructiveness: 5,
+        insights: [],
+        suggestions: ['Gemini API key not configured'],
+        badge: null,
+      };
     }
 
     const model = this.genAI.getGenerativeModel({

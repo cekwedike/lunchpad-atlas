@@ -114,12 +114,6 @@ export class DiscussionsService {
     userRole: string,
     dto: CreateDiscussionDto,
   ) {
-    // Only Admin and Facilitator can create discussions
-    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
-      throw new ForbiddenException(
-        'Only administrators and facilitators can create discussions',
-      );
-    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -132,6 +126,12 @@ export class DiscussionsService {
     if (userRole === 'FACILITATOR' && user?.cohortId && cohortId !== user.cohortId) {
       throw new ForbiddenException(
         'Facilitators can only create discussions for their cohort',
+      );
+    }
+
+    if (userRole === 'FELLOW' && user?.cohortId && cohortId !== user.cohortId) {
+      throw new ForbiddenException(
+        'Fellows can only create discussions for their cohort',
       );
     }
 
@@ -191,6 +191,7 @@ export class DiscussionsService {
       sessionId = session.id;
     }
 
+    const isApproved = userRole !== 'FELLOW';
     const discussion = (await this.prisma.discussion.create({
       data: {
         title: dto.title,
@@ -199,6 +200,9 @@ export class DiscussionsService {
         cohortId: cohortId,
         resourceId: resourceId ?? null,
         sessionId: sessionId ?? null,
+        isApproved,
+        approvedAt: isApproved ? new Date() : null,
+        approvedById: isApproved ? userId : null,
       } as any,
       include: {
         user: {
@@ -230,27 +234,29 @@ export class DiscussionsService {
       `Posted discussion: ${dto.title}`,
     );
 
-    // Broadcast new discussion to cohort in real-time
-    this.discussionsGateway.broadcastNewDiscussion(discussionWithTopic);
+    if (isApproved) {
+      // Broadcast new discussion to cohort in real-time
+      this.discussionsGateway.broadcastNewDiscussion(discussionWithTopic);
 
-    // Notify all cohort members about new discussion
-    if (cohortId) {
-      const cohortMembers = await this.prisma.user.findMany({
-        where: {
-          cohortId: cohortId,
-          id: { not: userId }, // Don't notify the author
-        },
-        select: { id: true },
-      });
+      // Notify all cohort members about new discussion
+      if (cohortId) {
+        const cohortMembers = await this.prisma.user.findMany({
+          where: {
+            cohortId: cohortId,
+            id: { not: userId }, // Don't notify the author
+          },
+          select: { id: true },
+        });
 
-      if (cohortMembers.length > 0) {
-        const authorName = `${discussion.user.firstName} ${discussion.user.lastName}`;
-        await this.notificationsService.notifyBulkNewDiscussion(
-          cohortMembers.map((m) => m.id),
-          authorName,
-          discussion.title,
-          discussion.id,
-        );
+        if (cohortMembers.length > 0) {
+          const authorName = `${discussion.user.firstName} ${discussion.user.lastName}`;
+          await this.notificationsService.notifyBulkNewDiscussion(
+            cohortMembers.map((m) => m.id),
+            authorName,
+            discussion.title,
+            discussion.id,
+          );
+        }
       }
     }
 
@@ -261,7 +267,11 @@ export class DiscussionsService {
     };
   }
 
-  async getDiscussions(filters: DiscussionFilterDto, userRole: string) {
+  async getDiscussions(
+    filters: DiscussionFilterDto,
+    userRole: string,
+    userId: string,
+  ) {
     const {
       page = 1,
       limit = 10,
@@ -274,18 +284,31 @@ export class DiscussionsService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    const andFilters: any[] = [];
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { content: { contains: search, mode: 'insensitive' } },
-      ];
+      andFilters.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { content: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     if (cohortId) where.cohortId = cohortId;
     if (resourceId) where.resourceId = resourceId;
     if (authorId) where.authorId = authorId;
     if (isPinned !== undefined) where.isPinned = isPinned;
+
+    if (userRole === 'FELLOW') {
+      andFilters.push({
+        OR: [{ isApproved: true }, { userId: userId }],
+      });
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
+    }
 
     const [discussions, total] = await Promise.all([
       this.prisma.discussion.findMany({
@@ -353,7 +376,7 @@ export class DiscussionsService {
     };
   }
 
-  async getDiscussion(id: string, userRole: string) {
+  async getDiscussion(id: string, userRole: string, userId: string) {
     const discussion = (await this.prisma.discussion.findUnique({
       where: { id },
       include: {
@@ -377,6 +400,10 @@ export class DiscussionsService {
 
     if (!discussion) {
       throw new NotFoundException('Discussion not found');
+    }
+
+    if (userRole === 'FELLOW' && !discussion.isApproved && discussion.userId !== userId) {
+      throw new ForbiddenException('Discussion is pending approval');
     }
 
     const sessionId = discussion.sessionId as string | undefined | null;
@@ -492,6 +519,14 @@ export class DiscussionsService {
   ) {
     const discussion = await this.prisma.discussion.findUnique({
       where: { id: discussionId },
+      select: {
+        id: true,
+        title: true,
+        userId: true,
+        isLocked: true,
+        isApproved: true,
+        cohortId: true,
+      },
     });
 
     if (!discussion) {
@@ -503,6 +538,10 @@ export class DiscussionsService {
       throw new ForbiddenException(
         'This discussion is locked. No new comments allowed.',
       );
+    }
+
+    if (!discussion.isApproved) {
+      throw new ForbiddenException('Discussion is pending approval');
     }
 
     if (dto.parentId) {
@@ -631,6 +670,13 @@ export class DiscussionsService {
     }
 
     await this.prisma.discussion.delete({ where: { id } });
+
+    if (discussion.cohortId) {
+      this.discussionsGateway.broadcastDiscussionDeleted(
+        discussion.id,
+        discussion.cohortId,
+      );
+    }
     return { message: 'Discussion deleted successfully' };
   }
 
@@ -833,6 +879,9 @@ export class DiscussionsService {
         resource: {
           select: { title: true, description: true },
         },
+        user: {
+          select: { id: true, role: true },
+        },
       },
     });
 
@@ -841,6 +890,14 @@ export class DiscussionsService {
     }
 
     await this.assertCanScoreQuality(userId, userRole, discussion.cohortId);
+
+    if (!discussion.isApproved) {
+      throw new BadRequestException('Discussion must be approved before scoring');
+    }
+
+    if (discussion.user?.role !== 'FELLOW') {
+      throw new BadRequestException('Only fellow discussions are scored');
+    }
 
     // Get AI analysis
     const resourceContext = discussion.resource
@@ -931,8 +988,15 @@ export class DiscussionsService {
       where: { id: commentId },
       include: {
         discussion: {
-          select: { id: true, cohortId: true, title: true },
+          select: {
+            id: true,
+            cohortId: true,
+            title: true,
+            isApproved: true,
+            user: { select: { id: true, role: true } },
+          },
         },
+        user: { select: { id: true, role: true } },
       },
     });
 
@@ -945,6 +1009,20 @@ export class DiscussionsService {
       userRole,
       comment.discussion.cohortId,
     );
+
+    if (!comment.discussion.isApproved) {
+      throw new BadRequestException('Discussion must be approved before scoring');
+    }
+
+    if (comment.user?.role !== 'FELLOW') {
+      throw new BadRequestException('Only fellow comments are scored');
+    }
+
+    if (!['ADMIN', 'FACILITATOR'].includes(comment.discussion.user?.role)) {
+      throw new BadRequestException(
+        'Only comments on admin or facilitator discussions are scored',
+      );
+    }
 
     const analysis = await this.discussionScoring.scoreComment(
       comment.content,
@@ -1051,9 +1129,72 @@ export class DiscussionsService {
     return updated;
   }
 
+  async approveDiscussion(
+    discussionId: string,
+    userId: string,
+    userRole: string,
+  ) {
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException(
+        'Only admins and facilitators can approve discussions',
+      );
+    }
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+      },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    if (userRole === 'FACILITATOR') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { cohortId: true },
+      });
+
+      if (!user?.cohortId || user.cohortId !== discussion.cohortId) {
+        throw new ForbiddenException(
+          'Facilitators can only approve discussions for their cohort',
+        );
+      }
+    }
+
+    if (discussion.isApproved) {
+      return discussion;
+    }
+
+    const updated = await this.prisma.discussion.update({
+      where: { id: discussionId },
+      data: {
+        isApproved: true,
+        approvedAt: new Date(),
+        approvedById: userId,
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+        resource: { select: { id: true, title: true } },
+      },
+    });
+
+    this.discussionsGateway.broadcastNewDiscussion(updated);
+    this.discussionsGateway.broadcastDiscussionUpdate(updated);
+
+    return updated;
+  }
+
   async getHighQualityDiscussions(cohortId?: string, limit: number = 10) {
     const where: any = {
       qualityScore: { gte: 70 },
+      isApproved: true,
     };
 
     if (cohortId) {
@@ -1230,6 +1371,7 @@ export class DiscussionsService {
     return await this.prisma.discussion.findMany({
       take: limit,
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+      where: { isApproved: true },
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, email: true },

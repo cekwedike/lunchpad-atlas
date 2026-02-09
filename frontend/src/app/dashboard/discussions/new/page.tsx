@@ -31,7 +31,8 @@ export default function NewDiscussionPage() {
 
   const isAdmin = profile?.role === 'ADMIN';
   const isFacilitator = profile?.role === 'FACILITATOR';
-  const canCreateDiscussion = isAdmin || isFacilitator;
+  const isFellow = profile?.role === 'FELLOW';
+  const canCreateDiscussion = !!profile?.role;
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
   const availableCohorts = isAdmin
@@ -39,14 +40,6 @@ export default function NewDiscussionPage() {
     : isFacilitator
       ? (profile?.facilitatedCohorts || [])
       : [];
-
-  useEffect(() => {
-    if (!profile?.role) return;
-    if (profile.role !== 'FELLOW') return;
-
-    toast.error("Only admins and facilitators can create discussions");
-    router.push('/dashboard/discussions');
-  }, [profile?.role, router]);
 
   useEffect(() => {
     if (!canCreateDiscussion || selectedCohortId) return;
@@ -64,27 +57,18 @@ export default function NewDiscussionPage() {
     setSelectedTopic("general");
   }, [selectedCohortId]);
 
-  const cohortIdForTopics = canCreateDiscussion ? selectedCohortId : profile?.cohortId;
+  const cohortIdForTopics = isFellow ? profile?.cohortId : selectedCohortId;
   const { data: topicOptions } = useDiscussionTopics(cohortIdForTopics || undefined);
   const topics = topicOptions || [];
 
-  if (profile?.role === 'FELLOW') {
+  if (!profile?.role) {
     return (
       <DashboardLayout>
         <div className="max-w-2xl mx-auto p-6">
           <Card className="bg-white">
             <CardHeader>
-              <CardTitle className="text-2xl">Discussions are read-only for fellows</CardTitle>
+              <CardTitle className="text-2xl">Loading profile...</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm text-gray-600">
-              <p>
-                Fellows can view and participate in discussions, but creating new discussions is limited to
-                admins and facilitators.
-              </p>
-              <Button onClick={() => router.push('/dashboard/discussions')}>
-                Back to Discussions
-              </Button>
-            </CardContent>
           </Card>
         </div>
       </DashboardLayout>
@@ -112,7 +96,7 @@ export default function NewDiscussionPage() {
       return;
     }
 
-    const cohortId = canCreateDiscussion ? selectedCohortId : profile?.cohortId;
+    const cohortId = canCreateDiscussion ? (isFellow ? profile?.cohortId : selectedCohortId) : profile?.cohortId;
     if (!cohortId) {
       toast.error("Select a cohort to create discussions");
       return;
@@ -134,7 +118,7 @@ export default function NewDiscussionPage() {
         resourceId: topicType === 'RESOURCE' ? selectedOption?.value : resourceId,
       });
       
-      toast.success("Discussion created!");
+      toast.success(result?.isApproved === false ? "Discussion submitted for approval" : "Discussion created!");
       router.push(`/dashboard/discussions/${result.id}`);
     } catch (error: any) {
       toast.error(error?.message || "Failed to create discussion");
@@ -162,6 +146,11 @@ export default function NewDiscussionPage() {
             <CardTitle className="text-2xl">Start a New Discussion</CardTitle>
           </CardHeader>
           <CardContent>
+            {isFellow && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Fellow discussions require facilitator approval before they appear to others.
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               {resourceId && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -182,20 +171,26 @@ export default function NewDiscussionPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="cohort">Cohort</Label>
-                <select
-                  id="cohort"
-                  className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
-                  value={selectedCohortId}
-                  onChange={(e) => setSelectedCohortId(e.target.value)}
-                  disabled={(!isAdmin && !isFacilitator) || cohortsLoading}
-                >
-                  <option value="">-- Select a cohort --</option>
-                  {availableCohorts.map((cohort: any) => (
-                    <option key={cohort.id} value={cohort.id}>
-                      {cohort.name}
-                    </option>
-                  ))}
-                </select>
+                {isFellow ? (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {profile?.cohort?.name || "Your cohort"}
+                  </div>
+                ) : (
+                  <select
+                    id="cohort"
+                    className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                    value={selectedCohortId}
+                    onChange={(e) => setSelectedCohortId(e.target.value)}
+                    disabled={(!isAdmin && !isFacilitator) || cohortsLoading}
+                  >
+                    <option value="">-- Select a cohort --</option>
+                    {availableCohorts.map((cohort: any) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {isFacilitator && availableCohorts.length === 0 && (
                   <p className="text-xs text-amber-600">
                     No cohorts assigned to your facilitator account yet.

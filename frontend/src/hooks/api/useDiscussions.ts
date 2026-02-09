@@ -63,9 +63,13 @@ export function useCreateDiscussion() {
   return useMutation({
     mutationFn: (data: CreateDiscussionRequest) =>
       apiClient.post<Discussion>('/discussions', data),
-    onSuccess: () => {
+    onSuccess: (discussion) => {
       queryClient.invalidateQueries({ queryKey: ['discussions'] });
-      toast.success('Discussion created!', 'Your post has been published');
+      if (discussion?.isApproved === false) {
+        toast.success('Discussion submitted!', 'Awaiting facilitator approval');
+      } else {
+        toast.success('Discussion created!', 'Your post has been published');
+      }
     },
     onError: (error: any) => {
       toast.error('Failed to create discussion', error.message);
@@ -229,6 +233,23 @@ export function useToggleLock() {
     },
     onError: (error: any) => {
       toast.error('Failed to toggle lock', error.message);
+    },
+  });
+}
+
+export function useApproveDiscussion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (discussionId: string) =>
+      apiClient.post<Discussion>(`/discussions/${discussionId}/approve`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      toast.success('Discussion approved');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to approve discussion', error.message);
     },
   });
 }

@@ -33,7 +33,11 @@ export class DiscussionsController {
 
   @Get()
   getDiscussions(@Query() filters: DiscussionFilterDto, @Request() req) {
-    return this.discussionsService.getDiscussions(filters, req.user.role);
+    return this.discussionsService.getDiscussions(
+      filters,
+      req.user.role,
+      req.user.id,
+    );
   }
 
   @Get('topics')
@@ -44,7 +48,7 @@ export class DiscussionsController {
 
   @Get(':id')
   getDiscussion(@Param('id') id: string, @Request() req) {
-    return this.discussionsService.getDiscussion(id, req.user.role);
+    return this.discussionsService.getDiscussion(id, req.user.role, req.user.id);
   }
 
   @Post()
@@ -129,6 +133,16 @@ export class DiscussionsController {
   @ApiOperation({ summary: 'Toggle lock status (Admin only)' })
   toggleLock(@Param('id') id: string, @Request() req) {
     return this.discussionsService.toggleLock(id, req.user.id, req.user.role);
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ summary: 'Approve a discussion (Admin/Facilitator)' })
+  approveDiscussion(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.approveDiscussion(
+      id,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Delete('comments/:commentId')

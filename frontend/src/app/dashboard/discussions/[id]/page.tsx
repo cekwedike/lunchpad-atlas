@@ -31,6 +31,7 @@ import {
   useScoreCommentQuality,
   useToggleDiscussionQualityVisibility,
   useToggleCommentQualityVisibility,
+  useApproveDiscussion,
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
@@ -74,6 +75,7 @@ export default function DiscussionDetailPage() {
   const toggleDiscussionQualityVisibility = useToggleDiscussionQualityVisibility(discussionId);
   const scoreCommentQuality = useScoreCommentQuality(discussionId);
   const toggleCommentQualityVisibility = useToggleCommentQualityVisibility(discussionId);
+  const approveDiscussion = useApproveDiscussion();
   
   const { socket, isConnected, subscribeToDiscussion, unsubscribeFromDiscussion, emitTyping } = useDiscussionsSocket();
 
@@ -243,6 +245,16 @@ export default function DiscussionDetailPage() {
     }
   };
 
+  const handleApproveDiscussion = async () => {
+    try {
+      await approveDiscussion.mutateAsync(discussionId);
+      await refetch();
+      toast.success("Discussion approved");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to approve discussion");
+    }
+  };
+
   const handleScoreCommentQuality = async (commentId: string) => {
     try {
       await scoreCommentQuality.mutateAsync(commentId);
@@ -303,12 +315,10 @@ export default function DiscussionDetailPage() {
 
   const handleDeleteDiscussion = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/discussions/${discussionId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      await apiClient.delete(`/discussions/${discussionId}`);
 
       toast.success("Discussion deleted");
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
       router.push('/dashboard/discussions');
     } catch (error: any) {
       toast.error("Failed to delete discussion");
@@ -322,7 +332,9 @@ export default function DiscussionDetailPage() {
   const isLocked = discussion?.isLocked;
   const isLiked = discussion?.likes?.some((like: any) => like.userId === profile?.id);
   const canModerateDiscussion = isAdmin || isFacilitator;
-  const canScoreQuality = canModerateDiscussion;
+  const isFellowDiscussion = discussion?.user?.role === "FELLOW";
+  const canScoreQuality = canModerateDiscussion && discussion?.isApproved && isFellowDiscussion;
+  const canApproveDiscussion = canModerateDiscussion && discussion?.isApproved === false;
   const canViewDiscussionQuality = canModerateDiscussion || discussion?.isQualityVisible;
   const qualityAnalysis = (discussion?.qualityAnalysis || {}) as any;
   const reactionOptions: Array<{ type: CommentReactionType; label: string; emoji: string }> = [
@@ -343,7 +355,13 @@ export default function DiscussionDetailPage() {
   const renderComment = (comment: any, depth: number = 0) => {
     const isOwnComment = comment.userId === profile?.id;
     const canDelete = isOwnComment || canModerateDiscussion;
-    const showCommentQuality = canModerateDiscussion || (comment.isQualityVisible && comment.qualityScore !== null && comment.qualityScore !== undefined);
+    const isEligibleCommentScore =
+      comment.user?.role === "FELLOW" &&
+      (discussion?.user?.role === "ADMIN" || discussion?.user?.role === "FACILITATOR") &&
+      discussion?.isApproved;
+    const showCommentQuality =
+      canModerateDiscussion ||
+      (comment.isQualityVisible && comment.qualityScore !== null && comment.qualityScore !== undefined);
     const reactionCounts = comment.reactionCounts || {};
     const userReactions = new Set(comment.userReactions || []);
     const replies = commentsByParent[comment.id] || [];
@@ -388,7 +406,7 @@ export default function DiscussionDetailPage() {
                       {comment.qualityAnalysis.badge}
                     </Badge>
                   )}
-                  {canModerateDiscussion && (
+                  {canModerateDiscussion && isEligibleCommentScore && (
                     <>
                       <button
                         type="button"
@@ -551,6 +569,11 @@ export default function DiscussionDetailPage() {
                     <h1 className="text-2xl font-bold text-gray-900">
                       {discussion.title}
                     </h1>
+                    {discussion.isApproved === false && (
+                      <Badge className="text-xs bg-amber-50 text-amber-700 border border-amber-200">
+                        Pending approval
+                      </Badge>
+                    )}
                     {discussion.isPinned && (
                       <Pin className="h-5 w-5 text-amber-600" />
                     )}
@@ -609,26 +632,41 @@ export default function DiscussionDetailPage() {
                         <div className="text-xs text-gray-500">Not scored yet</div>
                       )}
                     </div>
-                    {canScoreQuality && (
+                    {(canScoreQuality || canApproveDiscussion) && (
                       <div className="flex flex-col gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleScoreQuality}
-                          disabled={scoreDiscussionQuality.isPending}
-                          className="shrink-0"
-                        >
-                          {discussion.qualityScore ? "Rescore" : "Score now"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleToggleQualityVisibility}
-                          disabled={toggleDiscussionQualityVisibility.isPending}
-                          className="shrink-0"
-                        >
-                          {discussion.isQualityVisible ? "Hide score" : "Share score"}
-                        </Button>
+                        {canScoreQuality && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleScoreQuality}
+                            disabled={scoreDiscussionQuality.isPending}
+                            className="shrink-0"
+                          >
+                            {discussion.qualityScore ? "Rescore" : "Score now"}
+                          </Button>
+                        )}
+                        {canScoreQuality && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleToggleQualityVisibility}
+                            disabled={toggleDiscussionQualityVisibility.isPending}
+                            className="shrink-0"
+                          >
+                            {discussion.isQualityVisible ? "Hide score" : "Share score"}
+                          </Button>
+                        )}
+                        {canApproveDiscussion && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleApproveDiscussion}
+                            disabled={approveDiscussion.isPending}
+                            className="shrink-0"
+                          >
+                            Approve
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -721,7 +759,7 @@ export default function DiscussionDetailPage() {
             <h2 className="text-xl font-semibold text-gray-900">Comments</h2>
 
             {/* Comment Input */}
-            {!isLocked ? (
+            {!isLocked && discussion?.isApproved ? (
               <div className="space-y-3">
                 {replyTo && (
                   <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
@@ -762,8 +800,16 @@ export default function DiscussionDetailPage() {
             ) : (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
                 <Lock className="h-6 w-6 text-red-600 mx-auto mb-2" />
-                <p className="text-red-700 font-medium">This discussion is locked</p>
-                <p className="text-red-600 text-sm">No new comments can be added</p>
+                <p className="text-red-700 font-medium">
+                  {discussion?.isApproved === false
+                    ? "This discussion is pending approval"
+                    : "This discussion is locked"}
+                </p>
+                <p className="text-red-600 text-sm">
+                  {discussion?.isApproved === false
+                    ? "Comments are disabled until approval"
+                    : "No new comments can be added"}
+                </p>
               </div>
             )}
 

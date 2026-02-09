@@ -21,7 +21,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useDiscussions } from "@/hooks/api/useDiscussions";
+import { useApproveDiscussion, useDiscussions } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useDeleteChannel } from "@/hooks/api/useChat";
@@ -49,6 +49,7 @@ export default function DiscussionsPage() {
     pinned: filterPinned || undefined,
     resourceId,
   });
+  const approveDiscussion = useApproveDiscussion();
 
   const { socket, isConnected } = useDiscussionsSocket();
 
@@ -120,7 +121,7 @@ export default function DiscussionsPage() {
       : true
   );
 
-  const canCreateDiscussion = profile?.role === 'ADMIN' || profile?.role === 'FACILITATOR';
+  const canCreateDiscussion = !!profile?.role;
   const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
 
   const handleStartChat = async () => {
@@ -186,18 +187,14 @@ export default function DiscussionsPage() {
                   </div>
                 )}
               </div>
-              {canCreateDiscussion ? (
+              {canCreateDiscussion && (
                 <Button
-                onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                  onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Start Discussion
                 </Button>
-              ) : (
-                <div className="text-xs text-gray-500">
-                  Only admins and facilitators can create discussions.
-                </div>
               )}
             </div>
 
@@ -330,6 +327,8 @@ export default function DiscussionsPage() {
                         ? `Session ${discussion.session.sessionNumber}: ${discussion.session.title}`
                         : 'General';
 
+                    const isPendingApproval = discussion.isApproved === false;
+
                     return (
                     <Link key={discussion.id} href={`/dashboard/discussions/${discussion.id}`}>
                       <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
@@ -345,6 +344,11 @@ export default function DiscussionsPage() {
                                 )}
                                 {discussion.isLocked && (
                                   <Lock className="h-4 w-4 text-red-600" />
+                                )}
+                                {isPendingApproval && (
+                                  <Badge className="text-xs bg-amber-50 text-amber-700 border border-amber-200">
+                                    Pending approval
+                                  </Badge>
                                 )}
                                 <Badge className="text-xs bg-blue-50 text-blue-700 border border-blue-100">
                                   {topicLabel}
@@ -362,6 +366,20 @@ export default function DiscussionsPage() {
                                     {getRoleDisplayName(discussion.user?.role)}
                                   </Badge>
                                 </div>
+                                {isPendingApproval && (isAdmin || isFacilitator) && (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      approveDiscussion.mutateAsync(discussion.id).catch(() => {
+                                        toast.error("Failed to approve discussion");
+                                      });
+                                    }}
+                                    className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
                                 <span>•</span>
                                 <span>
                                   {formatLocalTimestamp(discussion.createdAt)}
