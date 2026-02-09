@@ -38,6 +38,19 @@ export function useDiscussionTopics(cohortId?: string) {
   });
 }
 
+export function usePendingApprovalCount(cohortId?: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['discussion-pending-count', cohortId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (cohortId) params.append('cohortId', cohortId);
+      const endpoint = `/discussions/pending-count${params.toString() ? `?${params.toString()}` : ''}`;
+      return apiClient.get<{ count: number }>(endpoint);
+    },
+    enabled,
+  });
+}
+
 export function useDiscussion(id: string) {
   return useQuery({
     queryKey: ['discussion', id],

@@ -388,6 +388,45 @@ export class DiscussionsService {
     };
   }
 
+  async getPendingApprovalCount(
+    userId: string,
+    userRole: string,
+    cohortId?: string,
+  ) {
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException(
+        'Only admins and facilitators can view pending approvals',
+      );
+    }
+
+    let scopedCohortId = cohortId;
+
+    if (userRole === 'FACILITATOR') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { cohortId: true },
+      });
+
+      if (!user?.cohortId) {
+        return { count: 0 };
+      }
+
+      scopedCohortId = user.cohortId;
+    }
+
+    const where: any = {
+      isApproved: false,
+    };
+
+    if (scopedCohortId) {
+      where.cohortId = scopedCohortId;
+    }
+
+    const count = await this.prisma.discussion.count({ where });
+
+    return { count };
+  }
+
   async getDiscussion(id: string, userRole: string, userId: string) {
     const discussion = (await this.prisma.discussion.findUnique({
       where: { id },

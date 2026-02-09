@@ -46,6 +46,19 @@ export class DiscussionsController {
     return this.discussionsService.getDiscussionTopics(cohortId);
   }
 
+  @Get('pending-count')
+  @ApiOperation({ summary: 'Get pending discussion approvals count' })
+  getPendingApprovalCount(
+    @Request() req,
+    @Query('cohortId') cohortId?: string,
+  ) {
+    return this.discussionsService.getPendingApprovalCount(
+      req.user.id,
+      req.user.role,
+      cohortId,
+    );
+  }
+
   @Get(':id')
   getDiscussion(@Param('id') id: string, @Request() req) {
     return this.discussionsService.getDiscussion(id, req.user.role, req.user.id);

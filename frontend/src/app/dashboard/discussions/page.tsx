@@ -21,7 +21,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useApproveDiscussion, useDiscussions } from "@/hooks/api/useDiscussions";
+import { useApproveDiscussion, useDiscussions, usePendingApprovalCount } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useDeleteChannel } from "@/hooks/api/useChat";
@@ -85,11 +85,17 @@ export default function DiscussionsPage() {
     const handleNewDiscussion = (discussion: any) => {
       console.log('[Discussions] New discussion:', discussion);
       refetch();
+      if (canManageChats) {
+        refetchPendingCount();
+      }
     };
 
     const handleDiscussionUpdated = (discussion: any) => {
       console.log('[Discussions] Discussion updated:', discussion);
       refetch();
+      if (canManageChats) {
+        refetchPendingCount();
+      }
     };
 
     const handleNewComment = (data: any) => {
@@ -100,6 +106,9 @@ export default function DiscussionsPage() {
     const handleDiscussionDeleted = (data: any) => {
       console.log('[Discussions] Discussion deleted:', data);
       refetch();
+      if (canManageChats) {
+        refetchPendingCount();
+      }
     };
 
     socket.on('discussion:new', handleNewDiscussion);
@@ -113,9 +122,14 @@ export default function DiscussionsPage() {
       socket.off('discussion:new_comment', handleNewComment);
       socket.off('discussion:deleted', handleDiscussionDeleted);
     };
-  }, [socket, refetch]);
+  }, [socket, refetch, refetchPendingCount, canManageChats]);
 
   const discussions = discussionsData?.data || [];
+  const { data: pendingCountData, refetch: refetchPendingCount } = usePendingApprovalCount(
+    isAdmin ? undefined : profile?.cohortId,
+    canManageChats,
+  );
+  const pendingApprovalCount = pendingCountData?.count ?? 0;
   const filteredDiscussions = discussions.filter((discussion: any) =>
     searchQuery
       ? discussion.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -221,14 +235,21 @@ export default function DiscussionsPage() {
                     <Filter className="h-4 w-4" />
                     {filterPinned ? "Show All" : "Pinned Only"}
                   </Button>
-                  <Button
-                    variant={filterPendingApproval ? "default" : "outline"}
-                    onClick={() => setFilterPendingApproval(!filterPendingApproval)}
-                    className="gap-2"
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    {filterPendingApproval ? "Show All" : "Pending Approval"}
-                  </Button>
+                  {canManageChats && (
+                    <Button
+                      variant={filterPendingApproval ? "default" : "outline"}
+                      onClick={() => setFilterPendingApproval(!filterPendingApproval)}
+                      className="gap-2"
+                    >
+                      <TrendingUp className="h-4 w-4" />
+                      {filterPendingApproval ? "Show All" : "Pending Approval"}
+                      {pendingApprovalCount > 0 && (
+                        <Badge className="ml-1 bg-amber-100 text-amber-700 border border-amber-200">
+                          {pendingApprovalCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -381,9 +402,16 @@ export default function DiscussionsPage() {
                                     type="button"
                                     onClick={(event) => {
                                       event.preventDefault();
-                                      approveDiscussion.mutateAsync(discussion.id).catch(() => {
-                                        toast.error("Failed to approve discussion");
-                                      });
+                                      approveDiscussion
+                                        .mutateAsync(discussion.id)
+                                        .then(() => {
+                                          if (canManageChats) {
+                                            refetchPendingCount();
+                                          }
+                                        })
+                                        .catch(() => {
+                                          toast.error("Failed to approve discussion");
+                                        });
                                     }}
                                     className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold"
                                   >
