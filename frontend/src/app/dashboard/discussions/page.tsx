@@ -45,6 +45,11 @@ export default function DiscussionsPage() {
 
   const resourceId = searchParams.get('resourceId') || undefined;
   const { data: resource } = useResource(resourceId || "");
+
+  // Chat functionality
+  const isAdmin = profile?.role === 'ADMIN';
+  const isFacilitator = profile?.role === 'FACILITATOR';
+  const canManageChats = isAdmin || isFacilitator;
   
   const { data: discussionsData, refetch } = useDiscussions(profile?.cohortId ?? undefined, {
     pinned: filterPinned || undefined,
@@ -52,13 +57,13 @@ export default function DiscussionsPage() {
     isApproved: filterPendingApproval ? false : undefined,
   });
   const approveDiscussion = useApproveDiscussion();
+  const { data: pendingCountData, refetch: refetchPendingCount } = usePendingApprovalCount(
+    isAdmin ? undefined : (profile?.cohortId ?? undefined),
+    canManageChats,
+  );
 
   const { socket, isConnected } = useDiscussionsSocket();
 
-  // Chat functionality
-  const isAdmin = profile?.role === 'ADMIN';
-  const isFacilitator = profile?.role === 'FACILITATOR';
-  const canManageChats = isAdmin || isFacilitator;
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
   const facilitatorCohorts = profile?.facilitatedCohorts || [];
@@ -125,10 +130,6 @@ export default function DiscussionsPage() {
   }, [socket, refetch, refetchPendingCount, canManageChats]);
 
   const discussions = discussionsData?.data || [];
-  const { data: pendingCountData, refetch: refetchPendingCount } = usePendingApprovalCount(
-    isAdmin ? undefined : profile?.cohortId,
-    canManageChats,
-  );
   const pendingApprovalCount = pendingCountData?.count ?? 0;
   const filteredDiscussions = discussions.filter((discussion: any) =>
     searchQuery

@@ -136,6 +136,8 @@ describe('DiscussionsService', () => {
   });
 
   describe('getDiscussions', () => {
+    const userId = '123';
+
     it('should return paginated discussions', async () => {
       const filters = { page: 1, limit: 10 };
 
