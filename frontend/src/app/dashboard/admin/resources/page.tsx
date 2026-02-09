@@ -20,18 +20,45 @@ import { ResourceType } from "@/types/api";
 import { format } from "date-fns";
 
 export default function ResourceManagementPage() {
-    // Lock/unlock handler for resources
-    const handleToggleLock = async (resource: any) => {
-      try {
-        await updateResourceMutation.mutateAsync({
-          resourceId: resource.id,
-          data: { state: resource.state === 'LOCKED' ? 'UNLOCKED' : 'LOCKED' },
-        });
-        refetchResources();
-      } catch (err) {
-        console.error('Failed to toggle lock:', err);
-      }
-    };
+    const createResourceMutation = useCreateResource();
+    const deleteResourceMutation = useDeleteResource();
+  // Dialog state
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<any | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string>("");
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  // Fetch cohorts
+  const { data: cohortsData, isLoading: cohortsLoading } = useCohorts();
+  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
+
+  // Fetch sessions for selected cohort
+  const { data: sessionsData, isLoading: sessionsLoading } = useSessions(selectedCohortId);
+  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
+
+  // Fetch resources for selected session
+  const { data: resourcesData, isLoading: resourcesLoading, refetch: refetchResources } = useAdminResources({
+    sessionId: selectedSessionId || undefined,
+    type: typeFilter !== "all" ? typeFilter : undefined,
+    search: searchQuery || undefined,
+  });
+  const resources = Array.isArray(resourcesData) ? resourcesData : [] as any[];
+
+  // Lock/unlock handler for resources
+  const updateResourceMutation = useUpdateResource();
+  const handleToggleLock = async (resource: any) => {
+    try {
+      await updateResourceMutation.mutateAsync({
+        resourceId: resource.id,
+        data: { state: resource.state === 'LOCKED' ? 'UNLOCKED' : 'LOCKED' },
+      });
+      refetchResources();
+    } catch (err) {
+      console.error('Failed to toggle lock:', err);
+    }
+  };
   const { data: profile, isLoading: profileLoading } = useProfile();
   const router = useRouter();
 
@@ -40,41 +67,6 @@ export default function ResourceManagementPage() {
       router.replace('/dashboard');
     }
   }, [profile, profileLoading, router]);
-  const { data: cohortsData, isLoading: cohortsLoading } = useCohorts();
-  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
-  
-  const [selectedCohortId, setSelectedCohortId] = useState<string>(cohorts[0]?.id || "");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  
-  // Session selection removed in new UI
-
-  // Fetch all resources for the selected cohort
-  const { data: resourcesData, isLoading: resourcesLoading, refetch: refetchResources } = useAdminResources({
-    type: typeFilter !== "all" ? typeFilter : undefined,
-    search: searchQuery || undefined,
-  });
-  const resources = Array.isArray(resourcesData) ? resourcesData : [] as any[];
-  // Group resources by cohortId
-  const resourcesByCohort: Record<string, any[]> = {};
-  for (const resource of resources) {
-    const cohortId = resource.session?.cohortId || resource.cohortId || "unknown";
-    if (!resourcesByCohort[cohortId]) resourcesByCohort[cohortId] = [];
-    resourcesByCohort[cohortId].push(resource);
-  }
-
-  const createResourceMutation = useCreateResource();
-  const updateResourceMutation = useUpdateResource();
-  const deleteResourceMutation = useDeleteResource();
-
-  // Get sessions for selected cohort (needed for sessionId on resource creation)
-  const { data: sessionsData, isLoading: sessionsLoading } = useSessions(selectedCohortId);
-  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
-
-  // Dialog state
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingResource, setEditingResource] = useState<any | null>(null);
-  
   // Form state
   const [formData, setFormData] = useState({
     type: ResourceType.VIDEO,
@@ -207,75 +199,123 @@ export default function ResourceManagementPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Resource Management</h1>
-            <p className="text-gray-600 mt-1">Manage all learning resources by cohort. Add, edit, or delete resources easily.</p>
+            <p className="text-gray-600 mt-1">Manage all learning resources by cohort, session, and resource. Add, edit, or delete resources easily.</p>
           </div>
           <Button onClick={() => refetchResources()} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" /> Refresh
           </Button>
         </div>
-        <Tabs value={selectedCohortId} onValueChange={setSelectedCohortId} className="w-full">
-          <TabsList className="mb-6">
+        {/* Cohort Selector */}
+        <div className="mb-6">
+          <Label htmlFor="cohort-select" className="text-sm font-medium text-gray-900 mb-2 block">Select Cohort</Label>
+          <select
+            id="cohort-select"
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+            value={selectedCohortId}
+            onChange={e => {
+              setSelectedCohortId(e.target.value);
+              setSelectedSessionId("");
+            }}
+            disabled={cohortsLoading}
+          >
+            <option value="">-- Select a cohort --</option>
             {cohorts.map((cohort: any) => (
-              <TabsTrigger key={cohort.id} value={cohort.id} className="capitalize">
-                {cohort.name}
-              </TabsTrigger>
+              <option key={cohort.id} value={cohort.id}>
+                {cohort.name} ({cohort.startDate ? format(new Date(cohort.startDate), "MMM yyyy") : ""})
+              </option>
             ))}
-          </TabsList>
-          {cohorts.map((cohort: any) => (
-            <TabsContent key={cohort.id} value={cohort.id} className="space-y-6">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-semibold text-atlas-navy">{cohort.name} Resources</h2>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { setSelectedCohortId(cohort.id); setIsAddDialogOpen(true); }}>
-                  <Plus className="h-4 w-4 mr-2" /> Add Resource
-                </Button>
+          </select>
+        </div>
+        {/* Session Selector */}
+        {selectedCohortId && (
+          <div className="mb-6">
+            <Label htmlFor="session-select" className="text-sm font-medium text-gray-900 mb-2 block">Select Session</Label>
+            <select
+              id="session-select"
+              className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+              value={selectedSessionId}
+              onChange={e => setSelectedSessionId(e.target.value)}
+              disabled={sessionsLoading}
+            >
+              <option value="">-- Select a session --</option>
+              {sessions.map((session: any) => (
+                <option key={session.id} value={session.id}>
+                  Session {session.sessionNumber}: {session.title} ({session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "No date"})
+                </option>
+              ))}
+            </select>
+            {/* Session details */}
+            {selectedSessionId && (
+              <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-900">
+                {(() => {
+                  const session = sessions.find((s: any) => s.id === selectedSessionId);
+                  if (!session) return null;
+                  return <>
+                    <p><strong>Session Title:</strong> {session.title}</p>
+                    <p><strong>Date:</strong> {session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "Not set"}</p>
+                    <p><strong>Description:</strong> {session.description || "No description"}</p>
+                  </>;
+                })()}
               </div>
+            )}
+          </div>
+        )}
+        {/* Resources Table */}
+        {selectedSessionId && (
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-atlas-navy">Resources for Selected Session</h2>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" /> Add Resource
+              </Button>
+            </div>
+            {resourcesLoading ? (
+              <div className="p-8 text-center text-gray-600">Loading resources...</div>
+            ) : resources.length === 0 ? (
+              <div className="p-8 text-center text-gray-600">No resources found for this session.</div>
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(resourcesByCohort[cohort.id] || []).length === 0 ? (
-                  <div className="col-span-full text-center text-gray-500 py-8">No resources for this cohort yet.</div>
-                ) : (
-                  resourcesByCohort[cohort.id].map((resource: any) => (
-                    <Card key={resource.id} className="shadow-md border border-gray-200 flex flex-col h-full">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          {getResourceIcon(resource.type)}
-                          <span className="text-base font-semibold text-gray-900 capitalize">{resource.title}</span>
-                        </div>
-                        <CardDescription className="mb-1 text-xs text-gray-500">
-                          {resource.description || 'No description'}
-                        </CardDescription>
-                        <div className="flex flex-wrap gap-2 text-xs mt-2">
-                          <Badge className={resource.isCore ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
-                            {resource.isCore ? 'Core' : 'Optional'}
-                          </Badge>
-                          <span className="text-gray-500">{resource.type}</span>
-                          <span className="text-gray-500">{resource.estimatedMinutes || resource.duration || 0} min</span>
-                          <span className="text-gray-500">{resource.pointValue} pts</span>
-                          <Button size="sm" variant="outline" onClick={() => handleToggleLock(resource)}>
-                            {resource.state === 'LOCKED' ? 'Unlock' : 'Lock'}
-                          </Button>
-                        </div>
-                        // Removed duplicate handler definition; using top-level handleToggleLock
-                      </CardHeader>
-                      <CardContent className="flex-1 flex flex-col justify-between">
-                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs break-all">
-                          {resource.url}
-                        </a>
-                      </CardContent>
-                      <CardFooter className="flex gap-2 justify-end border-t pt-3">
-                        <Button size="sm" variant="outline" onClick={() => handleEditResource(resource)}>
-                          <Edit className="h-4 w-4" /> Edit
+                {resources.map((resource: any) => (
+                  <Card key={resource.id} className="shadow-md border border-gray-200 flex flex-col h-full">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getResourceIcon(resource.type)}
+                        <span className="text-base font-semibold text-gray-900 capitalize">{resource.title}</span>
+                      </div>
+                      <CardDescription className="mb-1 text-xs text-gray-500">
+                        {resource.description || 'No description'}
+                      </CardDescription>
+                      <div className="flex flex-wrap gap-2 text-xs mt-2">
+                        <Badge className={resource.isCore ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                          {resource.isCore ? 'Core' : 'Optional'}
+                        </Badge>
+                        <span className="text-gray-500">{resource.type}</span>
+                        <span className="text-gray-500">{resource.estimatedMinutes || resource.duration || 0} min</span>
+                        <span className="text-gray-500">{resource.pointValue} pts</span>
+                        <Button size="sm" variant="outline" onClick={() => handleToggleLock(resource)}>
+                          {resource.state === 'LOCKED' ? 'Unlock' : 'Lock'}
                         </Button>
-                        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteResource(resource.id)}>
-                          <Trash2 className="h-4 w-4" /> Delete
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))
-                )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col justify-between">
+                      <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-xs break-all">
+                        {resource.url}
+                      </a>
+                    </CardContent>
+                    <CardFooter className="flex gap-2 justify-end border-t pt-3">
+                      <Button size="sm" variant="outline" onClick={() => handleEditResource(resource)}>
+                        <Edit className="h-4 w-4" /> Edit
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteResource(resource.id)}>
+                        <Trash2 className="h-4 w-4" /> Delete
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+            )}
+          </div>
+        )}
         {isAddDialogOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <Card className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto">
