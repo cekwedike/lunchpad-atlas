@@ -20,7 +20,9 @@ export function middleware(request: NextRequest) {
   
   // Redirect authenticated users away from auth pages
   if (isAuthRoute && accessToken) {
-    return NextResponse.redirect(new URL('/dashboard/fellow', request.url));
+    const response = NextResponse.redirect(new URL('/dashboard/fellow', request.url));
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
   
   // Handle protected routes
@@ -29,11 +31,15 @@ export function middleware(request: NextRequest) {
     if (!accessToken) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
+      const response = NextResponse.redirect(loginUrl);
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
   }
-  
-  return NextResponse.next();
+
+  const response = NextResponse.next();
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }
 
 export const config = {

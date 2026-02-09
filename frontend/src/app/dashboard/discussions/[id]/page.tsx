@@ -32,6 +32,7 @@ import {
   useToggleDiscussionQualityVisibility,
   useToggleCommentQualityVisibility,
   useApproveDiscussion,
+  useDiscussionAiStatus,
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
@@ -52,6 +53,8 @@ export default function DiscussionDetailPage() {
   const router = useRouter();
   const discussionId = params.id as string;
   const { data: profile } = useProfile();
+  const isAdmin = profile?.role === "ADMIN";
+  const isFacilitator = profile?.role === "FACILITATOR";
   
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; author?: string } | null>(null);
@@ -76,6 +79,7 @@ export default function DiscussionDetailPage() {
   const scoreCommentQuality = useScoreCommentQuality(discussionId);
   const toggleCommentQualityVisibility = useToggleCommentQualityVisibility(discussionId);
   const approveDiscussion = useApproveDiscussion();
+  const { data: aiStatus } = useDiscussionAiStatus(!!isAdmin);
   
   const { socket, isConnected, subscribeToDiscussion, unsubscribeFromDiscussion, emitTyping } = useDiscussionsSocket();
 
@@ -326,8 +330,6 @@ export default function DiscussionDetailPage() {
   };
 
   const comments = Array.isArray(commentsData) ? commentsData : [];
-  const isAdmin = profile?.role === "ADMIN";
-  const isFacilitator = profile?.role === "FACILITATOR";
   const isOwner = discussion?.userId === profile?.id;
   const isLocked = discussion?.isLocked;
   const isLiked = discussion?.likes?.some((like: any) => like.userId === profile?.id);
@@ -335,7 +337,8 @@ export default function DiscussionDetailPage() {
   const isFellowDiscussion = discussion?.user?.role === "FELLOW";
   const canScoreQuality = canModerateDiscussion && discussion?.isApproved && isFellowDiscussion;
   const canApproveDiscussion = canModerateDiscussion && discussion?.isApproved === false;
-  const canViewDiscussionQuality = canModerateDiscussion || discussion?.isQualityVisible;
+  const canViewDiscussionQuality =
+    isFellowDiscussion && (canModerateDiscussion || discussion?.isQualityVisible);
   const qualityAnalysis = (discussion?.qualityAnalysis || {}) as any;
   const reactionOptions: Array<{ type: CommentReactionType; label: string; emoji: string }> = [
     { type: 'LIKE', label: 'Like', emoji: '👍' },
@@ -356,9 +359,9 @@ export default function DiscussionDetailPage() {
     const isOwnComment = comment.userId === profile?.id;
     const canDelete = isOwnComment || canModerateDiscussion;
     const isEligibleCommentScore =
-      comment.user?.role === "FELLOW" &&
-      (discussion?.user?.role === "ADMIN" || discussion?.user?.role === "FACILITATOR") &&
-      discussion?.isApproved;
+      canModerateDiscussion &&
+      discussion?.isApproved &&
+      comment.user?.role === "FELLOW";
     const showCommentQuality =
       canModerateDiscussion ||
       (comment.isQualityVisible && comment.qualityScore !== null && comment.qualityScore !== undefined);
@@ -400,29 +403,12 @@ export default function DiscussionDetailPage() {
                   <span className="font-medium text-gray-700">Quality</span>
                   <span className="font-semibold text-gray-900">
                     {comment.qualityScore ?? "--"}
+                    {comment.qualityScore !== null && comment.qualityScore !== undefined ? "/50" : ""}
                   </span>
                   {comment.qualityAnalysis?.badge && (
                     <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">
                       {comment.qualityAnalysis.badge}
                     </Badge>
-                  )}
-                  {canModerateDiscussion && isEligibleCommentScore && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleScoreCommentQuality(comment.id)}
-                        className="text-xs text-slate-600 hover:text-slate-800"
-                      >
-                        {comment.qualityScore ? "Rescore" : "Score"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleCommentQualityVisibility(comment.id)}
-                        className="text-xs text-emerald-600 hover:text-emerald-700"
-                      >
-                        {comment.isQualityVisible ? "Hide score" : "Share score"}
-                      </button>
-                    </>
                   )}
                 </div>
 
@@ -464,6 +450,29 @@ export default function DiscussionDetailPage() {
                     </ul>
                   </div>
                 )}
+              </div>
+            )}
+
+            {canModerateDiscussion && isEligibleCommentScore && (
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleScoreCommentQuality(comment.id)}
+                  className="rounded border border-gray-200 px-2 py-1 text-slate-700 hover:border-gray-300"
+                >
+                  {comment.qualityScore ? "Rescore comment" : "Score comment"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleCommentQualityVisibility(comment.id)}
+                  className={comment.qualityScore
+                    ? 'rounded border border-emerald-200 px-2 py-1 text-emerald-700 hover:border-emerald-300'
+                    : 'rounded border border-gray-200 px-2 py-1 text-gray-400 cursor-not-allowed'
+                  }
+                  disabled={!comment.qualityScore}
+                >
+                  {comment.isQualityVisible ? "Hide score" : "Share score"}
+                </button>
               </div>
             )}
 
@@ -580,6 +589,19 @@ export default function DiscussionDetailPage() {
                   Approve discussion
                 </Button>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isAdmin && aiStatus && aiStatus.available === false && (
+          <Card className="border border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="text-sm font-semibold text-red-900">
+                Gemini key missing / model not accessible
+              </div>
+              <div className="text-sm text-red-700">
+                {aiStatus.message || "Gemini is not configured or the model cannot be reached."}
+              </div>
             </CardContent>
           </Card>
         )}

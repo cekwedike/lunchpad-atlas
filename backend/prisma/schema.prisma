@@ -172,6 +172,8 @@ model Resource {
   title                 String
   description           String?
   url                   String // Link to video/article
+  aiSummary             String?
+  aiSummaryUpdatedAt    DateTime?
   duration              Int? // Minutes for video, estimated read time for article
   estimatedMinutes      Int          @default(10) // Expected time to complete
   minimumTimeThreshold  Int          @default(420) // Minimum seconds required (70% of estimated)

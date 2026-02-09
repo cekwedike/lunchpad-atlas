@@ -24,6 +24,127 @@ export class DiscussionsService {
     private notificationsService: NotificationsService,
   ) {}
 
+  private stripHtmlToText(html: string) {
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private stripTranscriptToText(transcript: string) {
+    return transcript
+      .replace(/\r/g, '')
+      .replace(/^WEBVTT[\s\S]*?\n\n/, '')
+      .split('\n')
+      .filter((line) => !/-->/.test(line) && !/^\d+$/.test(line))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private async fetchResourceContent(url: string, type?: string) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'ATLAS-ScoringBot/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      const raw = await response.text();
+      const limited = raw.slice(0, 20000);
+
+      if (type === 'VIDEO' && /text\/vtt|application\/x-subrip/i.test(contentType)) {
+        return this.stripTranscriptToText(limited);
+      }
+
+      if (contentType.includes('text/html')) {
+        return this.stripHtmlToText(limited);
+      }
+
+      if (contentType.includes('text/plain')) {
+        return limited.replace(/\s+/g, ' ').trim();
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private async getResourceSummary(resource: {
+    id: string;
+    title: string;
+    type?: string | null;
+    url?: string | null;
+    aiSummary?: string | null;
+    aiSummaryUpdatedAt?: Date | null;
+  }) {
+    if (!resource.url) return null;
+
+    if (resource.aiSummary && resource.aiSummaryUpdatedAt) {
+      const ageMs = Date.now() - resource.aiSummaryUpdatedAt.getTime();
+      const maxAgeMs = 1000 * 60 * 60 * 24 * 30;
+      if (ageMs < maxAgeMs) {
+        return resource.aiSummary;
+      }
+    }
+
+    const fetchableTypes = new Set(['ARTICLE', 'EXERCISE', 'VIDEO']);
+    if (resource.type && !fetchableTypes.has(resource.type)) {
+      return null;
+    }
+
+    let content: string | null = null;
+
+    if (resource.type === 'VIDEO') {
+      const urlLower = resource.url.toLowerCase();
+      if (urlLower.endsWith('.vtt') || urlLower.endsWith('.srt')) {
+        content = await this.fetchResourceContent(resource.url, 'VIDEO');
+      }
+    } else {
+      content = await this.fetchResourceContent(resource.url, resource.type || undefined);
+    }
+
+    if (!content) return null;
+
+    const summaryResult = await this.discussionScoring.summarizeResourceContent(
+      resource.title,
+      content,
+      resource.type || undefined,
+    );
+
+    const summaryParts = [summaryResult.summary];
+    if (summaryResult.keyPoints.length) {
+      summaryParts.push(`Key Points: ${summaryResult.keyPoints.join('; ')}`);
+    }
+
+    const summary = summaryParts.filter(Boolean).join('\n');
+
+    await this.prisma.resource.update({
+      where: { id: resource.id },
+      data: {
+        aiSummary: summary,
+        aiSummaryUpdatedAt: new Date(),
+      },
+    });
+
+    return summary;
+  }
+
   /**
    * Helper function to award points
    */
@@ -386,6 +507,14 @@ export class DiscussionsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async getAiStatus(userRole: string) {
+    if (userRole !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can view AI status');
+    }
+
+    return this.discussionScoring.getAiStatus();
   }
 
   async getPendingApprovalCount(
@@ -928,7 +1057,18 @@ export class DiscussionsService {
       where: { id: discussionId },
       include: {
         resource: {
-          select: { title: true, description: true },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            url: true,
+            type: true,
+            aiSummary: true,
+            aiSummaryUpdatedAt: true,
+          },
+        },
+        session: {
+          select: { title: true, description: true, monthTheme: true },
         },
         user: {
           select: { id: true, role: true },
@@ -950,16 +1090,53 @@ export class DiscussionsService {
       throw new BadRequestException('Only fellow discussions are scored');
     }
 
-    // Get AI analysis
-    const resourceContext = discussion.resource
-      ? `${discussion.resource.title}: ${discussion.resource.description || ''}`
-      : undefined;
+    const contextParts: string[] = [];
 
-    const analysis = await this.discussionScoring.scoreDiscussion(
-      discussion.title,
-      discussion.content,
-      resourceContext,
-    );
+    if (discussion.session) {
+      contextParts.push(
+        `Session: ${discussion.session.title}` +
+          (discussion.session.description
+            ? ` - ${discussion.session.description}`
+            : ''),
+      );
+      if (discussion.session.monthTheme) {
+        contextParts.push(`Theme: ${discussion.session.monthTheme}`);
+      }
+    }
+
+    if (discussion.resource) {
+      contextParts.push(
+        `Resource: ${discussion.resource.title}` +
+          (discussion.resource.description
+            ? ` - ${discussion.resource.description}`
+            : ''),
+      );
+      const resourceSummary = await this.getResourceSummary(discussion.resource);
+      if (resourceSummary) {
+        contextParts.push(`Resource Summary: ${resourceSummary}`);
+      }
+      if (discussion.resource.url) {
+        contextParts.push(`Resource URL: ${discussion.resource.url}`);
+      }
+      if (discussion.resource.type) {
+        contextParts.push(`Resource Type: ${discussion.resource.type}`);
+      }
+    }
+
+    const resourceContext = contextParts.length ? contextParts.join('\n') : undefined;
+
+    let analysis;
+
+    try {
+      analysis = await this.discussionScoring.scoreDiscussion(
+        discussion.title,
+        discussion.content,
+        resourceContext,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Gemini analysis failed';
+      throw new BadRequestException(message);
+    }
 
     // Update discussion with quality score
     const updated = await this.prisma.discussion.update({
@@ -1043,7 +1220,22 @@ export class DiscussionsService {
             id: true,
             cohortId: true,
             title: true,
+            content: true,
             isApproved: true,
+            session: {
+              select: { title: true, description: true, monthTheme: true },
+            },
+            resource: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                url: true,
+                type: true,
+                aiSummary: true,
+                aiSummaryUpdatedAt: true,
+              },
+            },
             user: { select: { id: true, role: true } },
           },
         },
@@ -1069,16 +1261,58 @@ export class DiscussionsService {
       throw new BadRequestException('Only fellow comments are scored');
     }
 
-    if (!['ADMIN', 'FACILITATOR'].includes(comment.discussion.user?.role)) {
-      throw new BadRequestException(
-        'Only comments on admin or facilitator discussions are scored',
+    const commentContextParts: string[] = [];
+
+    if (comment.discussion.session) {
+      commentContextParts.push(
+        `Session: ${comment.discussion.session.title}` +
+          (comment.discussion.session.description
+            ? ` - ${comment.discussion.session.description}`
+            : ''),
       );
+      if (comment.discussion.session.monthTheme) {
+        commentContextParts.push(`Theme: ${comment.discussion.session.monthTheme}`);
+      }
     }
 
-    const analysis = await this.discussionScoring.scoreComment(
-      comment.content,
-      comment.discussion.title,
-    );
+    if (comment.discussion.resource) {
+      commentContextParts.push(
+        `Resource: ${comment.discussion.resource.title}` +
+          (comment.discussion.resource.description
+            ? ` - ${comment.discussion.resource.description}`
+            : ''),
+      );
+      const commentResourceSummary = await this.getResourceSummary(
+        comment.discussion.resource,
+      );
+      if (commentResourceSummary) {
+        commentContextParts.push(`Resource Summary: ${commentResourceSummary}`);
+      }
+      if (comment.discussion.resource.url) {
+        commentContextParts.push(`Resource URL: ${comment.discussion.resource.url}`);
+      }
+      if (comment.discussion.resource.type) {
+        commentContextParts.push(`Resource Type: ${comment.discussion.resource.type}`);
+      }
+    }
+
+    const learningContext = commentContextParts.length
+      ? commentContextParts.join('\n')
+      : undefined;
+
+    let analysis;
+
+    try {
+      analysis = await this.discussionScoring.scoreComment(
+        comment.content,
+        comment.discussion.title,
+        comment.discussion.content,
+        learningContext,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Gemini analysis failed';
+      throw new BadRequestException(message);
+    }
 
     const updated = await (this.prisma as any).discussionComment.update({
       where: { id: commentId },

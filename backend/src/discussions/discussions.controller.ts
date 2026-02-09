@@ -59,6 +59,12 @@ export class DiscussionsController {
     );
   }
 
+  @Get('ai-status')
+  @ApiOperation({ summary: 'Get Gemini AI availability status (Admin only)' })
+  getAiStatus(@Request() req) {
+    return this.discussionsService.getAiStatus(req.user.role);
+  }
+
   @Get(':id')
   getDiscussion(@Param('id') id: string, @Request() req) {
     return this.discussionsService.getDiscussion(id, req.user.role, req.user.id);

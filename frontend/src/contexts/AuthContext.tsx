@@ -23,11 +23,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isAuthenticated, setUser, logout: storeLogout } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
   useEffect(() => {
     // Check if user is already authenticated on mount
     const checkAuth = async () => {
       const token = localStorage.getItem('accessToken');
+
+      if (token) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(() => controller.abort(), 3000);
+          await fetch(`${apiBaseUrl}/health`, {
+            method: 'GET',
+            signal: controller.signal,
+          });
+          window.clearTimeout(timeoutId);
+        } catch (error) {
+          apiClient.clearTokens();
+          storeLogout();
+          router.replace('/login');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       if (token && !user) {
         try {
           const userData = await apiClient.get<User>('/users/me');
@@ -36,13 +56,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Token invalid, clear it
           apiClient.clearTokens();
           storeLogout();
+          router.replace('/login');
         }
       }
       setIsLoading(false);
     };
 
     checkAuth();
-  }, [user, setUser, storeLogout]);
+  }, [apiBaseUrl, router, user, setUser, storeLogout]);
 
   const login = async (credentials: LoginRequest) => {
     try {

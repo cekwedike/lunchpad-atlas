@@ -38,6 +38,8 @@ class ApiClient {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('auth-storage');
+    document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {

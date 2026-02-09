@@ -51,6 +51,14 @@ export function usePendingApprovalCount(cohortId?: string, enabled: boolean = tr
   });
 }
 
+export function useDiscussionAiStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ['discussion-ai-status'],
+    queryFn: () => apiClient.get<{ available: boolean; message?: string }>(`/discussions/ai-status`),
+    enabled,
+  });
+}
+
 export function useDiscussion(id: string) {
   return useQuery({
     queryKey: ['discussion', id],
