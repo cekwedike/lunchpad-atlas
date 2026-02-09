@@ -109,6 +109,11 @@ export function Sidebar() {
       icon: MessageSquare,
     },
     {
+      title: 'Leaderboard',
+      href: '/leaderboard',
+      icon: Trophy,
+    },
+    {
       title: 'Profile',
       href: '/profile',
       icon: User,
@@ -136,11 +141,16 @@ export function Sidebar() {
       href: '/dashboard/admin/sessions',
       icon: Calendar,
     },
-    {
-      title: 'Resource Management',
-      href: '/dashboard/admin/resources',
-      icon: BookOpen,
-    },
+      {
+        title: 'Resource Management',
+        href: '/dashboard/admin/resources',
+        icon: BookOpen,
+      },
+      {
+        title: 'Quizzes',
+        href: '/dashboard/admin/quizzes',
+        icon: FileQuestion,
+      },
     {
       title: 'Analytics',
       href: '/dashboard/admin/analytics',
@@ -150,6 +160,11 @@ export function Sidebar() {
       title: 'Discussions',
       href: '/dashboard/discussions',
       icon: MessageSquare,
+    },
+    {
+      title: 'Leaderboard',
+      href: '/leaderboard',
+      icon: Trophy,
     },
     {
       title: 'Resources (View)',

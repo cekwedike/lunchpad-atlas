@@ -42,6 +42,7 @@ export interface UpdateResourceRequest {
   isCore?: boolean;
   pointValue?: number;
   order?: number;
+  state?: string;
 }
 
 export interface AuditLog {
