@@ -226,36 +226,33 @@ export default function ResourceManagementPage() {
             ))}
           </select>
         </div>
-        {/* Session Selector */}
+        {/* Session Cards */}
         {selectedCohortId && (
           <div className="mb-6">
-            <Label htmlFor="session-select" className="text-sm font-medium text-gray-900 mb-2 block">Select Session</Label>
-            <select
-              id="session-select"
-              className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
-              value={selectedSessionId}
-              onChange={e => setSelectedSessionId(e.target.value)}
-              disabled={sessionsLoading}
-            >
-              <option value="">-- Select a session --</option>
-              {sessions.map((session: any) => (
-                <option key={session.id} value={session.id}>
-                  Session {session.sessionNumber}: {session.title} ({session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "No date"})
-                </option>
-              ))}
-            </select>
-            {/* Session details */}
-            {selectedSessionId && (
-              <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-900">
-                {(() => {
-                  const session = sessions.find((s: any) => s.id === selectedSessionId);
-                  if (!session) return null;
-                  return <>
-                    <p><strong>Session Title:</strong> {session.title}</p>
-                    <p><strong>Date:</strong> {session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "Not set"}</p>
-                    <p><strong>Description:</strong> {session.description || "No description"}</p>
-                  </>;
-                })()}
+            <Label className="text-sm font-medium text-gray-900 mb-2 block">Sessions</Label>
+            {sessionsLoading ? (
+              <div className="text-gray-500">Loading sessions...</div>
+            ) : sessions.length === 0 ? (
+              <div className="text-gray-500">No sessions found for this cohort.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sessions.map((session: any) => (
+                  <Card
+                    key={session.id}
+                    className={`cursor-pointer border-2 transition-all ${selectedSessionId === session.id ? 'border-blue-600 shadow-lg' : 'border-gray-200 hover:border-blue-400'}`}
+                    onClick={() => setSelectedSessionId(session.id)}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-base font-semibold text-atlas-navy">Session {session.sessionNumber}: {session.title}</CardTitle>
+                      <CardDescription className="text-xs text-gray-500">
+                        {session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "No date"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-xs text-gray-700 min-h-[40px]">{session.description || 'No description'}</div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </div>
