@@ -3,22 +3,24 @@ import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import type { Resource, ResourceProgress, PaginatedResponse, MarkResourceCompleteRequest } from '@/types/api';
 
-import { useAuthStore } from '@/stores/authStore';
-
-export function useResources(sessionId?: string) {
+export function useResources(filters?: { sessionId?: string; cohortId?: string }) {
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
-  
+
   return useQuery({
-    queryKey: ['resources', sessionId],
+    queryKey: ['resources', filters],
     queryFn: async () => {
-      const endpoint = sessionId ? `/resources?sessionId=${sessionId}&limit=1000` : '/resources?limit=1000';
+      const params = new URLSearchParams();
+      params.append('limit', '1000');
+      if (filters?.sessionId) params.append('sessionId', filters.sessionId);
+      if (filters?.cohortId) params.append('cohortId', filters.cohortId);
+      const endpoint = `/resources?${params.toString()}`;
       const response = await apiClient.get<PaginatedResponse<Resource>>(endpoint);
-      
+
       // Backend returns {data: Resource[], total, page, limit, totalPages}
       if (response && typeof response === 'object' && 'data' in response) {
         return response.data || [];
       }
-      
+
       // Fallback if response structure is different
       return Array.isArray(response) ? response : [];
     },

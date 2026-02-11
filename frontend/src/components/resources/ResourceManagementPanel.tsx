@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Video, FileText, Edit, Trash2, RefreshCw, Save, X } from "lucide-react";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useRouter } from "next/navigation";
-import { useCohorts, useAdminResources, useCreateResource, useUpdateResource, useDeleteResource } from "@/hooks/api/useAdmin";
+import { useCohorts, useSessions, useAdminResources, useCreateResource, useUpdateResource, useDeleteResource } from "@/hooks/api/useAdmin";
 import { ResourceType } from "@/types/api";
 import { format } from "date-fns";
 
@@ -47,24 +47,9 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
   const { data: cohortsData, isLoading: cohortsLoading } = useCohorts();
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
 
-  // Fetch curriculum from backend for selected cohort
-  const [curriculum, setCurriculum] = useState<any>(null);
-  useEffect(() => {
-    async function fetchCurriculum() {
-      if (!selectedCohortId) {
-        setCurriculum(null);
-        return;
-      }
-      const res = await fetch(`/api/curricula/${selectedCohortId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCurriculum(data);
-      } else {
-        setCurriculum(null);
-      }
-    }
-    fetchCurriculum();
-  }, [selectedCohortId]);
+  // Fetch sessions from backend for selected cohort
+  const { data: sessionsData, isLoading: sessionsLoading } = useSessions(selectedCohortId || undefined);
+  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
 
   // Fetch resources for selected cohort
   const { data: resourcesData, isLoading: resourcesLoading, refetch: refetchResources } = useAdminResources({
@@ -72,14 +57,16 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
     search: searchQuery || undefined,
     cohortId: selectedCohortId || undefined,
   });
-  const resources = Array.isArray(resourcesData) ? resourcesData : [] as any[];
+  const resources = Array.isArray(resourcesData) ? resourcesData : (resourcesData as any)?.data || [] as any[];
 
-  // Group resources by sessionNumber
-  const resourcesBySession: { [sessionNumber: string]: any[] } = {};
+  // Group resources by session ID
+  const resourcesBySession: { [sessionId: string]: any[] } = {};
   resources.forEach((resource: any) => {
-    const sessionNumber = resource.session?.sessionNumber || resource.sessionNumber || resource.sessionId;
-    if (!resourcesBySession[sessionNumber]) resourcesBySession[sessionNumber] = [];
-    resourcesBySession[sessionNumber].push(resource);
+    const sid = resource.sessionId || resource.session?.id;
+    if (sid) {
+      if (!resourcesBySession[sid]) resourcesBySession[sid] = [];
+      resourcesBySession[sid].push(resource);
+    }
   });
 
   const handleToggleLock = async (resource: any) => {
@@ -171,8 +158,11 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
           data: formData,
         });
       } else {
-        const sessionNumber = selectedSessionId ? selectedSessionId : "1";
-        await createResourceMutation.mutateAsync({ ...formData, sessionId: sessionNumber });
+        if (!selectedSessionId) {
+          alert("Please select a session first by clicking 'Add Resource' on a session card.");
+          return;
+        }
+        await createResourceMutation.mutateAsync({ ...formData, sessionId: selectedSessionId });
       }
       setIsAddDialogOpen(false);
       setEditingResource(null);
@@ -240,18 +230,18 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
         </div>
 
         {/* Session Cards with resources */}
-        {selectedCohortId && curriculum && (
+        {selectedCohortId && sessions.length > 0 && (
           <div className="mb-6">
-            <Label className="text-sm font-medium text-gray-900 mb-2 block">Sessions</Label>
+            <Label className="text-sm font-medium text-gray-900 mb-2 block">Sessions ({sessions.length})</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {curriculum.months.flatMap((month: any) => month.sessions).map((session: any) => {
-                const sessionResources = resourcesBySession[session.sessionNumber] || [];
+              {sessions.map((session: any) => {
+                const sessionResources = resourcesBySession[session.id] || [];
                 return (
-                  <Card key={session.sessionNumber} className="border-2 border-gray-200">
+                  <Card key={session.id} className="border-2 border-gray-200">
                     <CardHeader>
                       <CardTitle className="text-base font-semibold text-atlas-navy">Session {session.sessionNumber}: {session.title}</CardTitle>
                       <CardDescription className="text-xs text-gray-500">
-                        {session.date ? format(new Date(session.date), "MMM dd, yyyy") : "No date"}
+                        {session.scheduledDate ? format(new Date(session.scheduledDate), "MMM dd, yyyy") : "No date"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -289,7 +279,7 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
                       )}
                       <div className="flex justify-end mt-2">
                         <Button className="bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => {
-                          setSelectedSessionId(String(session.sessionNumber));
+                          setSelectedSessionId(session.id);
                           resetForm();
                           setEditingResource(null);
                           setIsAddDialogOpen(true);
@@ -302,6 +292,11 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
                 );
               })}
             </div>
+          </div>
+        )}
+        {selectedCohortId && !sessionsLoading && sessions.length === 0 && (
+          <div className="p-8 text-center text-gray-500">
+            <p>No sessions found for this cohort. Sessions need to be created first.</p>
           </div>
         )}
 

@@ -19,9 +19,13 @@ export class CohortsController {
       return await this.prisma.cohort.findMany({});
     }
     if (user.role === 'FACILITATOR') {
-      // Facilitator sees cohorts they facilitate
+      // Facilitator sees cohorts they facilitate (via cohort.facilitatorId or user.cohortId)
+      const conditions: any[] = [{ facilitatorId: req.user.id }];
+      if (user.cohortId) {
+        conditions.push({ id: user.cohortId });
+      }
       return await this.prisma.cohort.findMany({
-        where: { facilitatorId: req.user.id },
+        where: { OR: conditions },
       });
     }
     // Fellow sees only their cohort

@@ -135,7 +135,7 @@ export class ResourcesService {
     const where: any = {};
     if (type) where.type = type;
     if (sessionId) where.sessionId = sessionId;
-    if (cohortId) where.cohortId = cohortId;
+    if (cohortId) where.session = { cohortId };
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
