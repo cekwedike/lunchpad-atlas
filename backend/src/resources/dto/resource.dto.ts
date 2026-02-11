@@ -10,6 +10,9 @@ import { Type } from 'class-transformer';
 
 export class ResourceQueryDto {
   @IsOptional()
+  @IsString()
+  cohortId?: string;
+  @IsOptional()
   @IsEnum(['VIDEO', 'ARTICLE', 'EXERCISE', 'QUIZ'])
   type?: string;
 

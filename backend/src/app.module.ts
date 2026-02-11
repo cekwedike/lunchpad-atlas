@@ -19,6 +19,7 @@ import { SessionAnalyticsModule } from './session-analytics/session-analytics.mo
 import { LiveQuizModule } from './live-quiz/live-quiz.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { EmailModule } from './email/email.module';
+import { CurriculaModule } from './curricula/curricula.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { EmailModule } from './email/email.module';
     LiveQuizModule,
     AttendanceModule,
     EmailModule,
+    CurriculaModule,
   ],
   controllers: [AppController],
   providers: [

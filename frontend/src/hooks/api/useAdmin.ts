@@ -140,7 +140,7 @@ export function useCohorts(enabled = true) {
   return useQuery({
     queryKey: ['cohorts'],
     queryFn: async () => {
-      const data = await apiClient.get('/admin/cohorts');
+      const data = await apiClient.get('/cohorts');
       return Array.isArray(data) ? data : [];
     },
     enabled,
@@ -332,6 +332,7 @@ export function useAdminResources(filters?: {
   search?: string;
   page?: number;
   limit?: number;
+  cohortId?: string;
 }) {
   const params = new URLSearchParams();
   if (filters?.sessionId) params.append('sessionId', filters.sessionId);
@@ -339,12 +340,13 @@ export function useAdminResources(filters?: {
   if (filters?.search) params.append('search', filters.search);
   if (filters?.page) params.append('page', filters.page.toString());
   if (filters?.limit) params.append('limit', filters.limit.toString());
+  if (filters?.cohortId) params.append('cohortId', filters.cohortId);
 
   const queryString = params.toString();
 
   return useQuery({
     queryKey: ['admin-resources', filters],
-    queryFn: () => apiClient.get(`/admin/resources${queryString ? `?${queryString}` : ''}`),
+    queryFn: () => apiClient.get(`/resources${queryString ? `?${queryString}` : ''}`),
   });
 }
 
@@ -363,7 +365,7 @@ export function useCreateResource() {
 
   return useMutation({
     mutationFn: (data: CreateResourceRequest) =>
-      apiClient.post('/admin/resources', data),
+      apiClient.post('/resources', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resources'] });
       queryClient.invalidateQueries({ queryKey: ['session-resources'] });
@@ -385,7 +387,7 @@ export function useUpdateResource() {
 
   return useMutation({
     mutationFn: ({ resourceId, data }: { resourceId: string; data: UpdateResourceRequest }) =>
-      apiClient.patch(`/admin/resources/${resourceId}`, data),
+      apiClient.patch(`/resources/${resourceId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resources'] });
       queryClient.invalidateQueries({ queryKey: ['session-resources'] });
@@ -407,7 +409,7 @@ export function useDeleteResource() {
 
   return useMutation({
     mutationFn: (resourceId: string) =>
-      apiClient.delete(`/admin/resources/${resourceId}`),
+      apiClient.delete(`/resources/${resourceId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resources'] });
       queryClient.invalidateQueries({ queryKey: ['session-resources'] });

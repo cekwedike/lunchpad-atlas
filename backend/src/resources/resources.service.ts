@@ -123,7 +123,7 @@ export class ResourcesService {
     // Ensure page and limit are numbers
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
-    const { type, sessionId, search } = query;
+    const { type, sessionId, search, cohortId } = query;
     const skip = (page - 1) * limit;
 
     // Get user role
@@ -135,6 +135,7 @@ export class ResourcesService {
     const where: any = {};
     if (type) where.type = type;
     if (sessionId) where.sessionId = sessionId;
+    if (cohortId) where.cohortId = cohortId;
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },

@@ -95,7 +95,7 @@ export function Sidebar() {
     },
     {
       title: 'Resource Management',
-      href: '/dashboard/admin/resources',
+      href: '/dashboard/facilitator/resources',
       icon: BookOpen,
     },
     {

@@ -27,7 +27,7 @@ import {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useResources, useAdminUnlockResource } from "@/hooks/api/useResources";
+import { useResources, useAdminUnlockResource, useResourceProgress } from "@/hooks/api/useResources";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useAdminUsers } from "@/hooks/api/useAdmin";
 import { ResourceType, UserRole } from "@/types/api";
@@ -113,16 +113,28 @@ export default function ResourcesPage() {
 
   const { data: resources } = useResources();
   const { data: profile } = useProfile();
+  const { data: resourceProgress } = useResourceProgress();
   const { data: usersData } = useAdminUsers({ role: 'FELLOW,FACILITATOR' });
   const adminUnlock = useAdminUnlockResource();
 
   const users = usersData as any;
 
   const isAdmin = profile?.role === UserRole.ADMIN;
+  const isFacilitator = profile?.role === UserRole.FACILITATOR;
   const isFellow = profile?.role === UserRole.FELLOW;
 
-  const isResourceUnlocked = (unlockDate: string) => {
-    return new Date() >= new Date(unlockDate);
+  // Returns true if resource is unlocked for the current user (fellow)
+  const isResourceUnlocked = (resource: any, session: any) => {
+    if (isAdmin || isFacilitator) return true;
+    // Check per-user progress state (manual unlock or completed)
+    if (resourceProgress && Array.isArray(resourceProgress)) {
+      const progress = resourceProgress.find((p: any) => p.resourceId === resource.id);
+      if (progress && (progress.state === 'UNLOCKED' || progress.state === 'COMPLETED')) {
+        return true;
+      }
+    }
+    // Fallback to unlock date
+    return new Date() >= new Date(session.unlockDate);
   };
 
   const formatDate = (dateStr: string) => {
@@ -173,10 +185,8 @@ export default function ResourcesPage() {
   const selectedMonthData = CURRICULUM.months.find(m => m.id === selectedMonth);
 
   const handleResourceClick = (resource: any, session: any) => {
-    const unlocked = isAdmin || isResourceUnlocked(session.unlockDate);
-    
+    const unlocked = isResourceUnlocked(resource, session);
     if (!unlocked) return;
-
     if (resource.type === ResourceType.VIDEO) {
       setVideoDialog({ open: true, resource });
     } else if (resource.type === ResourceType.ARTICLE) {
@@ -196,6 +206,11 @@ export default function ResourcesPage() {
             </div>
             {isAdmin && (
               <Link href="/dashboard/admin/resources">
+                <Button>Manage Resources</Button>
+              </Link>
+            )}
+            {isFacilitator && (
+              <Link href="/dashboard/facilitator/resources">
                 <Button>Manage Resources</Button>
               </Link>
             )}
@@ -334,7 +349,7 @@ export default function ResourcesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {selectedMonthData.sessions.map((session) => {
                     const sessionResources = getSessionResources(session.sessionNumber);
-                    const isUnlocked = isAdmin || isResourceUnlocked(session.unlockDate);
+                    const isUnlocked = isAdmin || isFacilitator || new Date() >= new Date(session.unlockDate);
                     const isExpanded = selectedSession === session.sessionNumber;
 
                     return (
@@ -342,7 +357,7 @@ export default function ResourcesPage() {
                         key={session.sessionNumber}
                         className={`cursor-pointer transition-all ${
                           isExpanded ? "ring-2 ring-blue-600" : ""
-                        } ${!isUnlocked && !isAdmin ? "opacity-60" : ""}`}
+                        } ${!isUnlocked && !isAdmin && !isFacilitator ? "opacity-60" : ""}`}
                         onClick={() => setSelectedSession(isExpanded ? null : session.sessionNumber)}
                       >
                         <CardContent className="p-6">
@@ -350,7 +365,7 @@ export default function ResourcesPage() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <Badge variant="outline" className="text-xs">Session {session.sessionNumber}</Badge>
-                                {!isUnlocked && !isAdmin && <Lock className="h-4 w-4 text-gray-400" />}
+                                {!isUnlocked && !isAdmin && !isFacilitator && <Lock className="h-4 w-4 text-gray-400" />}
                               </div>
                               <h3 className="font-semibold text-gray-900 mb-2 leading-tight">{session.title}</h3>
                               <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -377,11 +392,11 @@ export default function ResourcesPage() {
                             )}
                           </div>
 
-                          {/* Admin: Edit Session */}
-                          {isAdmin && (
+                          {/* Admin/Facilitator: Edit Session */}
+                          {(isAdmin || isFacilitator) && (
                             <div className="mt-4 pt-4 border-t">
                               <Link
-                                href={`/dashboard/admin/resources?editSession=${session.sessionNumber}`}
+                                href={isAdmin ? `/dashboard/admin/resources?editSession=${session.sessionNumber}` : `/dashboard/facilitator/resources?editSession=${session.sessionNumber}`}
                                 className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
                                 onClick={(e) => e.stopPropagation()}
                               >
@@ -456,7 +471,7 @@ export default function ResourcesPage() {
                       <div className="space-y-3">
                         {getSessionResources(selectedSession).map((resource) => {
                           const session = selectedMonthData.sessions.find(s => s.sessionNumber === selectedSession);
-                          const isUnlocked = isAdmin || (session && isResourceUnlocked(session.unlockDate));
+                          const isUnlocked = session && isResourceUnlocked(resource, session);
 
                           return (
                             <div
@@ -514,7 +529,7 @@ export default function ResourcesPage() {
                                 </div>
                               </div>
 
-                              {isAdmin && (
+                              {(isAdmin || isFacilitator) && (
                                 <div className="flex items-center gap-2">
                                   {!isUnlocked && (
                                     <Button
@@ -531,7 +546,7 @@ export default function ResourcesPage() {
                                     </Button>
                                   )}
                                   <Link
-                                    href={`/dashboard/admin/resources?edit=${resource.id}`}
+                                    href={isAdmin ? `/dashboard/admin/resources?edit=${resource.id}` : `/dashboard/facilitator/resources?edit=${resource.id}`}
                                     className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
                                     onClick={(e) => e.stopPropagation()}
                                   >
@@ -541,7 +556,7 @@ export default function ResourcesPage() {
                                 </div>
                               )}
 
-                              {isUnlocked && !isAdmin && (
+                              {isUnlocked && !isAdmin && !isFacilitator && (
                                 resource.type === ResourceType.VIDEO ? (
                                   <Video className="h-5 w-5 text-gray-400" />
                                 ) : (

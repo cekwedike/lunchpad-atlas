@@ -8,6 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { ResourceState } from '@prisma/client';
 
 export class CreateResourceDto {
   @ApiProperty({ description: 'Session ID this resource belongs to' })
@@ -76,10 +77,7 @@ export class CreateResourceDto {
 }
 
 export class UpdateResourceDto {
-  @ApiProperty({
-    description: 'Session ID this resource belongs to',
-    required: false,
-  })
+  @ApiProperty({ description: 'Session ID this resource belongs to', required: false })
   @IsOptional()
   @IsString()
   sessionId?: string;
@@ -145,4 +143,13 @@ export class UpdateResourceDto {
   @IsNumber()
   @Min(1)
   order?: number;
+
+  @ApiProperty({
+    description: 'Resource lock/unlock state',
+    required: false,
+    enum: ['LOCKED', 'UNLOCKED', 'IN_PROGRESS', 'COMPLETED'],
+  })
+  @IsOptional()
+  @IsEnum(['LOCKED', 'UNLOCKED', 'IN_PROGRESS', 'COMPLETED'])
+  state?: ResourceState;
 }

@@ -473,6 +473,7 @@ export class AdminService {
         ...(dto.isCore !== undefined && { isCore: dto.isCore }),
         ...(dto.pointValue !== undefined && { pointValue: dto.pointValue }),
         ...(dto.order && { order: dto.order }),
+        ...(dto.state && { state: dto.state }),
       },
       include: {
         session: true,
