@@ -37,13 +37,10 @@ export class SessionAnalyticsService {
 
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Structured analysis model — JSON output
+      // Structured analysis model — plain text, JSON extracted manually
       this.model = this.genAI.getGenerativeModel({
         model: modelName,
-        generationConfig: {
-          temperature: 0.7,
-          responseMimeType: 'application/json',
-        },
+        generationConfig: { temperature: 0.7 },
       });
       // Conversational chat model — plain text output
       this.chatModel = this.genAI.getGenerativeModel({
@@ -109,7 +106,9 @@ Consider:
     const response = await result.response;
     let analysis: any;
     try {
-      analysis = JSON.parse(response.text());
+      // Strip markdown code fences that thinking models sometimes wrap around JSON
+      const raw = response.text().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+      analysis = JSON.parse(raw);
     } catch {
       throw new Error('AI returned an unparseable response. Try again or shorten the transcript.');
     }
