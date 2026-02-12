@@ -181,6 +181,7 @@ model Resource {
   isCore                Boolean      @default(true) // Core vs optional resource
   pointValue            Int          @default(100)
   order                 Int // Display order within session
+  state                 ResourceState @default(LOCKED) // Admin/facilitator manual lock override
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 

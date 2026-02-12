@@ -106,7 +106,7 @@ export class ResourcesService {
       const resource = await this.prisma.resource.findUnique({
         where: { id: resourceId },
         include: { session: true },
-      }) as any;
+      });
       session = session ?? resource?.session;
       resourceState = resourceState ?? resource?.state;
     }
@@ -174,7 +174,7 @@ export class ResourcesService {
           userId,
           r.session,
           user?.role,
-          (r as any).state,
+          r.state,
         );
 
         return {
@@ -220,7 +220,7 @@ export class ResourcesService {
       userId,
       resource.session,
       user?.role,
-      (resource as any).state,
+      resource.state,
     );
 
     // Check if user can access this resource

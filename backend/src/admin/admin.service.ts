@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { ResourceState } from '@prisma/client';
 import {
   CreateCohortDto,
   UpdateCohortDto,
@@ -530,7 +531,7 @@ export class AdminService {
 
     return this.prisma.resource.update({
       where: { id: resourceId },
-      data: { state } as any,
+      data: { state: state as ResourceState },
       include: {
         session: {
           select: { id: true, scheduledDate: true, unlockDate: true },
