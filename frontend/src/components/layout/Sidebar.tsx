@@ -223,7 +223,7 @@ export function Sidebar() {
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
           onClick={toggleSidebar}
         />
       )}
@@ -233,7 +233,8 @@ export function Sidebar() {
         className={cn(
           'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] border-r border-slate-200 bg-white shadow-lg transition-all duration-300 ease-in-out',
           isCollapsed ? 'w-20' : 'w-72',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          // below md: drawer toggle; md+: always visible
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
         <div className="flex h-full flex-col">
@@ -287,10 +288,10 @@ export function Sidebar() {
                       : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900',
                     isCollapsed && 'justify-center px-2'
                   )}
-                  title={isCollapsed ? item.title : undefined}
+                  title={item.title}
                   onClick={() => {
                     // Close sidebar on mobile after navigation
-                    if (window.innerWidth < 1024) {
+                    if (window.innerWidth < 768) {
                       toggleSidebar();
                     }
                   }}
@@ -305,8 +306,8 @@ export function Sidebar() {
             })}
           </nav>
 
-          {/* Collapse Toggle Button (Desktop only) */}
-          <div className="hidden lg:block border-t border-slate-200 p-3">
+          {/* Collapse Toggle Button */}
+          <div className="hidden md:block border-t border-slate-200 p-3">
             <Button
               variant="ghost"
               size="sm"
@@ -330,10 +331,10 @@ export function Sidebar() {
         </div>
       </aside>
 
-      {/* Spacer for desktop */}
+      {/* Spacer to push content right of the sidebar */}
       <div className={cn(
-        "hidden lg:block transition-all duration-300",
-        isCollapsed ? "lg:w-20" : "lg:w-72"
+        "hidden md:block shrink-0 transition-all duration-300",
+        isCollapsed ? "w-20" : "w-72"
       )} />
     </>
   );

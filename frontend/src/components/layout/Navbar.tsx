@@ -54,7 +54,7 @@ export function Navbar() {
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="lg:hidden"
+            className="md:hidden"
           >
             <Menu className="h-5 w-5" />
           </Button>

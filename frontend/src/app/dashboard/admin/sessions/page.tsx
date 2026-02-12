@@ -684,12 +684,15 @@ export default function SessionManagementPage() {
   const isAdmin = profile?.role === "ADMIN";
   const isFacilitator = profile?.role === "FACILITATOR";
 
-  // For facilitators, auto-select their cohort
+  // For facilitators, auto-select their cohort.
+  // profile.cohortId is the "member" field and may be null for facilitators;
+  // fall back to the first cohort returned by useCohorts() (looks up by facilitatorId).
   useEffect(() => {
-    if (isFacilitator && !selectedCohortId && profile?.cohortId) {
-      setSelectedCohortId(profile.cohortId);
+    if (isFacilitator && !selectedCohortId && cohorts.length > 0) {
+      const cohortId = profile?.cohortId ?? cohorts[0]?.id;
+      if (cohortId) setSelectedCohortId(cohortId);
     }
-  }, [isFacilitator, selectedCohortId, profile?.cohortId]);
+  }, [isFacilitator, selectedCohortId, profile?.cohortId, cohorts]);
 
   const selectedCohort = cohorts.find((c: any) => c.id === selectedCohortId);
 
@@ -716,8 +719,8 @@ export default function SessionManagementPage() {
           </div>
         </div>
 
-        {/* Cohort Selector (admin only — facilitators see their cohort automatically) */}
-        {isAdmin && (
+        {/* Cohort Selector: always for admins; for facilitators only when they manage multiple cohorts */}
+        {(isAdmin || (isFacilitator && cohorts.length > 1)) && (
           <Card className="bg-white shadow-sm">
             <CardContent className="p-4">
               <label className="text-sm font-medium text-gray-700 mb-2 block">Select Cohort</label>
