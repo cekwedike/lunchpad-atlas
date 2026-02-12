@@ -77,6 +77,7 @@ export function useDeleteChannel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['direct-channels'] });
     },
   });
 }
@@ -192,5 +193,17 @@ export function useOpenDM() {
     mutationFn: async (targetUserId: string) => {
       return apiClient.post<{ id: string }>(`/chat/direct/${targetUserId}`, {});
     },
+  });
+}
+
+export function useAdminDirectChannels(enabled: boolean) {
+  return useQuery<any[]>({
+    queryKey: ['direct-channels', 'admin'],
+    queryFn: async () => {
+      const data = await apiClient.get<any[]>('/chat/direct');
+      return Array.isArray(data) ? data : [];
+    },
+    enabled,
+    refetchInterval: enabled ? 15000 : false,
   });
 }

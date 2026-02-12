@@ -24,7 +24,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApproveDiscussion, useDiscussions, usePendingApprovalCount } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useDeleteChannel } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useDeleteChannel, useAdminDirectChannels } from "@/hooks/api/useChat";
 import { useCohorts } from "@/hooks/api/useAdmin";
 import { useResource } from "@/hooks/api/useResources";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
@@ -42,6 +42,7 @@ export default function DiscussionsPage() {
   const [chatRoomName, setChatRoomName] = useState("");
   const [deleteChatModal, setDeleteChatModal] = useState<{ id: string; name: string } | null>(null);
   const [showChatCreate, setShowChatCreate] = useState(false);
+  const [deletePrivateChatModal, setDeletePrivateChatModal] = useState<{ id: string; name: string } | null>(null);
 
   const resourceId = searchParams.get('resourceId') || undefined;
   const { data: resource } = useResource(resourceId || "");
@@ -79,6 +80,7 @@ export default function DiscussionsPage() {
   const { data: allChannels } = useAllChannels(isAdmin);
   const createChannel = useCreateChannel();
   const deleteChannel = useDeleteChannel();
+  const { data: adminDMs = [] } = useAdminDirectChannels(isAdmin);
   const channels = isAdmin ? allChannels : cohortChannels;
   const mainChannel = channels?.[0];
   const { data: messages } = useChannelMessages(mainChannel?.id);
@@ -167,6 +169,15 @@ export default function DiscussionsPage() {
       toast.success("Chat room deleted");
     } catch (error: any) {
       toast.error(error?.message || "Failed to delete chat room");
+    }
+  };
+
+  const handleDeletePrivateChat = async (channelId: string) => {
+    try {
+      await deleteChannel.mutateAsync(channelId);
+      toast.success("Private conversation deleted");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete private conversation");
     }
   };
 
@@ -587,6 +598,67 @@ export default function DiscussionsPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Private Chats — Admin only */}
+            {isAdmin && (
+              <Card className="bg-white shadow-sm">
+                <CardHeader className="pb-3 border-b">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Lock className="h-5 w-5 text-purple-600" />
+                    <span>Private Chats</span>
+                    {adminDMs.length > 0 && (
+                      <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs ml-auto">
+                        {adminDMs.length}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <p className="text-xs text-gray-500 mt-1">View-only. You can delete inappropriate conversations.</p>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {adminDMs.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">No private conversations yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {adminDMs.map((dm: any) => {
+                        const displayName = dm.description || 'Private Conversation';
+                        return (
+                          <div key={dm.id} className="flex items-center justify-between p-3 border border-purple-100 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 rounded-full bg-purple-200 flex items-center justify-center shrink-0">
+                                <Lock className="h-3 w-3 text-purple-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                                {dm.cohort?.name && (
+                                  <p className="text-xs text-gray-500">{dm.cohort.name}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              <Link href={`/dashboard/chat?channelId=${dm.id}`}>
+                                <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700 hover:bg-purple-200 text-xs px-2 h-7">
+                                  View
+                                </Button>
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setDeletePrivateChatModal({ id: dm.id, name: displayName })}
+                                className="text-xs text-red-600 hover:text-red-700 px-2 h-7"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -609,6 +681,28 @@ export default function DiscussionsPage() {
                 onClick={async () => {
                   await handleDeleteChannel(deleteChatModal.id);
                   setDeleteChatModal(null);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deletePrivateChatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">Delete private conversation?</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to permanently delete the conversation between <strong>{deletePrivateChatModal.name}</strong>? All messages will be lost.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeletePrivateChatModal(null)}>Cancel</Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={async () => {
+                  await handleDeletePrivateChat(deletePrivateChatModal.id);
+                  setDeletePrivateChatModal(null);
                 }}
               >
                 Delete
