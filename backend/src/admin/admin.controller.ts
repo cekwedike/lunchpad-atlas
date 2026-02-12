@@ -29,6 +29,7 @@ import {
 import {
   CreateResourceDto,
   UpdateResourceDto,
+  ToggleResourceLockDto,
 } from '../resources/dto/create-resource.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -273,6 +274,7 @@ export class AdminController {
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Query('cohortId') cohortId?: string,
     @Request() req?: any,
   ) {
     return this.adminService.getAllResources({
@@ -281,6 +283,7 @@ export class AdminController {
       search,
       page,
       limit,
+      cohortId,
       requesterId: req?.user?.id,
     });
   }
@@ -311,6 +314,19 @@ export class AdminController {
     @Request() req,
   ) {
     return this.adminService.updateResource(resourceId, dto, req.user.id);
+  }
+
+  @Patch('resources/:id/lock')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Toggle resource lock state (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Resource ID' })
+  @ApiResponse({ status: 200, description: 'Lock state updated' })
+  toggleResourceLock(
+    @Param('id') resourceId: string,
+    @Body() dto: ToggleResourceLockDto,
+    @Request() req,
+  ) {
+    return this.adminService.toggleResourceLock(resourceId, dto.state, req.user.id);
   }
 
   @Delete('resources/:id')

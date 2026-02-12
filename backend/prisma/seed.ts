@@ -77,6 +77,12 @@ async function main() {
     },
   });
 
+  // Link facilitator to cohort
+  await prisma.cohort.update({
+    where: { id: cohort.id },
+    data: { facilitatorId: facilitator.id },
+  });
+
   const admin = await prisma.user.create({
     data: {
       email: 'admin@atlas.com',

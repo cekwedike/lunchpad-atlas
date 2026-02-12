@@ -108,6 +108,10 @@ export default function ResourcesPage() {
   // Returns true if resource is unlocked for the current user
   const isResourceUnlocked = (resource: any, session: any) => {
     if (isAdmin || isFacilitator) return true;
+    // Check computed state from backend (includes manual unlock by admin/facilitator)
+    if (resource.state === 'UNLOCKED' || resource.state === 'IN_PROGRESS' || resource.state === 'COMPLETED') {
+      return true;
+    }
     if (resourceProgress && Array.isArray(resourceProgress)) {
       const progress = resourceProgress.find((p: any) => p.resourceId === resource.id);
       if (progress && (progress.state === 'UNLOCKED' || progress.state === 'COMPLETED')) {

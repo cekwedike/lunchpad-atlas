@@ -85,6 +85,7 @@ export class ResourcesService {
     userId: string,
     session?: any,
     userRole?: string,
+    resourceState?: string,
   ): Promise<'LOCKED' | 'UNLOCKED' | 'IN_PROGRESS' | 'COMPLETED'> {
     // Check user progress first
     const progress = await this.prisma.resourceProgress.findUnique({
@@ -100,13 +101,19 @@ export class ResourcesService {
       return 'UNLOCKED';
     }
 
-    // Check if resource is unlocked based on session date
-    if (!session) {
+    // Fetch resource+session if not provided
+    if (!session || resourceState === undefined) {
       const resource = await this.prisma.resource.findUnique({
         where: { id: resourceId },
         include: { session: true },
-      });
-      session = resource?.session;
+      }) as any;
+      session = session ?? resource?.session;
+      resourceState = resourceState ?? resource?.state;
+    }
+
+    // Manual unlock by admin/facilitator overrides date logic
+    if (resourceState === 'UNLOCKED') {
+      return 'UNLOCKED';
     }
 
     if (!session) {
@@ -167,6 +174,7 @@ export class ResourcesService {
           userId,
           r.session,
           user?.role,
+          (r as any).state,
         );
 
         return {
@@ -212,6 +220,7 @@ export class ResourcesService {
       userId,
       resource.session,
       user?.role,
+      (resource as any).state,
     );
 
     // Check if user can access this resource

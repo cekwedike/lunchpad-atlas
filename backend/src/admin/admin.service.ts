@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import {
@@ -400,14 +401,16 @@ export class AdminService {
       },
     });
 
-    const admin = requester;
-
-    await this.notificationsService.notifyAdminsResourceUpdated(
-      resource.id,
-      `${admin?.firstName} ${admin?.lastName}`,
-      'created',
-      'RESOURCE_CREATED',
-    );
+    try {
+      await this.notificationsService.notifyAdminsResourceUpdated(
+        resource.id,
+        `${requester?.firstName} ${requester?.lastName}`,
+        'created',
+        'RESOURCE_CREATED',
+      );
+    } catch {
+      // Non-critical
+    }
 
     return resource;
   }
@@ -491,16 +494,49 @@ export class AdminService {
       },
     });
 
-    const admin = requester;
-
-    await this.notificationsService.notifyAdminsResourceUpdated(
-      resourceId,
-      `${admin?.firstName} ${admin?.lastName}`,
-      'updated',
-      'RESOURCE_UPDATED',
-    );
+    try {
+      await this.notificationsService.notifyAdminsResourceUpdated(
+        resourceId,
+        `${requester?.firstName} ${requester?.lastName}`,
+        'updated',
+        'RESOURCE_UPDATED',
+      );
+    } catch {
+      // Non-critical — don't fail the update if notification fails
+    }
 
     return updatedResource;
+  }
+
+  async toggleResourceLock(resourceId: string, state: string, requesterId: string) {
+    const resource = await this.prisma.resource.findUnique({ where: { id: resourceId } });
+    if (!resource) throw new NotFoundException('Resource not found');
+
+    if (requesterId) {
+      const requester = await this.prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { role: true, cohortId: true },
+      });
+      if (requester?.role === 'FACILITATOR') {
+        const session = await this.prisma.session.findUnique({
+          where: { id: resource.sessionId },
+          select: { cohortId: true },
+        });
+        if (!session || session.cohortId !== requester.cohortId) {
+          throw new ForbiddenException('Facilitators can only manage resources in their cohort');
+        }
+      }
+    }
+
+    return this.prisma.resource.update({
+      where: { id: resourceId },
+      data: { state } as any,
+      include: {
+        session: {
+          select: { id: true, scheduledDate: true, unlockDate: true },
+        },
+      },
+    });
   }
 
   async deleteResource(resourceId: string, adminId: string) {
@@ -557,14 +593,16 @@ export class AdminService {
       },
     });
 
-    const admin = requester;
-
-    await this.notificationsService.notifyAdminsResourceUpdated(
-      resourceId,
-      `${admin?.firstName} ${admin?.lastName}`,
-      'deleted',
-      'RESOURCE_UPDATED',
-    );
+    try {
+      await this.notificationsService.notifyAdminsResourceUpdated(
+        resourceId,
+        `${requester?.firstName} ${requester?.lastName}`,
+        'deleted',
+        'RESOURCE_UPDATED',
+      );
+    } catch {
+      // Non-critical
+    }
 
     return { success: true, message: 'Resource deleted successfully' };
   }
@@ -612,8 +650,9 @@ export class AdminService {
     page?: number;
     limit?: number;
     requesterId?: string;
+    cohortId?: string;
   }) {
-    const { sessionId, type, search, requesterId } = filters || {};
+    const { sessionId, type, search, requesterId, cohortId } = filters || {};
     // Ensure page and limit are numbers
     const page = Number(filters?.page) || 1;
     const limit = Number(filters?.limit) || 50;
@@ -622,6 +661,7 @@ export class AdminService {
     const where: any = {};
     if (sessionId) where.sessionId = sessionId;
     if (type) where.type = type;
+    if (cohortId) where.session = { cohortId };
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -629,7 +669,7 @@ export class AdminService {
       ];
     }
 
-    if (requesterId) {
+    if (requesterId && !cohortId) {
       const requester = await this.prisma.user.findUnique({
         where: { id: requesterId },
         select: { role: true, cohortId: true },

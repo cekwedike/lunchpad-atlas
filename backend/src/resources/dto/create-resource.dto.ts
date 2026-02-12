@@ -153,3 +153,9 @@ export class UpdateResourceDto {
   @IsEnum(['LOCKED', 'UNLOCKED', 'IN_PROGRESS', 'COMPLETED'])
   state?: ResourceState;
 }
+
+export class ToggleResourceLockDto {
+  @ApiProperty({ enum: ['LOCKED', 'UNLOCKED'], description: 'New lock state' })
+  @IsEnum(['LOCKED', 'UNLOCKED'])
+  state: 'LOCKED' | 'UNLOCKED';
+}

@@ -346,7 +346,7 @@ export function useAdminResources(filters?: {
 
   return useQuery({
     queryKey: ['admin-resources', filters],
-    queryFn: () => apiClient.get(`/resources${queryString ? `?${queryString}` : ''}`),
+    queryFn: () => apiClient.get(`/admin/resources${queryString ? `?${queryString}` : ''}`),
   });
 }
 
@@ -365,7 +365,7 @@ export function useCreateResource() {
 
   return useMutation({
     mutationFn: (data: CreateResourceRequest) =>
-      apiClient.post('/resources', data),
+      apiClient.post('/admin/resources', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resources'] });
       queryClient.invalidateQueries({ queryKey: ['session-resources'] });
@@ -387,7 +387,7 @@ export function useUpdateResource() {
 
   return useMutation({
     mutationFn: ({ resourceId, data }: { resourceId: string; data: UpdateResourceRequest }) =>
-      apiClient.patch(`/resources/${resourceId}`, data),
+      apiClient.patch(`/admin/resources/${resourceId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resources'] });
       queryClient.invalidateQueries({ queryKey: ['session-resources'] });
@@ -409,7 +409,7 @@ export function useDeleteResource() {
 
   return useMutation({
     mutationFn: (resourceId: string) =>
-      apiClient.delete(`/resources/${resourceId}`),
+      apiClient.delete(`/admin/resources/${resourceId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resources'] });
       queryClient.invalidateQueries({ queryKey: ['session-resources'] });
