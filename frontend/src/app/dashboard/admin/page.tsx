@@ -376,7 +376,7 @@ export default function AdminDashboard() {
                 <CardTitle className="text-sm font-semibold text-gray-900">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="p-5">
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                   {quickActions.map(({ label, icon: Icon, href, color }) => (
                     <button
                       key={label}

@@ -80,7 +80,7 @@ export default function Home() {
       <div className="relative z-10">
         {/* Header */}
         <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-slate-950/70 border-b border-white/5">
-          <div className="max-w-7xl mx-auto px-8 py-6 flex justify-between items-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 flex justify-between items-center">
             <div className="flex items-center gap-4">
               <div className="w-11 h-11 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-xl flex items-center justify-center">
                 <span className="text-white font-bold text-xl">A</span>
@@ -94,7 +94,7 @@ export default function Home() {
         </header>
 
         {/* Hero Section with Login */}
-        <section className="min-h-screen flex items-center justify-center px-8 pt-32 pb-20">
+        <section className="min-h-screen flex items-center justify-center px-4 sm:px-8 pt-32 pb-20">
           <div className="max-w-2xl w-full space-y-16">
             <div className="space-y-6 text-center px-4">
               <h1 
@@ -199,7 +199,7 @@ export default function Home() {
         </section>
 
         {/* Features */}
-        <section className="py-32 px-8">
+        <section className="py-32 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="grid md:grid-cols-3 gap-8">
               {[
@@ -233,7 +233,7 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="py-16 px-8 border-t border-white/5">
+        <footer className="py-16 px-4 sm:px-8 border-t border-white/5">
           <div className="max-w-7xl mx-auto text-center space-y-4">
             <p className="text-slate-500 text-sm">
               © 2026 ATLAS - THRiVE Hub LaunchPad Fellowship

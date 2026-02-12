@@ -1,7 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadGatewayException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
+
+interface FellowParticipation {
+  name: string;
+  participationScore: number;
+  contributionSummary: string;
+  suggestedPoints: number;
+}
 
 interface AIAnalysisResult {
   engagementScore: number;
@@ -13,12 +20,7 @@ interface AIAnalysisResult {
     improvements: string[];
     recommendations: string[];
   };
-  participantAnalysis: Array<{
-    userId: string;
-    engagement: number;
-    participation: number;
-    questions: number;
-  }>;
+  fellowParticipation: FellowParticipation[];
 }
 
 @Injectable()
@@ -54,36 +56,49 @@ export class SessionAnalyticsService {
    * Analyze session transcript using Google Gemini
    */
   async analyzeSessionWithAI(
-    sessionId: string,
+    _sessionId: string,
     transcript: string,
+    fellows: Array<{ id: string; name: string }> = [],
   ): Promise<AIAnalysisResult> {
     if (!this.model) {
       throw new Error('Gemini API key not configured');
     }
 
-    const prompt = `Analyze this LaunchPad fellowship session transcript and provide detailed insights:
+    const fellowsSection = fellows.length > 0
+      ? `\nRegistered cohort fellows:\n${fellows.map((f) => `- ${f.name}`).join('\n')}\n`
+      : '';
 
+    const prompt = `Analyze this LaunchPad fellowship session transcript and provide detailed insights.
+${fellowsSection}
+Transcript:
 ${transcript}
 
 Please provide a JSON response with the following structure:
 {
-  "engagementScore": <0-100>,
-  "participationRate": <0-100>,
-  "averageAttention": <0-100>,
+  "engagementScore": <0-100 overall session score>,
+  "participationRate": <0-100 percentage of fellows who spoke>,
+  "averageAttention": <0-100 estimated attention level>,
   "keyTopics": ["topic1", "topic2", ...],
   "insights": {
-    "strengths": ["strength1", "strength2", ...],
-    "improvements": ["improvement1", "improvement2", ...],
-    "recommendations": ["recommendation1", "recommendation2", ...]
+    "strengths": ["strength1", ...],
+    "improvements": ["improvement1", ...],
+    "recommendations": ["recommendation1", ...]
   },
-  "participantAnalysis": [
+  "fellowParticipation": [
     {
-      "participantName": "name",
-      "engagement": <0-100>,
-      "contribution": "brief description"
+      "name": "<fellow name as it appears in transcript>",
+      "participationScore": <0-100>,
+      "contributionSummary": "<1-2 sentence description of their contribution>",
+      "suggestedPoints": <0-50 points to award>
     }
   ]
 }
+
+For fellowParticipation:
+- Only include fellows whose names appear in the transcript (match first name, last name, or common variations).
+${fellows.length > 0 ? '- Cross-reference against the registered fellows list above.' : ''}
+- suggestedPoints guide: 1-10 = brief mention, 11-25 = moderate engagement, 26-40 = active participation, 41-50 = exceptional leadership/contribution.
+- If no fellows are identifiable in the transcript, return an empty array.
 
 Consider:
 - Overall engagement and energy level
@@ -92,25 +107,27 @@ Consider:
 - Key learning moments
 - Areas for improvement`;
 
-    const result = await this.model.generateContent([
-      {
-        role: 'user',
-        parts: [
-          {
-            text: `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
-          },
-        ],
-      },
-    ]);
+    let result: any;
+    try {
+      result = await this.model.generateContent(
+        `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
+      );
+    } catch (err: any) {
+      throw new BadGatewayException(`Gemini API error: ${err?.message ?? 'unknown error'}`);
+    }
 
     const response = await result.response;
     let analysis: any;
     try {
-      // Strip markdown code fences that thinking models sometimes wrap around JSON
-      const raw = response.text().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-      analysis = JSON.parse(raw);
+      const raw = response.text();
+      // Strip all markdown code fences (thinking models often add explanatory text around JSON)
+      const stripped = raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '').trim();
+      // Extract the first JSON object from the response
+      const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new SyntaxError('No JSON object found');
+      analysis = JSON.parse(jsonMatch[0]);
     } catch {
-      throw new Error('AI returned an unparseable response. Try again or shorten the transcript.');
+      throw new BadGatewayException('AI returned an unparseable response. Try again or shorten the transcript.');
     }
 
     return {
@@ -123,7 +140,7 @@ Consider:
         improvements: [],
         recommendations: [],
       },
-      participantAnalysis: analysis.participantAnalysis || [],
+      fellowParticipation: analysis.fellowParticipation || [],
     };
   }
 
@@ -131,23 +148,26 @@ Consider:
    * Process and store AI analytics for a session
    */
   async processSessionAnalytics(sessionId: string, transcript: string) {
+    // Always fetch session with fellows for participation analysis
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        cohort: { include: { fellows: true } },
+      },
+    });
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    const fellows = session.cohort.fellows.map((f) => ({ id: f.id, name: `${f.firstName} ${f.lastName}` }));
+
     // Get existing analytics or create new
     let analytics = await this.prisma.sessionAnalytics.findFirst({
       where: { sessionId },
     });
 
     if (!analytics) {
-      const session = await this.prisma.session.findUnique({
-        where: { id: sessionId },
-        include: {
-          cohort: { include: { fellows: true } },
-        },
-      });
-
-      if (!session) {
-        throw new Error('Session not found');
-      }
-
       // Count attendance (all attendance records have checkInTime)
       const attendanceCount = await this.prisma.attendance.count({
         where: { sessionId },
@@ -165,14 +185,14 @@ Consider:
       });
     }
 
-    // Analyze with AI
-    const aiAnalysis = await this.analyzeSessionWithAI(sessionId, transcript);
+    // Analyze with AI — pass fellows so Gemini can grade participation
+    const aiAnalysis = await this.analyzeSessionWithAI(sessionId, transcript, fellows);
 
     // Count questions and interactions from transcript
     const questionMatches = transcript.match(/\?/g) || [];
     const questionCount = questionMatches.length;
 
-    // Update analytics with AI insights
+    // Update analytics with AI insights (store fellowParticipation in participantAnalysis JSON field)
     return this.prisma.sessionAnalytics.update({
       where: { id: analytics.id },
       data: {
@@ -182,12 +202,27 @@ Consider:
         averageAttention: aiAnalysis.averageAttention,
         keyTopics: aiAnalysis.keyTopics,
         insights: aiAnalysis.insights,
-        participantAnalysis: aiAnalysis.participantAnalysis,
+        participantAnalysis: aiAnalysis.fellowParticipation as unknown as object[],
         questionCount,
         interactionCount: transcript.split('\n').length,
         aiProcessedAt: new Date(),
         updatedAt: new Date(),
       },
+    });
+  }
+
+  /**
+   * Delete analytics for a specific session
+   */
+  async deleteSessionAnalytics(sessionId: string) {
+    const analytics = await this.prisma.sessionAnalytics.findFirst({
+      where: { sessionId },
+    });
+    if (!analytics) {
+      throw new NotFoundException('No analytics found for this session');
+    }
+    return this.prisma.sessionAnalytics.delete({
+      where: { id: analytics.id },
     });
   }
 
@@ -342,16 +377,9 @@ Provide insights on:
 3. Opportunities for improvement
 4. Specific recommendations for facilitators`;
 
-    const result = await this.model.generateContent([
-      {
-        role: 'user',
-        parts: [
-          {
-            text: `System: You are an expert education analyst providing cohort-level insights.\n\n${prompt}`,
-          },
-        ],
-      },
-    ]);
+    const result = await this.model.generateContent(
+      `System: You are an expert education analyst providing cohort-level insights.\n\n${prompt}`,
+    );
 
     const response = await result.response;
 

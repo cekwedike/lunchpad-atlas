@@ -32,7 +32,7 @@ export default function FacilitatorDashboard() {
     <DashboardLayout>
       <div className="space-y-8">
         {/* Hero Cohort Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-atlas-navy via-indigo-900 to-purple-900 p-8 text-white shadow-2xl">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-atlas-navy via-indigo-900 to-purple-900 p-4 sm:p-6 lg:p-8 text-white shadow-2xl">
           <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl -mr-48 -mt-48" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl -ml-48 -mb-48" />
           
@@ -61,7 +61,7 @@ export default function FacilitatorDashboard() {
               </Button>
             </div>
 
-            <div className="grid md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { 
                   label: 'Active Fellows', 

@@ -192,7 +192,7 @@ export default function FellowDashboard() {
                 </div>
 
                 {/* Quick Stats Grid */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="relative group cursor-pointer">
                     <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
                     <div className="relative bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 hover:shadow-lg transition-all">

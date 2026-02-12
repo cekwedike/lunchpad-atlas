@@ -202,40 +202,43 @@ export function SessionAnalyticsCard({ sessionId, showDetails = true }: SessionA
           </div>
         )}
 
-        {/* Participant Analysis */}
+        {/* Fellow Participation */}
         {showDetails &&
           analytics.participantAnalysis &&
           analytics.participantAnalysis.length > 0 && (
             <div>
-              <h4 className="mb-3 font-semibold">Participant Engagement</h4>
+              <h4 className="mb-3 font-semibold flex items-center gap-2">
+                Fellow Participation
+                <span className="text-xs font-normal text-muted-foreground">suggested points out of 50</span>
+              </h4>
               <div className="space-y-2">
-                {analytics.participantAnalysis.map((participant, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="flex-1">
-                      <div className="font-medium">{participant.userName}</div>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{participant.contributionCount} contributions</span>
-                        <span>{participant.questionsAsked} questions</span>
+                {(analytics.participantAnalysis as Array<{
+                  name: string;
+                  participationScore: number;
+                  contributionSummary: string;
+                  suggestedPoints: number;
+                }>).map((fellow, i) => (
+                  <div key={i} className="rounded-lg border p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{fellow.name}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          className={
+                            fellow.participationScore >= 70
+                              ? 'bg-green-100 text-green-700 hover:bg-green-100'
+                              : fellow.participationScore >= 40
+                              ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
+                              : 'bg-red-100 text-red-700 hover:bg-red-100'
+                          }
+                        >
+                          {fellow.participationScore}/100
+                        </Badge>
+                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">
+                          +{fellow.suggestedPoints} pts
+                        </Badge>
                       </div>
                     </div>
-                    <Badge
-                      variant={
-                        participant.engagementLevel === 'high'
-                          ? 'default'
-                          : participant.engagementLevel === 'medium'
-                          ? 'secondary'
-                          : 'outline'
-                      }
-                      className={
-                        participant.engagementLevel === 'high'
-                          ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                          : participant.engagementLevel === 'medium'
-                          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
-                          : 'bg-red-100 text-red-700 hover:bg-red-100'
-                      }
-                    >
-                      {participant.engagementLevel}
-                    </Badge>
+                    <p className="text-xs text-muted-foreground">{fellow.contributionSummary}</p>
                   </div>
                 ))}
               </div>

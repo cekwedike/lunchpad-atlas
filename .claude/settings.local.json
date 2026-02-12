@@ -5,7 +5,8 @@
       "Bash(npx tsc:*)",
       "Bash(npx prisma generate:*)",
       "Bash(npx prisma db seed:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python:*)"
     ]
   }
 }

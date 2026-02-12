@@ -221,7 +221,7 @@ export default function LeaderboardPage() {
                   placeholder="Search fellow..."
                   value={searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-56 border-slate-200"
+                  className="pl-10 w-full sm:w-56 border-slate-200"
                 />
               </div>
             </div>

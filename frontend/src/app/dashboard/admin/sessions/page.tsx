@@ -10,11 +10,13 @@ import {
   X,
   Users,
   CheckSquare,
-  Bot,
   ChevronDown,
   ChevronRight,
   Loader2,
   FileText,
+  Trash2,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +41,9 @@ import {
   useMarkBulkAttendance,
   useAiReview,
   useAiChat,
+  useDeleteSessionAnalytics,
 } from "@/hooks/api/useAdmin";
+import { useSessionAnalytics } from "@/hooks/api/useSessionAnalytics";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -250,7 +254,7 @@ function AttendanceModal({
                 return (
                   <div
                     key={fellow.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    className={`flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border transition-colors ${
                       rec.isPresent
                         ? "bg-green-50 border-green-200"
                         : rec.isExcused
@@ -258,23 +262,23 @@ function AttendanceModal({
                         : "bg-gray-50 border-gray-200"
                     }`}
                   >
-                    {/* Avatar */}
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-blue-700">
-                        {fellow.firstName?.[0]}{fellow.lastName?.[0]}
-                      </span>
-                    </div>
-
-                    {/* Name */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">
-                        {fellow.firstName} {fellow.lastName}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{fellow.email}</p>
+                    {/* Avatar + Name */}
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-semibold text-blue-700">
+                          {fellow.firstName?.[0]}{fellow.lastName?.[0]}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">
+                          {fellow.firstName} {fellow.lastName}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{fellow.email}</p>
+                      </div>
                     </div>
 
                     {/* Controls */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center flex-wrap gap-2 shrink-0">
                       {/* Present toggle */}
                       <button
                         onClick={() => handleToggle(fellow.id, "isPresent", !rec.isPresent)}
@@ -321,7 +325,7 @@ function AttendanceModal({
                         placeholder="Notes"
                         value={rec.notes}
                         onChange={(e) => handleToggle(fellow.id, "notes", e.target.value)}
-                        className="w-28 text-xs px-2 py-1 border border-gray-200 rounded bg-white"
+                        className="w-24 sm:w-28 text-xs px-2 py-1 border border-gray-200 rounded bg-white"
                       />
                     </div>
                   </div>
@@ -351,23 +355,43 @@ function AttendanceModal({
 
 // ─── AI Review Panel ──────────────────────────────────────────────────────────
 function AiReviewPanel({ sessionId }: { sessionId: string }) {
+  const { data: analytics, isLoading: loadingAnalytics } = useSessionAnalytics(sessionId);
+  const hasAnalysis = !!analytics?.aiProcessedAt;
+
   const [transcript, setTranscript] = useState("");
+  const [showReanalyzeInput, setShowReanalyzeInput] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const submitReview = useAiReview();
+  const deleteAnalytics = useDeleteSessionAnalytics();
   const chat = useAiChat();
+
+  // Pre-fill transcript from stored analytics when loaded
+  useEffect(() => {
+    if (analytics?.transcript && !transcript) {
+      setTranscript(analytics.transcript as string);
+    }
+  }, [analytics?.transcript]);
 
   const handleSubmitTranscript = async () => {
     if (!transcript.trim()) { toast.error("Please paste a transcript first"); return; }
-    const result = await submitReview.mutateAsync({ sessionId, transcript });
-    setAnalysisResult(result);
+    await submitReview.mutateAsync({ sessionId, transcript });
+    setShowReanalyzeInput(false);
     setChatMessages([{
       role: "assistant",
-      content: `I've analyzed the session transcript. Here's a summary:\n\n**Engagement Score:** ${result.engagementScore ?? "N/A"}/100\n**Participation Rate:** ${result.participationRate ?? "N/A"}%\n\nKey topics: ${(result.keyTopics as string[] | null)?.join(", ") ?? "N/A"}\n\nFeel free to ask me questions about the session!`,
+      content: `ATLAS has analyzed the session. Ready to answer your questions about participation, engagement, or anything else in the transcript.`,
     }]);
-    setIsExpanded(true);
+  };
+
+  const handleDelete = async () => {
+    await deleteAnalytics.mutateAsync(sessionId);
+    setTranscript("");
+    setChatMessages([]);
+    setConfirmDelete(false);
+    setShowReanalyzeInput(false);
   };
 
   const handleSendMessage = async () => {
@@ -388,6 +412,9 @@ function AiReviewPanel({ sessionId }: { sessionId: string }) {
     setChatMessages((prev) => [...prev, { role: "assistant", content: result.reply }]);
   };
 
+  // The data to display — always from the persisted analytics object
+  const displayData = analytics;
+
   return (
     <div className="border rounded-lg bg-white overflow-hidden">
       {/* Header */}
@@ -396,9 +423,9 @@ function AiReviewPanel({ sessionId }: { sessionId: string }) {
         onClick={() => setIsExpanded((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-purple-600" />
-          <span className="font-semibold text-gray-900">AI Session Review</span>
-          {analysisResult && (
+          <Sparkles className="h-5 w-5 text-purple-600" />
+          <span className="font-semibold text-gray-900">ATLAS Session Review</span>
+          {hasAnalysis && (
             <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-xs">
               Analyzed
             </Badge>
@@ -409,101 +436,211 @@ function AiReviewPanel({ sessionId }: { sessionId: string }) {
 
       {isExpanded && (
         <div className="border-t p-4 space-y-4">
-          {/* Transcript input */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-1">
-              <FileText className="h-4 w-4" /> Paste Meeting Transcript
-            </label>
-            <textarea
-              rows={6}
-              className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-              placeholder="Paste your meeting transcript or notes here..."
-              value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
-            />
-            <Button
-              size="sm"
-              onClick={handleSubmitTranscript}
-              disabled={submitReview.isPending || !transcript.trim()}
-              className="mt-2 bg-purple-600 hover:bg-purple-700"
-            >
-              {submitReview.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Bot className="w-3 h-3 mr-1" />}
-              Analyze with AI
-            </Button>
-          </div>
-
-          {/* Analysis summary */}
-          {analysisResult && (
-            <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 space-y-3">
-              <div className="grid grid-cols-3 gap-3 text-center">
-                {[
-                  { label: "Engagement", value: analysisResult.engagementScore },
-                  { label: "Participation", value: analysisResult.participationRate },
-                  { label: "Attention", value: analysisResult.averageAttention },
-                ].map(({ label, value }) => (
-                  <div key={label} className="bg-white rounded p-2 border border-purple-100">
-                    <p className="text-xs text-gray-500">{label}</p>
-                    <p className="text-lg font-bold text-purple-700">{value != null ? `${Math.round(value)}%` : "–"}</p>
-                  </div>
-                ))}
-              </div>
-              {Array.isArray(analysisResult.keyTopics) && analysisResult.keyTopics.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {analysisResult.keyTopics.map((t: string) => (
-                    <Badge key={t} className="bg-white text-purple-700 border border-purple-200 text-xs">{t}</Badge>
-                  ))}
-                </div>
-              )}
+          {loadingAnalytics ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
             </div>
-          )}
-
-          {/* Chat interface */}
-          {chatMessages.length > 0 && (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <ScrollArea className="h-56 p-3 bg-gray-50">
-                <div className="space-y-3">
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                          msg.role === "user"
-                            ? "bg-purple-600 text-white"
-                            : "bg-white border border-gray-200 text-gray-800"
-                        }`}
+          ) : hasAnalysis && !showReanalyzeInput ? (
+            /* ── Existing analysis view ── */
+            <div className="space-y-3">
+              {/* Timestamp + action buttons */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  Analyzed {displayData?.aiProcessedAt ? new Date(displayData.aiProcessedAt).toLocaleString() : ""}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowReanalyzeInput(true)}
+                    className="h-7 text-xs gap-1"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Re-analyze
+                  </Button>
+                  {!confirmDelete ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmDelete(true)}
+                      className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-red-600">Confirm?</span>
+                      <Button
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={deleteAnalytics.isPending}
+                        className="h-7 text-xs bg-red-600 hover:bg-red-700 px-2"
                       >
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  {chat.isPending && (
-                    <div className="flex justify-start">
-                      <div className="bg-white border rounded-lg px-3 py-2">
-                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                      </div>
+                        {deleteAnalytics.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes, delete"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirmDelete(false)}
+                        className="h-7 text-xs px-2"
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   )}
                 </div>
-              </ScrollArea>
-              <div className="p-3 border-t bg-white flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                  placeholder="Ask about participation, suggest points..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                />
-                <Button size="sm" onClick={handleSendMessage} disabled={!inputMessage.trim() || chat.isPending} className="bg-purple-600 hover:bg-purple-700">
-                  Send
-                </Button>
+              </div>
+
+              {/* Metric cards */}
+              <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 space-y-3">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  {[
+                    { label: "Engagement", value: displayData?.engagementScore },
+                    { label: "Participation", value: displayData?.participationRate },
+                    { label: "Attention", value: displayData?.averageAttention },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-white rounded p-2 border border-purple-100">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-lg font-bold text-purple-700">{value != null ? `${Math.round(value)}%` : "–"}</p>
+                    </div>
+                  ))}
+                </div>
+                {Array.isArray(displayData?.keyTopics) && (displayData.keyTopics as string[]).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {(displayData.keyTopics as string[]).map((t) => (
+                      <Badge key={t} className="bg-white text-purple-700 border border-purple-200 text-xs">{t}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Fellow participation table */}
+              {Array.isArray(displayData?.participantAnalysis) && (displayData.participantAnalysis as any[]).length > 0 && (
+                <div className="border border-purple-100 rounded-lg overflow-hidden">
+                  <div className="bg-purple-50 px-4 py-2 border-b border-purple-100 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-semibold text-purple-800">Fellow Participation</span>
+                    <span className="text-xs text-purple-500 ml-auto">Suggested points out of 50</span>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {(displayData.participantAnalysis as Array<{
+                      name: string;
+                      participationScore: number;
+                      contributionSummary: string;
+                      suggestedPoints: number;
+                    }>).map((fellow, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-white">
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-xs font-bold text-purple-700">
+                            {fellow.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="font-medium text-gray-900 text-sm">{fellow.name}</p>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs text-gray-500">Score:</span>
+                              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                                fellow.participationScore >= 70 ? "bg-green-100 text-green-700"
+                                : fellow.participationScore >= 40 ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700"
+                              }`}>
+                                {fellow.participationScore}/100
+                              </span>
+                              <Badge className="bg-purple-600 text-white text-xs px-2">
+                                +{fellow.suggestedPoints} pts
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{fellow.contributionSummary}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Chat interface */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                {chatMessages.length > 0 && (
+                  <ScrollArea className="h-56 p-3 bg-gray-50">
+                    <div className="space-y-3">
+                      {chatMessages.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                            msg.role === "user"
+                              ? "bg-purple-600 text-white"
+                              : "bg-white border border-gray-200 text-gray-800"
+                          }`}>
+                            {msg.content}
+                          </div>
+                        </div>
+                      ))}
+                      {chat.isPending && (
+                        <div className="flex justify-start">
+                          <div className="bg-white border rounded-lg px-3 py-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                )}
+                {chatMessages.length === 0 && (
+                  <div className="p-3 bg-gray-50 text-center text-xs text-gray-400">
+                    Ask ATLAS anything about this session
+                  </div>
+                )}
+                <div className="p-3 border-t bg-white flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 text-sm border border-gray-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                    placeholder="Ask about participation, suggest points..."
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                  />
+                  <Button size="sm" onClick={handleSendMessage} disabled={!inputMessage.trim() || chat.isPending} className="bg-purple-600 hover:bg-purple-700">
+                    Send
+                  </Button>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* Start chat prompt (no messages yet, but analysis done) */}
-          {analysisResult && chatMessages.length === 0 && (
-            <div className="text-center py-2 text-sm text-gray-500">
-              Analysis complete! Ask questions about the session above.
+          ) : (
+            /* ── No analysis / Re-analyze input ── */
+            <div className="space-y-3">
+              {showReanalyzeInput && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700">Update transcript and re-analyze</p>
+                  <Button size="sm" variant="ghost" onClick={() => setShowReanalyzeInput(false)} className="h-7 text-xs">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <FileText className="h-4 w-4" /> Paste Meeting Transcript
+                </label>
+                <textarea
+                  rows={6}
+                  className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  placeholder="Paste your meeting transcript or notes here..."
+                  value={transcript}
+                  onChange={(e) => setTranscript(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSubmitTranscript}
+                  disabled={submitReview.isPending || !transcript.trim()}
+                  className="mt-2 bg-purple-600 hover:bg-purple-700"
+                >
+                  {submitReview.isPending
+                    ? <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    : <Sparkles className="w-3 h-3 mr-1" />
+                  }
+                  {showReanalyzeInput ? "Re-analyze with ATLAS" : "Analyze with ATLAS"}
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -640,16 +777,16 @@ function SessionRow({ session, onAttendance }: { session: any; onAttendance: (id
           ) : (
             <>
               <Button size="sm" variant="outline" onClick={handleEdit} className="h-8 px-2">
-                <Edit className="w-3 h-3 mr-1" />
-                <span className="text-xs">Edit</span>
+                <Edit className="w-3 h-3 sm:mr-1" />
+                <span className="hidden sm:inline text-xs">Edit</span>
               </Button>
               <Button
                 size="sm"
                 onClick={() => onAttendance(session.id)}
                 className="h-8 px-2 bg-blue-600 hover:bg-blue-700"
               >
-                <Users className="w-3 h-3 mr-1" />
-                <span className="text-xs">Attendance</span>
+                <Users className="w-3 h-3 sm:mr-1" />
+                <span className="hidden sm:inline text-xs">Attendance</span>
               </Button>
               {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
             </>
@@ -698,16 +835,16 @@ export default function SessionManagementPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Session Management</h1>
-            <p className="text-gray-500 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Session Management</h1>
+            <p className="text-gray-500 mt-1 text-sm">
               {isFacilitator ? "Manage sessions, attendance, and AI reviews for your cohort" : "Manage all cohort sessions, attendance, and AI reviews"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
               <RefreshCw className="w-4 h-4" /> Refresh
             </Button>
@@ -783,7 +920,7 @@ export default function SessionManagementPage() {
                   <Calendar className="h-5 w-5 text-blue-600" />
                   <span>Sessions ({sessions.length})</span>
                 </div>
-                <p className="text-sm font-normal text-gray-500">
+                <p className="hidden sm:block text-sm font-normal text-gray-500">
                   Click a session to expand AI review · use the Attendance button to mark fellows
                 </p>
               </CardTitle>

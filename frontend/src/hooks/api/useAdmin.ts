@@ -285,11 +285,15 @@ export function useMarkBulkAttendance() {
 
 // Submit transcript for AI review
 export function useAiReview() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ sessionId, transcript }: { sessionId: string; transcript: string }) =>
       apiClient.post<any>(`/admin/sessions/${sessionId}/ai-review`, { transcript }),
+    onSuccess: (_, { sessionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['sessionAnalytics', sessionId] });
+    },
     onError: (error: any) => {
-      toast.error('AI review failed', { description: error.message });
+      toast.error('ATLAS review failed', { description: error.message });
     },
   });
 }
@@ -315,6 +319,22 @@ export function useAiChat() {
       }),
     onError: (error: any) => {
       toast.error('Failed to send message', { description: error.message });
+    },
+  });
+}
+
+// Delete session analytics
+export function useDeleteSessionAnalytics() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiClient.delete(`/admin/sessions/${sessionId}/analytics`),
+    onSuccess: (_, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['sessionAnalytics', sessionId] });
+      toast.success('Analysis deleted');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete analysis', { description: error.message });
     },
   });
 }

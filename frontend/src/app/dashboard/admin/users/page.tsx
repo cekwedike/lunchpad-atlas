@@ -246,7 +246,7 @@ export default function AdminUsersPage() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+        <div className="space-y-6">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
             <span className="ml-2 text-gray-600">Loading users...</span>
@@ -258,7 +258,7 @@ export default function AdminUsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>

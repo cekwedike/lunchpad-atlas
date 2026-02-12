@@ -166,6 +166,17 @@ export class AdminController {
     return this.adminService.aiChat(sessionId, dto, req.user.id);
   }
 
+  @Delete('sessions/:id/analytics')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Delete session analytics (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  deleteSessionAnalytics(
+    @Param('id') sessionId: string,
+    @Request() req,
+  ) {
+    return this.adminService.deleteSessionAnalytics(sessionId, req.user.id);
+  }
+
   @Get('audit-logs')
   @ApiOperation({ summary: 'Get audit logs (Admin only)' })
   @ApiQuery({ name: 'page', required: false, type: Number })

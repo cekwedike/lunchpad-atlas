@@ -26,14 +26,15 @@ export interface SessionAnalytics {
   updatedAt: string;
 }
 
-export interface ParticipantAnalysis {
-  userId: string;
-  userName: string;
-  engagementLevel: 'high' | 'medium' | 'low';
-  contributionCount: number;
-  questionsAsked: number;
-  attentionScore: number;
+export interface FellowParticipation {
+  name: string;
+  participationScore: number;
+  contributionSummary: string;
+  suggestedPoints: number;
 }
+
+/** @deprecated Use FellowParticipation. Kept for backwards compatibility. */
+export interface ParticipantAnalysis extends FellowParticipation {}
 
 export interface CohortAnalytics {
   cohortId: string;

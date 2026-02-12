@@ -946,6 +946,25 @@ export class AdminService {
     );
   }
 
+  async deleteSessionAnalytics(sessionId: string, requesterId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true },
+    });
+    if (!requester) throw new NotFoundException('User not found');
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return this.sessionAnalyticsService.deleteSessionAnalytics(sessionId);
+  }
+
   async getAllResources(filters?: {
     sessionId?: string;
     type?: string;

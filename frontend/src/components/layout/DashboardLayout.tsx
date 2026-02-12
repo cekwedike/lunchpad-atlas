@@ -13,7 +13,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 min-h-[calc(100vh-4rem)]">
+        <main className="flex-1 min-w-0 min-h-[calc(100vh-4rem)]">
           <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
             {children}
           </div>
