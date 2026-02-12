@@ -942,6 +942,7 @@ export class AdminService {
       sessionId,
       dto.message,
       dto.transcript,
+      dto.history ?? [],
     );
   }
 

@@ -374,8 +374,17 @@ function AiReviewPanel({ sessionId }: { sessionId: string }) {
     if (!inputMessage.trim()) return;
     const userMsg = inputMessage;
     setInputMessage("");
+    const currentHistory = chatMessages.map((m) => ({
+      role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+      content: m.content,
+    }));
     setChatMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-    const result = await chat.mutateAsync({ sessionId, message: userMsg, transcript: transcript || undefined });
+    const result = await chat.mutateAsync({
+      sessionId,
+      message: userMsg,
+      transcript: transcript || undefined,
+      history: currentHistory,
+    });
     setChatMessages((prev) => [...prev, { role: "assistant", content: result.reply }]);
   };
 

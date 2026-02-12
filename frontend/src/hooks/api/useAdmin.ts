@@ -301,14 +301,17 @@ export function useAiChat() {
       sessionId,
       message,
       transcript,
+      history,
     }: {
       sessionId: string;
       message: string;
       transcript?: string;
+      history?: Array<{ role: 'user' | 'model'; content: string }>;
     }) =>
       apiClient.post<{ reply: string }>(`/admin/sessions/${sessionId}/ai-chat`, {
         message,
         transcript,
+        history,
       }),
     onError: (error: any) => {
       toast.error('Failed to send message', { description: error.message });
