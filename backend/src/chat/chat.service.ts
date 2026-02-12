@@ -114,6 +114,11 @@ export class ChatService {
     // Lazy cleanup: remove DMs from cohorts that ended > 6 months ago
     await this.cleanupExpiredDMs();
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
     const allDMs = await this.prisma.channel.findMany({
       where: {
         type: ChannelType.DIRECT_MESSAGE,
@@ -121,10 +126,16 @@ export class ChatService {
       },
       include: {
         cohort: { select: { id: true, name: true } },
+        _count: { select: { messages: true } },
       },
+      orderBy: { updatedAt: 'desc' },
     });
 
-    // Only return DMs where this user is a participant
+    // Admins see all DMs; other users see only their own
+    if (user?.role === 'ADMIN') {
+      return allDMs;
+    }
+
     return allDMs.filter((channel) => {
       const participants = this.extractDmParticipants(channel.name);
       return participants?.includes(userId);
