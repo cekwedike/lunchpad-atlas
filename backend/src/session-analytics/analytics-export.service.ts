@@ -267,6 +267,11 @@ export class AnalyticsExportService {
             entries: {
               orderBy: { rank: 'asc' },
               take: 10,
+              include: {
+                user: {
+                  select: { firstName: true, lastName: true },
+                },
+              },
             },
           },
         },
@@ -312,6 +317,20 @@ export class AnalyticsExportService {
         ? (completedProgress / (totalResources * totalFellows)) * 100
         : 0;
 
+    const allEntries = cohort.leaderboards[0]?.entries ?? [];
+    const totalPointsAwarded = allEntries.reduce(
+      (sum, e) => sum + (e.totalPoints ?? 0),
+      0,
+    );
+
+    // Per-session engagement for trend visualisation
+    const sessionEngagement = cohort.sessions.map((s) => ({
+      sessionNumber: s.sessionNumber,
+      title: s.title,
+      engagementScore: s.sessionAnalytics[0]?.engagementScore ?? null,
+      participationRate: s.sessionAnalytics[0]?.participationRate ?? null,
+    }));
+
     return {
       cohort: {
         name: cohort.name,
@@ -324,15 +343,18 @@ export class AnalyticsExportService {
         totalSessions,
         sessionsWithAnalytics,
         totalResources,
+        completedResources: completedProgress,
         avgEngagementScore: avgEngagement.toFixed(2),
         overallCompletionRate: completionRate.toFixed(2) + '%',
+        totalPointsAwarded,
       },
       topPerformers:
-        cohort.leaderboards[0]?.entries.slice(0, 5).map((e) => ({
+        allEntries.slice(0, 5).map((e: any) => ({
           rank: e.rank,
-          userId: e.userId,
+          name: `${e.user.firstName} ${e.user.lastName}`,
           totalPoints: e.totalPoints,
         })) || [],
+      sessionEngagement,
     };
   }
 }
