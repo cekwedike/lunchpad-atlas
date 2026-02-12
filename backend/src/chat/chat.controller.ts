@@ -18,7 +18,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, ChannelType } from '@prisma/client';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -57,11 +57,21 @@ export class ChatController {
   ) {
     const channel = await this.chatService.getChannelById(channelId);
 
-    if (
-      req.user.role !== UserRole.ADMIN &&
-      req.user.cohortId !== channel.cohortId
-    ) {
-      throw new ForbiddenException('You do not have access to this channel');
+    if (channel.type === ChannelType.DIRECT_MESSAGE) {
+      // DM: only participants + admin (view-only) can access
+      const parts = channel.name.split('::');
+      const participants = parts.length === 3 && parts[0] === 'dm' ? [parts[1], parts[2]] : null;
+      if (!participants) throw new ForbiddenException('Invalid DM channel');
+      if (req.user.role !== UserRole.ADMIN && !participants.includes(req.user.id)) {
+        throw new ForbiddenException('You do not have access to this private conversation');
+      }
+    } else {
+      if (
+        req.user.role !== UserRole.ADMIN &&
+        req.user.cohortId !== channel.cohortId
+      ) {
+        throw new ForbiddenException('You do not have access to this channel');
+      }
     }
 
     return channel;
@@ -136,6 +146,11 @@ export class ChatController {
   }
 
   // ==================== DIRECT MESSAGES ====================
+
+  @Get('direct')
+  getUserDirectChannels(@Request() req: any) {
+    return this.chatService.getUserDirectChannels(req.user.id);
+  }
 
   @Post('direct/:userId')
   openDirectMessage(

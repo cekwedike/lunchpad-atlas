@@ -43,6 +43,7 @@ export default function ChatRoomPage() {
     : channels?.[0];
   const { data: channelById } = useChannelById(selectedChannelId || undefined, !!selectedChannelId && !channelFromList);
   const mainChannel = channelFromList ?? channelById;
+  const isDmChannel = mainChannel?.type === 'DIRECT_MESSAGE';
   const cohortChatName = mainChannel?.name || mainChannel?.cohort?.name || 'Cohort Chat';
   const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
   const sendMessage = useSendMessage();
@@ -182,10 +183,17 @@ export default function ChatRoomPage() {
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-6 w-6 text-blue-600" />
                   <div>
-                    <div className="font-semibold text-lg">
-                      {cohortChatName}
+                    <div className="flex items-center gap-2">
+                      <div className="font-semibold text-lg">
+                        {isDmChannel ? (mainChannel?.description || 'Private Conversation') : cohortChatName}
+                      </div>
+                      {isDmChannel && (
+                        <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs">
+                          Private
+                        </Badge>
+                      )}
                     </div>
-                    {mainChannel?.description && (
+                    {!isDmChannel && mainChannel?.description && (
                       <div className="text-xs text-gray-600 font-normal">
                         {mainChannel.description}
                       </div>
@@ -198,7 +206,7 @@ export default function ChatRoomPage() {
                       Locked
                     </Badge>
                   )}
-                  {canManageChats && mainChannel && (
+                  {canManageChats && mainChannel && !isDmChannel && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -272,6 +280,11 @@ export default function ChatRoomPage() {
                   This chat room is locked for announcements. You can read messages but cannot post.
                 </div>
               )}
+              {isDmChannel && isAdmin && (
+                <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  This is a private conversation. Admins can view but not participate.
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 <Input
                   placeholder="Type a message..."
@@ -279,12 +292,12 @@ export default function ChatRoomPage() {
                   onChange={(e) => setChatMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="flex-1"
-                  disabled={!mainChannel || (mainChannel.isLocked && !canManageChats)}
+                  disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || (isDmChannel && isAdmin)}
                 />
                 <Button
                   size="icon"
                   onClick={handleSendMessage}
-                  disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats)}
+                  disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats) || (isDmChannel && isAdmin)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Send className="h-4 w-4" />

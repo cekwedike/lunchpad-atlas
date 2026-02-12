@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Users, Calendar, Plus, Edit, Trash2, Loader2, AlertTriangle, X, UserPlus, MessageSquare,
+  Users, Calendar, Plus, Edit, Trash2, Loader2, AlertTriangle, X, UserPlus,
 } from "lucide-react";
 import {
   useCohorts,
@@ -186,7 +186,7 @@ export default function AdminCohortsPage() {
   const handleMessage = async (targetUserId: string) => {
     try {
       const channel = await openDM.mutateAsync(targetUserId);
-      router.push(`/dashboard/chat?channel=${channel.id}`);
+      router.push(`/dashboard/chat?channelId=${channel.id}`);
     } catch {
       toast.error("Could not open conversation");
     }
@@ -418,8 +418,8 @@ export default function AdminCohortsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleMessage(member.id)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0" title="Send message">
-                          <MessageSquare className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" onClick={() => handleMessage(member.id)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-2 h-8">
+                          Private Message
                         </Button>
                         {member.role === "FELLOW" && (
                           <Button variant="ghost" size="sm" onClick={() => handleRemoveMember(member.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0" title="Remove from cohort">

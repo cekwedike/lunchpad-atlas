@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Calendar, Loader2, MessageSquare } from "lucide-react";
+import { Users, Calendar, Loader2 } from "lucide-react";
 import { useCohorts, useCohortMembers } from "@/hooks/api/useAdmin";
 import { useOpenDM } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
@@ -73,7 +73,7 @@ export default function FacilitatorCohortsPage() {
   const handleMessage = async (targetUserId: string) => {
     try {
       const channel = await openDM.mutateAsync(targetUserId);
-      router.push(`/dashboard/chat?channel=${channel.id}`);
+      router.push(`/dashboard/chat?channelId=${channel.id}`);
     } catch {
       toast.error("Could not open conversation");
     }
@@ -179,10 +179,9 @@ export default function FacilitatorCohortsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleMessage(member.id)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
-                            title="Send message"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-2 h-8"
                           >
-                            <MessageSquare className="h-4 w-4" />
+                            Private Message
                           </Button>
                         )}
                       </div>

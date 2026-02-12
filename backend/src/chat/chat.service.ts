@@ -84,6 +84,7 @@ export class ChatService {
       where: {
         cohortId,
         isArchived: false,
+        type: { not: ChannelType.DIRECT_MESSAGE },
       },
       orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
       include: {
@@ -98,6 +99,7 @@ export class ChatService {
     return this.prisma.channel.findMany({
       where: {
         isArchived: false,
+        type: { not: ChannelType.DIRECT_MESSAGE },
       },
       orderBy: [{ cohortId: 'asc' }, { type: 'asc' }, { createdAt: 'asc' }],
       include: {
@@ -106,6 +108,54 @@ export class ChatService {
         },
       },
     });
+  }
+
+  async getUserDirectChannels(userId: string) {
+    // Lazy cleanup: remove DMs from cohorts that ended > 6 months ago
+    await this.cleanupExpiredDMs();
+
+    const allDMs = await this.prisma.channel.findMany({
+      where: {
+        type: ChannelType.DIRECT_MESSAGE,
+        isArchived: false,
+      },
+      include: {
+        cohort: { select: { id: true, name: true } },
+      },
+    });
+
+    // Only return DMs where this user is a participant
+    return allDMs.filter((channel) => {
+      const participants = this.extractDmParticipants(channel.name);
+      return participants?.includes(userId);
+    });
+  }
+
+  private extractDmParticipants(channelName: string): string[] | null {
+    const parts = channelName.split('::');
+    if (parts.length === 3 && parts[0] === 'dm') {
+      return [parts[1], parts[2]];
+    }
+    return null;
+  }
+
+  private async cleanupExpiredDMs() {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const expiredDMs = await this.prisma.channel.findMany({
+      where: {
+        type: ChannelType.DIRECT_MESSAGE,
+        cohort: { endDate: { lt: sixMonthsAgo } },
+      },
+      select: { id: true },
+    });
+
+    if (expiredDMs.length === 0) return;
+
+    const expiredIds = expiredDMs.map((c) => c.id);
+    await this.prisma.chatMessage.deleteMany({ where: { channelId: { in: expiredIds } } });
+    await this.prisma.channel.deleteMany({ where: { id: { in: expiredIds } } });
   }
 
   async getChannelById(channelId: string) {
@@ -203,8 +253,18 @@ export class ChatService {
       select: { cohortId: true, role: true },
     });
 
-    if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
-      throw new ForbiddenException('You do not have access to this channel');
+    // DM check: only participants can send messages; admins cannot send in DMs
+    if (channel.type === ChannelType.DIRECT_MESSAGE) {
+      const participants = this.extractDmParticipants(channel.name);
+      if (!participants || !participants.includes(userId)) {
+        throw new ForbiddenException(
+          'You are not a participant in this private conversation',
+        );
+      }
+    } else {
+      if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
+        throw new ForbiddenException('You do not have access to this channel');
+      }
     }
 
     if (
@@ -295,7 +355,16 @@ export class ChatService {
       select: { cohortId: true, role: true },
     });
 
-    if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
+    if (channel.type === ChannelType.DIRECT_MESSAGE) {
+      // DM: participants can read; admin can read (view-only); others denied
+      const participants = this.extractDmParticipants(channel.name);
+      if (!participants) throw new ForbiddenException('Invalid DM channel');
+      if (user?.role !== 'ADMIN' && !participants.includes(userId)) {
+        throw new ForbiddenException(
+          'You do not have access to this private conversation',
+        );
+      }
+    } else if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
       throw new ForbiddenException('You do not have access to this channel');
     }
 
