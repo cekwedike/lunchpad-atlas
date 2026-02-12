@@ -25,6 +25,10 @@ import {
   CreateCohortDto,
   UpdateCohortDto,
   UpdateSessionDto,
+  CreateSessionDto,
+  BulkMarkAttendanceDto,
+  AiReviewDto,
+  AiChatDto,
 } from './dto/admin.dto';
 import {
   CreateResourceDto,
@@ -96,18 +100,70 @@ export class AdminController {
     return this.adminService.deleteCohort(cohortId, req.user.id);
   }
 
+  @Post('sessions')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Create a new session for a cohort (Admin/Facilitator)' })
+  @ApiResponse({ status: 201, description: 'Session created successfully' })
+  createSession(@Body() dto: CreateSessionDto, @Request() req) {
+    return this.adminService.createSession(dto, req.user.id);
+  }
+
   @Patch('sessions/:id')
-  @ApiOperation({ summary: 'Update session details (Admin only)' })
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Update session details (Admin/Facilitator)' })
   @ApiParam({ name: 'id', description: 'Session ID' })
   @ApiResponse({ status: 200, description: 'Session updated successfully' })
   @ApiResponse({ status: 404, description: 'Session not found' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
   updateSession(
     @Param('id') sessionId: string,
     @Body() dto: UpdateSessionDto,
     @Request() req,
   ) {
     return this.adminService.updateSession(sessionId, dto, req.user.id);
+  }
+
+  @Get('sessions/:id/attendance')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Get attendance for a session (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  getSessionAttendance(@Param('id') sessionId: string, @Request() req) {
+    return this.adminService.getSessionAttendance(sessionId, req.user.id);
+  }
+
+  @Post('sessions/:id/attendance')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Bulk mark attendance for a session (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  markBulkAttendance(
+    @Param('id') sessionId: string,
+    @Body() dto: BulkMarkAttendanceDto,
+    @Request() req,
+  ) {
+    return this.adminService.markBulkAttendance(sessionId, dto, req.user.id);
+  }
+
+  @Post('sessions/:id/ai-review')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Submit transcript for AI analysis (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  submitAiReview(
+    @Param('id') sessionId: string,
+    @Body() dto: AiReviewDto,
+    @Request() req,
+  ) {
+    return this.adminService.submitAiReview(sessionId, dto, req.user.id);
+  }
+
+  @Post('sessions/:id/ai-chat')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Chat with AI about a session (Admin/Facilitator)' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  aiChat(
+    @Param('id') sessionId: string,
+    @Body() dto: AiChatDto,
+    @Request() req,
+  ) {
+    return this.adminService.aiChat(sessionId, dto, req.user.id);
   }
 
   @Get('audit-logs')

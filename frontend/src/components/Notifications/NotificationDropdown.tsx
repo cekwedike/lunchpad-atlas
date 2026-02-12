@@ -52,6 +52,7 @@ const notificationIcons: Record<NotificationType, React.ElementType> = {
   [NotificationType.USER_PROMOTED]: TrendingUp,
   [NotificationType.DISCUSSION_FLAGGED]: AlertCircle,
   [NotificationType.SYSTEM_ALERT]: AlertCircle,
+  [NotificationType.ATTENDANCE_MARKED]: CheckCircle2,
 };
 
 const notificationColors: Record<NotificationType, string> = {
@@ -74,6 +75,7 @@ const notificationColors: Record<NotificationType, string> = {
   [NotificationType.USER_PROMOTED]: 'text-indigo-500',
   [NotificationType.DISCUSSION_FLAGGED]: 'text-red-500',
   [NotificationType.SYSTEM_ALERT]: 'text-amber-500',
+  [NotificationType.ATTENDANCE_MARKED]: 'text-green-500',
 };
 
 export function NotificationDropdown({ userId, userRole, onClose }: NotificationDropdownProps) {
@@ -186,8 +188,8 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
         ) : (
           <div className="divide-y">
             {notifications.map((notification) => {
-              const Icon = notificationIcons[notification.type];
-              const iconColor = notificationColors[notification.type];
+              const Icon = notificationIcons[notification.type] ?? Bell;
+              const iconColor = notificationColors[notification.type] ?? 'text-gray-400';
               
               return (
                 <div

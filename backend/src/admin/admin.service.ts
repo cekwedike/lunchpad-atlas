@@ -10,7 +10,12 @@ import {
   CreateCohortDto,
   UpdateCohortDto,
   UpdateSessionDto,
+  CreateSessionDto,
+  BulkMarkAttendanceDto,
+  AiReviewDto,
+  AiChatDto,
 } from './dto/admin.dto';
+import { SessionAnalyticsService } from '../session-analytics/session-analytics.service';
 import {
   CreateResourceDto,
   UpdateResourceDto,
@@ -24,6 +29,7 @@ export class AdminService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private chatService: ChatService,
+    private sessionAnalyticsService: SessionAnalyticsService,
   ) {}
 
   // ============ Cohort Management Methods ============
@@ -258,6 +264,14 @@ export class AdminService {
 
     if (!session) {
       throw new NotFoundException('Session not found');
+    }
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { role: true, cohortId: true },
+    });
+    if (requester?.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new ForbiddenException('Facilitators can only edit sessions in their own cohort');
     }
 
     // Auto-calculate unlock date if scheduledDate provided but unlockDate not
@@ -704,6 +718,231 @@ export class AdminService {
         },
       },
     });
+  }
+
+  // ============ Session Management Methods ============
+
+  async createSession(dto: CreateSessionDto, requesterId: string) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true, firstName: true, lastName: true },
+    });
+    if (!requester) throw new NotFoundException('User not found');
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== dto.cohortId) {
+      throw new ForbiddenException('Facilitators can only create sessions for their own cohort');
+    }
+
+    const cohort = await this.prisma.cohort.findUnique({ where: { id: dto.cohortId } });
+    if (!cohort) throw new NotFoundException('Cohort not found');
+
+    const scheduledDate = new Date(dto.scheduledDate);
+    let unlockDate: Date;
+    if (dto.unlockDate) {
+      unlockDate = new Date(dto.unlockDate);
+    } else {
+      unlockDate = new Date(scheduledDate);
+      unlockDate.setDate(unlockDate.getDate() - 5);
+    }
+
+    const session = await this.prisma.session.create({
+      data: {
+        cohortId: dto.cohortId,
+        sessionNumber: dto.sessionNumber,
+        title: dto.title,
+        description: dto.description,
+        monthTheme: dto.monthTheme,
+        scheduledDate,
+        unlockDate,
+      },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId: requesterId,
+        action: 'CREATE_SESSION',
+        entityType: 'Session',
+        entityId: session.id,
+        changes: { created: session },
+      },
+    });
+
+    try {
+      await this.notificationsService.notifyAdminsSessionUpdated(
+        session.id,
+        `${requester.firstName} ${requester.lastName}`,
+        'created',
+        'SESSION_CREATED',
+      );
+    } catch {
+      // non-critical
+    }
+
+    return session;
+  }
+
+  async getSessionAttendance(sessionId: string, requesterId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { cohort: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true },
+    });
+    if (!requester) throw new NotFoundException('User not found');
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new ForbiddenException('Facilitators can only view attendance for their own cohort');
+    }
+
+    const [fellows, attendances] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { cohortId: session.cohortId, role: 'FELLOW' },
+        select: { id: true, firstName: true, lastName: true, email: true },
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      }),
+      this.prisma.attendance.findMany({
+        where: { sessionId },
+        select: { userId: true, isLate: true, isExcused: true, notes: true, checkInTime: true },
+      }),
+    ]);
+
+    const attendanceMap = new Map(attendances.map((a) => [a.userId, a]));
+
+    return {
+      session: {
+        id: session.id,
+        title: session.title,
+        sessionNumber: session.sessionNumber,
+        scheduledDate: session.scheduledDate,
+        cohortName: session.cohort.name,
+      },
+      fellows: fellows.map((f) => {
+        const record = attendanceMap.get(f.id);
+        return {
+          ...f,
+          isPresent: !!record,
+          isLate: record?.isLate ?? false,
+          isExcused: record?.isExcused ?? false,
+          notes: record?.notes ?? null,
+          checkInTime: record?.checkInTime ?? null,
+        };
+      }),
+    };
+  }
+
+  async markBulkAttendance(sessionId: string, dto: BulkMarkAttendanceDto, requesterId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { cohort: { select: { name: true } } },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true, firstName: true, lastName: true },
+    });
+    if (!requester) throw new NotFoundException('User not found');
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new ForbiddenException('Facilitators can only mark attendance for their own cohort');
+    }
+
+    const results = await Promise.all(
+      dto.attendances.map(async (record) => {
+        if (record.isPresent) {
+          return this.prisma.attendance.upsert({
+            where: { userId_sessionId: { userId: record.fellowId, sessionId } },
+            create: {
+              userId: record.fellowId,
+              sessionId,
+              isLate: record.isLate ?? false,
+              isExcused: record.isExcused ?? false,
+              notes: record.notes,
+              checkInTime: new Date(),
+            },
+            update: {
+              isLate: record.isLate ?? false,
+              isExcused: record.isExcused ?? false,
+              notes: record.notes,
+            },
+          });
+        } else {
+          // Remove attendance record if marked absent
+          await this.prisma.attendance.deleteMany({
+            where: { userId: record.fellowId, sessionId },
+          });
+          return null;
+        }
+      }),
+    );
+
+    // Send attendance notifications to each fellow
+    await Promise.allSettled(
+      dto.attendances.map((record) =>
+        this.notificationsService.notifyAttendanceMarked(
+          record.fellowId,
+          session.title,
+          sessionId,
+          record.isPresent,
+          record.isLate ?? false,
+        ),
+      ),
+    );
+
+    return {
+      message: 'Attendance recorded successfully',
+      marked: dto.attendances.length,
+      present: dto.attendances.filter((r) => r.isPresent).length,
+      absent: dto.attendances.filter((r) => !r.isPresent).length,
+      records: results.filter(Boolean),
+    };
+  }
+
+  async submitAiReview(sessionId: string, dto: AiReviewDto, requesterId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true },
+    });
+    if (!requester) throw new NotFoundException('User not found');
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return this.sessionAnalyticsService.processSessionAnalytics(sessionId, dto.transcript);
+  }
+
+  async aiChat(sessionId: string, dto: AiChatDto, requesterId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { cohort: { select: { name: true } } },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true },
+    });
+    if (!requester) throw new NotFoundException('User not found');
+
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return this.sessionAnalyticsService.chatAboutSession(
+      sessionId,
+      dto.message,
+      dto.transcript,
+    );
   }
 
   async getAllResources(filters?: {

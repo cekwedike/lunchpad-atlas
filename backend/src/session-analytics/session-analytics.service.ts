@@ -24,21 +24,31 @@ interface AIAnalysisResult {
 @Injectable()
 export class SessionAnalyticsService {
   private genAI: GoogleGenerativeAI;
-  private model: any;
+  private model: any;       // JSON-mode model for structured analysis
+  private chatModel: any;   // Text model for free-form chat
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
     const apiKey = this.config.get<string>('GEMINI_API_KEY');
+    const modelName =
+      this.config.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
+      // Structured analysis model — JSON output
       this.model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash', // Updated to latest Gemini 2.5 Flash model
+        model: modelName,
         generationConfig: {
           temperature: 0.7,
           responseMimeType: 'application/json',
         },
+      });
+      // Conversational chat model — plain text output
+      this.chatModel = this.genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { temperature: 0.8 },
       });
     }
   }
@@ -97,7 +107,12 @@ Consider:
     ]);
 
     const response = await result.response;
-    const analysis = JSON.parse(response.text());
+    let analysis: any;
+    try {
+      analysis = JSON.parse(response.text());
+    } catch {
+      throw new Error('AI returned an unparseable response. Try again or shorten the transcript.');
+    }
 
     return {
       engagementScore: analysis.engagementScore,
@@ -248,6 +263,61 @@ Consider:
         analytics: s.sessionAnalytics[0] || null,
       })),
     };
+  }
+
+  /**
+   * Multi-turn AI chat about a session transcript.
+   * history: array of {role:'user'|'model', content: string} prior turns.
+   */
+  async chatAboutSession(
+    sessionId: string,
+    message: string,
+    transcript?: string,
+    history: Array<{ role: 'user' | 'model'; content: string }> = [],
+  ): Promise<{ reply: string }> {
+    if (!this.chatModel) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    // Fall back to stored transcript if none provided
+    let context = transcript;
+    if (!context) {
+      const analytics = await this.prisma.sessionAnalytics.findFirst({
+        where: { sessionId },
+        select: { transcript: true },
+      });
+      context = analytics?.transcript || '';
+    }
+
+    const systemInstruction = `You are an expert education analyst for the LaunchPad fellowship program. You help facilitators review session transcripts, understand participation and engagement, and suggest points for fellows.
+
+${context ? `Session Transcript:\n${context}\n` : 'No transcript has been uploaded for this session yet — you can still answer general questions.'}
+
+Be specific and actionable. When suggesting points, use a 0-100 scale per fellow and reference the transcript where possible.`;
+
+    // Build the chat with prior history
+    const chat = this.chatModel.startChat({
+      history: [
+        // Inject system context as the very first user/model exchange
+        {
+          role: 'user',
+          parts: [{ text: systemInstruction }],
+        },
+        {
+          role: 'model',
+          parts: [{ text: 'Understood. I\'m ready to help you review the session. What would you like to know?' }],
+        },
+        // Replay the conversation history
+        ...history.map((turn) => ({
+          role: turn.role,
+          parts: [{ text: turn.content }],
+        })),
+      ],
+    });
+
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    return { reply: response.text() };
   }
 
   /**

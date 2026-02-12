@@ -293,6 +293,23 @@ export class NotificationsService {
     });
   }
 
+  async notifyAttendanceMarked(
+    userId: string,
+    sessionTitle: string,
+    sessionId: string,
+    isPresent: boolean,
+    isLate = false,
+  ) {
+    const status = !isPresent ? 'absent' : isLate ? 'present (late)' : 'present';
+    return this.createNotification({
+      userId,
+      type: 'ATTENDANCE_MARKED',
+      title: 'Attendance Recorded',
+      message: `Your attendance for "${sessionTitle}" has been marked as ${status}.`,
+      data: { sessionId, isPresent, isLate },
+    });
+  }
+
   async notifyLeaderboardUpdate(
     userId: string,
     newRank: number,

@@ -614,6 +614,7 @@ enum NotificationType {
   USER_PROMOTED // User role changed
   DISCUSSION_FLAGGED // Discussion flagged for review
   SYSTEM_ALERT // System-level alert
+  ATTENDANCE_MARKED // Fellow marked present/absent for a session
 }
 
 model Notification {

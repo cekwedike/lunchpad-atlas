@@ -18,6 +18,7 @@ export enum NotificationType {
   USER_PROMOTED = 'USER_PROMOTED',
   DISCUSSION_FLAGGED = 'DISCUSSION_FLAGGED',
   SYSTEM_ALERT = 'SYSTEM_ALERT',
+  ATTENDANCE_MARKED = 'ATTENDANCE_MARKED',
 }
 
 export interface Notification {

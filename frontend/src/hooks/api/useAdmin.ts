@@ -223,6 +223,99 @@ export function useSessions(cohortId?: string) {
   });
 }
 
+// Create a new session
+export function useCreateSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      cohortId: string;
+      sessionNumber: number;
+      title: string;
+      description?: string;
+      monthTheme?: string;
+      scheduledDate: string;
+      unlockDate?: string;
+    }) => apiClient.post('/admin/sessions', data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sessions', variables.cohortId] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('Session created successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to create session', { description: error.message });
+    },
+  });
+}
+
+// Get attendance for a session
+export function useSessionAttendance(sessionId?: string) {
+  return useQuery({
+    queryKey: ['session-attendance', sessionId],
+    queryFn: () => apiClient.get<any>(`/admin/sessions/${sessionId}/attendance`),
+    enabled: !!sessionId,
+  });
+}
+
+// Mark bulk attendance for a session
+export function useMarkBulkAttendance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      attendances,
+    }: {
+      sessionId: string;
+      attendances: {
+        fellowId: string;
+        isPresent: boolean;
+        isLate?: boolean;
+        isExcused?: boolean;
+        notes?: string;
+      }[];
+    }) => apiClient.post(`/admin/sessions/${sessionId}/attendance`, { attendances }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['session-attendance', variables.sessionId] });
+      toast.success('Attendance saved');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to save attendance', { description: error.message });
+    },
+  });
+}
+
+// Submit transcript for AI review
+export function useAiReview() {
+  return useMutation({
+    mutationFn: ({ sessionId, transcript }: { sessionId: string; transcript: string }) =>
+      apiClient.post<any>(`/admin/sessions/${sessionId}/ai-review`, { transcript }),
+    onError: (error: any) => {
+      toast.error('AI review failed', { description: error.message });
+    },
+  });
+}
+
+// Chat with AI about a session
+export function useAiChat() {
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      message,
+      transcript,
+    }: {
+      sessionId: string;
+      message: string;
+      transcript?: string;
+    }) =>
+      apiClient.post<{ reply: string }>(`/admin/sessions/${sessionId}/ai-chat`, {
+        message,
+        transcript,
+      }),
+    onError: (error: any) => {
+      toast.error('Failed to send message', { description: error.message });
+    },
+  });
+}
+
 // ============ User Management Hooks ============
 
 // Create user (admin registration)
