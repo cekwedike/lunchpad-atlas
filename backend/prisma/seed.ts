@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, ResourceType, CohortState, EventType, AchievementType } from '@prisma/client';
+import { PrismaClient, UserRole, ResourceType, CohortState, AchievementType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -44,7 +44,7 @@ async function main() {
   console.log('✅ Created cohort');
 
   // Create users
-  const fellow1 = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: 'fellow@atlas.com',
       passwordHash: hashedPassword,
@@ -55,7 +55,7 @@ async function main() {
     },
   });
 
-  const fellow2 = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: 'jane@atlas.com',
       passwordHash: hashedPassword,
@@ -275,7 +275,7 @@ async function main() {
   console.log('✅ Created 16 sessions');
 
   // Create resources for Session 1: Ownership Mindset & Leadership at Work
-  const resource1 = await prisma.resource.create({
+  await prisma.resource.create({
     data: {
       sessionId: session1.id,
       type: ResourceType.ARTICLE,
@@ -317,7 +317,7 @@ async function main() {
     },
   });
 
-  const resource4 = await prisma.resource.create({
+  await prisma.resource.create({
     data: {
       sessionId: session1.id,
       type: ResourceType.VIDEO,
@@ -1601,38 +1601,6 @@ async function main() {
   console.log('✅ Created Month 4 resources (Sessions 13-16)');
   console.log(`✅ Total resources created: 93`);
 
-  // Create resource progress
-  await prisma.resourceProgress.createMany({
-    data: [
-      {
-        userId: fellow1.id,
-        resourceId: resource1.id,
-        state: 'COMPLETED',
-        timeSpent: 600,
-        completedAt: new Date('2024-01-20'),
-        pointsAwarded: 50,
-      },
-      {
-        userId: fellow1.id,
-        resourceId: resource4.id,
-        state: 'COMPLETED',
-        timeSpent: 900,
-        completedAt: new Date('2024-01-21'),
-        pointsAwarded: 100,
-      },
-      {
-        userId: fellow2.id,
-        resourceId: resource1.id,
-        state: 'COMPLETED',
-        timeSpent: 550,
-        completedAt: new Date('2024-01-20'),
-        pointsAwarded: 50,
-      },
-    ],
-  });
-
-  console.log('✅ Created resource progress');
-
   // Create quiz
   const quiz1 = await prisma.quiz.create({
     data: {
@@ -1675,73 +1643,8 @@ async function main() {
 
   console.log('✅ Created quiz with questions');
 
-  // Create quiz responses
-  await prisma.quizResponse.createMany({
-    data: [
-      {
-        quizId: quiz1.id,
-        userId: fellow1.id,
-        answers: JSON.stringify({ '1': 'Specific, Measurable, Achievable, Relevant, Time-bound', '2': 'Quarterly or bi-annually' }),
-        score: 100,
-        passed: true,
-        pointsAwarded: 200,
-        completedAt: new Date('2024-01-20'),
-      },
-    ],
-  });
-
-  console.log('✅ Created quiz responses');
-
-  // Remove any previously seeded discussions
-  await prisma.discussion.deleteMany({
-    where: {
-      title: {
-        in: [
-          'How do you stay motivated during job search?',
-          'Best resources for learning technical skills?',
-        ],
-      },
-    },
-  });
-
-  // Create points logs
-  await prisma.pointsLog.createMany({
-    data: [
-      {
-        userId: fellow1.id,
-        eventType: EventType.RESOURCE_COMPLETE,
-        points: 50,
-        description: 'Completed: 360° Leadership: The Art of Influence Without Authority',
-        createdAt: new Date('2024-01-20'),
-      },
-      {
-        userId: fellow1.id,
-        eventType: EventType.RESOURCE_COMPLETE,
-        points: 100,
-        description: 'Completed: Leadership vs. Authority | Simon Sinek',
-        createdAt: new Date('2024-01-21'),
-      },
-      {
-        userId: fellow1.id,
-        eventType: EventType.QUIZ_SUBMIT,
-        points: 200,
-        description: 'Passed: Career Planning Fundamentals Quiz (100%)',
-        createdAt: new Date('2024-01-20'),
-      },
-      {
-        userId: fellow2.id,
-        eventType: EventType.RESOURCE_COMPLETE,
-        points: 50,
-        description: 'Completed: 360° Leadership: The Art of Influence Without Authority',
-        createdAt: new Date('2024-01-20'),
-      },
-    ],
-  });
-
-  console.log('✅ Created points logs');
-
-  // Create achievements
-  const achievement1 = await prisma.achievement.create({
+  // Create achievements (definitions only — no progress awarded)
+  await prisma.achievement.create({
     data: {
       name: 'First Steps',
       description: 'Completed your first resource',
@@ -1752,7 +1655,7 @@ async function main() {
     },
   });
 
-  const achievement2 = await prisma.achievement.create({
+  await prisma.achievement.create({
     data: {
       name: 'Quiz Master',
       description: 'Scored 100% on a quiz',
@@ -1765,29 +1668,6 @@ async function main() {
 
   console.log('✅ Created achievements');
 
-  // Unlock achievements for users
-  await prisma.userAchievement.createMany({
-    data: [
-      {
-        userId: fellow1.id,
-        achievementId: achievement1.id,
-        unlockedAt: new Date('2024-01-20'),
-      },
-      {
-        userId: fellow1.id,
-        achievementId: achievement2.id,
-        unlockedAt: new Date('2024-01-20'),
-      },
-      {
-        userId: fellow2.id,
-        achievementId: achievement1.id,
-        unlockedAt: new Date('2024-01-20'),
-      },
-    ],
-  });
-
-  console.log('✅ Unlocked achievements for users');
-
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`   - Cohorts: 1`);
@@ -1795,10 +1675,7 @@ async function main() {
   console.log(`   - Sessions: 16`);
   console.log(`   - Resources: 93`);
   console.log(`   - Quizzes: 1 (with 2 questions)`);
-  console.log(`   - Discussions: 2`);
-  console.log(`   - Comments: 3`);
-  console.log(`   - Points Logs: 4`);
-  console.log(`   - Achievements: 2`);
+  console.log(`   - Achievements: 2 definitions (none awarded yet)`);
   console.log('\n🔑 Test Credentials:');
   console.log(`   Fellow 1: fellow@atlas.com / password123`);
   console.log(`   Fellow 2: jane@atlas.com / password123`);

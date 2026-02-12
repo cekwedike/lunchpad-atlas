@@ -510,7 +510,10 @@ export class AdminService {
   }
 
   async toggleResourceLock(resourceId: string, state: string, requesterId: string) {
-    const resource = await this.prisma.resource.findUnique({ where: { id: resourceId } });
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+      include: { session: { select: { cohortId: true } } },
+    });
     if (!resource) throw new NotFoundException('Resource not found');
 
     if (requesterId) {
@@ -519,17 +522,13 @@ export class AdminService {
         select: { role: true, cohortId: true },
       });
       if (requester?.role === 'FACILITATOR') {
-        const session = await this.prisma.session.findUnique({
-          where: { id: resource.sessionId },
-          select: { cohortId: true },
-        });
-        if (!session || session.cohortId !== requester.cohortId) {
+        if (!resource.session || resource.session.cohortId !== requester.cohortId) {
           throw new ForbiddenException('Facilitators can only manage resources in their cohort');
         }
       }
     }
 
-    return this.prisma.resource.update({
+    const updated = await this.prisma.resource.update({
       where: { id: resourceId },
       data: { state: state as ResourceState },
       include: {
@@ -538,6 +537,21 @@ export class AdminService {
         },
       },
     });
+
+    // Notify all fellows in the cohort when a resource is manually unlocked
+    if (state === 'UNLOCKED' && resource.session?.cohortId) {
+      try {
+        await this.notificationsService.notifyFellowsResourceUnlocked(
+          resourceId,
+          resource.session.cohortId,
+          resource.title,
+        );
+      } catch {
+        // Non-critical — don't fail if notifications error
+      }
+    }
+
+    return updated;
   }
 
   async deleteResource(resourceId: string, adminId: string) {

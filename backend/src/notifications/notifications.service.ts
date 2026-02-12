@@ -198,6 +198,27 @@ export class NotificationsService {
     });
   }
 
+  async notifyFellowsResourceUnlocked(
+    resourceId: string,
+    cohortId: string,
+    resourceTitle: string,
+  ) {
+    const fellows = await this.prisma.user.findMany({
+      where: { cohortId, role: 'FELLOW' },
+      select: { id: true },
+    });
+
+    const notifications = fellows.map((fellow) => ({
+      userId: fellow.id,
+      type: 'RESOURCE_UNLOCK' as NotificationType,
+      title: 'New Resource Available',
+      message: `"${resourceTitle}" is now unlocked and ready to complete!`,
+      data: { resourceId },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
   async notifyQuizReminder(
     userId: string,
     quizTitle: string,
