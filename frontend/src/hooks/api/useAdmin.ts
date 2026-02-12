@@ -424,3 +424,14 @@ export function useDeleteResource() {
     },
   });
 }
+
+export function useCohortMembers(cohortId?: string) {
+  return useQuery({
+    queryKey: ['cohort-members', cohortId],
+    queryFn: async () => {
+      const data = await apiClient.get<any[]>(`/admin/cohorts/${cohortId}/members`);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!cohortId,
+  });
+}

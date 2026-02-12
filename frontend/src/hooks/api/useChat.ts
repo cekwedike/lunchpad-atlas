@@ -176,13 +176,21 @@ export function useDeleteMessage() {
 
 export function useFlagMessage() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (messageId: string) => {
       return apiClient.patch<ChatMessage>(`/chat/messages/${messageId}/flag`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+}
+
+export function useOpenDM() {
+  return useMutation({
+    mutationFn: async (targetUserId: string) => {
+      return apiClient.post<{ id: string }>(`/chat/direct/${targetUserId}`, {});
     },
   });
 }

@@ -135,6 +135,16 @@ export class ChatController {
     return this.chatService.flagMessage(messageId, req.user.id);
   }
 
+  // ==================== DIRECT MESSAGES ====================
+
+  @Post('direct/:userId')
+  openDirectMessage(
+    @Param('userId') targetUserId: string,
+    @Request() req: any,
+  ) {
+    return this.chatService.findOrCreateDirectChannel(req.user.id, targetUserId);
+  }
+
   // ==================== ADMIN UTILITIES ====================
 
   @Post('channels/initialize/:cohortId')

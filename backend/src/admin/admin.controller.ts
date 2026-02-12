@@ -56,6 +56,13 @@ export class AdminController {
     return this.adminService.getAllCohorts();
   }
 
+  @Get('cohorts/:id/members')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR, UserRole.FELLOW)
+  @ApiOperation({ summary: 'Get all members of a cohort' })
+  getCohortMembers(@Param('id') cohortId: string, @Request() req: any) {
+    return this.adminService.getCohortMembers(cohortId, req.user.id);
+  }
+
   @Post('cohorts')
   @ApiOperation({ summary: 'Create a new cohort (Admin only)' })
   @ApiResponse({ status: 201, description: 'Cohort created successfully' })

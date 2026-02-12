@@ -462,6 +462,50 @@ export class ChatService {
     );
   }
 
+  async findOrCreateDirectChannel(requesterId: string, targetUserId: string) {
+    if (requesterId === targetUserId) {
+      throw new ForbiddenException('Cannot create a DM with yourself');
+    }
+
+    const [requester, target] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { cohortId: true, firstName: true, lastName: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { cohortId: true, firstName: true, lastName: true },
+      }),
+    ]);
+
+    if (!requester || !target) {
+      throw new NotFoundException('User not found');
+    }
+
+    const cohortId = requester.cohortId || target.cohortId;
+    if (!cohortId) {
+      throw new ForbiddenException('Both users must belong to a cohort to message');
+    }
+
+    // Canonical name ensures only one channel per pair
+    const sortedIds = [requesterId, targetUserId].sort();
+    const dmName = `dm::${sortedIds[0]}::${sortedIds[1]}`;
+
+    const existing = await this.prisma.channel.findFirst({
+      where: { name: dmName, type: ChannelType.DIRECT_MESSAGE },
+    });
+    if (existing) return existing;
+
+    return this.prisma.channel.create({
+      data: {
+        cohortId,
+        type: ChannelType.DIRECT_MESSAGE,
+        name: dmName,
+        description: `${requester.firstName} & ${target.firstName}`,
+      },
+    });
+  }
+
   private async getChatNotificationRecipients(
     cohortId: string,
     facilitatorId: string | null,

@@ -32,10 +32,7 @@ export class AdminService {
     const cohorts = await this.prisma.cohort.findMany({
       include: {
         _count: {
-          select: {
-            fellows: { where: { role: 'FELLOW' } },
-            sessions: true,
-          },
+          select: { sessions: true },
         },
         facilitator: {
           select: {
@@ -46,12 +43,63 @@ export class AdminService {
           },
         },
       },
-      orderBy: {
-        startDate: 'desc',
-      },
+      orderBy: { startDate: 'desc' },
     });
 
-    return cohorts;
+    if (cohorts.length === 0) return cohorts;
+
+    // Compute accurate fellow count per cohort via groupBy
+    const cohortIds = cohorts.map((c) => c.id);
+    const fellowCounts = await this.prisma.user.groupBy({
+      by: ['cohortId'],
+      where: { cohortId: { in: cohortIds }, role: 'FELLOW' },
+      _count: { id: true },
+    });
+    const countMap: Record<string, number> = Object.fromEntries(
+      fellowCounts.map((c) => [c.cohortId, c._count.id]),
+    );
+
+    return cohorts.map((cohort) => ({
+      ...cohort,
+      _count: { ...cohort._count, fellows: countMap[cohort.id] ?? 0 },
+    }));
+  }
+
+  async getCohortMembers(cohortId: string, requesterId: string) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true },
+    });
+    if (!requester) {
+      throw new ForbiddenException('Not authenticated');
+    }
+    if (
+      requester.role === 'FELLOW' &&
+      requester.cohortId !== cohortId
+    ) {
+      throw new ForbiddenException('You can only view your own cohort members');
+    }
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId !== cohortId
+    ) {
+      throw new ForbiddenException(
+        'You can only view members of your assigned cohort',
+      );
+    }
+
+    return this.prisma.user.findMany({
+      where: { cohortId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        currentMonthPoints: true,
+      },
+      orderBy: [{ role: 'asc' }, { firstName: 'asc' }],
+    });
   }
 
   async createCohort(dto: CreateCohortDto, adminId: string) {
