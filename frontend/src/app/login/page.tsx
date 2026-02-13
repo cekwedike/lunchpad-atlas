@@ -136,6 +136,12 @@ export default function LoginPage() {
               )}
             </div>
 
+            {formError && (
+              <p className="text-sm text-red-300 text-center bg-red-500/10 border border-red-400/30 rounded-lg px-4 py-2">
+                {formError}
+              </p>
+            )}
+
             <button
               type="submit"
               disabled={isPending}
