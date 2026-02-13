@@ -27,11 +27,7 @@ export class AuthService {
         // Resolve cohort assignment
         let cohortId: string | undefined = dto.cohortId || undefined;
 
-        if (dto.role === 'FACILITATOR') {
-          if (!cohortId) {
-            throw new BadRequestException('Facilitators must be assigned to a cohort');
-          }
-
+        if (dto.role === 'FACILITATOR' && cohortId) {
           const cohort = await this.prisma.cohort.findUnique({
             where: { id: cohortId },
           });
@@ -41,32 +37,16 @@ export class AuthService {
           }
         }
 
-        // For FELLOW role, find or create default 2026 cohort and assign
-        if (!dto.role || dto.role === 'FELLOW') {
-        // Find the default 2026 cohort
-        let defaultCohort = await this.prisma.cohort.findFirst({
-          where: {
-            name: '2026',
-          },
-        });
-
-        // Create it if it doesn't exist
-        if (!defaultCohort) {
-          const startDate = new Date('2026-01-01');
-          const endDate = new Date('2026-12-31');
-
-          defaultCohort = await this.prisma.cohort.create({
-            data: {
-              name: '2026',
-              startDate,
-              endDate,
-              state: 'ACTIVE',
-            },
+        // For FELLOW role, auto-assign to 2026 cohort only if it already exists
+        if ((!dto.role || dto.role === 'FELLOW') && !cohortId) {
+          const defaultCohort = await this.prisma.cohort.findFirst({
+            where: { name: '2026' },
           });
-        }
 
-        cohortId = cohortId || defaultCohort.id;
-      }
+          if (defaultCohort) {
+            cohortId = defaultCohort.id;
+          }
+        }
 
       const user = await this.prisma.user.create({
         data: {

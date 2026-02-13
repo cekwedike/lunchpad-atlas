@@ -20,6 +20,7 @@ import { LiveQuizModule } from './live-quiz/live-quiz.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { EmailModule } from './email/email.module';
 import { CurriculaModule } from './curricula/curricula.module';
+import { FacilitatorModule } from './facilitator/facilitator.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { CurriculaModule } from './curricula/curricula.module';
     AttendanceModule,
     EmailModule,
     CurriculaModule,
+    FacilitatorModule,
   ],
   controllers: [AppController],
   providers: [

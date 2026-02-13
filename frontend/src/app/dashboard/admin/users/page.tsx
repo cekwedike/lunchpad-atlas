@@ -570,7 +570,7 @@ export default function AdminUsersPage() {
               {(formData.role === "FELLOW" || formData.role === "FACILITATOR") && (
                 <div className="space-y-2">
                   <Label htmlFor="cohort" className="text-sm font-medium text-gray-900">
-                    {formData.role === "FACILITATOR" ? "Cohort (Required)" : `Cohort ${formData.cohortId ? "" : "(Optional - will default to 2026)"}`}
+                    Cohort (Optional)
                   </Label>
                   <select
                     id="cohort"
@@ -578,18 +578,16 @@ export default function AdminUsersPage() {
                     onChange={(e) => setFormData({ ...formData, cohortId: e.target.value })}
                     className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">
-                      {formData.role === "FACILITATOR" ? "Select a cohort" : "Auto-assign to 2026 cohort"}
-                    </option>
+                    <option value="">No cohort assigned</option>
                     {cohorts.map((cohort: any) => (
                       <option key={cohort.id} value={cohort.id}>
                         {cohort.name} ({cohort._count?.fellows || 0} members)
                       </option>
                     ))}
                   </select>
-                  {formData.role === "FELLOW" && (
+                  {formData.role === "FELLOW" && cohorts.length > 0 && (
                     <p className="text-xs text-gray-500">
-                      If no cohort is selected, the user will be automatically assigned to the "2026" cohort
+                      If no cohort is selected and a "2026" cohort exists, the user will be auto-assigned to it.
                     </p>
                   )}
                 </div>
@@ -638,10 +636,9 @@ export default function AdminUsersPage() {
               <Button 
                 onClick={handleAddUser} 
                 disabled={
-                  !formData.name || 
-                  !formData.email || 
-                  (formData.role === "ADMIN" && !formData.password) || 
-                  (formData.role === "FACILITATOR" && !formData.cohortId) ||
+                  !formData.name ||
+                  !formData.email ||
+                  (formData.role === "ADMIN" && !formData.password) ||
                   isSubmitting
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -779,7 +776,7 @@ export default function AdminUsersPage() {
               </Button>
               <Button 
                 onClick={handleEditUser} 
-                disabled={!formData.name || !formData.email || (formData.role === "FACILITATOR" && !formData.cohortId) || isSubmitting}
+                disabled={!formData.name || !formData.email || isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isSubmitting ? (
