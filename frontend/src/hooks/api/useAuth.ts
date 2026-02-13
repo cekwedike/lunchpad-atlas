@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
@@ -134,6 +134,39 @@ export function useChangePassword() {
     },
     onError: (error: any) => {
       toast.error('Password change failed', error.message || 'Incorrect current password');
+    },
+  });
+}
+
+export function useSetupStatus() {
+  return useQuery({
+    queryKey: ['setup-status'],
+    queryFn: async () => {
+      return apiClient.get<{ needsSetup: boolean }>('/auth/setup', { requiresAuth: false } as any);
+    },
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
+export function useSetupAdmin() {
+  const { setUser } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; email: string; password: string }) => {
+      return apiClient.post<LoginResponse>('/auth/setup', data, { requiresAuth: false });
+    },
+    onSuccess: (data) => {
+      localStorage.setItem('accessToken', data.accessToken);
+      const expires = new Date();
+      expires.setDate(expires.getDate() + 7);
+      document.cookie = `accessToken=${data.accessToken}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+      apiClient.setToken(data.accessToken);
+      setUser(data.user);
+      toast.success('Setup complete!', 'Admin account created. Welcome to ATLAS!');
+    },
+    onError: (error: any) => {
+      toast.error('Setup failed', error.message || 'Could not create admin account');
     },
   });
 }

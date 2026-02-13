@@ -3,11 +3,12 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
-import { LoginDto, RegisterDto, AuthResponseDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, SetupAdminDto, AuthResponseDto } from './dto/auth.dto';
 import { Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -106,6 +107,29 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    return this.generateTokens(user);
+  }
+
+  async getSetupStatus(): Promise<{ needsSetup: boolean }> {
+    const adminCount = await this.prisma.user.count({ where: { role: 'ADMIN' } });
+    return { needsSetup: adminCount === 0 };
+  }
+
+  async setupFirstAdmin(dto: SetupAdminDto): Promise<AuthResponseDto> {
+    const adminCount = await this.prisma.user.count({ where: { role: 'ADMIN' } });
+    if (adminCount > 0) {
+      throw new ForbiddenException('Setup already complete. An admin account already exists.');
+    }
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email.toLowerCase().trim(),
+        firstName: dto.name.split(' ')[0] || dto.name,
+        lastName: dto.name.split(' ').slice(1).join(' ') || '',
+        passwordHash: hashedPassword,
+        role: 'ADMIN',
+      },
+    });
     return this.generateTokens(user);
   }
 

@@ -14,7 +14,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, SetupAdminDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
@@ -24,6 +24,20 @@ import { UserRole } from '@prisma/client';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  @Get('setup')
+  @ApiOperation({ summary: 'Check if initial admin setup is needed' })
+  getSetupStatus() {
+    return this.authService.getSetupStatus();
+  }
+
+  @Post('setup')
+  @ApiOperation({ summary: 'Create the first admin account (only works when no admins exist)' })
+  @ApiResponse({ status: 201, description: 'Admin account created' })
+  @ApiResponse({ status: 403, description: 'Setup already complete' })
+  setupFirstAdmin(@Body() dto: SetupAdminDto) {
+    return this.authService.setupFirstAdmin(dto);
+  }
 
   @Post('register')
   @UseGuards(JwtAuthGuard, RolesGuard)

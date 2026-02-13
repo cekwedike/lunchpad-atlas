@@ -38,6 +38,19 @@ export class RegisterDto {
   cohortId?: string;
 }
 
+export class SetupAdminDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(2)
+  name: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+}
+
 export class AuthResponseDto {
   accessToken: string;
   refreshToken?: string;

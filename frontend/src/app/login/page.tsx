@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LogIn, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
-import { useLogin } from "@/hooks/api/useAuth";
+import { useLogin, useSetupStatus } from "@/hooks/api/useAuth";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
 
@@ -14,7 +14,15 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const { mutate: login, isPending } = useLogin();
+  const { data: setupStatus } = useSetupStatus();
+
+  useEffect(() => {
+    if (setupStatus?.needsSetup) {
+      router.replace("/setup");
+    }
+  }, [setupStatus, router]);
 
   const {
     register,
@@ -29,6 +37,7 @@ export default function LoginPage() {
   });
 
   const onSubmit = (data: LoginRequest) => {
+    setFormError(null);
     login(data, {
       onSuccess: (response) => {
         // Navigate based on user role
@@ -37,6 +46,9 @@ export default function LoginPage() {
         setTimeout(() => {
           router.replace(dashboardRoute);
         }, 150);
+      },
+      onError: () => {
+        setFormError("Invalid email or password. Please try again.");
       },
     });
   };
