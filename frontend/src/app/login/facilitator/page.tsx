@@ -6,13 +6,17 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LogIn, ArrowLeft, Eye, EyeOff, Loader2, Users } from "lucide-react";
 import { useLogin } from "@/hooks/api/useAuth";
+import { useAuthStore } from "@/stores/authStore";
+import { apiClient } from "@/lib/api-client";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
 
 export default function FacilitatorLoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const { mutate: login, isPending } = useLogin();
+  const { logout: storeLogout } = useAuthStore();
 
   const {
     register,
@@ -26,17 +30,30 @@ export default function FacilitatorLoginPage() {
     },
   });
 
+  const clearAuthState = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+    apiClient.clearTokens();
+    storeLogout();
+  };
+
   const onSubmit = (data: LoginRequest) => {
+    setFormError(null);
     login(data, {
       onSuccess: (response) => {
-        // Validate that user has FACILITATOR role
         if (response.user.role !== 'FACILITATOR') {
-          alert(`Access denied. This is the Facilitator portal. Please use the ${response.user.role.toLowerCase()} login page.`);
+          clearAuthState();
+          const portalName = response.user.role === 'ADMIN' ? 'Administrator' : 'Fellow';
+          setFormError(`Access denied. This account is not a Facilitator. Please use the ${portalName} portal.`);
           return;
         }
         setTimeout(() => {
           router.replace('/dashboard/facilitator');
         }, 150);
+      },
+      onError: () => {
+        setFormError("Invalid email or password. Please try again.");
       },
     });
   };
@@ -128,6 +145,12 @@ export default function FacilitatorLoginPage() {
                 <p className="mt-1 text-sm text-red-300">{errors.password.message}</p>
               )}
             </div>
+
+            {formError && (
+              <p className="text-sm text-red-300 text-center bg-red-500/10 border border-red-400/30 rounded-lg px-4 py-2">
+                {formError}
+              </p>
+            )}
 
             <button
               type="submit"
