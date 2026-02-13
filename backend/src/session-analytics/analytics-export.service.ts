@@ -284,7 +284,7 @@ export class AnalyticsExportService {
 
     // Calculate overall statistics
     const totalSessions = cohort.sessions.length;
-    const totalFellows = cohort.fellows.length;
+    const totalFellows = cohort.fellows.filter((f) => f.role === 'FELLOW').length;
     const sessionsWithAnalytics = cohort.sessions.filter(
       (s) => s.sessionAnalytics.length > 0,
     ).length;

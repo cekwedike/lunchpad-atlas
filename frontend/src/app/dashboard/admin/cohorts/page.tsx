@@ -27,10 +27,21 @@ import {
   useAdminUsers,
   useUpdateUserCohort,
   useCohortMembers,
+  useAddCohortFacilitator,
+  useRemoveCohortFacilitator,
 } from "@/hooks/api/useAdmin";
 import { useOpenDM } from "@/hooks/api/useChat";
 import { toast } from "sonner";
 import { format } from "date-fns";
+
+interface CohortFacilitatorUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  isFacilitator: boolean;
+}
 
 interface Cohort {
   id: string;
@@ -38,13 +49,7 @@ interface Cohort {
   startDate: string;
   endDate: string;
   state: string;
-  facilitatorId?: string;
-  facilitator?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
+  facilitators?: Array<{ cohortId: string; userId: string; user: CohortFacilitatorUser }>;
   _count?: {
     fellows: number;
     sessions: number;
@@ -61,14 +66,18 @@ export default function AdminCohortsPage() {
   const deleteCohort = useDeleteCohort();
   const updateUserCohort = useUpdateUserCohort();
   const openDM = useOpenDM();
+  const addCohortFacilitator = useAddCohortFacilitator();
+  const removeCohortFacilitator = useRemoveCohortFacilitator();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+  const [isAddFacilitatorDialogOpen, setIsAddFacilitatorDialogOpen] = useState(false);
   const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedFacilitatorUserId, setSelectedFacilitatorUserId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cohorts: Cohort[] = Array.isArray(cohortsData) ? cohortsData : [];
@@ -87,6 +96,21 @@ export default function AdminCohortsPage() {
   ).filter(
     (user: any) => !user.cohortId || user.cohortId !== selectedCohort?.id
   );
+
+  // Fetch eligible facilitators for the "Add Facilitator" dialog
+  const { data: facilitatorRoleUsersResponse } = useAdminUsers(
+    isAddFacilitatorDialogOpen ? { role: "FACILITATOR" } : undefined
+  );
+  const { data: adminRoleUsersResponse } = useAdminUsers(
+    isAddFacilitatorDialogOpen ? { role: "ADMIN" } : undefined
+  );
+  const currentFacilitatorIds = new Set(
+    (selectedCohort?.facilitators ?? []).map((f) => f.userId)
+  );
+  const availableFacilitatorsForAssignment = [
+    ...(facilitatorRoleUsersResponse?.users || []),
+    ...(adminRoleUsersResponse?.users || []).filter((u: any) => u.isFacilitator),
+  ].filter((u: any) => !currentFacilitatorIds.has(u.id));
 
   const [formData, setFormData] = useState({ name: "", startDate: "", endDate: "" });
 
@@ -132,7 +156,11 @@ export default function AdminCohortsPage() {
     try {
       await updateCohort.mutateAsync({
         cohortId: selectedCohort.id,
-        data: { name: formData.name.trim(), startDate: formData.startDate, endDate: formData.endDate },
+        data: {
+          name: formData.name.trim(),
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+        },
       });
       setIsEditDialogOpen(false);
       setSelectedCohort(null);
@@ -178,6 +206,29 @@ export default function AdminCohortsPage() {
     try {
       await updateUserCohort.mutateAsync({ userId, cohortId: null });
       toast.success("Member removed from cohort");
+    } catch {
+      // error handled by hook
+    }
+  };
+
+  const handleAddFacilitator = async () => {
+    if (!selectedCohort || !selectedFacilitatorUserId) return;
+    setIsSubmitting(true);
+    try {
+      await addCohortFacilitator.mutateAsync({ cohortId: selectedCohort.id, userId: selectedFacilitatorUserId });
+      setIsAddFacilitatorDialogOpen(false);
+      setSelectedFacilitatorUserId("");
+    } catch {
+      // error handled by hook
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveFacilitator = async (userId: string) => {
+    if (!selectedCohort) return;
+    try {
+      await removeCohortFacilitator.mutateAsync({ cohortId: selectedCohort.id, userId });
     } catch {
       // error handled by hook
     }
@@ -271,10 +322,12 @@ export default function AdminCohortsPage() {
                     <Users className="h-4 w-4" />
                     <span>{cohort._count?.fellows ?? 0} {cohort._count?.fellows === 1 ? "Fellow" : "Fellows"}</span>
                   </div>
-                  {cohort.facilitator && (
+                  {(cohort.facilitators?.length ?? 0) > 0 && (
                     <div className="pt-2 border-t border-gray-100">
-                      <p className="text-xs text-gray-500">Facilitator</p>
-                      <p className="text-sm font-medium text-gray-900">{cohort.facilitator.firstName} {cohort.facilitator.lastName}</p>
+                      <p className="text-xs text-gray-500">Facilitator{cohort.facilitators!.length > 1 ? "s" : ""}</p>
+                      {cohort.facilitators!.map((f) => (
+                        <p key={f.userId} className="text-sm font-medium text-gray-900">{f.user.firstName} {f.user.lastName}</p>
+                      ))}
                     </div>
                   )}
                   <div className="pt-2 border-t border-gray-100">
@@ -308,6 +361,7 @@ export default function AdminCohortsPage() {
                 <Label>End Date *</Label>
                 <Input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} />
               </div>
+              <p className="text-xs text-gray-500">Facilitators can be assigned after creating the cohort via the Members panel.</p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); resetForm(); }} disabled={isSubmitting}>Cancel</Button>
@@ -380,12 +434,44 @@ export default function AdminCohortsPage() {
               <DialogDescription>Manage fellows and facilitators in this cohort.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">
-                  {cohortMembers.length} {cohortMembers.length === 1 ? "member" : "members"}
-                </p>
+              {/* Facilitators section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">Facilitators ({selectedCohort?.facilitators?.length ?? 0})</p>
+                  <Button size="sm" variant="outline" onClick={() => setIsAddFacilitatorDialogOpen(true)} className="text-purple-700 border-purple-300 hover:bg-purple-50">
+                    <UserPlus className="h-4 w-4 mr-1" /> Add Facilitator
+                  </Button>
+                </div>
+                {(selectedCohort?.facilitators?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-gray-500 py-2">No facilitators assigned to this cohort yet.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {selectedCohort!.facilitators!.map((f) => (
+                      <div key={f.userId} className="flex items-center justify-between p-2 rounded-lg border border-purple-100 bg-purple-50">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-purple-700">
+                              {f.user.firstName?.charAt(0)}{f.user.lastName?.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{f.user.firstName} {f.user.lastName}</p>
+                            <p className="text-xs text-gray-500">{f.user.email}{f.user.role === "ADMIN" ? " · Admin/Facilitator" : ""}</p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveFacilitator(f.userId)} className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0" title="Remove facilitator">
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-700">Fellows ({cohortMembers.length})</p>
                 <Button size="sm" onClick={() => setIsAddMemberDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <UserPlus className="h-4 w-4 mr-2" /> Add Member
+                  <UserPlus className="h-4 w-4 mr-2" /> Add Fellow
                 </Button>
               </div>
 
@@ -396,8 +482,8 @@ export default function AdminCohortsPage() {
               ) : cohortMembers.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No members in this cohort yet.</p>
-                  <p className="text-sm mt-1">Click "Add Member" to assign fellows to this cohort.</p>
+                  <p>No fellows in this cohort yet.</p>
+                  <p className="text-sm mt-1">Click "Add Fellow" to assign fellows to this cohort.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -470,6 +556,44 @@ export default function AdminCohortsPage() {
               <Button variant="outline" onClick={() => { setIsAddMemberDialogOpen(false); setSelectedUserId(""); }} disabled={isSubmitting}>Cancel</Button>
               <Button onClick={handleAddMemberToCohort} disabled={isSubmitting || !selectedUserId} className="bg-blue-600 hover:bg-blue-700 text-white">
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Add to Cohort
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Facilitator Dialog */}
+        <Dialog open={isAddFacilitatorDialogOpen} onOpenChange={setIsAddFacilitatorDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Add Facilitator to {selectedCohort?.name}</DialogTitle>
+              <DialogDescription>Select a facilitator or admin with facilitator privileges to assign to this cohort.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Select Facilitator</Label>
+                <select
+                  value={selectedFacilitatorUserId}
+                  onChange={(e) => setSelectedFacilitatorUserId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a facilitator...</option>
+                  {availableFacilitatorsForAssignment.map((user: any) => (
+                    <option key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName} ({user.email}){user.role === "ADMIN" ? " – Admin" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  {availableFacilitatorsForAssignment.length === 0
+                    ? "No eligible facilitators available (all are already assigned or none exist)"
+                    : `${availableFacilitatorsForAssignment.length} facilitator${availableFacilitatorsForAssignment.length === 1 ? "" : "s"} available`}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setIsAddFacilitatorDialogOpen(false); setSelectedFacilitatorUserId(""); }} disabled={isSubmitting}>Cancel</Button>
+              <Button onClick={handleAddFacilitator} disabled={isSubmitting || !selectedFacilitatorUserId} className="bg-purple-600 hover:bg-purple-700 text-white">
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Assign Facilitator
               </Button>
             </DialogFooter>
           </DialogContent>

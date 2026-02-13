@@ -19,7 +19,7 @@ import {
   Users, Search, Plus, Edit, Trash2,
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen
 } from "lucide-react";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort } from "@/hooks/api/useAdmin";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort, useUpdateUserFacilitator } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ export default function AdminUsersPage() {
   const createUser = useCreateUser();
   const updateUserRole = useUpdateUserRole();
   const updateUserCohort = useUpdateUserCohort();
+  const updateUserFacilitator = useUpdateUserFacilitator();
   const deleteUser = useDeleteUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function AdminUsersPage() {
     password: "",
     role: "FELLOW" as "FELLOW" | "FACILITATOR" | "ADMIN",
     cohortId: "",
+    isFacilitator: false,
   });
 
   // Generate auto-password for Fellows and Facilitators
@@ -126,6 +128,14 @@ export default function AdminUsersPage() {
           role: formData.role,
         });
       }
+
+      // Update isFacilitator for ADMIN users
+      if (formData.role === 'ADMIN' && formData.isFacilitator !== (selectedUser.isFacilitator ?? false)) {
+        await updateUserFacilitator.mutateAsync({
+          userId: selectedUser.id,
+          isFacilitator: formData.isFacilitator,
+        });
+      }
       
       // Update cohort if changed (for Fellows and Facilitators)
       if (!facilitatorCohortUpdated && (formData.role === 'FELLOW' || formData.role === 'FACILITATOR') && formData.cohortId !== selectedUser.cohortId) {
@@ -176,6 +186,7 @@ export default function AdminUsersPage() {
       password: "",
       role: user.role,
       cohortId: user.cohortId || "",
+      isFacilitator: user.isFacilitator ?? false,
     });
     setIsEditDialogOpen(true);
   };
@@ -192,6 +203,7 @@ export default function AdminUsersPage() {
       password: "",
       role: "FELLOW",
       cohortId: "",
+      isFacilitator: false,
     });
     setShowPassword(false);
   };
@@ -399,9 +411,16 @@ export default function AdminUsersPage() {
                         <span className="text-sm text-gray-600">{user.email}</span>
                       </td>
                       <td className="py-4 px-6">
-                        <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} font-medium`}>
-                          {user.role}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} font-medium`}>
+                            {user.role}
+                          </Badge>
+                          {user.role === "ADMIN" && user.isFacilitator && (
+                            <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-xs">
+                              Facilitator
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-6">
                         {user.role === 'FELLOW' || user.role === 'FACILITATOR' ? (
@@ -530,6 +549,23 @@ export default function AdminUsersPage() {
                 </select>
               </div>
               
+              {/* Facilitator privilege - Admins only */}
+              {formData.role === "ADMIN" && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                  <input
+                    type="checkbox"
+                    id="isFacilitator"
+                    checked={formData.isFacilitator}
+                    onChange={(e) => setFormData({ ...formData, isFacilitator: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <div>
+                    <Label htmlFor="isFacilitator" className="text-sm font-medium text-gray-900 cursor-pointer">Can Facilitate Cohorts</Label>
+                    <p className="text-xs text-gray-500">Grants facilitator-level access to be assigned to cohorts</p>
+                  </div>
+                </div>
+              )}
+
               {/* Cohort selector - Fellows and Facilitators */}
               {(formData.role === "FELLOW" || formData.role === "FACILITATOR") && (
                 <div className="space-y-2">
@@ -558,7 +594,7 @@ export default function AdminUsersPage() {
                   )}
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-900">Password</Label>
                 <div className="relative">
@@ -695,6 +731,23 @@ export default function AdminUsersPage() {
                 </select>
               </div>
               
+              {/* Facilitator privilege - Admins only */}
+              {formData.role === "ADMIN" && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                  <input
+                    type="checkbox"
+                    id="edit-isFacilitator"
+                    checked={formData.isFacilitator}
+                    onChange={(e) => setFormData({ ...formData, isFacilitator: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <div>
+                    <Label htmlFor="edit-isFacilitator" className="text-sm font-medium text-gray-900 cursor-pointer">Can Facilitate Cohorts</Label>
+                    <p className="text-xs text-gray-500">Grants facilitator-level access to be assigned to cohorts</p>
+                  </div>
+                </div>
+              )}
+
               {/* Cohort selector - Fellows and Facilitators */}
               {(formData.role === "FELLOW" || formData.role === "FACILITATOR") && (
                 <div className="space-y-2">

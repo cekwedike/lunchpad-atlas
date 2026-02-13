@@ -82,6 +82,7 @@ model User {
   firstName          String
   lastName           String
   role               UserRole  @default(FELLOW)
+  isFacilitator      Boolean   @default(false) // Grants facilitator access (used for ADMIN users)
   cohortId           String?
   currentMonthPoints Int       @default(0) // Points earned this month
   monthlyPointsCap   Int       @default(1000) // Maximum points per month
@@ -110,7 +111,7 @@ model User {
   leaderboardEntries LeaderboardEntry[]
   quizResponses      QuizResponse[]
   engagementEvents   EngagementEvent[]
-  facilitatedCohorts Cohort[]               @relation("FacilitatorCohorts")
+  facilitatedCohorts CohortFacilitator[]
   notifications      Notification[]
   liveQuizParticipants LiveQuizParticipant[]
   attendance         Attendance[]
@@ -128,12 +129,11 @@ model Cohort {
   startDate     DateTime
   endDate       DateTime
   state         CohortState @default(PENDING)
-  facilitatorId String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   // Relations
-  facilitator  User?                @relation("FacilitatorCohorts", fields: [facilitatorId], references: [id])
+  facilitators CohortFacilitator[]
   fellows      User[]
   sessions     Session[]
   discussions  Discussion[]
@@ -141,9 +141,21 @@ model Cohort {
   channels     Channel[]
   quizzes      Quiz[]
 
-  @@index([facilitatorId])
   @@index([state])
   @@map("cohorts")
+}
+
+model CohortFacilitator {
+  cohortId String
+  userId   String
+
+  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cohortId, userId])
+  @@index([cohortId])
+  @@index([userId])
+  @@map("cohort_facilitators")
 }
 
 model Session {

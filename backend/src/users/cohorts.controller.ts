@@ -4,8 +4,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 const COHORT_INCLUDE = {
   _count: { select: { sessions: true } },
-  facilitator: {
-    select: { id: true, firstName: true, lastName: true, email: true },
+  facilitators: {
+    include: {
+      user: {
+        select: { id: true, firstName: true, lastName: true, email: true, role: true, isFacilitator: true },
+      },
+    },
   },
 } as const;
 
@@ -18,7 +22,7 @@ export class CohortsController {
   async getCohorts(@Request() req) {
     const user = await this.prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { role: true, cohortId: true },
+      select: { role: true, cohortId: true, isFacilitator: true },
     });
     if (!user) return [];
 
@@ -29,8 +33,8 @@ export class CohortsController {
         include: COHORT_INCLUDE,
         orderBy: { startDate: 'desc' },
       });
-    } else if (user.role === 'FACILITATOR') {
-      const conditions: any[] = [{ facilitatorId: req.user.id }];
+    } else if (user.role === 'FACILITATOR' || (user.role === 'ADMIN' && user.isFacilitator)) {
+      const conditions: any[] = [{ facilitators: { some: { userId: req.user.id } } }];
       if (user.cohortId) conditions.push({ id: user.cohortId });
       cohorts = await this.prisma.cohort.findMany({
         where: { OR: conditions },

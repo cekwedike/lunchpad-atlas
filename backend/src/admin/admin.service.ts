@@ -39,17 +39,16 @@ export class AdminService {
   // ============ Cohort Management Methods ============
 
   async getAllCohorts() {
-    const cohorts = await this.prisma.cohort.findMany({
+    const cohorts = await (this.prisma as any).cohort.findMany({
       include: {
         _count: {
           select: { sessions: true },
         },
-        facilitator: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+        facilitators: {
+          include: {
+            user: {
+              select: { id: true, firstName: true, lastName: true, email: true, role: true, isFacilitator: true },
+            },
           },
         },
       },
@@ -119,7 +118,6 @@ export class AdminService {
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
         state: 'ACTIVE',
-        facilitatorId: dto.facilitatorId,
       },
     });
 
@@ -169,9 +167,11 @@ export class AdminService {
       throw new NotFoundException('Cohort not found');
     }
 
+    // Exclude facilitatorId from the DTO since facilitators are managed via CohortFacilitator
+    const { facilitatorId: _ignored, ...updateData } = dto as any;
     const updatedCohort = await this.prisma.cohort.update({
       where: { id: cohortId },
-      data: dto,
+      data: updateData,
     });
 
     // Log admin action
@@ -199,6 +199,39 @@ export class AdminService {
     );
 
     return updatedCohort;
+  }
+
+  async addCohortFacilitator(cohortId: string, userId: string) {
+    const [cohort, user] = await Promise.all([
+      this.prisma.cohort.findUnique({ where: { id: cohortId } }),
+      this.prisma.user.findUnique({ where: { id: userId } }),
+    ]);
+
+    if (!cohort) throw new NotFoundException('Cohort not found');
+    if (!user) throw new NotFoundException('User not found');
+
+    const u = user as any;
+    if (u.role !== 'FACILITATOR' && !(u.role === 'ADMIN' && u.isFacilitator)) {
+      throw new BadRequestException('User must be a FACILITATOR or an Admin with facilitator privilege');
+    }
+
+    return (this.prisma as any).cohortFacilitator.upsert({
+      where: { cohortId_userId: { cohortId, userId } },
+      create: { cohortId, userId },
+      update: {},
+    });
+  }
+
+  async removeCohortFacilitator(cohortId: string, userId: string) {
+    const record = await (this.prisma as any).cohortFacilitator.findUnique({
+      where: { cohortId_userId: { cohortId, userId } },
+    });
+
+    if (!record) throw new NotFoundException('Facilitator assignment not found');
+
+    return (this.prisma as any).cohortFacilitator.delete({
+      where: { cohortId_userId: { cohortId, userId } },
+    });
   }
 
   async deleteCohort(cohortId: string, adminId: string) {

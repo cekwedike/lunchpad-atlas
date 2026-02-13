@@ -289,6 +289,21 @@ export class AdminUserService {
   }
 
   /**
+   * Grant or revoke facilitator privilege (ADMIN users only)
+   */
+  async updateUserFacilitator(userId: string, isFacilitator: boolean, _adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException(`User with ID ${userId} not found`);
+    if (user.role !== 'ADMIN') {
+      throw new BadRequestException('Facilitator privilege can only be granted to ADMIN users');
+    }
+    return (this.prisma as any).user.update({
+      where: { id: userId },
+      data: { isFacilitator },
+    });
+  }
+
+  /**
    * Reset user points to zero
    */
   async resetUserPoints(userId: string) {

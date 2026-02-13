@@ -3,11 +3,11 @@ import {
   IsDateString,
   IsEnum,
   IsOptional,
-  IsUUID,
   IsNotEmpty,
   IsInt,
   IsBoolean,
   IsArray,
+  IsUUID,
   ValidateNested,
   Min,
 } from 'class-validator';
@@ -29,11 +29,6 @@ export class CreateCohortDto {
   @IsNotEmpty()
   @IsDateString()
   endDate: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsUUID()
-  facilitatorId?: string;
 }
 
 export class UpdateCohortDto {
@@ -60,10 +55,6 @@ export class UpdateCohortDto {
   @IsEnum(['PENDING', 'ACTIVE', 'COMPLETED', 'ARCHIVED'])
   state?: 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsUUID()
-  facilitatorId?: string;
 }
 
 export class UpdateSessionDto {

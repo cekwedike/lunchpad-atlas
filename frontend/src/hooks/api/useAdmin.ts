@@ -8,7 +8,6 @@ export interface UpdateCohortRequest {
   name?: string;
   startDate?: string;
   endDate?: string;
-  facilitatorId?: string;
 }
 
 export interface UpdateSessionRequest {
@@ -152,7 +151,7 @@ export function useCreateCohort() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { name: string; startDate: string; endDate: string; facilitatorId?: string }) =>
+    mutationFn: (data: { name: string; startDate: string; endDate: string }) =>
       apiClient.post('/admin/cohorts', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cohorts'] });
@@ -628,6 +627,51 @@ export function useDeleteQuiz() {
       toast.success('Quiz deleted');
     },
     onError: () => toast.error('Failed to delete quiz'),
+  });
+}
+
+// ─── Cohort Facilitator Management ────────────────────────────────────────────
+
+export function useAddCohortFacilitator() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cohortId, userId }: { cohortId: string; userId: string }) =>
+      apiClient.post(`/admin/cohorts/${cohortId}/facilitators`, { userId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+      queryClient.invalidateQueries({ queryKey: ['cohort-members'] });
+      toast.success('Facilitator added to cohort');
+    },
+    onError: (error: any) => toast.error('Failed to add facilitator', { description: error.message }),
+  });
+}
+
+export function useRemoveCohortFacilitator() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cohortId, userId }: { cohortId: string; userId: string }) =>
+      apiClient.delete(`/admin/cohorts/${cohortId}/facilitators/${userId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+      queryClient.invalidateQueries({ queryKey: ['cohort-members'] });
+      toast.success('Facilitator removed from cohort');
+    },
+    onError: () => toast.error('Failed to remove facilitator'),
+  });
+}
+
+// ─── User Facilitator Privilege ───────────────────────────────────────────────
+
+export function useUpdateUserFacilitator() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, isFacilitator }: { userId: string; isFacilitator: boolean }) =>
+      apiClient.patch(`/admin/users/${userId}/facilitator`, { isFacilitator }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User facilitator privilege updated');
+    },
+    onError: () => toast.error('Failed to update facilitator privilege'),
   });
 }
 

@@ -102,6 +102,24 @@ export class AdminController {
     return this.adminService.deleteCohort(cohortId, req.user.id);
   }
 
+  @Post('cohorts/:id/facilitators')
+  @ApiOperation({ summary: 'Add a facilitator to a cohort (Admin only)' })
+  addCohortFacilitator(
+    @Param('id') cohortId: string,
+    @Body() body: { userId: string },
+  ) {
+    return this.adminService.addCohortFacilitator(cohortId, body.userId);
+  }
+
+  @Delete('cohorts/:id/facilitators/:userId')
+  @ApiOperation({ summary: 'Remove a facilitator from a cohort (Admin only)' })
+  removeCohortFacilitator(
+    @Param('id') cohortId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.adminService.removeCohortFacilitator(cohortId, userId);
+  }
+
   @Post('sessions')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   @ApiOperation({ summary: 'Create a new session for a cohort (Admin/Facilitator)' })
@@ -283,6 +301,17 @@ export class AdminController {
     @Body() body: { cohortId: string | null },
   ) {
     return this.adminUserService.updateUserCohort(userId, body.cohortId);
+  }
+
+  @Patch('users/:id/facilitator')
+  @ApiOperation({ summary: 'Grant or revoke facilitator privilege on an Admin user' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  updateUserFacilitator(
+    @Param('id') userId: string,
+    @Body() body: { isFacilitator: boolean },
+    @Request() req,
+  ) {
+    return this.adminUserService.updateUserFacilitator(userId, body.isFacilitator, req.user.id);
   }
 
   @Patch('users/:id/reset-points')
