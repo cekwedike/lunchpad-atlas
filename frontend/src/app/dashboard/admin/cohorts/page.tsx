@@ -17,13 +17,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Users, Calendar, Plus, Edit, Trash2, Loader2, AlertTriangle, X, UserPlus,
+  Users, Calendar, Plus, Edit, Trash2, Loader2, AlertTriangle, X, UserPlus, Copy,
 } from "lucide-react";
 import {
   useCohorts,
   useCreateCohort,
   useUpdateCohort,
   useDeleteCohort,
+  useDuplicateCohort,
   useAdminUsers,
   useUpdateUserCohort,
   useCohortMembers,
@@ -64,6 +65,7 @@ export default function AdminCohortsPage() {
   const createCohort = useCreateCohort();
   const updateCohort = useUpdateCohort();
   const deleteCohort = useDeleteCohort();
+  const duplicateCohort = useDuplicateCohort();
   const updateUserCohort = useUpdateUserCohort();
   const openDM = useOpenDM();
   const addCohortFacilitator = useAddCohortFacilitator();
@@ -72,6 +74,8 @@ export default function AdminCohortsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+  const [duplicateName, setDuplicateName] = useState("");
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const [isAddFacilitatorDialogOpen, setIsAddFacilitatorDialogOpen] = useState(false);
@@ -179,6 +183,24 @@ export default function AdminCohortsPage() {
     try {
       await deleteCohort.mutateAsync(selectedCohort.id);
       setIsDeleteDialogOpen(false);
+      setSelectedCohort(null);
+    } catch {
+      // error handled by hook
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDuplicateCohort = async () => {
+    if (!selectedCohort) return;
+    setIsSubmitting(true);
+    try {
+      await duplicateCohort.mutateAsync({
+        cohortId: selectedCohort.id,
+        name: duplicateName.trim() || undefined,
+      });
+      setIsDuplicateDialogOpen(false);
+      setDuplicateName("");
       setSelectedCohort(null);
     } catch {
       // error handled by hook
@@ -307,6 +329,19 @@ export default function AdminCohortsPage() {
                       }} className="h-8 w-8 p-0">
                         <Edit className="h-4 w-4 text-gray-600" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Duplicate cohort"
+                        onClick={() => {
+                          setSelectedCohort(cohort);
+                          setDuplicateName(`${cohort.name} (Copy)`);
+                          setIsDuplicateDialogOpen(true);
+                        }}
+                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => { setSelectedCohort(cohort); setIsDeleteDialogOpen(true); }} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50">
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -421,6 +456,36 @@ export default function AdminCohortsPage() {
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
               <Button onClick={handleDeleteCohort} disabled={isSubmitting} className="bg-red-600 hover:bg-red-700 text-white">
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Delete Cohort
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Duplicate Cohort Dialog */}
+        <Dialog open={isDuplicateDialogOpen} onOpenChange={(open) => { setIsDuplicateDialogOpen(open); if (!open) { setDuplicateName(""); setSelectedCohort(null); } }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Copy className="h-5 w-5 text-blue-600" /> Duplicate Cohort
+              </DialogTitle>
+              <DialogDescription>
+                Creates a new cohort with all sessions and resources copied from <strong>{selectedCohort?.name}</strong>. No members are copied.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>New Cohort Name *</Label>
+                <Input
+                  value={duplicateName}
+                  onChange={(e) => setDuplicateName(e.target.value)}
+                  placeholder={`${selectedCohort?.name} (Copy)`}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDuplicateDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+              <Button onClick={handleDuplicateCohort} disabled={isSubmitting || !duplicateName.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Duplicate
               </Button>
             </DialogFooter>
           </DialogContent>

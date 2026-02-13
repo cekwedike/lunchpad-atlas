@@ -104,11 +104,6 @@ export function Sidebar() {
       icon: FileQuestion,
     },
     {
-      title: 'Resources (View)',
-      href: '/resources',
-      icon: GraduationCap,
-    },
-    {
       title: 'Discussions',
       href: '/dashboard/discussions',
       icon: MessageSquare,
@@ -137,7 +132,7 @@ export function Sidebar() {
       icon: GraduationCap,
     },
     {
-      title: 'Sessions Management',
+      title: 'Sessions & Attendance',
       href: '/dashboard/admin/sessions',
       icon: Calendar,
     },
@@ -167,9 +162,9 @@ export function Sidebar() {
       icon: Trophy,
     },
     {
-      title: 'Resources (View)',
-      href: '/resources',
-      icon: GraduationCap,
+      title: 'Achievements',
+      href: '/dashboard/admin/achievements',
+      icon: Award,
     },
   ];
 

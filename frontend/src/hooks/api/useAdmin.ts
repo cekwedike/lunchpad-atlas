@@ -166,6 +166,25 @@ export function useCreateCohort() {
   });
 }
 
+// Duplicate cohort
+export function useDuplicateCohort() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ cohortId, name }: { cohortId: string; name?: string }) =>
+      apiClient.post(`/admin/cohorts/${cohortId}/duplicate`, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cohorts'] });
+      toast.success('Cohort duplicated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to duplicate cohort', {
+        description: error.message,
+      });
+    },
+  });
+}
+
 // Delete cohort
 export function useDeleteCohort() {
   const queryClient = useQueryClient();

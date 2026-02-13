@@ -1392,4 +1392,146 @@ Rules:
 
     return { sessionId, results };
   }
+
+  async duplicateCohort(cohortId: string, newName: string | undefined, adminId: string) {
+    // Load the source cohort with all sessions and resources
+    const source = await this.prisma.cohort.findUnique({
+      where: { id: cohortId },
+      include: {
+        sessions: {
+          include: {
+            resources: true,
+          },
+          orderBy: { sessionNumber: 'asc' },
+        },
+      },
+    });
+
+    if (!source) {
+      throw new NotFoundException('Cohort not found');
+    }
+
+    const name = newName?.trim() || `${source.name} (Copy)`;
+
+    // Create the new cohort (PENDING state so it doesn't conflict with ACTIVE)
+    const newCohort = await this.prisma.cohort.create({
+      data: {
+        name,
+        startDate: source.startDate,
+        endDate: source.endDate,
+        state: 'PENDING',
+      },
+    });
+
+    // Duplicate sessions and resources
+    for (const session of source.sessions) {
+      const newSession = await this.prisma.session.create({
+        data: {
+          cohortId: newCohort.id,
+          sessionNumber: session.sessionNumber,
+          title: session.title,
+          description: session.description,
+          monthTheme: session.monthTheme,
+          scheduledDate: session.scheduledDate,
+          unlockDate: session.unlockDate,
+        },
+      });
+
+      // Duplicate resources for this session
+      if (session.resources.length > 0) {
+        await this.prisma.resource.createMany({
+          data: session.resources.map((r) => ({
+            sessionId: newSession.id,
+            type: r.type,
+            title: r.title,
+            description: r.description,
+            url: r.url,
+            duration: r.duration,
+            estimatedMinutes: r.estimatedMinutes,
+            minimumTimeThreshold: r.minimumTimeThreshold,
+            isCore: r.isCore,
+            pointValue: r.pointValue,
+            order: r.order,
+            state: 'LOCKED',
+          })),
+        });
+      }
+    }
+
+    // Create a default chat channel for the new cohort
+    await this.chatService.createChannel(
+      {
+        cohortId: newCohort.id,
+        name: `${name} - General Chat`,
+        description: `Main chat room for ${name} cohort`,
+        type: 'COHORT_WIDE',
+      },
+      adminId,
+    );
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'DUPLICATE_COHORT',
+        entityType: 'Cohort',
+        entityId: newCohort.id,
+        changes: { sourceCohortId: cohortId, newName: name },
+      },
+    });
+
+    return newCohort;
+  }
+
+  async getAchievements() {
+    const achievements = await this.prisma.achievement.findMany({
+      orderBy: [{ type: 'asc' }, { pointValue: 'asc' }],
+      include: {
+        _count: { select: { userAchievements: true } },
+      },
+    });
+    return achievements.map((a) => ({
+      ...a,
+      unlockedByCount: a._count.userAchievements,
+    }));
+  }
+
+  async updateAchievement(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      pointValue?: number;
+      iconUrl?: string;
+      criteria?: Record<string, any>;
+      type?: string;
+    },
+    adminId: string,
+  ) {
+    const achievement = await this.prisma.achievement.findUnique({ where: { id } });
+    if (!achievement) throw new NotFoundException('Achievement not found');
+
+    const updated = await this.prisma.achievement.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.pointValue !== undefined && { pointValue: data.pointValue }),
+        ...(data.iconUrl !== undefined && { iconUrl: data.iconUrl }),
+        ...(data.criteria !== undefined && { criteria: data.criteria }),
+        ...(data.type !== undefined && { type: data.type as any }),
+      },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'UPDATE_ACHIEVEMENT',
+        entityType: 'Achievement',
+        entityId: id,
+        changes: data,
+      },
+    });
+
+    return updated;
+  }
 }

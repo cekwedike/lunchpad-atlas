@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Trophy, Medal, Award, Crown, Search, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { Trophy, Medal, Award, Crown, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { useLeaderboard, useLeaderboardRank, useLeaderboardMonths } from "@/hooks/api/useLeaderboard";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useCohorts, useAdminUsers } from "@/hooks/api/useAdmin";
@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 
 export default function LeaderboardPage() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [adjustUserId, setAdjustUserId] = useState("");
@@ -119,12 +118,9 @@ export default function LeaderboardPage() {
     );
   }
 
-  const filteredEntries = leaderboard?.data?.filter((entry) =>
-    entry.userName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const topThree = filteredEntries?.slice(0, 3) || [];
-  const remaining = filteredEntries?.slice(3) || [];
+  const allEntries = leaderboard?.data || [];
+  const topThree = allEntries.slice(0, 3);
+  const remaining = allEntries.slice(3);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="w-6 h-6 text-yellow-500" />;
@@ -212,18 +208,9 @@ export default function LeaderboardPage() {
                 type="button"
                 disabled={isFetching}
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                 {isFetching ? 'Refreshing...' : 'Refresh'}
               </Button>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search fellow..."
-                  value={searchQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full sm:w-56 border-slate-200"
-                />
-              </div>
             </div>
           </div>
         </section>
@@ -356,6 +343,7 @@ export default function LeaderboardPage() {
                     placeholder="Search by name or email"
                     disabled={!adjustCohortId}
                   />
+                  {!selectedFellow && (
                   <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white">
                     {!adjustCohortId ? (
                       <div className="px-3 py-2 text-xs text-slate-500">Select a cohort to search fellows</div>
@@ -388,6 +376,7 @@ export default function LeaderboardPage() {
                       ))
                     )}
                   </div>
+                  )}
                   {selectedFellow && (
                     <div className="mt-2 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
                       <span>
@@ -449,7 +438,7 @@ export default function LeaderboardPage() {
               </Card>
             ))}
           </div>
-          ) : filteredEntries && filteredEntries.length > 0 ? (
+          ) : allEntries.length > 0 ? (
             <>
               {topThree.length >= 3 && (
                 <section className="grid gap-6 md:grid-cols-3">

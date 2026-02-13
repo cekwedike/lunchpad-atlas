@@ -102,6 +102,18 @@ export class AdminController {
     return this.adminService.deleteCohort(cohortId, req.user.id);
   }
 
+  @Post('cohorts/:id/duplicate')
+  @ApiOperation({ summary: 'Duplicate a cohort with all its sessions and resources (Admin only)' })
+  @ApiResponse({ status: 201, description: 'Cohort duplicated successfully' })
+  @ApiResponse({ status: 404, description: 'Cohort not found' })
+  duplicateCohort(
+    @Param('id') cohortId: string,
+    @Body() body: { name?: string },
+    @Request() req,
+  ) {
+    return this.adminService.duplicateCohort(cohortId, body.name, req.user.id);
+  }
+
   @Post('cohorts/:id/facilitators')
   @ApiOperation({ summary: 'Add a facilitator to a cohort (Admin only)' })
   addCohortFacilitator(
@@ -223,6 +235,33 @@ export class AdminController {
   @ApiOperation({ summary: 'Get platform metrics (Admin only)' })
   getPlatformMetrics() {
     return this.adminService.getPlatformMetrics();
+  }
+
+  // ============ Achievement Management Endpoints ============
+
+  @Get('achievements')
+  @ApiOperation({ summary: 'Get all achievements with unlock stats (Admin only)' })
+  getAchievements() {
+    return this.adminService.getAchievements();
+  }
+
+  @Patch('achievements/:id')
+  @ApiOperation({ summary: 'Update an achievement definition (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Achievement updated' })
+  @ApiResponse({ status: 404, description: 'Achievement not found' })
+  updateAchievement(
+    @Param('id') id: string,
+    @Body() body: {
+      name?: string;
+      description?: string;
+      pointValue?: number;
+      iconUrl?: string;
+      criteria?: Record<string, any>;
+      type?: string;
+    },
+    @Request() req,
+  ) {
+    return this.adminService.updateAchievement(id, body, req.user.id);
   }
 
   // ============ User Management Endpoints ============

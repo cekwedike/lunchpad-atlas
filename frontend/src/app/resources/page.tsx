@@ -627,7 +627,7 @@ export default function ResourcesPage() {
 
         {/* Video Dialog */}
         <Dialog open={videoDialog.open} onOpenChange={(open) => setVideoDialog({ open })}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-5xl w-[95vw]">
             <DialogHeader>
               <DialogTitle>{videoDialog.resource?.title}</DialogTitle>
             </DialogHeader>
