@@ -1039,6 +1039,11 @@ export class AdminService {
   // ============ Quiz Management Methods ============
 
   async getCohortQuizzes(cohortId: string) {
+    const commonInclude = {
+      questions: { orderBy: { order: 'asc' } },
+      _count: { select: { questions: true, responses: true } },
+    };
+
     // Session-linked quizzes (SESSION type — linked via junction table)
     const sessionQuizzes = await this.prisma.quiz.findMany({
       where: {
@@ -1049,7 +1054,7 @@ export class AdminService {
         sessions: {
           include: { session: { select: { id: true, title: true, sessionNumber: true } } },
         },
-        _count: { select: { questions: true, responses: true } },
+        ...commonInclude,
       } as any,
       orderBy: { createdAt: 'desc' },
     });
@@ -1057,9 +1062,7 @@ export class AdminService {
     // Direct cohort quizzes (GENERAL / MEGA — no session link)
     const cohortQuizzes = await this.prisma.quiz.findMany({
       where: { cohortId, quizType: { in: ['GENERAL', 'MEGA'] } } as any,
-      include: {
-        _count: { select: { questions: true, responses: true } },
-      },
+      include: { ...commonInclude } as any,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -1105,6 +1108,94 @@ export class AdminService {
     const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
     if (!quiz) throw new NotFoundException('Quiz not found');
     return this.prisma.quiz.delete({ where: { id: quizId } });
+  }
+
+  async updateQuiz(quizId: string, dto: {
+    title?: string;
+    description?: string;
+    timeLimit?: number;
+    passingScore?: number;
+    pointValue?: number;
+    openAt?: string | null;
+    closeAt?: string | null;
+    questions?: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;
+  }) {
+    const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
+    if (!quiz) throw new NotFoundException('Quiz not found');
+
+    // If questions are provided, replace them
+    if (dto.questions) {
+      await this.prisma.quizQuestion.deleteMany({ where: { quizId } });
+      await this.prisma.quizQuestion.createMany({
+        data: dto.questions.map((q, i) => ({
+          quizId,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          order: q.order ?? i + 1,
+        })),
+      });
+    }
+
+    return this.prisma.quiz.update({
+      where: { id: quizId },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
+        ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
+        ...(dto.pointValue !== undefined && { pointValue: dto.pointValue }),
+        ...(dto.openAt !== undefined && { openAt: dto.openAt ? new Date(dto.openAt) : null }),
+        ...(dto.closeAt !== undefined && { closeAt: dto.closeAt ? new Date(dto.closeAt) : null }),
+      },
+      include: {
+        sessions: {
+          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+        },
+        questions: { orderBy: { order: 'asc' } },
+        _count: { select: { questions: true, responses: true } },
+      } as any,
+    });
+  }
+
+  async notifyLiveQuizJoin(liveQuizId: string, requesterId: string) {
+    // Get live quiz with its session-linked cohort fellows
+    const liveQuiz = await (this.prisma.liveQuiz as any).findUnique({
+      where: { id: liveQuizId },
+      include: {
+        sessions: { include: { session: { select: { cohortId: true, title: true } } } },
+        participants: { select: { userId: true } },
+      },
+    });
+    if (!liveQuiz) throw new NotFoundException('Live quiz not found');
+
+    const cohortIds: string[] = [...new Set(
+      liveQuiz.sessions.map((s: any) => s.session.cohortId).filter(Boolean) as string[]
+    )];
+
+    const joinedUserIds = new Set(liveQuiz.participants.map((p: any) => p.userId));
+
+    for (const cohortId of cohortIds) {
+      const fellows = await this.prisma.user.findMany({
+        where: { cohortId, role: 'FELLOW' },
+        select: { id: true },
+      });
+      const notJoined = fellows.filter((f) => !joinedUserIds.has(f.id));
+
+      if (notJoined.length > 0) {
+        await this.notificationsService.createBulkNotifications(
+          notJoined.map((f) => ({
+            userId: f.id,
+            type: 'QUIZ_REMINDER' as any,
+            title: 'Live Quiz Starting Soon!',
+            message: `Join the live quiz "${liveQuiz.title}" now — it's about to start!`,
+            data: { liveQuizId },
+          })),
+        );
+      }
+    }
+
+    return { notified: joinedUserIds.size === 0 ? 'all' : 'non-joined' };
   }
 
   async generateAIQuizQuestions(dto: GenerateAIQuestionsDto) {

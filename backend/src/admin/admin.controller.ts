@@ -439,6 +439,13 @@ export class AdminController {
     return this.adminService.createQuiz(dto);
   }
 
+  @Patch('quizzes/:quizId')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Update a quiz and its questions' })
+  updateQuiz(@Param('quizId') quizId: string, @Body() dto: any) {
+    return this.adminService.updateQuiz(quizId, dto);
+  }
+
   @Delete('quizzes/:quizId')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   @ApiOperation({ summary: 'Delete a quiz' })
@@ -451,5 +458,12 @@ export class AdminController {
   @ApiOperation({ summary: 'AI-generate quiz questions from a topic' })
   generateAIQuestions(@Body() dto: GenerateAIQuestionsDto) {
     return this.adminService.generateAIQuizQuestions(dto);
+  }
+
+  @Post('live-quiz/:liveQuizId/notify')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Notify cohort fellows who have not yet joined a live quiz' })
+  notifyLiveQuizJoin(@Param('liveQuizId') liveQuizId: string, @Request() req) {
+    return this.adminService.notifyLiveQuizJoin(liveQuizId, req.user.id);
   }
 }

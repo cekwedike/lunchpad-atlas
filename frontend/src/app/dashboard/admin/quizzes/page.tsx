@@ -14,13 +14,18 @@ import {
 import {
   FileQuestion, Plus, Trash2, Clock, Award, Sparkles, Loader2,
   ChevronDown, ChevronUp, CheckCircle, BookOpen, Zap, CalendarClock,
-  LockOpen, Lock,
+  LockOpen, Lock, Edit2, RefreshCw, Bell, Play, Users, Trophy, X,
 } from "lucide-react";
 import {
   useCohorts, useSessions, useCohortQuizzes, useCreateQuiz,
-  useDeleteQuiz, useGenerateAIQuestions,
+  useDeleteQuiz, useGenerateAIQuestions, useUpdateQuiz, useNotifyLiveQuiz,
+  useCohortMembers,
 } from "@/hooks/api/useAdmin";
-import { useCreateLiveQuiz, useDeleteLiveQuiz, useCohortLiveQuizzes } from "@/hooks/api/useLiveQuiz";
+import {
+  useCreateLiveQuiz, useDeleteLiveQuiz, useCohortLiveQuizzes,
+  useStartLiveQuiz, useLiveQuiz, useLiveQuizLeaderboard,
+} from "@/hooks/api/useLiveQuiz";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,11 +46,12 @@ const QUIZ_TYPE_COLORS: Record<string, string> = {
 
 // ─── Quiz Card ────────────────────────────────────────────────────────────────
 function StandardQuizCard({
-  quiz, cohortId, onDelete,
+  quiz, cohortId, onDelete, onEdit,
 }: {
   quiz: any;
   cohortId: string;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -105,6 +111,13 @@ function StandardQuizCard({
           >
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
+          <button
+            onClick={onEdit}
+            className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-500"
+            title="Edit quiz"
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
           {!confirm ? (
             <button
               onClick={() => setConfirm(true)}
@@ -152,47 +165,306 @@ function StandardQuizCard({
   );
 }
 
+// ─── Edit Quiz Dialog ─────────────────────────────────────────────────────────
+function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId: string; open: boolean; onClose: () => void }) {
+  const [title, setTitle] = useState(quiz.title ?? "");
+  const [description, setDescription] = useState(quiz.description ?? "");
+  const [timeLimit, setTimeLimit] = useState(quiz.timeLimit ?? 0);
+  const [passingScore, setPassingScore] = useState(quiz.passingScore ?? 70);
+  const [pointValue, setPointValue] = useState(quiz.pointValue ?? 200);
+  const [openAt, setOpenAt] = useState(quiz.openAt ? new Date(quiz.openAt).toISOString().slice(0, 16) : "");
+  const [closeAt, setCloseAt] = useState(quiz.closeAt ? new Date(quiz.closeAt).toISOString().slice(0, 16) : "");
+  const [questions, setQuestions] = useState<Array<{ question: string; options: [string,string,string,string]; correctAnswer: string }>>(
+    (quiz.questions ?? []).map((q: any) => ({
+      question: q.question,
+      options: (Array.isArray(q.options) ? q.options.slice(0,4).concat(["","","",""]).slice(0,4) : ["","","",""]) as [string,string,string,string],
+      correctAnswer: q.correctAnswer,
+    }))
+  );
+  const updateQuiz = useUpdateQuiz();
+
+  const handleSave = async () => {
+    if (!title.trim()) { toast.error("Title required"); return; }
+    await updateQuiz.mutateAsync({
+      quizId: quiz.id, cohortId,
+      title, description: description || undefined,
+      timeLimit, passingScore, pointValue,
+      openAt: openAt || null, closeAt: closeAt || null,
+      questions: questions.map((q, i) => ({ ...q, order: i + 1 })),
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Edit2 className="h-4 w-4" /> Edit Quiz</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-sm font-medium">Title *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-sm font-medium">Description</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Time Limit (min, 0=none)</Label>
+              <Input type="number" min={0} value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Passing Score (%)</Label>
+              <Input type="number" min={0} max={100} value={passingScore} onChange={(e) => setPassingScore(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Point Value</Label>
+              <Input type="number" min={0} value={pointValue} onChange={(e) => setPointValue(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Opens At</Label>
+              <Input type="datetime-local" value={openAt} onChange={(e) => setOpenAt(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Closes At</Label>
+              <Input type="datetime-local" value={closeAt} onChange={(e) => setCloseAt(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Questions ({questions.length})</Label>
+              <Button size="sm" variant="outline" onClick={() => setQuestions((prev) => [...prev, { question: "", options: ["","","",""], correctAnswer: "" }])}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Question
+              </Button>
+            </div>
+            {questions.map((q, qi) => (
+              <div key={qi} className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
+                <div className="flex items-start gap-2">
+                  <span className="text-xs font-bold text-gray-500 pt-2 shrink-0">{qi + 1}.</span>
+                  <Input className="flex-1 bg-white text-sm" placeholder="Question text" value={q.question}
+                    onChange={(e) => setQuestions((prev) => prev.map((x, i) => i === qi ? { ...x, question: e.target.value } : x))}
+                  />
+                  <button onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== qi))} className="p-1 text-red-400 hover:text-red-600 shrink-0">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 ml-5">
+                  {q.options.map((opt, oi) => (
+                    <div key={oi} className="flex items-center gap-1">
+                      <input type="radio" name={`correct-${qi}`} checked={q.correctAnswer === opt && opt !== ""} onChange={() => {
+                        if (opt) setQuestions((prev) => prev.map((x, i) => i === qi ? { ...x, correctAnswer: opt } : x));
+                      }} className="shrink-0" />
+                      <Input className="text-xs bg-white h-8" placeholder={`Option ${oi + 1}`} value={opt}
+                        onChange={(e) => {
+                          const newOpts = [...q.options] as [string,string,string,string];
+                          newOpts[oi] = e.target.value;
+                          setQuestions((prev) => prev.map((x, i) => i === qi ? { ...x, options: newOpts } : x));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 ml-5">Select the radio button next to the correct answer</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={updateQuiz.isPending} className="bg-violet-600 hover:bg-violet-700">
+            {updateQuiz.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</> : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Live Quiz Manage Panel ───────────────────────────────────────────────────
+function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: string; cohortId: string; open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const { data: quiz, isLoading } = useLiveQuiz(quizId);
+  const { data: leaderboard } = useLiveQuizLeaderboard(quizId);
+  const { data: members = [] } = useCohortMembers(cohortId);
+  const startQuiz = useStartLiveQuiz();
+  const notifyQuiz = useNotifyLiveQuiz();
+
+  const fellows = members.filter((m: any) => m.role === 'FELLOW');
+  const joinedIds = new Set((quiz?.participants ?? []).map((p: any) => p.userId));
+  const sortedLeaderboard = [...(leaderboard ?? [])].sort((a: any, b: any) => b.totalScore - a.totalScore);
+
+  const STATUS_LABEL: Record<string, string> = { PENDING: "Waiting for players", ACTIVE: "Quiz in progress", COMPLETED: "Completed", CANCELLED: "Cancelled" };
+  const STATUS_COLOR: Record<string, string> = { PENDING: "bg-yellow-100 text-yellow-700", ACTIVE: "bg-green-100 text-green-700", COMPLETED: "bg-gray-100 text-gray-600", CANCELLED: "bg-red-100 text-red-600" };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-amber-500" />
+            {isLoading ? "Loading…" : quiz?.title ?? "Live Quiz"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-gray-100 animate-pulse" />)}</div>
+        ) : quiz ? (
+          <div className="space-y-5">
+            {/* Status + actions */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <Badge className={`text-sm px-3 py-1 ${STATUS_COLOR[quiz.status] ?? "bg-gray-100 text-gray-600"}`}>
+                {STATUS_LABEL[quiz.status] ?? quiz.status}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => { queryClient.invalidateQueries({ queryKey: ['live-quiz', quizId] }); queryClient.invalidateQueries({ queryKey: ['live-quiz', quizId, 'leaderboard'] }); }}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                </Button>
+                {quiz.status === "PENDING" && (
+                  <>
+                    <Button size="sm" variant="outline" className="gap-1" onClick={() => notifyQuiz.mutate(quizId)} disabled={notifyQuiz.isPending}>
+                      <Bell className="h-3.5 w-3.5" /> Notify
+                    </Button>
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => startQuiz.mutate(quizId)} disabled={startQuiz.isPending || joinedIds.size === 0}>
+                      <Play className="h-3.5 w-3.5" /> {startQuiz.isPending ? "Starting…" : "Start Quiz"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xl font-bold text-amber-700">{quiz.totalQuestions}</p>
+                <p className="text-xs text-amber-600">Questions</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xl font-bold text-blue-700">{joinedIds.size}</p>
+                <p className="text-xs text-blue-600">Joined</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xl font-bold text-gray-700">{fellows.length - joinedIds.size}</p>
+                <p className="text-xs text-gray-600">Not joined</p>
+              </div>
+            </div>
+
+            {/* Fellows join status */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4" /> Fellows
+              </h3>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                {fellows.length === 0 ? (
+                  <p className="p-3 text-sm text-gray-400 text-center">No fellows in this cohort</p>
+                ) : fellows.map((f: any) => {
+                  const joined = joinedIds.has(f.id);
+                  const entry = sortedLeaderboard.find((l: any) => l.userId === f.id);
+                  return (
+                    <div key={f.id} className="flex items-center justify-between px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${joined ? "bg-green-500" : "bg-gray-300"}`} />
+                        <span className="text-sm text-gray-800">{f.firstName} {f.lastName}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {entry && <span className="text-xs font-mono text-amber-700 font-semibold">{entry.totalScore} pts</span>}
+                        <span className={`text-xs font-medium ${joined ? "text-green-600" : "text-gray-400"}`}>
+                          {joined ? "Joined" : "Not joined"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Leaderboard */}
+            {sortedLeaderboard.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                  <Trophy className="h-4 w-4 text-amber-500" /> Leaderboard
+                </h3>
+                <div className="space-y-1.5">
+                  {sortedLeaderboard.map((entry: any, idx: number) => (
+                    <div key={entry.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg ${idx === 0 ? "bg-amber-50 border border-amber-200" : idx === 1 ? "bg-gray-50 border border-gray-200" : "bg-white border border-gray-100"}`}>
+                      <span className={`text-sm font-bold w-6 text-center ${idx === 0 ? "text-amber-600" : idx === 1 ? "text-gray-500" : "text-gray-400"}`}>
+                        {idx + 1}
+                      </span>
+                      <span className="flex-1 text-sm font-medium text-gray-800">{entry.displayName}</span>
+                      <span className="text-sm font-mono font-bold text-gray-700">{entry.totalScore}</span>
+                      <span className="text-xs text-gray-400">{entry.correctCount} correct</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 py-8">Quiz not found</p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Live Quiz Card ───────────────────────────────────────────────────────────
-function LiveQuizCard({ quiz, onDelete }: { quiz: any; onDelete: () => void }) {
+function LiveQuizCard({ quiz, cohortId, onDelete }: { quiz: any; cohortId: string; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false);
+  const [managing, setManaging] = useState(false);
   const statusColors: Record<string, string> = {
     PENDING: "bg-yellow-100 text-yellow-700",
     ACTIVE: "bg-green-100 text-green-700",
     COMPLETED: "bg-gray-100 text-gray-600",
     CANCELLED: "bg-red-100 text-red-600",
   };
+  const joinedCount = quiz.participants?.length ?? 0;
+  const sessionNames = quiz.sessions?.map((s: any) => `S${s.session.sessionNumber}`).join(", ") ?? "";
+
   return (
-    <div className="border border-gray-200 rounded-lg bg-white p-4 flex items-start gap-3">
-      <div className="p-2 rounded-lg bg-amber-100 shrink-0">
-        <Zap className="h-4 w-4 text-amber-600" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2 flex-wrap">
-          <p className="font-semibold text-gray-900 text-sm">{quiz.title}</p>
-          <Badge className={`text-xs ${statusColors[quiz.status] || "bg-gray-100 text-gray-600"}`}>
-            {quiz.status}
-          </Badge>
+    <>
+      <div className="border border-gray-200 rounded-lg bg-white p-4 flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-amber-100 shrink-0">
+          <Zap className="h-4 w-4 text-amber-600" />
         </div>
-        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-          <span>{quiz.totalQuestions} questions</span>
-          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{quiz.timePerQuestion}s/question</span>
-          {quiz.participants && <span>{quiz.participants.length} participants</span>}
-        </div>
-      </div>
-      <div className="shrink-0">
-        {!confirm ? (
-          <button onClick={() => setConfirm(true)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : (
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-red-600">Delete?</span>
-            <button onClick={onDelete} className="px-2 py-0.5 rounded bg-red-600 text-white text-xs hover:bg-red-700">Yes</button>
-            <button onClick={() => setConfirm(false)} className="px-2 py-0.5 rounded border text-xs hover:bg-gray-50">No</button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div>
+              <p className="font-semibold text-gray-900 text-sm">{quiz.title}</p>
+              {sessionNames && <p className="text-xs text-gray-500 mt-0.5">{sessionNames}</p>}
+            </div>
+            <Badge className={`text-xs ${statusColors[quiz.status] || "bg-gray-100 text-gray-600"}`}>
+              {quiz.status}
+            </Badge>
           </div>
-        )}
+          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 flex-wrap">
+            <span>{quiz.totalQuestions} questions</span>
+            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{quiz.timePerQuestion}s/q</span>
+            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{joinedCount} joined</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1" onClick={() => setManaging(true)}>
+            <Play className="h-3 w-3" /> Manage
+          </Button>
+          {!confirm ? (
+            <button onClick={() => setConfirm(true)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-red-600">Delete?</span>
+              <button onClick={onDelete} className="px-2 py-0.5 rounded bg-red-600 text-white text-xs hover:bg-red-700">Yes</button>
+              <button onClick={() => setConfirm(false)} className="px-2 py-0.5 rounded border text-xs hover:bg-gray-50">No</button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      {managing && (
+        <LiveQuizManagePanel quizId={quiz.id} cohortId={cohortId} open={managing} onClose={() => setManaging(false)} />
+      )}
+    </>
   );
 }
 
@@ -849,6 +1121,7 @@ export default function QuizManagementPage() {
   const [typeFilter, setTypeFilter] = useState<QuizTypeFilter>("ALL");
   const [showCreateStandard, setShowCreateStandard] = useState(false);
   const [showCreateLive, setShowCreateLive] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<any>(null);
 
   const { data: cohortsData } = useCohorts();
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
@@ -978,6 +1251,7 @@ export default function QuizManagementPage() {
                         quiz={quiz}
                         cohortId={selectedCohortId}
                         onDelete={() => deleteQuiz.mutate({ quizId: quiz.id, cohortId: selectedCohortId })}
+                        onEdit={() => setEditingQuiz(quiz)}
                       />
                     ))}
                   </div>
@@ -1016,6 +1290,7 @@ export default function QuizManagementPage() {
                       <LiveQuizCard
                         key={quiz.id}
                         quiz={quiz}
+                        cohortId={selectedCohortId}
                         onDelete={() => deleteLiveQuiz.mutate(quiz.id)}
                       />
                     ))}
@@ -1040,6 +1315,14 @@ export default function QuizManagementPage() {
         cohortId={selectedCohortId}
         sessions={sessions}
       />
+      {editingQuiz && (
+        <EditQuizDialog
+          quiz={editingQuiz}
+          cohortId={selectedCohortId}
+          open={!!editingQuiz}
+          onClose={() => setEditingQuiz(null)}
+        />
+      )}
     </DashboardLayout>
   );
 }

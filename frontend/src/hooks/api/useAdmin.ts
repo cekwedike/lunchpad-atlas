@@ -562,6 +562,38 @@ export function useCohortQuizzes(cohortId?: string) {
   });
 }
 
+export function useUpdateQuiz() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ quizId, cohortId, ...dto }: {
+      quizId: string;
+      cohortId: string;
+      title?: string;
+      description?: string;
+      timeLimit?: number;
+      passingScore?: number;
+      pointValue?: number;
+      openAt?: string | null;
+      closeAt?: string | null;
+      questions?: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;
+    }) => apiClient.patch(`/admin/quizzes/${quizId}`, dto),
+    onSuccess: (_, { cohortId }) => {
+      queryClient.invalidateQueries({ queryKey: ['cohort-quizzes', cohortId] });
+      toast.success('Quiz updated');
+    },
+    onError: () => toast.error('Failed to update quiz'),
+  });
+}
+
+export function useNotifyLiveQuiz() {
+  return useMutation({
+    mutationFn: (liveQuizId: string) =>
+      apiClient.post(`/admin/live-quiz/${liveQuizId}/notify`, {}),
+    onSuccess: () => toast.success('Notification sent to fellows who haven\'t joined'),
+    onError: () => toast.error('Failed to send notifications'),
+  });
+}
+
 export function useCreateQuiz() {
   const queryClient = useQueryClient();
   return useMutation({

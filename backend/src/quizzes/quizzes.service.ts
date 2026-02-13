@@ -94,7 +94,10 @@ export class QuizzesService {
       this.prisma.quiz.findMany({
         where: {
           quizType: 'SESSION',
-          sessions: { some: { session: { cohortId } } },
+          OR: [
+            { cohortId } as any,
+            { sessions: { some: { session: { cohortId } } } } as any,
+          ],
         } as any,
         include: {
           sessions: {
