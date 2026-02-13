@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart3, TrendingUp, Users, BookOpen, Award, Calendar,
-  Download, RefreshCw, GraduationCap, CheckCircle, Sparkles, Trophy,
+  GraduationCap, CheckCircle, Sparkles, Trophy,
 } from "lucide-react";
 import { useCohorts, useAdminMetrics } from "@/hooks/api/useAdmin";
 import { useAnalyticsSummary } from "@/hooks/api/useSessionAnalytics";
@@ -44,7 +43,7 @@ export default function AdminAnalyticsPage() {
   const [selectedCohortId, setSelectedCohortId] = useState("");
 
   const { data: cohortsData } = useCohorts();
-  const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useAdminMetrics();
+  const { data: metrics, isLoading: metricsLoading } = useAdminMetrics();
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
 
   useEffect(() => {
@@ -56,7 +55,6 @@ export default function AdminAnalyticsPage() {
   const {
     data: rawSummary,
     isLoading: summaryLoading,
-    refetch: refetchSummary,
   } = useAnalyticsSummary(selectedCohortId);
 
   const summary = rawSummary as any;
@@ -70,12 +68,6 @@ export default function AdminAnalyticsPage() {
     participationRate: number | null;
   }> = summary?.sessionEngagement ?? [];
 
-  const isLoading = metricsLoading || (!!selectedCohortId && summaryLoading);
-
-  const handleRefresh = async () => {
-    await Promise.all([refetchMetrics(), refetchSummary()]);
-  };
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -84,29 +76,6 @@ export default function AdminAnalyticsPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Platform Analytics</h1>
             <p className="text-gray-600 mt-1 text-sm">Comprehensive insights into platform usage and engagement</p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-              disabled={!selectedCohortId}
-              onClick={() =>
-                window.open(`/api/v1/session-analytics/export/cohort/${selectedCohortId}/csv`, "_blank")
-              }
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
           </div>
         </div>
 

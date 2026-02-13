@@ -67,6 +67,12 @@ enum CommentReactionType {
   LOVE
 }
 
+enum QuizType {
+  SESSION  // Linked to a specific session
+  GENERAL  // Cohort-wide, not session-specific
+  MEGA     // End-of-month mega quiz (standard quiz with high point value)
+}
+
 // ==================== CORE TABLES ====================
 
 model User {
@@ -133,6 +139,7 @@ model Cohort {
   discussions  Discussion[]
   leaderboards MonthlyLeaderboard[]
   channels     Channel[]
+  quizzes      Quiz[]
 
   @@index([facilitatorId])
   @@index([state])
@@ -418,22 +425,28 @@ model LeaderboardEntry {
 // ==================== QUIZZES ====================
 
 model Quiz {
-  id           String   @id @default(uuid())
-  sessionId    String
+  id           String    @id @default(uuid())
+  cohortId     String?   // Direct cohort link (required for GENERAL/MEGA, optional for SESSION)
+  sessionId    String?   // Linked session (null for GENERAL/MEGA quizzes)
+  quizType     QuizType  @default(SESSION)
   title        String
   description  String?
-  timeLimit    Int // Minutes
-  passingScore Int // Percentage
-  pointValue   Int      @default(200)
-  multiplier   Float    @default(1.0) // Score multiplier (admin-controlled)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  timeLimit    Int       @default(0) // Minutes, 0 = no time limit
+  passingScore Int       @default(70) // Percentage
+  pointValue   Int       @default(200)
+  multiplier   Float     @default(1.0) // Score multiplier (admin-controlled)
+  openAt       DateTime? // When quiz opens for fellows (null = open immediately)
+  closeAt      DateTime? // When quiz closes (null = never closes)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
-  session   Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  cohort    Cohort?        @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  session   Session?       @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   questions QuizQuestion[]
   responses QuizResponse[]
 
+  @@index([cohortId])
   @@index([sessionId])
   @@map("quizzes")
 }

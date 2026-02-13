@@ -29,6 +29,8 @@ import {
   BulkMarkAttendanceDto,
   AiReviewDto,
   AiChatDto,
+  CreateQuizDto,
+  GenerateAIQuestionsDto,
 } from './dto/admin.dto';
 import {
   CreateResourceDto,
@@ -419,5 +421,35 @@ export class AdminController {
   })
   deleteResource(@Param('id') resourceId: string, @Request() req) {
     return this.adminService.deleteResource(resourceId, req.user.id);
+  }
+
+  // ─── Quiz Management ────────────────────────────────────────────────────────
+
+  @Get('quizzes/cohort/:cohortId')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Get all quizzes for a cohort' })
+  getCohortQuizzes(@Param('cohortId') cohortId: string) {
+    return this.adminService.getCohortQuizzes(cohortId);
+  }
+
+  @Post('quizzes')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Create a quiz with questions' })
+  createQuiz(@Body() dto: CreateQuizDto) {
+    return this.adminService.createQuiz(dto);
+  }
+
+  @Delete('quizzes/:quizId')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Delete a quiz' })
+  deleteQuiz(@Param('quizId') quizId: string) {
+    return this.adminService.deleteQuiz(quizId);
+  }
+
+  @Post('quizzes/generate-ai')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'AI-generate quiz questions from a topic' })
+  generateAIQuestions(@Body() dto: GenerateAIQuestionsDto) {
+    return this.adminService.generateAIQuizQuestions(dto);
   }
 }

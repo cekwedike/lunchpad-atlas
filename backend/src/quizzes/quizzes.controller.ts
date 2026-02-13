@@ -24,6 +24,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class QuizzesController {
   constructor(private quizzesService: QuizzesService) {}
 
+  @Get('my-quizzes')
+  getMyQuizzes(@Request() req) {
+    return this.quizzesService.getMyQuizzes(req.user.id);
+  }
+
   @Get(':id')
   getQuiz(@Param('id') id: string) {
     return this.quizzesService.getQuiz(id);

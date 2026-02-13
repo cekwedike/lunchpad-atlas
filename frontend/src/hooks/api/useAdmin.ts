@@ -551,3 +551,62 @@ export function useCohortMembers(cohortId?: string) {
     enabled: !!cohortId,
   });
 }
+
+// ─── Quiz Management ──────────────────────────────────────────────────────────
+
+export function useCohortQuizzes(cohortId?: string) {
+  return useQuery<{ sessionQuizzes: any[]; cohortQuizzes: any[] }>({
+    queryKey: ['cohort-quizzes', cohortId],
+    queryFn: () => apiClient.get(`/admin/quizzes/cohort/${cohortId}`),
+    enabled: !!cohortId,
+  });
+}
+
+export function useCreateQuiz() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: {
+      title: string;
+      description?: string;
+      cohortId: string;
+      sessionId?: string;
+      quizType: 'SESSION' | 'GENERAL' | 'MEGA';
+      timeLimit: number;
+      passingScore: number;
+      pointValue: number;
+      openAt?: string;
+      closeAt?: string;
+      questions: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;
+    }) => apiClient.post('/admin/quizzes', dto),
+    onSuccess: (_, dto) => {
+      queryClient.invalidateQueries({ queryKey: ['cohort-quizzes', dto.cohortId] });
+      toast.success('Quiz created successfully');
+    },
+    onError: () => toast.error('Failed to create quiz'),
+  });
+}
+
+export function useDeleteQuiz() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ quizId }: { quizId: string; cohortId: string }) =>
+      apiClient.delete(`/admin/quizzes/${quizId}`),
+    onSuccess: (_, { cohortId }) => {
+      queryClient.invalidateQueries({ queryKey: ['cohort-quizzes', cohortId] });
+      toast.success('Quiz deleted');
+    },
+    onError: () => toast.error('Failed to delete quiz'),
+  });
+}
+
+export function useGenerateAIQuestions() {
+  return useMutation({
+    mutationFn: (dto: {
+      topic: string;
+      context?: string;
+      questionCount: number;
+      difficulty: 'easy' | 'medium' | 'hard';
+    }) => apiClient.post<{ questions: Array<{ question: string; options: string[]; correctAnswer: string; order: number }> }>('/admin/quizzes/generate-ai', dto),
+    onError: () => toast.error('AI question generation failed'),
+  });
+}

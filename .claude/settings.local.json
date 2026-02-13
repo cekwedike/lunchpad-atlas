@@ -6,7 +6,8 @@
       "Bash(npx prisma generate:*)",
       "Bash(npx prisma db seed:*)",
       "Bash(find:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npx prisma migrate deploy:*)"
     ]
   }
 }

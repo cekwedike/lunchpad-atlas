@@ -75,6 +75,68 @@ export class QuizzesService {
     return true;
   }
 
+  async getMyQuizzes(userId: string) {
+    // Find user's cohort
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { cohortId: true },
+    });
+
+    if (!user?.cohortId) {
+      return [];
+    }
+
+    const cohortId = user.cohortId;
+    const now = new Date();
+
+    // Fetch all quizzes for this cohort (session-linked + direct)
+    const [sessionQuizzes, cohortQuizzes] = await Promise.all([
+      this.prisma.quiz.findMany({
+        where: { session: { cohortId } },
+        include: {
+          session: { select: { id: true, title: true, sessionNumber: true } },
+          _count: { select: { questions: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.quiz.findMany({
+        where: { cohortId, sessionId: null } as any,
+        include: {
+          _count: { select: { questions: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const allQuizzes = [...sessionQuizzes, ...cohortQuizzes];
+
+    // Fetch user's passed attempts for these quizzes
+    const quizIds = allQuizzes.map((q) => q.id);
+    const passedResponses = await this.prisma.quizResponse.findMany({
+      where: { userId, quizId: { in: quizIds }, passed: true },
+      select: { quizId: true, score: true, completedAt: true },
+    });
+    const passedSet = new Set(passedResponses.map((r) => r.quizId));
+
+    return allQuizzes.map((quiz: any) => {
+      let status: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'COMPLETED';
+      if (passedSet.has(quiz.id)) {
+        status = 'COMPLETED';
+      } else if (quiz.closeAt && quiz.closeAt < now) {
+        status = 'CLOSED';
+      } else if (quiz.openAt && quiz.openAt > now) {
+        status = 'UPCOMING';
+      } else {
+        status = 'OPEN';
+      }
+
+      return {
+        ...quiz,
+        status,
+      };
+    });
+  }
+
   async getQuiz(id: string) {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id },

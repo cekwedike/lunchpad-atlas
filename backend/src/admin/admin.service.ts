@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ResourceState } from '@prisma/client';
@@ -14,7 +15,10 @@ import {
   BulkMarkAttendanceDto,
   AiReviewDto,
   AiChatDto,
+  CreateQuizDto,
+  GenerateAIQuestionsDto,
 } from './dto/admin.dto';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { SessionAnalyticsService } from '../session-analytics/session-analytics.service';
 import {
   CreateResourceDto,
@@ -1029,6 +1033,123 @@ export class AdminService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ============ Quiz Management Methods ============
+
+  async getCohortQuizzes(cohortId: string) {
+    // Session-linked quizzes (via session → cohort)
+    const sessionQuizzes = await this.prisma.quiz.findMany({
+      where: { session: { cohortId } },
+      include: {
+        session: { select: { id: true, title: true, sessionNumber: true } },
+        _count: { select: { questions: true, responses: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Direct cohort quizzes (GENERAL / MEGA)
+    const cohortQuizzes = await this.prisma.quiz.findMany({
+      where: { cohortId, quizType: { in: ['GENERAL', 'MEGA'] } } as any,
+      include: {
+        _count: { select: { questions: true, responses: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return { sessionQuizzes, cohortQuizzes };
+  }
+
+  async createQuiz(dto: CreateQuizDto) {
+    return this.prisma.quiz.create({
+      data: {
+        title: dto.title,
+        description: dto.description,
+        cohortId: dto.cohortId,
+        sessionId: dto.sessionId || undefined,
+        quizType: dto.quizType,
+        timeLimit: dto.timeLimit,
+        passingScore: dto.passingScore,
+        pointValue: dto.pointValue,
+        openAt: dto.openAt ? new Date(dto.openAt) : undefined,
+        closeAt: dto.closeAt ? new Date(dto.closeAt) : undefined,
+        questions: {
+          create: dto.questions.map((q, i) => ({
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            order: q.order ?? i + 1,
+          })),
+        },
+      } as any, // Prisma client types may lag behind schema - regenerate client to remove this cast
+      include: {
+        session: { select: { id: true, title: true, sessionNumber: true } },
+        questions: { orderBy: { order: 'asc' } },
+        _count: { select: { questions: true } },
+      },
+    });
+  }
+
+  async deleteQuiz(quizId: string) {
+    const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
+    if (!quiz) throw new NotFoundException('Quiz not found');
+    return this.prisma.quiz.delete({ where: { id: quizId } });
+  }
+
+  async generateAIQuizQuestions(dto: GenerateAIQuestionsDto) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new BadGatewayException('Gemini API key not configured');
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      generationConfig: { temperature: 0.7 },
+    });
+
+    const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${dto.topic}"${dto.context ? `\n\nAdditional context: ${dto.context}` : ''}
+
+Return ONLY a JSON array with no explanation or markdown fences:
+[
+  {
+    "question": "Question text ending with ?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "Option A"
+  }
+]
+
+Rules:
+- Each question must have exactly 4 options
+- correctAnswer must be one of the options verbatim
+- ${dto.difficulty === 'easy' ? 'Simple recall/recognition questions' : dto.difficulty === 'medium' ? 'Comprehension and application questions' : 'Analysis and evaluation questions'}
+- Questions should be clear, unambiguous, and educational`;
+
+    let result: any;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (err: any) {
+      throw new BadGatewayException(`Gemini API error: ${err?.message ?? 'unknown'}`);
+    }
+
+    const raw = result.response.text();
+    const stripped = raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '').trim();
+    const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new BadGatewayException('AI returned an unparseable response. Try again.');
+
+    let generated: any[];
+    try {
+      generated = JSON.parse(jsonMatch[0]);
+    } catch {
+      throw new BadGatewayException('AI returned an unparseable response. Try again.');
+    }
+
+    return {
+      questions: generated.map((q: any, i: number) => ({
+        question: q.question,
+        options: Array.isArray(q.options) ? q.options : [],
+        correctAnswer: q.correctAnswer,
+        order: i + 1,
+      })),
     };
   }
 }

@@ -7,7 +7,6 @@ import {
   BookOpen,
   MessageSquare,
   Trophy,
-  FileQuestion,
   User,
   Users,
   Settings,
@@ -17,6 +16,7 @@ import {
   ChevronRight,
   Shield,
   GraduationCap,
+  FileQuestion,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,11 @@ export function Sidebar() {
       icon: BookOpen,
     },
     {
+      title: 'Quizzes',
+      href: '/quiz',
+      icon: FileQuestion,
+    },
+    {
       title: 'Discussions',
       href: '/dashboard/discussions',
       icon: MessageSquare,
@@ -64,11 +69,6 @@ export function Sidebar() {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
-    },
-    {
-      title: 'Quizzes',
-      href: '/quiz',
-      icon: FileQuestion,
     },
     {
       title: 'Profile',
@@ -97,6 +97,11 @@ export function Sidebar() {
       title: 'Resource Management',
       href: '/dashboard/facilitator/resources',
       icon: BookOpen,
+    },
+    {
+      title: 'Quizzes',
+      href: '/dashboard/facilitator/quizzes',
+      icon: FileQuestion,
     },
     {
       title: 'Resources (View)',
@@ -141,16 +146,16 @@ export function Sidebar() {
       href: '/dashboard/admin/sessions',
       icon: Calendar,
     },
-      {
-        title: 'Resource Management',
-        href: '/dashboard/admin/resources',
-        icon: BookOpen,
-      },
-      {
-        title: 'Quizzes',
-        href: '/dashboard/admin/quizzes',
-        icon: FileQuestion,
-      },
+    {
+      title: 'Resource Management',
+      href: '/dashboard/admin/resources',
+      icon: BookOpen,
+    },
+    {
+      title: 'Quizzes',
+      href: '/dashboard/admin/quizzes',
+      icon: FileQuestion,
+    },
     {
       title: 'Analytics',
       href: '/dashboard/admin/analytics',

@@ -185,6 +185,108 @@ export class ChatHistoryItemDto {
   content: string;
 }
 
+// ── Quiz Management DTOs ──────────────────────────────────────────────────────
+
+export class CreateQuizQuestionDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  question: string;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  options: string[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  correctAnswer: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  order?: number;
+}
+
+export class CreateQuizDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  title: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsUUID()
+  cohortId: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
+
+  @ApiProperty({ enum: ['SESSION', 'GENERAL', 'MEGA'] })
+  @IsEnum(['SESSION', 'GENERAL', 'MEGA'])
+  quizType: 'SESSION' | 'GENERAL' | 'MEGA';
+
+  @ApiProperty({ description: 'Time limit in minutes, 0 = no limit' })
+  @IsInt()
+  @Min(0)
+  timeLimit: number;
+
+  @ApiProperty({ description: 'Passing score percentage (1-100)' })
+  @IsInt()
+  @Min(1)
+  passingScore: number;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(1)
+  pointValue: number;
+
+  @ApiProperty({ required: false, description: 'ISO date string - when quiz opens for fellows' })
+  @IsOptional()
+  @IsDateString()
+  openAt?: string;
+
+  @ApiProperty({ required: false, description: 'ISO date string - when quiz closes' })
+  @IsOptional()
+  @IsDateString()
+  closeAt?: string;
+
+  @ApiProperty({ type: [CreateQuizQuestionDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuizQuestionDto)
+  questions: CreateQuizQuestionDto[];
+}
+
+export class GenerateAIQuestionsDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  topic: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  context?: string;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(1)
+  questionCount: number;
+
+  @ApiProperty({ enum: ['easy', 'medium', 'hard'] })
+  @IsEnum(['easy', 'medium', 'hard'])
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
 export class AiChatDto {
   @ApiProperty()
   @IsNotEmpty()
