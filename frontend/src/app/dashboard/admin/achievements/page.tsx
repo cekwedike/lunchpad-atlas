@@ -18,7 +18,20 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
-import { Edit, Users, Loader2 } from "lucide-react";
+import {
+  Edit, Users, Loader2,
+  // type fallbacks
+  Trophy, Star, Flame, MessageSquare,
+  // per-achievement icons
+  Footprints, BookOpen, Compass, Gauge, Library,
+  FileQuestion, PenLine, Brain, Medal, Target,
+  CheckCheck, Sparkles, Zap, Radio, Mic, Crown, Rocket,
+  MessageCircle, MessagesSquare, Megaphone, LayoutList, Landmark,
+  Reply, ReplyAll, MessageSquareDot, Award, Globe, Users2,
+  Layers, TrendingUp, Shuffle, Swords, GraduationCap, MonitorPlay,
+  BookMarked, LayoutGrid, BookCheck, University,
+  CircleDollarSign, Coins, BarChart2, Wallet, BatteryCharging, BarChart3, ShieldCheck, Shield,
+} from "lucide-react";
 
 interface Achievement {
   id: string;
@@ -37,6 +50,86 @@ const TYPE_COLORS: Record<string, string> = {
   STREAK: "bg-orange-50 text-orange-700 border-orange-200",
   LEADERBOARD: "bg-purple-50 text-purple-700 border-purple-200",
 };
+
+const TYPE_ICON_BG: Record<string, string> = {
+  MILESTONE: "bg-blue-100 text-blue-600",
+  SOCIAL: "bg-green-100 text-green-600",
+  STREAK: "bg-orange-100 text-orange-600",
+  LEADERBOARD: "bg-purple-100 text-purple-600",
+};
+
+const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  MILESTONE: Star,
+  SOCIAL: MessageSquare,
+  STREAK: Flame,
+  LEADERBOARD: Trophy,
+};
+
+// Unique icon per achievement name — falls back to TYPE_ICONS if not listed
+const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  // MILESTONE
+  "First Step": Footprints,
+  "Getting Started": BookOpen,
+  "Resource Explorer": Compass,
+  "Halfway There": Gauge,
+  "Resource Master": Library,
+  "Quiz Rookie": FileQuestion,
+  "Quiz Enthusiast": PenLine,
+  "Quiz Expert": Brain,
+  "Quiz Champion": Medal,
+  "Perfectionist": Target,
+  "Twice Perfect": CheckCheck,
+  "Flawless Five": Sparkles,
+  "Flawless Ten": Star,
+  "Live Buzzer": Zap,
+  "Live Regular": Radio,
+  "Live Pro": Mic,
+  "Live Veteran": Crown,
+  "Overachiever": Rocket,
+  // SOCIAL
+  "First Post": MessageSquare,
+  "Regular Poster": MessageCircle,
+  "Conversationalist": MessagesSquare,
+  "Community Voice": Megaphone,
+  "Forum Regular": LayoutList,
+  "Community Pillar": Landmark,
+  "First Reply": Reply,
+  "Active Responder": ReplyAll,
+  "Reply Guru": MessageSquareDot,
+  "Reply Legend": Award,
+  "Mega Contributor": Globe,
+  "Social Butterfly": Users2,
+  // STREAK / COMBO
+  "Combo Starter": Layers,
+  "Momentum Builder": TrendingUp,
+  "All-Rounder": Shuffle,
+  "Triple Threat": Swords,
+  "Scholar": GraduationCap,
+  "Live Learner": MonitorPlay,
+  "Engaged Scholar": BookMarked,
+  "The Trifecta": LayoutGrid,
+  "Perfect Scholar": BookCheck,
+  "Campus Legend": University,
+  // LEADERBOARD / POINTS
+  "Point Starter": CircleDollarSign,
+  "Point Collector": Coins,
+  "Point Accumulator": BarChart2,
+  "Point Hoarder": Wallet,
+  "Point Enthusiast": BatteryCharging,
+  "Point Expert": BarChart3,
+  "Point Legend": Trophy,
+  "Point Elite": ShieldCheck,
+  "Living Legend": Shield,
+  "The GOAT": Flame,
+};
+
+function parseCriteria(criteria: unknown): Record<string, any> {
+  if (!criteria) return {};
+  if (typeof criteria === "string") {
+    try { return JSON.parse(criteria); } catch { return {}; }
+  }
+  return criteria as Record<string, any>;
+}
 
 const CRITERIA_KEYS = [
   { key: "resourceCount", label: "Resources completed" },
@@ -64,11 +157,10 @@ function EditAchievementDialog({
   const [name, setName] = useState(achievement.name);
   const [description, setDescription] = useState(achievement.description);
   const [pointValue, setPointValue] = useState(String(achievement.pointValue));
-  const [iconUrl, setIconUrl] = useState(achievement.iconUrl ?? "");
   const [type, setType] = useState(achievement.type);
   const [criteria, setCriteria] = useState<Record<string, string>>(
     Object.fromEntries(
-      Object.entries(achievement.criteria).map(([k, v]) => [k, String(v)])
+      Object.entries(parseCriteria(achievement.criteria)).map(([k, v]) => [k, String(v)])
     )
   );
 
@@ -96,7 +188,6 @@ function EditAchievementDialog({
       name: name.trim(),
       description: description.trim(),
       pointValue: Number(pointValue),
-      iconUrl: iconUrl.trim() || null,
       type,
       criteria: parsedCriteria,
     });
@@ -113,15 +204,9 @@ function EditAchievementDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-[1fr_80px] gap-3">
-            <div className="space-y-1">
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Icon (emoji)</Label>
-              <Input value={iconUrl} onChange={(e) => setIconUrl(e.target.value)} className="text-center text-xl" maxLength={4} />
-            </div>
+          <div className="space-y-1">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div className="space-y-1">
@@ -250,7 +335,15 @@ export default function AdminAchievementsPage() {
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-2xl leading-none">{achievement.iconUrl ?? "🏅"}</span>
+                      {(() => {
+                        const IconComp = ACHIEVEMENT_ICONS[achievement.name] ?? TYPE_ICONS[achievement.type] ?? Star;
+                        const iconCls = TYPE_ICON_BG[achievement.type] ?? "bg-gray-100 text-gray-600";
+                        return (
+                          <div className={`shrink-0 p-1.5 rounded-lg ${iconCls}`}>
+                            <IconComp className="h-5 w-5" />
+                          </div>
+                        );
+                      })()}
                       <div className="min-w-0">
                         <CardTitle className="text-sm font-semibold text-gray-900 leading-tight truncate">
                           {achievement.name}
@@ -284,19 +377,22 @@ export default function AdminAchievementsPage() {
                     </span>
                   </div>
 
-                  {Object.keys(achievement.criteria).length > 0 && (
-                    <div className="rounded-md bg-gray-50 px-2 py-1.5 space-y-0.5">
-                      {Object.entries(achievement.criteria).map(([k, v]) => {
-                        const label = CRITERIA_KEYS.find((ck) => ck.key === k)?.label ?? k;
-                        return (
-                          <div key={k} className="flex justify-between text-[11px] text-gray-600">
-                            <span>{label}</span>
-                            <span className="font-medium text-gray-900">{String(v)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {(() => {
+                    const c = parseCriteria(achievement.criteria);
+                    return Object.keys(c).length > 0 ? (
+                      <div className="rounded-md bg-gray-50 px-2 py-1.5 space-y-0.5">
+                        {Object.entries(c).map(([k, v]) => {
+                          const label = CRITERIA_KEYS.find((ck) => ck.key === k)?.label ?? k;
+                          return (
+                            <div key={k} className="flex justify-between text-[11px] text-gray-600">
+                              <span>{label}</span>
+                              <span className="font-medium text-gray-900">{String(v)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null;
+                  })()}
                 </CardContent>
               </Card>
             ))}

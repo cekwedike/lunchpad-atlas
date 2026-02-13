@@ -2,37 +2,78 @@
 
 import { useState } from "react";
 import {
-  Award, Lock, Trophy, MessageSquare, Zap, Star,
-  PlayCircle, BookOpen, Compass, Flag, GraduationCap,
-  PenLine, Pencil, Brain, Medal, CheckCircle, Sparkles,
-  Gamepad2, Monitor, Target, Rocket,
-  MessageCircle, MessagesSquare, Megaphone, Landmark, Globe,
-  Reply, Mic, Radio, Volume2, Heart,
-  Flame, LayoutGrid, Swords, BookMarked, MonitorPlay, Sprout, BadgeCheck, Diamond, Crown,
-  TrendingUp, Gem, Wallet, Coins, CircleDollarSign, ShieldCheck, Infinity,
+  Award, Lock, Trophy, MessageSquare, Zap, Star, Flame,
+  Footprints, BookOpen, Compass, Gauge, Library,
+  FileQuestion, PenLine, Brain, Medal, Target, CheckCheck, Sparkles, Rocket,
+  Radio, Mic, Crown,
+  MessageCircle, MessagesSquare, Megaphone, LayoutList, Landmark, Globe,
+  Reply, ReplyAll, MessageSquareDot, Users2,
+  Layers, TrendingUp, Shuffle, Swords, GraduationCap, MonitorPlay,
+  BookMarked, LayoutGrid, BookCheck, University,
+  CircleDollarSign, Coins, BarChart2, Wallet, BatteryCharging, BarChart3, ShieldCheck, Shield,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useAllAchievements, useUserAchievements } from "@/hooks/api/useProfile";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
-// ── Map icon name strings (stored in DB) → Lucide components ─────────────────
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  PlayCircle, BookOpen, Compass, Flag, GraduationCap,
-  PenLine, Pencil, Brain, Medal, CheckCircle, Star, Sparkles, Award,
-  Gamepad2, Monitor, Target, Trophy, Rocket,
-  MessageCircle, MessageSquare, MessagesSquare, Megaphone, Landmark, Globe,
-  Reply, MessageSquareDot: MessageCircle, Mic, Radio, Volume2, Heart,
-  Zap, Flame, LayoutGrid, Swords, BookMarked, MonitorPlay, Sprout,
-  BadgeCheck, Diamond, Crown,
-  TrendingUp, Gem, Wallet, Coins, CircleDollarSign, ShieldCheck,
-  FlameKindling: Flame, Infinity,
+// ── Per-achievement icon map (keyed by achievement name) ─────────────────────
+const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  // MILESTONE
+  "First Step": Footprints,
+  "Getting Started": BookOpen,
+  "Resource Explorer": Compass,
+  "Halfway There": Gauge,
+  "Resource Master": Library,
+  "Quiz Rookie": FileQuestion,
+  "Quiz Enthusiast": PenLine,
+  "Quiz Expert": Brain,
+  "Quiz Champion": Medal,
+  "Perfectionist": Target,
+  "Twice Perfect": CheckCheck,
+  "Flawless Five": Sparkles,
+  "Flawless Ten": Star,
+  "Live Buzzer": Zap,
+  "Live Regular": Radio,
+  "Live Pro": Mic,
+  "Live Veteran": Crown,
+  "Overachiever": Rocket,
+  // SOCIAL
+  "First Post": MessageSquare,
+  "Regular Poster": MessageCircle,
+  "Conversationalist": MessagesSquare,
+  "Community Voice": Megaphone,
+  "Forum Regular": LayoutList,
+  "Community Pillar": Landmark,
+  "First Reply": Reply,
+  "Active Responder": ReplyAll,
+  "Reply Guru": MessageSquareDot,
+  "Reply Legend": Award,
+  "Mega Contributor": Globe,
+  "Social Butterfly": Users2,
+  // STREAK / COMBO
+  "Combo Starter": Layers,
+  "Momentum Builder": TrendingUp,
+  "All-Rounder": Shuffle,
+  "Triple Threat": Swords,
+  "Scholar": GraduationCap,
+  "Live Learner": MonitorPlay,
+  "Engaged Scholar": BookMarked,
+  "The Trifecta": LayoutGrid,
+  "Perfect Scholar": BookCheck,
+  "Campus Legend": University,
+  // LEADERBOARD / POINTS
+  "Point Starter": CircleDollarSign,
+  "Point Collector": Coins,
+  "Point Accumulator": BarChart2,
+  "Point Hoarder": Wallet,
+  "Point Enthusiast": BatteryCharging,
+  "Point Expert": BarChart3,
+  "Point Legend": Trophy,
+  "Point Elite": ShieldCheck,
+  "Living Legend": Shield,
+  "The GOAT": Flame,
 };
-
-function AchievementIcon({ name, className }: { name?: string; className?: string }) {
-  const Icon = (name && ICON_MAP[name]) ? ICON_MAP[name] : Award;
-  return <Icon className={className} />;
-}
 
 // ── Category metadata ──────────────────────────────────────────────────────────
 const CATEGORIES: Record<string, {
@@ -76,17 +117,19 @@ function AchievementCard({
 
       {/* Icon + category badge */}
       <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            "w-12 h-12 flex items-center justify-center rounded-xl shrink-0",
-            isUnlocked ? "bg-amber-100 shadow-inner" : "bg-gray-200",
-          )}
-        >
-          <AchievementIcon
-            name={achievement.iconUrl}
-            className={cn("h-6 w-6", isUnlocked ? "text-amber-600" : "text-gray-400")}
-          />
-        </div>
+        {(() => {
+          const IconComp = ACHIEVEMENT_ICONS[achievement.name] ?? cat.icon;
+          return (
+            <div
+              className={cn(
+                "w-12 h-12 flex items-center justify-center rounded-xl shrink-0",
+                isUnlocked ? "bg-amber-100 shadow-inner" : "bg-gray-200",
+              )}
+            >
+              <IconComp className={cn("h-6 w-6", isUnlocked ? "text-amber-600" : "text-gray-400")} />
+            </div>
+          );
+        })()}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-1 flex-wrap">
             <p className={cn("font-bold text-sm leading-tight", isUnlocked ? "text-gray-900" : "text-gray-500")}>
