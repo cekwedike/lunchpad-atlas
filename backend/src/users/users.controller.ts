@@ -52,4 +52,11 @@ export class UsersController {
   getMyAchievements(@Request() req) {
     return this.usersService.getUserAchievements(req.user.id);
   }
+
+  @Get('me/points')
+  @ApiOperation({ summary: 'Get current user points breakdown and recent activity' })
+  @ApiResponse({ status: 200, description: 'Points data retrieved' })
+  getMyPoints(@Request() req) {
+    return this.usersService.getMyPoints(req.user.id);
+  }
 }

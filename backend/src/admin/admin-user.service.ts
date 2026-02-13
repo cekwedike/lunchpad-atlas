@@ -616,4 +616,65 @@ export class AdminUserService {
       },
     };
   }
+
+  async suspendUser(userId: string, adminId: string, reason?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isSuspended: true, suspendedAt: new Date(), suspensionReason: reason ?? null },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId, action: 'USER_SUSPENDED', entityType: 'User', entityId: userId,
+        changes: { reason: reason ?? 'No reason provided' },
+      },
+    });
+
+    return { message: 'User suspended', userId };
+  }
+
+  async unsuspendUser(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isSuspended: false, suspendedAt: null, suspensionReason: null },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: 'USER_UNSUSPENDED', entityType: 'User', entityId: userId, changes: {} },
+    });
+
+    return { message: 'User unsuspended', userId };
+  }
+
+  async flagUser(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.update({ where: { id: userId }, data: { isFlagged: true } });
+
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: 'USER_FLAGGED', entityType: 'User', entityId: userId, changes: {} },
+    });
+
+    return { message: 'User flagged for review', userId };
+  }
+
+  async unflagUser(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.prisma.user.update({ where: { id: userId }, data: { isFlagged: false } });
+
+    await this.prisma.adminAuditLog.create({
+      data: { adminId, action: 'USER_UNFLAGGED', entityType: 'User', entityId: userId, changes: {} },
+    });
+
+    return { message: 'User flag cleared', userId };
+  }
 }

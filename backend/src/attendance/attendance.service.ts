@@ -150,6 +150,21 @@ export class AttendanceService {
       },
     });
 
+    // Award 20 points for attending (10 if late)
+    const attendPoints = isLate ? 10 : 20;
+    await this.prisma.pointsLog.create({
+      data: {
+        userId,
+        points: attendPoints,
+        eventType: 'SESSION_ATTEND',
+        description: `Attended session: ${attendance.session.title}${isLate ? ' (late)' : ''}`,
+      },
+    });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { currentMonthPoints: { increment: attendPoints } },
+    });
+
     return attendance;
   }
 

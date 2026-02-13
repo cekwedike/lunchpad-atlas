@@ -81,42 +81,48 @@ Fellows cannot:
 ### 4.1 Core Capabilities
 
 Facilitators can:
-- Access sessions they are assigned to
-- View session context and objectives
-- Preview session resources in advance
-- View anonymized engagement summaries after sessions
+- Access sessions and resources for their assigned cohort(s) only
+- Create, edit, and delete sessions within their cohort
+- Create, edit, and delete resources for their cohort's sessions
+- Unlock or lock resources for fellows (override resource state)
+- Create, edit, delete, and trigger quizzes for their sessions
+- Upload session transcripts to trigger AI analytics processing
+- View session and cohort analytics (including individual fellow data)
+- Manage discussions (e.g., add topics, moderate)
 
 ---
 
 ### 4.2 Resource Access Rules
 
 Facilitators:
-- Have read-only access to resources for their sessions
-- Cannot unlock resources early
-- Cannot modify resource content
+- Can view, create, and modify resources for sessions in their assigned cohort
+- Can change resource state (LOCKED / UNLOCKED) within their cohort
+- Cannot access or modify resources in cohorts they are not assigned to
 
 ---
 
 ### 4.3 Analytics Visibility
 
 Facilitators can:
-- View aggregate engagement scores
-- View drop-off trends
+- View individual fellow engagement: progress %, points earned, quiz averages, discussion count
+- See which fellows need attention (inactive or below 50% progress)
+- View resource completion rates per resource
+- Access session-level AI analytics after transcript upload
 
 Facilitators cannot:
-- See individual fellow rankings
-- See individual discussion scores
-- Award points
+- See admin audit logs
+- See admin flags, suspension reasons, or user penalties
 
 ---
 
 ### 4.4 Restricted Actions
 
 Facilitators cannot:
-- Manage users or cohorts
-- Trigger quizzes
-- Upload analytics data
-- Modify gamification rules
+- Manage users (create, suspend, flag, delete accounts)
+- Manage or reassign cohorts
+- Award or deduct points manually
+- Modify gamification rules or achievement definitions
+- Access data for cohorts they are not assigned to
 
 ---
 

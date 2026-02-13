@@ -83,6 +83,10 @@ model User {
   lastName           String
   role               UserRole  @default(FELLOW)
   isFacilitator      Boolean   @default(false) // Grants facilitator access (used for ADMIN users)
+  isSuspended        Boolean   @default(false) // Account suspended by admin
+  isFlagged          Boolean   @default(false) // Flagged for suspicious activity review
+  suspendedAt        DateTime? // When the account was suspended
+  suspensionReason   String?   // Admin note for suspension reason
   cohortId           String?
   currentMonthPoints Int       @default(0) // Points earned this month
   monthlyPointsCap   Int       @default(1000) // Maximum points per month

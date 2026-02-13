@@ -347,13 +347,19 @@ export class DiscussionsService {
       session,
     };
 
-    // Award 5 points for creating a discussion (with monthly cap enforcement)
-    const awarded = await this.awardPoints(
-      userId,
-      5,
-      'DISCUSSION_POST',
-      `Posted discussion: ${dto.title}`,
-    );
+    // Award 5 points for creating a discussion — but only if the user has already
+    // commented on at least one discussion by someone else (mandatory peer engagement).
+    const peerCommentCount = await this.prisma.discussionComment.count({
+      where: {
+        userId,
+        discussion: { userId: { not: userId } }, // comment on someone else's discussion
+      },
+    });
+    const hasPeerEngaged = peerCommentCount > 0;
+
+    const awarded = hasPeerEngaged
+      ? await this.awardPoints(userId, 5, 'DISCUSSION_POST', `Posted discussion: ${dto.title}`)
+      : false;
 
     if (isApproved) {
       // Broadcast new discussion to cohort in real-time
@@ -760,13 +766,41 @@ export class DiscussionsService {
       },
     });
 
-    // Award 2 points for replying to a discussion (with monthly cap enforcement)
+    // Award 2 points for replying to a discussion
     const awarded = await this.awardPoints(
       userId,
       2,
       'DISCUSSION_COMMENT',
       `Commented on discussion: ${discussion.title}`,
     );
+
+    // If this is the user's FIRST peer comment (commenting on someone else's discussion),
+    // retroactively award points for any own discussions that were withheld.
+    const isPeerComment = discussion.userId !== userId;
+    if (isPeerComment) {
+      const prevPeerComments = await this.prisma.discussionComment.count({
+        where: {
+          userId,
+          discussion: { userId: { not: userId } },
+          id: { not: comment.id }, // exclude the one we just created
+        },
+      });
+      // Only on first peer comment (count was 0 before this one)
+      if (prevPeerComments === 0) {
+        const unawarded = await this.prisma.discussion.findMany({
+          where: { userId, isApproved: true },
+          select: { id: true, title: true },
+        });
+        for (const d of unawarded) {
+          const alreadyAwarded = await this.prisma.pointsLog.count({
+            where: { userId, eventType: 'DISCUSSION_POST', description: { contains: d.title } },
+          });
+          if (!alreadyAwarded) {
+            await this.awardPoints(userId, 5, 'DISCUSSION_POST', `Posted discussion: ${d.title} (peer engagement unlocked)`);
+          }
+        }
+      }
+    }
 
     // Broadcast new comment to discussion participants in real-time
     try {

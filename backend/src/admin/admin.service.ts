@@ -483,7 +483,7 @@ export class AdminService {
         duration: dto.duration,
         estimatedMinutes: dto.estimatedMinutes || 10,
         isCore: dto.isCore !== undefined ? dto.isCore : true,
-        pointValue: dto.pointValue || 100,
+        pointValue: dto.pointValue ?? ((dto.isCore === false) ? 50 : 100),
         order: dto.order,
       },
       include: {
@@ -1344,5 +1344,52 @@ Rules:
         order: i + 1,
       })),
     };
+  }
+
+  async awardSessionPoints(
+    sessionId: string,
+    awards: Array<{ userId: string; points: number; reason?: string }>,
+    adminId: string,
+  ) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true, title: true, sessionNumber: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const results: Array<{ userId: string; points: number; awarded: boolean }> = [];
+
+    for (const award of awards) {
+      if (award.points <= 0) continue;
+      try {
+        await this.prisma.pointsLog.create({
+          data: {
+            userId: award.userId,
+            points: award.points,
+            eventType: 'SESSION_ATTEND',
+            description: award.reason ?? `Session engagement: ${session.title}`,
+          },
+        });
+        await this.prisma.user.update({
+          where: { id: award.userId },
+          data: { currentMonthPoints: { increment: award.points } },
+        });
+        results.push({ userId: award.userId, points: award.points, awarded: true });
+      } catch {
+        results.push({ userId: award.userId, points: award.points, awarded: false });
+      }
+    }
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'SESSION_POINTS_AWARDED',
+        entityType: 'Session',
+        entityId: sessionId,
+        changes: { awards: results },
+      },
+    });
+
+    return { sessionId, results };
   }
 }

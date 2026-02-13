@@ -53,11 +53,16 @@ export class SetupAdminDto {
 
 export class AuthResponseDto {
   accessToken: string;
-  refreshToken?: string;
+  refreshToken: string;
   user: {
     id: string;
     email: string;
     name: string;
     role: string;
   };
+}
+
+export class RefreshTokenDto {
+  @IsString()
+  refreshToken: string;
 }

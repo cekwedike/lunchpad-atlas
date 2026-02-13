@@ -16,6 +16,38 @@ export class ChatService {
     private notificationsService: NotificationsService,
   ) {}
 
+  /** Award 2–5 chat points per message with a 10pt daily cap */
+  private async awardChatPoints(userId: string, content: string): Promise<void> {
+    // Points based on message length: ≥100 chars = 5pts, ≥50 = 3pts, else 2pts
+    const pts = content.length >= 100 ? 5 : content.length >= 50 ? 3 : 2;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const todayChatPoints = await this.prisma.pointsLog.aggregate({
+      where: {
+        userId,
+        eventType: 'CHAT_MESSAGE',
+        createdAt: { gte: startOfDay },
+      },
+      _sum: { points: true },
+    });
+
+    const usedToday = todayChatPoints._sum.points ?? 0;
+    const remaining = Math.max(0, 10 - usedToday); // 10pt daily cap
+    if (remaining <= 0) return;
+
+    const awardPts = Math.min(pts, remaining);
+
+    await this.prisma.pointsLog.create({
+      data: { userId, points: awardPts, eventType: 'CHAT_MESSAGE', description: 'Chat engagement' },
+    });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { currentMonthPoints: { increment: awardPts } },
+    });
+  }
+
   // ==================== CHANNELS ====================
 
   async createChannel(createChannelDto: CreateChannelDto, userId: string) {
@@ -319,6 +351,12 @@ export class ChatService {
         },
       },
     });
+
+    // Award chat engagement points (2-5 pts per message, 10pt daily cap)
+    // Don't award points in DMs — only public/cohort channels
+    if (channel.type !== ChannelType.DIRECT_MESSAGE) {
+      await this.awardChatPoints(userId, createMessageDto.content).catch(() => undefined);
+    }
 
     const recipients = await this.getChatNotificationRecipients(
       message.channel.cohortId,

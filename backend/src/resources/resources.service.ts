@@ -15,6 +15,28 @@ export class ResourcesService {
   ) {}
 
   /**
+   * Check if a user is a repeat skimmer.
+   * Returns true if the user has 3+ completed resources where they spent
+   * less than 50% of the required minimum time (low engagement pattern).
+   * When true, points should be halved.
+   */
+  private async isRepeatSkimmer(userId: string): Promise<boolean> {
+    // Look at last 10 completed resources for this user
+    const recentProgress = await this.prisma.resourceProgress.findMany({
+      where: { userId, state: 'COMPLETED' },
+      include: { resource: { select: { minimumTimeThreshold: true } } },
+      orderBy: { completedAt: 'desc' },
+      take: 10,
+    });
+
+    const skimmingCount = recentProgress.filter(
+      (p) => p.resource && p.timeSpent < p.resource.minimumTimeThreshold * 0.5,
+    ).length;
+
+    return skimmingCount >= 3;
+  }
+
+  /**
    * Helper function to award points with monthly cap enforcement
    * Returns true if points were awarded, false if cap reached
    */
@@ -324,14 +346,20 @@ export class ResourcesService {
       const qualityBonus = Math.floor(
         resource.pointValue * existingProgress.engagementQuality * 0.2,
       );
-      const totalPoints = resource.pointValue + qualityBonus;
+      let totalPoints = resource.pointValue + qualityBonus;
+
+      // Anti-skimming penalty: halve points for repeat skimmers
+      const skimmer = await this.isRepeatSkimmer(userId);
+      if (skimmer) {
+        totalPoints = Math.floor(totalPoints * 0.5);
+      }
 
       // Award points with monthly cap enforcement
       const awarded = await this.awardPoints(
         userId,
         totalPoints,
         'RESOURCE_COMPLETE',
-        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}`,
+        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}${skimmer ? ' (Anti-skimming penalty: 50% reduction)' : ''}`,
       );
 
       // Check and award achievements

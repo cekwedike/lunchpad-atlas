@@ -7,15 +7,27 @@ import {
   UseGuards,
   Query,
   Res,
+  Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import type * as express from 'express';
+import { IsString, IsObject, IsOptional } from 'class-validator';
 
 import { SessionAnalyticsService } from './session-analytics.service';
 import { AnalyticsExportService } from './analytics-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PrismaService } from '../prisma.service';
+
+class TrackEventDto {
+  @IsString()
+  eventType: string;
+
+  @IsObject()
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
 
 @ApiTags('session-analytics')
 @Controller('session-analytics')
@@ -25,6 +37,7 @@ export class SessionAnalyticsController {
   constructor(
     private sessionAnalyticsService: SessionAnalyticsService,
     private analyticsExportService: AnalyticsExportService,
+    private prisma: PrismaService,
   ) {}
 
   @Post('process/:sessionId')
@@ -137,5 +150,26 @@ export class SessionAnalyticsController {
   @ApiOperation({ summary: 'Get analytics summary for cohort' })
   async getAnalyticsSummary(@Param('cohortId') cohortId: string) {
     return this.analyticsExportService.generateAnalyticsSummary(cohortId);
+  }
+
+  // Accessible to all authenticated users (no @Roles restriction)
+  @Post('/events')
+  @ApiOperation({ summary: 'Track a client-side engagement event' })
+  async trackEvent(@Body() dto: TrackEventDto, @Request() req: { user: { id: string } }) {
+    const validTypes = [
+      'RESOURCE_VIEW', 'RESOURCE_COMPLETE', 'DISCUSSION_POST', 'DISCUSSION_COMMENT',
+      'QUIZ_SUBMIT', 'CHAT_MESSAGE', 'SESSION_ATTEND',
+    ];
+    const eventType = validTypes.includes(dto.eventType) ? dto.eventType : 'RESOURCE_VIEW';
+
+    await this.prisma.engagementEvent.create({
+      data: {
+        userId: req.user.id,
+        eventType: eventType as any,
+        metadata: dto.metadata ?? {},
+      },
+    });
+
+    return { ok: true };
   }
 }

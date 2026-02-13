@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma.service';
@@ -21,12 +22,14 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { EmailModule } from './email/email.module';
 import { CurriculaModule } from './curricula/curricula.module';
 import { FacilitatorModule } from './facilitator/facilitator.module';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 seconds
@@ -49,6 +52,7 @@ import { FacilitatorModule } from './facilitator/facilitator.module';
     EmailModule,
     CurriculaModule,
     FacilitatorModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [

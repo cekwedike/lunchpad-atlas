@@ -131,4 +131,37 @@ export class UsersService {
       orderBy: { unlockedAt: 'desc' },
     });
   }
+
+  async getMyPoints(userId: string) {
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    const [logs, totalAgg, user] = await Promise.all([
+      this.prisma.pointsLog.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          eventType: true,
+          points: true,
+          description: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.pointsLog.aggregate({
+        where: { userId },
+        _sum: { points: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { currentMonthPoints: true },
+      }),
+    ]);
+
+    return {
+      totalPoints: totalAgg._sum.points ?? 0,
+      currentMonthPoints: user?.currentMonthPoints ?? 0,
+      recentActivity: logs,
+    };
+  }
 }

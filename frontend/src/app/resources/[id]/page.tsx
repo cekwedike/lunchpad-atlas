@@ -63,8 +63,8 @@ export default function ResourceDetailPage({ params }: { params: { id: string } 
     );
   }
 
-  // Check if resource is locked (in production, this would check against unlock date)
-  const isLocked = false; // For now, all resources are unlocked
+  // Use the state returned from the API (computed by backend based on unlock date + user role)
+  const isLocked = resource.state === 'LOCKED';
 
   if (isLocked) {
     return (

@@ -123,10 +123,12 @@ export class AuthService {
         lastName: true,
         role: true,
         lastLoginAt: true,
+        isSuspended: true,
       },
     });
 
     if (!user) return null;
+    if (user.isSuspended) throw new UnauthorizedException('Your account has been suspended. Contact an administrator.');
 
     // Touch lastLoginAt at most once per 15 minutes so "active" status stays current
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
@@ -143,13 +145,45 @@ export class AuthService {
     };
   }
 
+  async refreshToken(token: string): Promise<{ accessToken: string }> {
+    let payload: any;
+    try {
+      const refreshSecret =
+        (process.env.JWT_REFRESH_SECRET ||
+          (process.env.JWT_SECRET ?? 'your-development-jwt-secret-change-in-production') + '_refresh');
+      payload = this.jwtService.verify(token, { secret: refreshSecret });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Verify user still exists and is active
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, role: true },
+    });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const accessPayload = { sub: user.id, email: user.email, role: user.role };
+    return {
+      accessToken: this.jwtService.sign(accessPayload),
+    };
+  }
+
   private generateTokens(user: any): AuthResponseDto {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const name =
       user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
+    const refreshSecret =
+      (process.env.JWT_REFRESH_SECRET ||
+        (process.env.JWT_SECRET ?? 'your-development-jwt-secret-change-in-production') + '_refresh');
+
     return {
       accessToken: this.jwtService.sign(payload),
+      refreshToken: this.jwtService.sign(payload, {
+        secret: refreshSecret,
+        expiresIn: '30d',
+      }),
       user: {
         id: user.id,
         email: user.email,

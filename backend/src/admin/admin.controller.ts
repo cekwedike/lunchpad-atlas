@@ -174,6 +174,18 @@ export class AdminController {
     return this.adminService.submitAiReview(sessionId, dto, req.user.id);
   }
 
+  @Post('sessions/:id/award-points')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({ summary: 'Manually award session engagement points to fellows based on AI analysis' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  awardSessionPoints(
+    @Param('id') sessionId: string,
+    @Body() dto: { awards: Array<{ userId: string; points: number; reason?: string }> },
+    @Request() req,
+  ) {
+    return this.adminService.awardSessionPoints(sessionId, dto.awards, req.user.id);
+  }
+
   @Post('sessions/:id/ai-chat')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   @ApiOperation({ summary: 'Chat with AI about a session (Admin/Facilitator)' })
@@ -342,6 +354,34 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'User not found' })
   deleteUser(@Param('id') userId: string, @Request() req) {
     return this.adminUserService.deleteUser(userId, req.user.id);
+  }
+
+  @Patch('users/:id/suspend')
+  @ApiOperation({ summary: 'Suspend a user account' })
+  suspendUser(
+    @Param('id') userId: string,
+    @Body() body: { reason?: string },
+    @Request() req,
+  ) {
+    return this.adminUserService.suspendUser(userId, req.user.id, body.reason);
+  }
+
+  @Patch('users/:id/unsuspend')
+  @ApiOperation({ summary: 'Unsuspend a user account' })
+  unsuspendUser(@Param('id') userId: string, @Request() req) {
+    return this.adminUserService.unsuspendUser(userId, req.user.id);
+  }
+
+  @Patch('users/:id/flag')
+  @ApiOperation({ summary: 'Flag a user for suspicious activity review' })
+  flagUser(@Param('id') userId: string, @Request() req) {
+    return this.adminUserService.flagUser(userId, req.user.id);
+  }
+
+  @Patch('users/:id/unflag')
+  @ApiOperation({ summary: 'Clear suspicious activity flag from a user' })
+  unflagUser(@Param('id') userId: string, @Request() req) {
+    return this.adminUserService.unflagUser(userId, req.user.id);
   }
 
   // ============ Resource Management Endpoints ============

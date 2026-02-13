@@ -58,6 +58,13 @@ const ACHIEVEMENT_DEFINITIONS = [
   { name: 'Point Elite',       description: 'Earn 10,000 points',                                                                type: AchievementType.LEADERBOARD, iconUrl: '⭐', pointValue: 300,  criteria: { totalPoints: 10000 } },
   { name: 'Living Legend',     description: 'Earn 25,000 points',                                                                type: AchievementType.LEADERBOARD, iconUrl: '🔱', pointValue: 500,  criteria: { totalPoints: 25000 } },
   { name: 'The GOAT',          description: 'Earn 50,000 points — the greatest of all time',                                     type: AchievementType.LEADERBOARD, iconUrl: '🐐', pointValue: 1000, criteria: { totalPoints: 50000 } },
+  // SPEC-REQUIRED: Monthly/Ranking achievements (6 new)
+  { name: 'Monthly Champion',  description: 'Finish #1 on the monthly leaderboard',                                              type: AchievementType.LEADERBOARD, iconUrl: '🏆', pointValue: 100,  criteria: { monthlyRank: 1 } },
+  { name: 'Top 10 Finisher',   description: 'Finish in the top 10 on the monthly leaderboard',                                   type: AchievementType.LEADERBOARD, iconUrl: '🎖️', pointValue: 50,   criteria: { monthlyRank: 10 } },
+  { name: 'Consistency Star',  description: 'Complete 100% of core resources in a month',                                        type: AchievementType.MILESTONE,   iconUrl: '⭐', pointValue: 50,   criteria: { monthlyCoreCompletion: 100 } },
+  { name: 'Deep Diver',        description: 'Complete all optional resources in a session',                                       type: AchievementType.MILESTONE,   iconUrl: '🤿', pointValue: 75,   criteria: { sessionOptionalCompletion: 100 } },
+  { name: 'Thought Leader',    description: 'Post 5 high-quality discussions (AI-scored)',                                        type: AchievementType.SOCIAL,      iconUrl: '💡', pointValue: 80,   criteria: { qualityDiscussionCount: 5 } },
+  { name: 'Quiz Master',       description: 'Finish in the top 3 of a live quiz session',                                        type: AchievementType.MILESTONE,   iconUrl: '🧙', pointValue: 60,   criteria: { liveQuizTop3: 1 } },
 ];
 
 @Injectable()
@@ -70,15 +77,19 @@ export class AchievementsService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    const count = await this.prisma.achievement.count();
-    if (count === 0) {
+    const existing = await this.prisma.achievement.findMany({ select: { name: true } });
+    const existingNames = new Set(existing.map((a) => a.name));
+
+    const missing = ACHIEVEMENT_DEFINITIONS.filter((a) => !existingNames.has(a.name));
+    if (missing.length > 0) {
       await this.prisma.achievement.createMany({
-        data: ACHIEVEMENT_DEFINITIONS.map((a) => ({
+        data: missing.map((a) => ({
           ...a,
           criteria: JSON.stringify(a.criteria),
         })),
+        skipDuplicates: true,
       });
-      this.logger.log(`Bootstrapped ${ACHIEVEMENT_DEFINITIONS.length} achievement definitions`);
+      this.logger.log(`Bootstrapped ${missing.length} new achievement definition(s)`);
     }
   }
 
