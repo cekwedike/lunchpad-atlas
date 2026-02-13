@@ -116,7 +116,7 @@ export class AdminUserService {
     ]);
 
     const now = new Date();
-    const activeThresholdMs = 60 * 60 * 1000;
+    const activeThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
 
     const usersWithStatus = users.map((user) => {
       const lastActiveAt = user.lastLoginAt;

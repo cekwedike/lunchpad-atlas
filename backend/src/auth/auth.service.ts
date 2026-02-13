@@ -118,10 +118,20 @@ export class AuthService {
         firstName: true,
         lastName: true,
         role: true,
+        lastLoginAt: true,
       },
     });
 
     if (!user) return null;
+
+    // Touch lastLoginAt at most once per 15 minutes so "active" status stays current
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    if (!user.lastLoginAt || user.lastLoginAt < fifteenMinutesAgo) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { lastLoginAt: new Date() },
+      });
+    }
 
     return {
       ...user,

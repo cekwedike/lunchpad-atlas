@@ -105,7 +105,7 @@ export default function AdminAnalyticsPage() {
                 <StatCard
                   title="Active Fellows"
                   value={metrics?.activeUsers ?? 0}
-                  sub="Engaged with content"
+                  sub="Active in the last 7 days"
                   icon={TrendingUp}
                   color="bg-emerald-500"
                 />

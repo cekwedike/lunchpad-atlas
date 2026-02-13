@@ -15,8 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  Users, Search, Download, Plus, Edit, Trash2,
+import {
+  Users, Search, Plus, Edit, Trash2,
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen
 } from "lucide-react";
 import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort } from "@/hooks/api/useAdmin";
@@ -266,11 +266,7 @@ export default function AdminUsersPage() {
             <p className="text-gray-600 mt-1">Manage all platform users and their roles</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <Button 
+            <Button
               className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
               onClick={() => {
                 resetForm();
