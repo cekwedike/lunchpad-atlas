@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  RefreshCw, Users, BookOpen, Activity, UserPlus, FileText,
+  RefreshCw, Users, Activity, UserPlus, FileText,
   MessageSquare, Calendar, ChevronRight, Clock, TrendingUp,
-  LayoutDashboard, Settings, Zap, ArrowUpRight, LockOpen, Lock,
+  LayoutDashboard, Settings, Zap, LockOpen, Lock,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,9 +82,7 @@ export default function AdminDashboard() {
 
   const fellowCount = metrics?.roleCounts?.fellowCount || 0;
   const facilitatorCount = metrics?.roleCounts?.facilitatorCount || 0;
-  const engagedFellows = metrics?.activeUsers || 0;
-  const resourceCount = metrics?.resourceCount || 0;
-  const weeklyGrowth = metrics?.weeklyGrowth || 0;
+  const engagementRate = Math.round(metrics?.engagementRate || 0);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -178,19 +176,31 @@ export default function AdminDashboard() {
           )}
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            {/* Engagement Rate */}
             <Card className="bg-white border-gray-200 shadow-sm">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Fellows</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{fellowCount}</p>
-                    {weeklyGrowth !== 0 && (
-                      <p className={`text-xs mt-1 flex items-center gap-0.5 ${weeklyGrowth > 0 ? "text-emerald-600" : "text-red-500"}`}>
-                        <TrendingUp className="h-3 w-3" />
-                        {weeklyGrowth > 0 ? "+" : ""}{weeklyGrowth}% this week
-                      </p>
-                    )}
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Engagement Rate</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">{engagementRate}%</p>
+                    <p className="text-xs text-gray-500 mt-1">of fellows active this week</p>
+                  </div>
+                  <div className="p-2 bg-amber-50 rounded-lg">
+                    <Activity className="h-5 w-5 text-amber-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Fellows (7d) */}
+            <Card className="bg-white border-gray-200 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Active Fellows (7d)</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">{metrics?.activeUsers || 0}</p>
+                    <p className="text-xs text-gray-500 mt-1">of {fellowCount} fellows</p>
                   </div>
                   <div className="p-2 bg-blue-50 rounded-lg">
                     <Users className="h-5 w-5 text-blue-600" />
@@ -199,52 +209,22 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
+            {/* Upcoming Sessions */}
             <Card className="bg-white border-gray-200 shadow-sm">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Facilitators</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{facilitatorCount}</p>
-                    <p className="text-xs text-gray-500 mt-1">Active on platform</p>
-                  </div>
-                  <div className="p-2 bg-emerald-50 rounded-lg">
-                    <Activity className="h-5 w-5 text-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border-gray-200 shadow-sm">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Resources</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{resourceCount}</p>
-                    <p className="text-xs text-gray-500 mt-1">Learning materials</p>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Upcoming Sessions</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">{upcomingSessions.length}</p>
+                    <p className="text-xs text-gray-500 mt-1">scheduled ahead</p>
                   </div>
                   <div className="p-2 bg-violet-50 rounded-lg">
-                    <BookOpen className="h-5 w-5 text-violet-600" />
+                    <Calendar className="h-5 w-5 text-violet-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-gray-200 shadow-sm">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Engaged (7d)</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{engagedFellows}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {fellowCount > 0 ? Math.round((engagedFellows / fellowCount) * 100) : 0}% of fellows
-                    </p>
-                  </div>
-                  <div className="p-2 bg-amber-50 rounded-lg">
-                    <ArrowUpRight className="h-5 w-5 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Main Grid */}

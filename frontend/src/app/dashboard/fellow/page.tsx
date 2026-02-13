@@ -1,344 +1,502 @@
 "use client";
 
-import { 
-  RefreshCw, BookOpen, Target, Award, ArrowRight, 
-  Trophy, Flame, TrendingUp, Sparkles, Zap, Calendar, Rocket
+import {
+  BookOpen, Trophy, Flame, TrendingUp, Award, ArrowRight,
+  Rocket, Target, MessageSquare, RefreshCw, Zap, Sparkles,
+  PlayCircle, Compass, Flag, GraduationCap,
+  PenLine, Pencil, Brain, Medal, CheckCircle, Star,
+  Gamepad2, Monitor, MessageCircle, MessagesSquare,
+  Megaphone, Landmark, Globe, Reply, Mic, Radio, Volume2, Heart,
+  LayoutGrid, Swords, BookMarked, MonitorPlay, Sprout, BadgeCheck, Diamond, Crown,
+  Gem, Wallet, Coins, CircleDollarSign, ShieldCheck, Infinity,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ErrorMessage } from "@/components/ui/error-message";
-import { useProfile, useUserAchievements } from "@/hooks/api/useProfile";
+import { useProfile, useUserAchievements, useAllAchievements, useUserStats } from "@/hooks/api/useProfile";
+import { useResources } from "@/hooks/api/useResources";
+import { useLeaderboardRank } from "@/hooks/api/useLeaderboard";
 import { useAuthStore } from "@/stores/authStore";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
 
+/* ─── Icon map for achievement icons stored as string names in DB ─────── */
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  PlayCircle, BookOpen, Compass, Flag, GraduationCap,
+  PenLine, Pencil, Brain, Medal, CheckCircle, Star, Sparkles, Award,
+  Gamepad2, Monitor, Target, Trophy, Rocket,
+  MessageCircle, MessageSquare, MessagesSquare, Megaphone, Landmark, Globe,
+  Reply, MessageSquareDot: MessageCircle, Mic, Radio, Volume2, Heart,
+  Zap, Flame, LayoutGrid, Swords, BookMarked, MonitorPlay, Sprout,
+  BadgeCheck, Diamond, Crown,
+  TrendingUp, Gem, Wallet, Coins, CircleDollarSign, ShieldCheck,
+  FlameKindling: Flame, Infinity,
+};
+
+function AchievementIcon({ name, className }: { name?: string; className?: string }) {
+  const Icon = (name && ICON_MAP[name]) ? ICON_MAP[name] : Award;
+  return <Icon className={className} />;
+}
+
+/* ─── Donut chart (SVG) ──────────────────────────────────────────────── */
+function DonutChart({ pct, size = 128 }: { pct: number; size?: number }) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const sw = 10;
+  const r = cx - sw / 2 - 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(pct, 100) / 100) * circ;
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {/* Track */}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw} />
+      {/* Fill */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke="#6366f1"
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        transform={`rotate(-90 ${cx} ${cy})`}
+        style={{ transition: "stroke-dashoffset 0.9s ease" }}
+      />
+      <text x={cx} y={cy - 5} textAnchor="middle" fill="#111827" fontSize="20" fontWeight="700" fontFamily="inherit">
+        {pct}%
+      </text>
+      <text x={cx} y={cy + 12} textAnchor="middle" fill="#6b7280" fontSize="9" fontFamily="inherit">
+        COMPLETE
+      </text>
+    </svg>
+  );
+}
+
+/* ─── Page ───────────────────────────────────────────────────────────── */
 export default function FellowDashboard() {
   const { user, _hasHydrated } = useAuthStore();
   const queryClient = useQueryClient();
-  
-  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile();
-  const { data: achievements, isLoading: achievementsLoading } = useUserAchievements();
+  const [lastSynced, setLastSynced] = useState<Date>(new Date());
+
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: userAchievements = [], isLoading: achievementsLoading } = useUserAchievements();
+  const { data: allAchievements = [], isLoading: allAchievementsLoading } = useAllAchievements();
+  const { data: stats, isLoading: statsLoading } = useUserStats();
+  const { data: resources = [], isLoading: resourcesLoading } = useResources();
+  const cohortId = (profile as any)?.cohortId ?? undefined;
+  const { data: rankData, isLoading: rankLoading } = useLeaderboardRank(cohortId);
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['profile'] });
-    queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
+    queryClient.invalidateQueries({ queryKey: ["user"] });
+    queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
+    queryClient.invalidateQueries({ queryKey: ["user-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["leaderboard-rank"] });
+    queryClient.invalidateQueries({ queryKey: ["resources"] });
+    setLastSynced(new Date());
   };
 
-  if (!_hasHydrated) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-            <p className="text-slate-700 font-medium">Loading dashboard...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  /* ── Derived values ── */
+  const firstName  = profile?.firstName || profile?.name?.split(" ")[0] || user?.name?.split(" ")[0] || "there";
+  const initials   = ((profile?.firstName?.[0] ?? "") + (profile?.lastName?.[0] ?? "")).toUpperCase() || firstName.slice(0, 2).toUpperCase();
+  const cohortName = (profile as any)?.cohort?.name ?? null;
 
-  if (profileError && !profileLoading) {
-    return (
-      <DashboardLayout>
-        <ErrorMessage message="Failed to load dashboard data" onRetry={handleRefresh} />
-      </DashboardLayout>
-    );
-  }
+  const resourcesCompleted = profile?.resourcesCompleted ?? stats?.resourcesCompleted ?? 0;
+  const totalPoints        = profile?.totalPoints        ?? stats?.totalPoints        ?? 0;
+  const currentStreak      = profile?.currentStreak      ?? 0;
+  const longestStreak      = profile?.longestStreak      ?? currentStreak;
+  const totalResources     = resources.length;
+  const completionPct      = totalResources > 0 ? Math.round((resourcesCompleted / totalResources) * 100) : 0;
+  const unlockedCount      = (userAchievements as any[]).length;
+  const totalCount         = (allAchievements as any[]).length;
+  const quizzesTaken       = stats?.quizzesTaken      ?? 0;
+  const discussionsPosted  = stats?.discussionsPosted  ?? 0;
+  const myRank             = rankData?.rank       ?? null;
+  const totalRankUsers     = rankData?.totalUsers ?? null;
 
-  const completionRate = profile?.resourcesCompleted ? Math.round((profile.resourcesCompleted / 91) * 100) : 0;
-  const streak = profile?.currentStreak || 0;
+  const pageLoading = !_hasHydrated || profileLoading;
+
+  /* Activity breakdown bars — widths relative to the highest value */
+  const maxAct = Math.max(resourcesCompleted, quizzesTaken, discussionsPosted, 1);
+  const bars = [
+    { label: "Resources",   value: resourcesCompleted, pct: Math.round((resourcesCompleted / maxAct) * 100), color: "bg-indigo-500"  },
+    { label: "Quizzes",     value: quizzesTaken,       pct: Math.round((quizzesTaken       / maxAct) * 100), color: "bg-emerald-500" },
+    { label: "Discussions", value: discussionsPosted,  pct: Math.round((discussionsPosted  / maxAct) * 100), color: "bg-amber-500"   },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-[1600px] mx-auto px-6" suppressHydrationWarning>
-        {/* Dynamic Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 p-1" suppressHydrationWarning>
-          <div className="bg-slate-950 rounded-[22px] p-8 relative overflow-hidden" suppressHydrationWarning>
-            {/* Animated Background Elements */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" suppressHydrationWarning />
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} suppressHydrationWarning />
-            
-            <div className="relative z-10 flex items-center justify-between" suppressHydrationWarning>
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl blur-xl opacity-50"></div>
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-2xl">
-                    <Rocket className="w-10 h-10 text-white" strokeWidth={2} />
-                  </div>
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-white mb-2">
-                    Welcome back, {profile?.name?.split(' ')[0] || user?.name}!
-                  </h1>
-                  <p className="text-cyan-200 text-lg">
-                    {streak > 0 ? `${streak} day streak! You're on fire!` : "Let's start your learning journey today"}
-                  </p>
-                </div>
+      <div className="max-w-6xl mx-auto space-y-6 pb-8">
+
+        {/* ── Header ────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between">
+          <div>
+            {pageLoading ? (
+              <div className="space-y-1.5">
+                <div className="h-6 w-52 rounded bg-gray-200 animate-pulse" />
+                <div className="h-4 w-32 rounded bg-gray-100 animate-pulse" />
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleRefresh} 
-                disabled={profileLoading}
-                className="text-white hover:bg-white/10"
-              >
-                <RefreshCw className={`h-4 w-4 ${profileLoading ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-
-            {/* Stats Bar */}
-            <div className="grid grid-cols-4 gap-4 mt-8" suppressHydrationWarning>
-              <div className="relative group" suppressHydrationWarning>
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
-                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
-                  <div className="flex items-center justify-between mb-2">
-                    <BookOpen className="w-5 h-5 text-cyan-400" strokeWidth={2.5} />
-                    <span className="text-3xl font-black text-white">{profile?.resourcesCompleted || 0}</span>
-                  </div>
-                  <p className="text-sm font-semibold text-white/90">Resources</p>
-                  <p className="text-xs text-cyan-300">of 91 completed</p>
-                </div>
-              </div>
-
-              <div className="relative group" suppressHydrationWarning>
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
-                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
-                  <div className="flex items-center justify-between mb-2">
-                    <Sparkles className="w-5 h-5 text-yellow-400" strokeWidth={2.5} />
-                    <span className="text-3xl font-black text-white">{profile?.totalPoints || 0}</span>
-                  </div>
-                  <p className="text-sm font-semibold text-white/90">Points</p>
-                  <p className="text-xs text-yellow-300">total earned</p>
-                </div>
-              </div>
-
-              <div className="relative group" suppressHydrationWarning>
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
-                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
-                  <div className="flex items-center justify-between mb-2">
-                    <Flame className="w-5 h-5 text-orange-400" strokeWidth={2.5} />
-                    <span className="text-3xl font-black text-white">{streak}</span>
-                  </div>
-                  <p className="text-sm font-semibold text-white/90">Streak</p>
-                  <p className="text-xs text-orange-300">days active</p>
-                </div>
-              </div>
-
-              <div className="relative group" suppressHydrationWarning>
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-xl blur group-hover:blur-md transition-all" suppressHydrationWarning></div>
-                <div className="relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all" suppressHydrationWarning>
-                  <div className="flex items-center justify-between mb-2">
-                    <Trophy className="w-5 h-5 text-emerald-400" strokeWidth={2.5} />
-                    <span className="text-3xl font-black text-white">{achievements?.length || 0}</span>
-                  </div>
-                  <p className="text-sm font-semibold text-white/90">Badges</p>
-                  <p className="text-xs text-emerald-300">achievements</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Progress Section - 2 columns */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Progress Overview */}
-            <Card className="border-0 shadow-xl bg-white overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-2xl flex items-center gap-3 text-slate-900">
-                      <div className="p-2 bg-blue-500 rounded-xl">
-                        <Target className="h-5 w-5 text-white" strokeWidth={2.5} />
-                      </div>
-                      Learning Progress
-                    </CardTitle>
-                    <CardDescription className="text-slate-600 mt-1">Your journey to mastery</CardDescription>
-                  </div>
-                  <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white shadow-md">
-                    <Link href="/resources">
-                      Continue
-                      <ArrowRight className="h-4 w-4 ml-1.5" />
-                    </Link>
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-8">
-                {/* Main Progress Ring/Bar */}
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">Overall Completion</h3>
-                      <p className="text-sm text-slate-600">Track your complete learning path</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-5xl font-black bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                        {completionRate}%
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">{profile?.resourcesCompleted || 0}/91 resources</p>
-                    </div>
-                  </div>
-                  
-                  <div className="relative h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                    <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-400 rounded-full shadow-lg transition-all duration-1000 ease-out"
-                      style={{ width: `${completionRate}%` }}
-                    >
-                      <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                    <div className="relative bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5 hover:shadow-lg transition-all">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-green-500 rounded-xl shadow-md">
-                          <TrendingUp className="w-5 h-5 text-white" strokeWidth={2.5} />
-                        </div>
-                        <span className="text-sm font-bold text-slate-700">Completed</span>
-                      </div>
-                      <p className="text-4xl font-black text-green-600">{profile?.resourcesCompleted || 0}</p>
-                      <p className="text-xs text-green-700 mt-1">resources finished</p>
-                    </div>
-                  </div>
-
-                  <div className="relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                    <div className="relative bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-2xl p-5 hover:shadow-lg transition-all">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-orange-500 rounded-xl shadow-md">
-                          <Flame className="w-5 h-5 text-white" strokeWidth={2.5} />
-                        </div>
-                        <span className="text-sm font-bold text-slate-700">Best Streak</span>
-                      </div>
-                      <p className="text-4xl font-black text-orange-600">{profile?.longestStreak || 0}</p>
-                      <p className="text-xs text-orange-700 mt-1">consecutive days</p>
-                    </div>
-                  </div>
-
-                  <div className="relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                    <div className="relative bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-5 hover:shadow-lg transition-all">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-purple-500 rounded-xl shadow-md">
-                          <Calendar className="w-5 h-5 text-white" strokeWidth={2.5} />
-                        </div>
-                        <span className="text-sm font-bold text-slate-700">This Week</span>
-                      </div>
-                      <p className="text-4xl font-black text-purple-600">3</p>
-                      <p className="text-xs text-purple-700 mt-1">new completions</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Streak Card */}
-            {streak > 0 && (
-              <Card className="border-0 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 text-white shadow-2xl overflow-hidden">
-                <CardContent className="p-6 relative">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-                  <div className="relative flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
-                        <Flame className="w-10 h-10 text-white" strokeWidth={2.5} />
-                      </div>
-                      <div>
-                        <h3 className="text-3xl font-black mb-1">{streak} Day Streak!</h3>
-                        <p className="text-white/90 text-sm">You're crushing it! Keep the momentum going</p>
-                      </div>
-                    </div>
-                    <Button asChild className="bg-white text-orange-600 hover:bg-white/90 font-bold shadow-lg">
-                      <Link href="/resources">
-                        Continue
-                        <Zap className="h-4 w-4 ml-2" />
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+            ) : (
+              <>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Welcome back, {firstName}
+                </h1>
+                {cohortName && (
+                  <p className="text-sm text-gray-600 mt-0.5">{cohortName}</p>
+                )}
+              </>
             )}
           </div>
 
-          {/* Achievements Sidebar */}
-          <div className="space-y-6">
-            <Card className="border-0 shadow-xl bg-white overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
-                <CardTitle className="text-xl flex items-center gap-3 text-slate-900">
-                  <div className="p-2 bg-emerald-500 rounded-xl">
-                    <Trophy className="h-5 w-5 text-white" strokeWidth={2.5} />
-                  </div>
-                  Achievements
-                </CardTitle>
-                <CardDescription className="text-slate-600">Your latest unlocks</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                {achievementsLoading ? (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 animate-pulse">
-                        <div className="h-14 w-14 rounded-xl bg-slate-200" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-slate-200 rounded w-3/4" />
-                          <div className="h-3 bg-slate-200 rounded w-1/2" />
-                        </div>
+          <button
+            onClick={handleRefresh}
+            disabled={profileLoading}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-500 shadow-sm hover:bg-gray-50 hover:text-gray-700 transition disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", profileLoading && "animate-spin")} />
+            <span>
+              {profileLoading
+                ? "Syncing…"
+                : `Synced ${formatDistanceToNow(lastSynced, { addSuffix: true })}`}
+            </span>
+          </button>
+        </div>
+
+        {/* ── Stat cards ────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+          {/* Resources */}
+          <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Resources</p>
+              <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                <BookOpen className="h-4 w-4 text-indigo-600" />
+              </div>
+            </div>
+            {pageLoading || resourcesLoading ? (
+              <div className="h-9 w-16 rounded bg-gray-100 animate-pulse mt-3" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-900 mt-3">{resourcesCompleted}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              {totalResources > 0 ? `of ${totalResources} total` : "completed"}
+            </p>
+            <div className="mt-3 h-1 rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-indigo-500 transition-all duration-700"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Points */}
+          <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Points</p>
+              <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                <Zap className="h-4 w-4 text-violet-600" />
+              </div>
+            </div>
+            {pageLoading ? (
+              <div className="h-9 w-20 rounded bg-gray-100 animate-pulse mt-3" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-900 mt-3">{totalPoints.toLocaleString()}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">total earned</p>
+            {!rankLoading && myRank !== null && (
+              <div className="mt-3 flex items-center gap-1.5">
+                <Trophy className="h-3 w-3 text-amber-500" />
+                <span className="text-xs text-amber-600 font-semibold">Rank #{myRank}</span>
+                {totalRankUsers && (
+                  <span className="text-xs text-gray-400">/ {totalRankUsers}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Streak */}
+          <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Streak</p>
+              <div className="h-8 w-8 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
+                <Flame className="h-4 w-4 text-orange-500" />
+              </div>
+            </div>
+            {pageLoading ? (
+              <div className="h-9 w-12 rounded bg-gray-100 animate-pulse mt-3" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-900 mt-3">{currentStreak}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              {currentStreak === 1 ? "day" : "days"} &middot; best {longestStreak}
+            </p>
+            {/* 7-day pip indicator */}
+            <div className="mt-3 flex gap-1">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "h-1.5 flex-1 rounded-full transition-colors",
+                    i < currentStreak ? "bg-orange-400" : "bg-gray-100"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Achievements */}
+          <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Achievements</p>
+              <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                <Award className="h-4 w-4 text-amber-500" />
+              </div>
+            </div>
+            {achievementsLoading ? (
+              <div className="h-9 w-12 rounded bg-gray-100 animate-pulse mt-3" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-900 mt-3">{unlockedCount}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              {totalCount > 0 ? `of ${totalCount} available` : "unlocked"}
+            </p>
+            {!achievementsLoading && !allAchievementsLoading && totalCount > 0 && (
+              <div className="mt-3 h-1 rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-amber-400 transition-all duration-700"
+                  style={{ width: `${Math.round((unlockedCount / totalCount) * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Main grid ─────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* ─ Left (2/3) ──────────────────────────────────────────────── */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Progress overview */}
+            <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+                <div>
+                  <h2 className="font-semibold text-gray-900">Progress Overview</h2>
+                  <p className="text-sm text-gray-600 mt-0.5">Your learning journey at a glance</p>
+                </div>
+                <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 px-4 text-xs">
+                  <Link href="/resources">
+                    Continue <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </div>
+
+              <div className="px-6 py-6 flex flex-col sm:flex-row items-center gap-8">
+                {/* Donut */}
+                <div className="shrink-0">
+                  {pageLoading || resourcesLoading ? (
+                    <div className="h-32 w-32 rounded-full bg-gray-100 animate-pulse" />
+                  ) : (
+                    <DonutChart pct={completionPct} size={128} />
+                  )}
+                </div>
+
+                {/* Activity bars */}
+                <div className="flex-1 w-full space-y-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Activity Breakdown
+                  </p>
+                  {bars.map(({ label, value, pct, color }) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm text-gray-700">{label}</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {statsLoading && label !== "Resources" ? (
+                            <span className="inline-block h-4 w-5 rounded bg-gray-100 animate-pulse" />
+                          ) : (
+                            value
+                          )}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                ) : achievements && achievements.length > 0 ? (
-                  <div className="space-y-3">
-                    {achievements.slice(0, 5).map((achievement) => (
-                      <div 
-                        key={achievement.id} 
-                        className="group relative cursor-pointer"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-xl opacity-0 group-hover:opacity-10 transition-opacity blur-sm"></div>
-                        <div className="relative flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 hover:shadow-lg transition-all">
-                          <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-md">
-                            <Award className="h-6 w-6 text-white" strokeWidth={2.5} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-slate-900 truncate text-sm">
-                              {achievement.achievement?.title || 'Achievement'}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {new Date(achievement.unlockedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
+                      <div className="h-2 rounded-full bg-gray-100">
+                        <div
+                          className={cn("h-full rounded-full transition-all duration-700", color)}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
-                    ))}
-                    <Button asChild variant="outline" className="w-full mt-4 border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold">
-                      <Link href="/profile#achievements">
-                        View All
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Link>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                      <Trophy className="h-10 w-10 text-emerald-400" strokeWidth={2} />
                     </div>
-                    <h3 className="font-bold text-slate-900 mb-2">No achievements yet</h3>
-                    <p className="text-sm text-slate-600 mb-4 px-4">
-                      Start learning to unlock your first badge!
-                    </p>
-                    <Button asChild size="sm" className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg">
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick access */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Quick Access
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { href: "/resources",    icon: BookOpen,      label: "Resources",     iconClass: "text-indigo-500",  bg: "hover:bg-indigo-50 hover:border-indigo-200" },
+                  { href: "/leaderboard",  icon: TrendingUp,    label: "Leaderboard",   iconClass: "text-amber-500",   bg: "hover:bg-amber-50 hover:border-amber-200"  },
+                  { href: "/discussions",  icon: MessageSquare, label: "Discussions",   iconClass: "text-sky-500",     bg: "hover:bg-sky-50 hover:border-sky-200"       },
+                  { href: "/achievements", icon: Award,         label: "Achievements",  iconClass: "text-violet-500",  bg: "hover:bg-violet-50 hover:border-violet-200" },
+                ].map(({ href, icon: Icon, label, iconClass, bg }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "group flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-5 text-center shadow-sm transition-all",
+                      bg
+                    )}
+                  >
+                    <Icon className={cn("h-5 w-5 transition-transform group-hover:scale-110", iconClass)} />
+                    <span className="text-xs font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                      {label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ─ Right (1/3) ─────────────────────────────────────────────── */}
+          <div className="space-y-4">
+
+            {/* Recent achievements */}
+            <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900">Recent Achievements</h2>
+                {!achievementsLoading && !allAchievementsLoading && totalCount > 0 && (
+                  <span className="text-xs text-gray-500">{unlockedCount} / {totalCount}</span>
+                )}
+              </div>
+
+              <div className="p-4 space-y-1">
+                {achievementsLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
+                      <div className="h-8 w-8 shrink-0 rounded-lg bg-gray-100" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 w-3/4 rounded bg-gray-100" />
+                        <div className="h-2.5 w-1/2 rounded bg-gray-100" />
+                      </div>
+                      <div className="h-4 w-8 rounded bg-gray-100" />
+                    </div>
+                  ))
+                ) : (userAchievements as any[]).length > 0 ? (
+                  <>
+                    {(userAchievements as any[]).slice(0, 5).map((ua: any) => (
+                      <div
+                        key={ua.id}
+                        className="flex items-center gap-3 rounded-xl p-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="h-8 w-8 shrink-0 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center">
+                          <AchievementIcon
+                            name={ua.achievement?.iconUrl}
+                            className="h-3.5 w-3.5 text-amber-500"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {ua.achievement?.name || "Achievement"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {ua.unlockedAt
+                              ? formatDistanceToNow(new Date(ua.unlockedAt), { addSuffix: true })
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs font-semibold text-amber-600">
+                          +{ua.achievement?.pointValue ?? 0}
+                        </span>
+                      </div>
+                    ))}
+
+                    <Link
+                      href="/achievements"
+                      className="flex items-center justify-center gap-1.5 mt-2 rounded-xl border border-dashed border-gray-200 py-2.5 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+                    >
+                      View all achievements <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center py-8 text-center gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+                      <Trophy className="h-6 w-6 text-gray-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">No achievements yet</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Complete resources to earn your first achievement
+                      </p>
+                    </div>
+                    <Button asChild size="sm" className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
                       <Link href="/resources">
-                        <Rocket className="h-4 w-4 mr-2" />
-                        Get Started
+                        <Rocket className="mr-1.5 h-3 w-3" />
+                        Start Learning
                       </Link>
                     </Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            {/* Leaderboard rank */}
+            {!rankLoading && myRank !== null && (
+              <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <Trophy className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+                      Leaderboard Rank
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">#{myRank}</p>
+                  </div>
+                </div>
+                {totalRankUsers && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Out of {totalRankUsers} fellows in your cohort
+                  </p>
+                )}
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-3 h-8 border-gray-200 text-gray-700 hover:bg-gray-50 text-xs"
+                >
+                  <Link href="/leaderboard">View Full Leaderboard</Link>
+                </Button>
+              </div>
+            )}
+
+            {/* Streak card — shown when streak active but no rank yet */}
+            {!rankLoading && myRank === null && currentStreak > 0 && !pageLoading && (
+              <div className="rounded-2xl bg-white border border-orange-100 shadow-sm p-5">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+                    <Flame className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+                      Current Streak
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">{currentStreak} days</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Best streak: {longestStreak} days</p>
+                <Button asChild size="sm" className="w-full mt-3 h-8 bg-orange-500 hover:bg-orange-600 text-white text-xs">
+                  <Link href="/resources">
+                    Keep it going <Zap className="ml-1.5 h-3 w-3" />
+                  </Link>
+                </Button>
+              </div>
+            )}
+
           </div>
         </div>
       </div>

@@ -48,6 +48,14 @@ export function useAllAchievements() {
   });
 }
 
+export interface UserStats {
+  resourcesCompleted?: number;
+  totalPoints?: number;
+  quizzesTaken?: number;
+  discussionsPosted?: number;
+  currentStreak?: number;
+}
+
 export function useUserStats(userId?: string) {
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
@@ -56,7 +64,7 @@ export function useUserStats(userId?: string) {
     queryKey: ['user-stats', targetUserId],
     queryFn: async () => {
       const endpoint = userId ? `/users/${userId}/stats` : '/users/me/stats';
-      return apiClient.get(endpoint);
+      return apiClient.get<UserStats>(endpoint);
     },
     enabled: userId ? !!userId : (isAuthenticated && !!currentUser),
     retry: false,

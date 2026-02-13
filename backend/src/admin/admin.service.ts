@@ -362,9 +362,10 @@ export class AdminService {
         where: {
           role: 'FELLOW',
           OR: [
-            { resourceProgress: { some: {} } },
-            { discussions: { some: {} } },
-            { quizResponses: { some: {} } },
+            { lastLoginAt: { gte: sevenDaysAgo } },
+            { resourceProgress: { some: { updatedAt: { gte: sevenDaysAgo } } } },
+            { discussions: { some: { createdAt: { gte: sevenDaysAgo } } } },
+            { quizResponses: { some: { completedAt: { gte: sevenDaysAgo } } } },
           ],
         },
       }),
