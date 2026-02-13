@@ -15,6 +15,7 @@ import {
   FileQuestion, Plus, Trash2, Clock, Award, Sparkles, Loader2,
   ChevronDown, ChevronUp, CheckCircle, BookOpen, Zap, CalendarClock,
   LockOpen, Lock, Edit2, RefreshCw, Bell, Play, Users, Trophy, X,
+  Square,
 } from "lucide-react";
 import {
   useCohorts, useSessions, useCohortQuizzes, useCreateQuiz,
@@ -24,6 +25,7 @@ import {
 import {
   useCreateLiveQuiz, useDeleteLiveQuiz, useCohortLiveQuizzes,
   useStartLiveQuiz, useLiveQuiz, useLiveQuizLeaderboard,
+  useCompleteQuiz,
 } from "@/hooks/api/useLiveQuiz";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -286,16 +288,24 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
 // ─── Live Quiz Manage Panel ───────────────────────────────────────────────────
 function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: string; cohortId: string; open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const { data: quiz, isLoading } = useLiveQuiz(quizId);
+  // Poll every 3s when the panel is open so leaderboard/join status stay live
+  const { data: quiz, isLoading } = useLiveQuiz(quizId, { refetchInterval: 3000 });
   const { data: leaderboard } = useLiveQuizLeaderboard(quizId);
   const { data: members = [] } = useCohortMembers(cohortId);
   const startQuiz = useStartLiveQuiz();
   const notifyQuiz = useNotifyLiveQuiz();
+  const completeQuiz = useCompleteQuiz();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fellows = members.filter((m: any) => m.role === 'FELLOW');
   const joinedIds = new Set((quiz?.participants ?? []).map((p: any) => p.userId));
   const sortedLeaderboard = [...(leaderboard ?? [])].sort((a: any, b: any) => b.totalScore - a.totalScore);
+
+  const handleStart = async () => {
+    await startQuiz.mutateAsync(quizId);
+    // Auto-notify all fellows that the quiz has started
+    notifyQuiz.mutate(quizId);
+  };
 
   const STATUS_LABEL: Record<string, string> = { PENDING: "Waiting for players", ACTIVE: "Quiz in progress", COMPLETED: "Completed", CANCELLED: "Cancelled" };
   const STATUS_COLOR: Record<string, string> = { PENDING: "bg-yellow-100 text-yellow-700", ACTIVE: "bg-green-100 text-green-700", COMPLETED: "bg-gray-100 text-gray-600", CANCELLED: "bg-red-100 text-red-600" };
@@ -339,13 +349,26 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
                     <Button size="sm" variant="outline" className="gap-1" onClick={() => notifyQuiz.mutate(quizId)} disabled={notifyQuiz.isPending}>
                       <Bell className="h-3.5 w-3.5" /> Notify
                     </Button>
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => startQuiz.mutate(quizId)} disabled={startQuiz.isPending || joinedIds.size === 0}>
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={handleStart} disabled={startQuiz.isPending || joinedIds.size === 0}>
                       <Play className="h-3.5 w-3.5" /> {startQuiz.isPending ? "Starting…" : "Start Quiz"}
                     </Button>
                   </>
                 )}
+                {quiz.status === "ACTIVE" && (
+                  <Button size="sm" variant="outline" className="gap-1 text-red-600 border-red-200 hover:bg-red-50" onClick={() => completeQuiz.mutate(quizId)} disabled={completeQuiz.isPending}>
+                    <Square className="h-3.5 w-3.5" /> End Quiz
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* Self-paced note */}
+            {quiz.status === "ACTIVE" && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700 flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                Fellows are answering at their own pace. Use <strong>End Quiz</strong> when ready to reveal final results.
+              </div>
+            )}
 
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-3 text-center">

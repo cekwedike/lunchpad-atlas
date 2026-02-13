@@ -12,7 +12,7 @@ import {
   Zap, BookOpen, Trophy, ChevronRight, Loader2,
 } from "lucide-react";
 import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQuizzes";
-import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard } from "@/hooks/api/useLiveQuiz";
+import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard, useLiveQuiz, useSubmitAnswer } from "@/hooks/api/useLiveQuiz";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 
@@ -169,6 +169,252 @@ function QuizCard({ quiz }: { quiz: FellowQuiz }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Live Quiz Taker ──────────────────────────────────────────────────────────
+// Fellow-paced: each fellow controls their own question advancement.
+// No server sync needed — each fellow is fully independent.
+function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantId: string }) {
+  // Load once; the parent polls for status changes (ACTIVE→COMPLETED)
+  const { data: quiz } = useLiveQuiz(quizId);
+  const submitAnswer = useSubmitAnswer();
+
+  const [localIdx, setLocalIdx] = useState(0);
+  // phase: 'answering' → fellow picking; 'result' → feedback shown + Next button
+  const [phase, setPhase] = useState<'answering' | 'result'>('answering');
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [answerResult, setAnswerResult] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+
+  const questions: any[] = (quiz as any)?.questions ?? [];
+  const currentQuestion = questions[localIdx] ?? null;
+  const isFinished = questions.length > 0 && localIdx >= questions.length;
+
+  // Reset state each time we move to a new question
+  useEffect(() => {
+    if (!currentQuestion) return;
+    setPhase('answering');
+    setSelectedAnswer(null);
+    setAnswerResult(null);
+    setTimeLeft(currentQuestion.timeLimit ?? 30);
+    setQuestionStartTime(Date.now());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localIdx, currentQuestion?.id]);
+
+  // Countdown while answering
+  useEffect(() => {
+    if (phase !== 'answering' || !currentQuestion || timeLeft <= 0) return;
+    const t = setTimeout(() => setTimeLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, phase, currentQuestion?.id]);
+
+  // Auto-transition to result when timer hits 0
+  useEffect(() => {
+    if (phase === 'answering' && timeLeft === 0 && currentQuestion) {
+      setPhase('result');
+    }
+  }, [timeLeft, phase, currentQuestion]);
+
+  const handleAnswer = async (idx: number) => {
+    if (phase !== 'answering' || !currentQuestion || timeLeft === 0) return;
+    setSelectedAnswer(idx);
+    setPhase('result');
+    try {
+      const res = await submitAnswer.mutateAsync({
+        participantId,
+        questionId: currentQuestion.id,
+        selectedAnswer: idx,
+        timeToAnswer: Date.now() - questionStartTime,
+      });
+      setAnswerResult(res);
+    } catch { /* already answered or network error */ }
+  };
+
+  const handleNext = () => setLocalIdx((i) => i + 1);
+
+  // Loading state
+  if (!quiz || (!currentQuestion && !isFinished)) {
+    return (
+      <div className="mt-4 border-t border-amber-100 pt-4 flex items-center justify-center py-6 gap-2 text-gray-500">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Loading quiz…</span>
+      </div>
+    );
+  }
+
+  // All questions answered — waiting for the quiz to end
+  if (isFinished) {
+    return (
+      <div className="mt-4 border-t border-amber-100 pt-4 flex flex-col items-center py-6 gap-3 text-center">
+        <div className="text-5xl">🎉</div>
+        <p className="font-bold text-gray-900 text-lg">Quiz complete!</p>
+        <p className="text-sm text-gray-500">Waiting for final results…</p>
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <Loader2 className="h-3 w-3 animate-spin" /> Hang tight
+        </div>
+      </div>
+    );
+  }
+
+  const options: any[] = Array.isArray(currentQuestion.options) ? currentQuestion.options : [];
+  const OPTION_BG = [
+    "bg-red-500 hover:bg-red-600",
+    "bg-blue-500 hover:bg-blue-600",
+    "bg-yellow-500 hover:bg-yellow-600",
+    "bg-green-500 hover:bg-green-600",
+  ];
+  const SHAPES = ["◆", "●", "▲", "■"];
+  const correctIdx: number = currentQuestion.correctAnswer;
+  const timeLimit: number = currentQuestion.timeLimit ?? 30;
+  const isTimedOut = phase === 'result' && selectedAnswer === null;
+  const isLastQuestion = localIdx >= questions.length - 1;
+  const correctOptionText = (() => {
+    const o = options[correctIdx];
+    return typeof o === "string" ? o : o?.text ?? "";
+  })();
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-amber-100 pt-4">
+      {/* Progress + timer */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-500 font-medium">
+          Question {localIdx + 1} / {quiz.totalQuestions || questions.length}
+        </span>
+        <span className={cn(
+          "flex items-center gap-1 font-bold px-2.5 py-1 rounded-full",
+          phase === 'result'  ? "bg-gray-100 text-gray-400" :
+          timeLeft <= 5  ? "bg-red-100 text-red-700 animate-pulse" :
+          timeLeft <= 10 ? "bg-orange-100 text-orange-700" :
+          "bg-amber-50 text-amber-700",
+        )}>
+          <Clock className="h-3 w-3" />
+          {phase === 'result' ? "–" : `${timeLeft}s`}
+        </span>
+      </div>
+
+      {/* Timer progress bar */}
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-1000",
+            phase === 'result' ? "opacity-0" :
+            timeLeft <= 5 ? "bg-red-500" : timeLeft <= 10 ? "bg-orange-400" : "bg-amber-400",
+          )}
+          style={{ width: `${(timeLeft / timeLimit) * 100}%` }}
+        />
+      </div>
+
+      {/* Question */}
+      <div className="bg-gray-900 text-white rounded-xl px-5 py-4 text-center">
+        <p className="font-semibold text-base leading-snug">{currentQuestion.questionText}</p>
+      </div>
+
+      {/* Answer grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((opt: any, idx: number) => {
+          const text = typeof opt === "string" ? opt : opt?.text ?? "";
+          const isSelected = selectedAnswer === idx;
+          const isCorrectOpt = phase === 'result' && idx === correctIdx;
+          const isWrongOpt   = phase === 'result' && isSelected && idx !== correctIdx;
+
+          return (
+            <button
+              key={idx}
+              disabled={phase === 'result'}
+              onClick={() => handleAnswer(idx)}
+              className={cn(
+                "rounded-xl px-3 py-4 text-white text-sm font-bold min-h-[60px] flex items-center gap-2 justify-center transition-all",
+                isCorrectOpt ? "bg-green-500 ring-4 ring-green-300 scale-105" :
+                isWrongOpt   ? "bg-gray-400 line-through opacity-60" :
+                phase === 'result'  ? "bg-gray-300 text-gray-500 opacity-40" :
+                isSelected   ? `${OPTION_BG[idx]} ring-4 ring-white/50` :
+                OPTION_BG[idx],
+                phase === 'answering' && "active:scale-95 cursor-pointer",
+              )}
+            >
+              <span className="text-xs opacity-60">{SHAPES[idx]}</span>
+              <span>{text}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Result feedback + Next button */}
+      {phase === 'result' && (
+        <div className="space-y-2">
+          {/* Feedback banner */}
+          {isTimedOut ? (
+            <div className="rounded-lg px-4 py-3 flex items-center gap-3 border-2 bg-orange-50 border-orange-200">
+              <span className="text-2xl">⏰</span>
+              <div>
+                <p className="text-sm font-bold text-orange-700">Time's up!</p>
+                <p className="text-xs text-gray-500">
+                  Correct: <span className="font-semibold text-green-600">{correctOptionText}</span>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className={cn(
+              "rounded-lg px-4 py-3 flex items-center justify-between border-2",
+              answerResult?.isCorrect ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300",
+            )}>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">
+                  {answerResult == null ? "⏳" : answerResult.isCorrect ? "🎉" : "😬"}
+                </span>
+                <div>
+                  <p className={cn(
+                    "text-sm font-bold",
+                    answerResult == null ? "text-gray-500" :
+                    answerResult.isCorrect ? "text-green-700" : "text-red-600",
+                  )}>
+                    {answerResult == null ? "Submitting…" :
+                     answerResult.isCorrect ? "Correct!" : "Wrong answer"}
+                  </p>
+                  {answerResult?.newStreak > 1 && (
+                    <p className="text-xs text-amber-600">🔥 {answerResult.newStreak}× streak!</p>
+                  )}
+                  {!answerResult?.isCorrect && answerResult != null && (
+                    <p className="text-xs text-gray-500">
+                      Correct: <span className="font-semibold text-green-600">{correctOptionText}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              {answerResult?.isCorrect && (
+                <div className="text-right">
+                  <p className="text-xl font-bold text-green-700">
+                    +{answerResult.pointsEarned + (answerResult.streakBonus || 0)}
+                  </p>
+                  {answerResult.streakBonus > 0 && (
+                    <p className="text-xs text-amber-600">incl. +{answerResult.streakBonus} streak</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Next / Finish button */}
+          <button
+            onClick={handleNext}
+            className={cn(
+              "w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md",
+              isLastQuestion
+                ? "bg-purple-600 hover:bg-purple-700"
+                : "bg-amber-500 hover:bg-amber-600",
+            )}
+          >
+            {isLastQuestion ? (
+              <><Trophy className="h-4 w-4" /> See Results</>
+            ) : (
+              <>Next Question <ChevronRight className="h-4 w-4" /></>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -362,6 +608,11 @@ function LiveQuizCard({ quiz }: { quiz: any }) {
               </div>
             )}
 
+            {/* Question answering interface (ACTIVE + joined) */}
+            {quiz.status === "ACTIVE" && hasJoined && quiz.participants?.[0]?.id && (
+              <LiveQuizTaker quizId={quiz.id} participantId={quiz.participants[0].id} />
+            )}
+
             {/* Final leaderboard for completed quizzes */}
             {quiz.status === "COMPLETED" && user && (
               <LiveQuizResults quizId={quiz.id} currentUserId={user.id} />
@@ -385,7 +636,8 @@ const FILTER_TABS: Array<{ key: QuizStatus | "ALL"; label: string }> = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function QuizzesPage() {
   const { data: quizzes, isLoading, error } = useMyQuizzes();
-  const { data: liveQuizzes = [] } = useMyLiveQuizzes();
+  // Poll every 5s so PENDING→ACTIVE status changes are detected without manual refresh
+  const { data: liveQuizzes = [] } = useMyLiveQuizzes({ refetchInterval: 5000 });
   const [filter, setFilter] = useState<QuizStatus | "ALL">("ALL");
 
   const allQuizzes = quizzes ?? [];

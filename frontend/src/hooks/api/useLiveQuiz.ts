@@ -16,12 +16,13 @@ const LIVE_QUIZ_KEYS = {
   participantAnswers: (participantId: string) => [...LIVE_QUIZ_KEYS.all, 'participant', participantId, 'answers'] as const,
 };
 
-// Get quiz by ID
-export function useLiveQuiz(quizId: string) {
+// Get quiz by ID (supports polling via refetchInterval option)
+export function useLiveQuiz(quizId: string, options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: LIVE_QUIZ_KEYS.detail(quizId),
     queryFn: () => apiClient.get<LiveQuiz>(`/live-quiz/${quizId}`),
     enabled: !!quizId,
+    ...(options?.refetchInterval !== undefined ? { refetchInterval: options.refetchInterval } : {}),
   });
 }
 
@@ -35,10 +36,11 @@ export function useSessionLiveQuizzes(sessionId: string) {
 }
 
 // Get live quizzes for the current user's cohort (fellow-facing)
-export function useMyLiveQuizzes() {
+export function useMyLiveQuizzes(options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: [...LIVE_QUIZ_KEYS.all, 'my'] as const,
     queryFn: () => apiClient.get<LiveQuiz[]>('/live-quiz/my'),
+    ...(options?.refetchInterval !== undefined ? { refetchInterval: options.refetchInterval } : {}),
   });
 }
 
@@ -57,7 +59,7 @@ export function useLiveQuizLeaderboard(quizId: string, options?: { refetchInterv
     queryKey: LIVE_QUIZ_KEYS.leaderboard(quizId),
     queryFn: () => apiClient.get<LiveQuizParticipant[]>(`/live-quiz/${quizId}/leaderboard`),
     enabled: !!quizId,
-    refetchInterval: options?.refetchInterval ?? 2000, // Refresh every 2 seconds during active quiz; pass false for static results
+    refetchInterval: options?.refetchInterval ?? 2000,
   });
 }
 
@@ -66,7 +68,7 @@ export function useCreateLiveQuiz() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateLiveQuizDto) => 
+    mutationFn: (data: CreateLiveQuizDto) =>
       apiClient.post<LiveQuiz>('/live-quiz', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.all });
@@ -84,7 +86,6 @@ export function useJoinLiveQuiz() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.detail(variables.quizId) });
       queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.leaderboard(variables.quizId) });
-      // Refresh the fellow's quiz list so the "Joined" badge appears
       queryClient.invalidateQueries({ queryKey: [...LIVE_QUIZ_KEYS.all, 'my'] });
     },
   });
@@ -95,10 +96,37 @@ export function useStartLiveQuiz() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (quizId: string) => 
+    mutationFn: (quizId: string) =>
       apiClient.post<LiveQuiz>(`/live-quiz/${quizId}/start`, {}),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.all });
+    },
+  });
+}
+
+// Move to next question (facilitator/admin only)
+export function useNextQuestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ quizId, questionIndex }: { quizId: string; questionIndex: number }) =>
+      apiClient.post<LiveQuiz>(`/live-quiz/${quizId}/next-question`, { questionIndex }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.all });
+    },
+  });
+}
+
+// Complete quiz early (facilitator/admin only)
+export function useCompleteQuiz() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (quizId: string) =>
+      apiClient.post<LiveQuiz>(`/live-quiz/${quizId}/complete`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.all });
     },
   });
 }
@@ -111,9 +139,8 @@ export function useSubmitAnswer() {
     mutationFn: (data: SubmitAnswerDto) =>
       apiClient.post('/live-quiz/answer', data),
     onSuccess: (_, variables) => {
-      // Invalidate participant's answers and leaderboard
-      queryClient.invalidateQueries({ 
-        queryKey: LIVE_QUIZ_KEYS.participantAnswers(variables.participantId) 
+      queryClient.invalidateQueries({
+        queryKey: LIVE_QUIZ_KEYS.participantAnswers(variables.participantId)
       });
     },
   });
@@ -124,7 +151,7 @@ export function useDeleteLiveQuiz() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (quizId: string) => 
+    mutationFn: (quizId: string) =>
       apiClient.delete(`/live-quiz/${quizId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.all });

@@ -64,6 +64,14 @@ export class LiveQuizController {
     return this.liveQuizService.startQuiz(id);
   }
 
+  // Move to next question (Facilitator/Admin only)
+  @Post(':id/next-question')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
+  nextQuestion(@Param('id') id: string, @Body() body: { questionIndex: number }) {
+    return this.liveQuizService.nextQuestion(id, body.questionIndex);
+  }
+
   // Complete a quiz (Facilitator/Admin only)
   @Post(':id/complete')
   @UseGuards(RolesGuard)
