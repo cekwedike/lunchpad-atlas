@@ -77,10 +77,9 @@ async function main() {
     },
   });
 
-  // Link facilitator to cohort
-  await prisma.cohort.update({
-    where: { id: cohort.id },
-    data: { facilitatorId: facilitator.id },
+  // Link facilitator to cohort via join table
+  await (prisma as any).cohortFacilitator.create({
+    data: { cohortId: cohort.id, userId: facilitator.id },
   });
 
   const admin = await prisma.user.create({

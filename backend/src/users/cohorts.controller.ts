@@ -33,7 +33,7 @@ export class CohortsController {
         include: COHORT_INCLUDE,
         orderBy: { startDate: 'desc' },
       });
-    } else if (user.role === 'FACILITATOR' || (user.role === 'ADMIN' && user.isFacilitator)) {
+    } else if (user.role === 'FACILITATOR') {
       const conditions: any[] = [{ facilitators: { some: { userId: req.user.id } } }];
       if (user.cohortId) conditions.push({ id: user.cohortId });
       cohorts = await this.prisma.cohort.findMany({

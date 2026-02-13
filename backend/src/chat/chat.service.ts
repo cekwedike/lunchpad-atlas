@@ -43,13 +43,12 @@ export class ChatService {
 
     const cohort = await this.prisma.cohort.findUnique({
       where: { id: createChannelDto.cohortId },
-      select: { id: true, name: true, facilitatorId: true },
+      select: { id: true, name: true },
     });
 
     if (cohort) {
       const recipients = await this.getChatNotificationRecipients(
         cohort.id,
-        cohort.facilitatorId,
         userId,
       );
 
@@ -321,14 +320,8 @@ export class ChatService {
       },
     });
 
-    const cohort = await this.prisma.cohort.findUnique({
-      where: { id: message.channel.cohortId },
-      select: { facilitatorId: true },
-    });
-
     const recipients = await this.getChatNotificationRecipients(
       message.channel.cohortId,
-      cohort?.facilitatorId || null,
       userId,
     );
 
@@ -438,14 +431,8 @@ export class ChatService {
       },
     });
 
-    const cohort = await this.prisma.cohort.findUnique({
-      where: { id: updated.cohortId },
-      select: { facilitatorId: true },
-    });
-
     const recipients = await this.getChatNotificationRecipients(
       updated.cohortId,
-      cohort?.facilitatorId || null,
       userId,
     );
 
@@ -588,22 +575,26 @@ export class ChatService {
 
   private async getChatNotificationRecipients(
     cohortId: string,
-    facilitatorId: string | null,
     excludeUserId: string,
   ): Promise<string[]> {
-    const recipients = await this.prisma.user.findMany({
-      where: {
-        OR: [{ role: 'ADMIN' }, { cohortId }],
-        id: { not: excludeUserId },
-      },
-      select: { id: true },
-    });
+    const [members, facilitators] = await Promise.all([
+      this.prisma.user.findMany({
+        where: {
+          OR: [{ role: 'ADMIN' }, { cohortId }],
+          id: { not: excludeUserId },
+        },
+        select: { id: true },
+      }),
+      (this.prisma as any).cohortFacilitator.findMany({
+        where: { cohortId },
+        select: { userId: true },
+      }),
+    ]);
 
-    const recipientIds = new Set(recipients.map((recipient) => recipient.id));
-
-    if (facilitatorId && facilitatorId !== excludeUserId) {
-      recipientIds.add(facilitatorId);
-    }
+    const recipientIds = new Set<string>([
+      ...members.map((r: any) => r.id),
+      ...facilitators.map((f: any) => f.userId).filter((id: string) => id !== excludeUserId),
+    ]);
 
     return Array.from(recipientIds);
   }

@@ -26,7 +26,9 @@ export class UsersService {
           select: { id: true, name: true },
         },
         facilitatedCohorts: {
-          select: { id: true, name: true },
+          select: {
+            cohort: { select: { id: true, name: true } },
+          },
         },
       },
     });
