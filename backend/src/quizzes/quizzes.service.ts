@@ -92,15 +92,20 @@ export class QuizzesService {
     // Fetch all quizzes for this cohort (session-linked + direct)
     const [sessionQuizzes, cohortQuizzes] = await Promise.all([
       this.prisma.quiz.findMany({
-        where: { session: { cohortId } },
+        where: {
+          quizType: 'SESSION',
+          sessions: { some: { session: { cohortId } } },
+        } as any,
         include: {
-          session: { select: { id: true, title: true, sessionNumber: true } },
+          sessions: {
+            include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+          },
           _count: { select: { questions: true } },
-        },
+        } as any,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.quiz.findMany({
-        where: { cohortId, sessionId: null } as any,
+        where: { cohortId, quizType: { in: ['GENERAL', 'MEGA'] } } as any,
         include: {
           _count: { select: { questions: true } },
         },
@@ -141,10 +146,10 @@ export class QuizzesService {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id },
       include: {
-        session: {
-          select: { id: true, title: true },
+        sessions: {
+          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
         },
-      },
+      } as any,
     });
 
     if (!quiz) {

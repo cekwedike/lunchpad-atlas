@@ -37,6 +37,12 @@ export class LiveQuizController {
     return this.liveQuizService.findOne(id);
   }
 
+  // Get all live quizzes for a cohort
+  @Get('cohort/:cohortId')
+  findByCohort(@Param('cohortId') cohortId: string) {
+    return this.liveQuizService.findByCohort(cohortId);
+  }
+
   // Get all quizzes for a session
   @Get('session/:sessionId')
   findBySession(@Param('sessionId') sessionId: string) {

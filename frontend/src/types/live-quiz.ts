@@ -36,7 +36,7 @@ export interface LiveQuizParticipant {
 
 export interface LiveQuiz {
   id: string;
-  sessionId: string;
+  sessions?: Array<{ session: { id: string; title: string } }>;
   title: string;
   description?: string;
   totalQuestions: number;
@@ -52,7 +52,7 @@ export interface LiveQuiz {
 }
 
 export interface CreateLiveQuizDto {
-  sessionId: string;
+  sessionIds: string[];
   title: string;
   description?: string;
   timePerQuestion?: number;

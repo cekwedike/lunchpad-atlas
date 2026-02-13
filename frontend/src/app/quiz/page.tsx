@@ -100,9 +100,9 @@ function QuizCard({ quiz }: { quiz: FellowQuiz }) {
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 text-base leading-tight truncate">{quiz.title}</h3>
-                {quiz.session && (
+                {quiz.sessions && quiz.sessions.length > 0 && (
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Session {quiz.session.sessionNumber}: {quiz.session.title}
+                    {quiz.sessions.map((qs: any) => `S${qs.session.sessionNumber}: ${qs.session.title}`).join(' · ')}
                   </p>
                 )}
                 {quiz.description && (

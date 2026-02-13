@@ -569,7 +569,7 @@ export function useCreateQuiz() {
       title: string;
       description?: string;
       cohortId: string;
-      sessionId?: string;
+      sessionIds?: string[];
       quizType: 'SESSION' | 'GENERAL' | 'MEGA';
       timeLimit: number;
       passingScore: number;
@@ -602,8 +602,9 @@ export function useDeleteQuiz() {
 export function useGenerateAIQuestions() {
   return useMutation({
     mutationFn: (dto: {
-      topic: string;
-      context?: string;
+      quizTitle?: string;
+      sessionIds?: string[];
+      cohortId?: string;
       questionCount: number;
       difficulty: 'easy' | 'medium' | 'hard';
     }) => apiClient.post<{ questions: Array<{ question: string; options: string[]; correctAnswer: string; order: number }> }>('/admin/quizzes/generate-ai', dto),

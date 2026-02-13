@@ -1039,17 +1039,22 @@ export class AdminService {
   // ============ Quiz Management Methods ============
 
   async getCohortQuizzes(cohortId: string) {
-    // Session-linked quizzes (via session → cohort)
+    // Session-linked quizzes (SESSION type — linked via junction table)
     const sessionQuizzes = await this.prisma.quiz.findMany({
-      where: { session: { cohortId } },
+      where: {
+        quizType: 'SESSION',
+        sessions: { some: { session: { cohortId } } },
+      } as any,
       include: {
-        session: { select: { id: true, title: true, sessionNumber: true } },
+        sessions: {
+          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+        },
         _count: { select: { questions: true, responses: true } },
-      },
+      } as any,
       orderBy: { createdAt: 'desc' },
     });
 
-    // Direct cohort quizzes (GENERAL / MEGA)
+    // Direct cohort quizzes (GENERAL / MEGA — no session link)
     const cohortQuizzes = await this.prisma.quiz.findMany({
       where: { cohortId, quizType: { in: ['GENERAL', 'MEGA'] } } as any,
       include: {
@@ -1067,13 +1072,15 @@ export class AdminService {
         title: dto.title,
         description: dto.description,
         cohortId: dto.cohortId,
-        sessionId: dto.sessionId || undefined,
         quizType: dto.quizType,
         timeLimit: dto.timeLimit,
         passingScore: dto.passingScore,
         pointValue: dto.pointValue,
         openAt: dto.openAt ? new Date(dto.openAt) : undefined,
         closeAt: dto.closeAt ? new Date(dto.closeAt) : undefined,
+        sessions: dto.sessionIds?.length
+          ? { create: dto.sessionIds.map((sessionId) => ({ sessionId })) }
+          : undefined,
         questions: {
           create: dto.questions.map((q, i) => ({
             question: q.question,
@@ -1082,12 +1089,15 @@ export class AdminService {
             order: q.order ?? i + 1,
           })),
         },
-      } as any, // Prisma client types may lag behind schema - regenerate client to remove this cast
+      } as any,
       include: {
-        session: { select: { id: true, title: true, sessionNumber: true } },
+        sessions: {
+          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+          orderBy: { session: { sessionNumber: 'asc' } },
+        },
         questions: { orderBy: { order: 'asc' } },
         _count: { select: { questions: true } },
-      },
+      } as any,
     });
   }
 
@@ -1101,13 +1111,49 @@ export class AdminService {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new BadGatewayException('Gemini API key not configured');
 
+    // Resolve session IDs — for MEGA (cohortId only), fetch all sessions in cohort
+    let sessionIds = dto.sessionIds ?? [];
+    if (!sessionIds.length && dto.cohortId) {
+      const cohortSessions = await this.prisma.session.findMany({
+        where: { cohortId: dto.cohortId },
+        select: { id: true },
+      });
+      sessionIds = cohortSessions.map((s) => s.id);
+    }
+
+    // Fetch transcripts + session titles for any resolved session IDs
+    let transcriptContext = '';
+    let sessionTitlesFromDb: string[] = [];
+    if (sessionIds.length) {
+      const analytics = await (this.prisma.sessionAnalytics as any).findMany({
+        where: { sessionId: { in: sessionIds }, transcript: { not: null } },
+        select: { transcript: true, session: { select: { title: true } } },
+      });
+      sessionTitlesFromDb = analytics
+        .map((a: any) => a.session?.title)
+        .filter(Boolean);
+      // Truncate each transcript to avoid token limits (≈2000 chars each)
+      transcriptContext = analytics
+        .filter((a: any) => a.transcript)
+        .map((a: any) => (a.transcript as string).slice(0, 2000))
+        .join('\n\n---\n\n');
+    }
+
+    // Derive topic: explicit > quiz title > session titles > fallback
+    const topic =
+      dto.topic ||
+      dto.quizTitle ||
+      (sessionTitlesFromDb.length ? sessionTitlesFromDb.join(', ') : 'career development');
+
+    const context = transcriptContext || dto.context;
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
       generationConfig: { temperature: 0.7 },
     });
 
-    const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${dto.topic}"${dto.context ? `\n\nAdditional context: ${dto.context}` : ''}
+    const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nBase your questions on the following session content:\n${context}` : ''}
 
 Return ONLY a JSON array with no explanation or markdown fences:
 [
@@ -1122,6 +1168,7 @@ Rules:
 - Each question must have exactly 4 options
 - correctAnswer must be one of the options verbatim
 - ${dto.difficulty === 'easy' ? 'Simple recall/recognition questions' : dto.difficulty === 'medium' ? 'Comprehension and application questions' : 'Analysis and evaluation questions'}
+- Questions should be directly relevant to the topic/session content above
 - Questions should be clear, unambiguous, and educational`;
 
     let result: any;

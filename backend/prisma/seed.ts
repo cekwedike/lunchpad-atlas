@@ -1602,9 +1602,9 @@ async function main() {
   console.log(`✅ Total resources created: 93`);
 
   // Create quiz
-  const quiz1 = await prisma.quiz.create({
+  const quiz1 = await (prisma.quiz as any).create({
     data: {
-      sessionId: session1.id,
+      sessions: { create: [{ sessionId: session1.id }] },
       title: 'Career Planning Fundamentals Quiz',
       description: 'Test your knowledge of career planning basics',
       timeLimit: 15,

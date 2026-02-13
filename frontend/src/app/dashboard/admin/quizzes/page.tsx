@@ -20,7 +20,7 @@ import {
   useCohorts, useSessions, useCohortQuizzes, useCreateQuiz,
   useDeleteQuiz, useGenerateAIQuestions,
 } from "@/hooks/api/useAdmin";
-import { useCreateLiveQuiz, useDeleteLiveQuiz, useSessionLiveQuizzes } from "@/hooks/api/useLiveQuiz";
+import { useCreateLiveQuiz, useDeleteLiveQuiz, useCohortLiveQuizzes } from "@/hooks/api/useLiveQuiz";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,9 +60,9 @@ function StandardQuizCard({
           <div className="flex items-start justify-between gap-2 flex-wrap">
             <div>
               <p className="font-semibold text-gray-900 text-sm">{quiz.title}</p>
-              {quiz.session && (
+              {quiz.sessions?.length > 0 && (
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Session {quiz.session.sessionNumber}: {quiz.session.title}
+                  {quiz.sessions.map((qs: any) => `S${qs.session.sessionNumber}: ${qs.session.title}`).join(' · ')}
                 </p>
               )}
             </div>
@@ -217,8 +217,6 @@ function CreateStandardQuizDialog({
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
 
   // AI generation state
-  const [aiTopic, setAiTopic] = useState("");
-  const [aiContext, setAiContext] = useState("");
   const [aiCount, setAiCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [showAiForm, setShowAiForm] = useState(false);
@@ -230,7 +228,7 @@ function CreateStandardQuizDialog({
     setTitle(""); setDescription(""); setQuizType("SESSION"); setSelectedSessionIds([]);
     setTimeLimit(0); setPassingScore(70); setPointValue(200); setQuestions([]);
     setOpenAt(""); setCloseAt("");
-    setAiTopic(""); setAiContext(""); setAiCount(5); setAiDifficulty("medium");
+    setAiCount(5); setAiDifficulty("medium");
     setShowAiForm(false);
   };
 
@@ -241,10 +239,10 @@ function CreateStandardQuizDialog({
   };
 
   const handleGenerateAI = async () => {
-    if (!aiTopic.trim()) { toast.error("Enter a topic first"); return; }
     const result = await generateAI.mutateAsync({
-      topic: aiTopic,
-      context: aiContext || undefined,
+      quizTitle: title || undefined,
+      sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
+      cohortId: quizType === "MEGA" ? cohortId : undefined,
       questionCount: aiCount,
       difficulty: aiDifficulty,
     });
@@ -284,29 +282,15 @@ function CreateStandardQuizDialog({
     const invalid = questions.find((q) => !q.question.trim() || !q.correctAnswer || q.options.some((o) => !o.trim()));
     if (invalid) { toast.error("All questions must have text, 4 options, and a correct answer"); return; }
 
-    const basePayload = {
+    await createQuiz.mutateAsync({
       title, description: description || undefined,
       cohortId, quizType, timeLimit, passingScore, pointValue,
       openAt: openAt || undefined,
       closeAt: closeAt || undefined,
+      sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
       questions: questions.map((q, i) => ({ ...q, order: i + 1 })),
-    };
-
-    if (quizType === "SESSION") {
-      // Create one quiz per selected session
-      await Promise.all(
-        selectedSessionIds.map((sid, i) =>
-          createQuiz.mutateAsync({
-            ...basePayload,
-            title: selectedSessionIds.length > 1 ? `${title} (S${sessions.find((s) => s.id === sid)?.sessionNumber ?? i + 1})` : title,
-            sessionId: sid,
-          })
-        )
-      );
-      toast.success(selectedSessionIds.length > 1 ? `${selectedSessionIds.length} quizzes created` : "Quiz created");
-    } else {
-      await createQuiz.mutateAsync({ ...basePayload, sessionId: undefined });
-    }
+    });
+    toast.success("Quiz created");
     resetForm();
     onClose();
   };
@@ -353,7 +337,7 @@ function CreateStandardQuizDialog({
                 ))}
               </div>
               <p className="text-xs text-gray-400">
-                {quizType === "SESSION" && "Linked to one or more sessions — creates one quiz per session"}
+                {quizType === "SESSION" && "Linked to one or more sessions — one quiz covers all selected sessions"}
                 {quizType === "GENERAL" && "Cohort-wide quiz, not tied to any session"}
                 {quizType === "MEGA" && "End-of-month mega quiz with high point value"}
               </p>
@@ -388,7 +372,7 @@ function CreateStandardQuizDialog({
                 {selectedSessionIds.length > 1 && (
                   <p className="text-xs text-violet-600 flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
-                    Will create {selectedSessionIds.length} separate quizzes (one per session)
+                    {selectedSessionIds.length} sessions linked to this quiz
                   </p>
                 )}
               </div>
@@ -470,25 +454,21 @@ function CreateStandardQuizDialog({
                 <p className="text-sm font-medium text-purple-800 flex items-center gap-2">
                   <Sparkles className="h-4 w-4" /> Generate Questions with ATLAS
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1 sm:col-span-2">
-                    <Label className="text-xs font-medium">Topic *</Label>
-                    <Input
-                      placeholder="e.g. Career development, networking skills, resume writing"
-                      value={aiTopic}
-                      onChange={(e) => setAiTopic(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <Label className="text-xs font-medium">Context (optional)</Label>
-                    <Input
-                      placeholder="Add any specific context or focus area"
-                      value={aiContext}
-                      onChange={(e) => setAiContext(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
+                {/* Context summary — what ATLAS will use */}
+                <div className="text-xs text-purple-700 bg-purple-100 rounded-lg px-3 py-2 space-y-0.5">
+                  <p className="font-medium">ATLAS will base questions on:</p>
+                  {title && <p>• Quiz title: <span className="font-semibold">{title}</span></p>}
+                  {quizType === "SESSION" && selectedSessionIds.length > 0 && (
+                    <p>• {selectedSessionIds.length} selected session{selectedSessionIds.length > 1 ? "s" : ""} (transcripts auto-imported)</p>
+                  )}
+                  {quizType === "MEGA" && (
+                    <p>• All analysed sessions in cohort (transcripts auto-imported)</p>
+                  )}
+                  {quizType === "GENERAL" && !title && (
+                    <p>• General career development content</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs font-medium">Question Count</Label>
                     <Input type="number" min={1} max={20} value={aiCount} onChange={(e) => setAiCount(Number(e.target.value))} className="text-sm" />
@@ -579,8 +559,6 @@ function CreateStandardQuizDialog({
           >
             {createQuiz.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating…</>
-            ) : quizType === "SESSION" && selectedSessionIds.length > 1 ? (
-              `Create ${selectedSessionIds.length} Quizzes`
             ) : (
               "Create Quiz"
             )}
@@ -602,7 +580,7 @@ function CreateLiveQuizDialog({
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [sessionId, setSessionId] = useState("");
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [timePerQuestion, setTimePerQuestion] = useState(30);
   const [questions, setQuestions] = useState<Array<{
     questionText: string;
@@ -614,7 +592,6 @@ function CreateLiveQuizDialog({
 
   // AI state
   const [showAiForm, setShowAiForm] = useState(false);
-  const [aiTopic, setAiTopic] = useState("");
   const [aiCount, setAiCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState<"easy" | "medium" | "hard">("medium");
 
@@ -623,15 +600,25 @@ function CreateLiveQuizDialog({
 
   const OPTION_COLORS = ["red", "blue", "yellow", "green"] as const;
 
+  const toggleLiveSession = (id: string) => {
+    setSelectedSessionIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
+
   const resetForm = () => {
-    setTitle(""); setDescription(""); setSessionId("");
+    setTitle(""); setDescription(""); setSelectedSessionIds([]);
     setTimePerQuestion(30); setQuestions([]);
-    setShowAiForm(false); setAiTopic(""); setAiCount(5);
+    setShowAiForm(false); setAiCount(5);
   };
 
   const handleGenerateAI = async () => {
-    if (!aiTopic.trim()) { toast.error("Enter a topic first"); return; }
-    const result = await generateAI.mutateAsync({ topic: aiTopic, questionCount: aiCount, difficulty: aiDifficulty });
+    const result = await generateAI.mutateAsync({
+      quizTitle: title || undefined,
+      sessionIds: selectedSessionIds.length ? selectedSessionIds : undefined,
+      questionCount: aiCount,
+      difficulty: aiDifficulty,
+    });
     const drafts = result.questions.map((q) => ({
       questionText: q.question,
       options: q.options.slice(0, 4).concat(["", "", "", ""]).slice(0, 4) as [string, string, string, string],
@@ -650,24 +637,27 @@ function CreateLiveQuizDialog({
 
   const handleCreate = async () => {
     if (!title.trim()) { toast.error("Title is required"); return; }
-    if (!sessionId) { toast.error("Select a session"); return; }
+    if (selectedSessionIds.length === 0) { toast.error("Select at least one session"); return; }
     if (questions.length === 0) { toast.error("Add at least one question"); return; }
     const invalid = questions.find((q) => !q.questionText.trim() || q.options.some((o) => !o.trim()));
     if (invalid) { toast.error("All questions must have text and 4 options"); return; }
 
+    const payload = questions.map((q) => ({
+      questionText: q.questionText,
+      options: q.options.map((text, i) => ({ text, color: OPTION_COLORS[i] })),
+      correctAnswer: q.correctAnswer,
+      timeLimit: q.timeLimit,
+      pointValue: q.pointValue,
+    }));
+
     await createLiveQuiz.mutateAsync({
-      sessionId,
+      sessionIds: selectedSessionIds,
       title,
       description: description || undefined,
       timePerQuestion,
-      questions: questions.map((q) => ({
-        questionText: q.questionText,
-        options: q.options.map((text, i) => ({ text, color: OPTION_COLORS[i] })),
-        correctAnswer: q.correctAnswer,
-        timeLimit: q.timeLimit,
-        pointValue: q.pointValue,
-      })),
+      questions: payload,
     });
+    toast.success("Live quiz created");
     resetForm();
     onClose();
   };
@@ -692,18 +682,36 @@ function CreateLiveQuizDialog({
               <Label className="text-sm font-medium">Description</Label>
               <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-sm font-medium">Session *</Label>
-              <select
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                className="w-full h-10 border border-gray-300 rounded-md px-3 text-sm bg-white"
-              >
-                <option value="">Select session…</option>
-                {sessions.map((s: any) => (
-                  <option key={s.id} value={s.id}>S{s.sessionNumber}: {s.title}</option>
-                ))}
-              </select>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-sm font-medium">
+                Sessions * <span className="text-gray-400 font-normal">({selectedSessionIds.length} selected)</span>
+              </Label>
+              <div className="border border-gray-200 rounded-lg max-h-36 overflow-y-auto divide-y divide-gray-100">
+                {sessions.length === 0 ? (
+                  <p className="p-3 text-sm text-gray-400 text-center">No sessions in this cohort</p>
+                ) : (
+                  sessions.map((s: any) => (
+                    <label key={s.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-amber-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedSessionIds.includes(s.id)}
+                        onChange={() => toggleLiveSession(s.id)}
+                        className="accent-amber-500"
+                      />
+                      <span className="text-sm text-gray-800">
+                        <span className="font-medium text-amber-600">S{s.sessionNumber}</span>
+                        {" — "}{s.title}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {selectedSessionIds.length > 1 && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  {selectedSessionIds.length} sessions linked to this quiz
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-sm font-medium">Default Seconds / Question</Label>
@@ -733,11 +741,15 @@ function CreateLiveQuizDialog({
                 <p className="text-sm font-medium text-purple-800 flex items-center gap-2">
                   <Sparkles className="h-4 w-4" /> Generate with ATLAS
                 </p>
+                <div className="text-xs text-purple-700 bg-purple-100 rounded-lg px-3 py-2 space-y-0.5">
+                  <p className="font-medium">ATLAS will base questions on:</p>
+                  {title && <p>• Quiz title: <span className="font-semibold">{title}</span></p>}
+                  {selectedSessionIds.length > 0 && (
+                    <p>• {selectedSessionIds.length} selected session{selectedSessionIds.length > 1 ? "s" : ""} (transcripts auto-imported)</p>
+                  )}
+                  {!title && selectedSessionIds.length === 0 && <p>• General career development content</p>}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1 col-span-2">
-                    <Label className="text-xs font-medium">Topic *</Label>
-                    <Input placeholder="Quiz topic" value={aiTopic} onChange={(e) => setAiTopic(e.target.value)} className="text-sm" />
-                  </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-medium">Count</Label>
                     <Input type="number" min={1} max={20} value={aiCount} onChange={(e) => setAiCount(Number(e.target.value))} className="text-sm" />
@@ -818,7 +830,11 @@ function CreateLiveQuizDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => { resetForm(); onClose(); }}>Cancel</Button>
           <Button onClick={handleCreate} disabled={createLiveQuiz.isPending} className="bg-amber-500 hover:bg-amber-600">
-            {createLiveQuiz.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating…</> : "Create Mega Quiz"}
+            {createLiveQuiz.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating…</>
+            ) : (
+              "Create Live Quiz"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -829,7 +845,6 @@ function CreateLiveQuizDialog({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function QuizManagementPage() {
   const [selectedCohortId, setSelectedCohortId] = useState("");
-  const [selectedSessionId, setSelectedSessionId] = useState("");
   const [activeTab, setActiveTab] = useState<QuizTab>("standard");
   const [typeFilter, setTypeFilter] = useState<QuizTypeFilter>("ALL");
   const [showCreateStandard, setShowCreateStandard] = useState(false);
@@ -842,7 +857,7 @@ export default function QuizManagementPage() {
   const sessions: any[] = Array.isArray(sessionsData) ? sessionsData : (sessionsData as any)?.sessions ?? [];
 
   const { data: quizData, isLoading: loadingQuizzes } = useCohortQuizzes(selectedCohortId || undefined);
-  const { data: liveQuizzes, isLoading: loadingLive } = useSessionLiveQuizzes(selectedSessionId);
+  const { data: liveQuizzes, isLoading: loadingLive } = useCohortLiveQuizzes(selectedCohortId);
 
   const deleteQuiz = useDeleteQuiz();
   const deleteLiveQuiz = useDeleteLiveQuiz();
@@ -873,7 +888,7 @@ export default function QuizManagementPage() {
               <select
                 className="w-full sm:w-80 p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
                 value={selectedCohortId}
-                onChange={(e) => { setSelectedCohortId(e.target.value); setSelectedSessionId(""); }}
+                onChange={(e) => { setSelectedCohortId(e.target.value); }}
               >
                 <option value="">Select a cohort</option>
                 {cohorts.map((c: any) => (
@@ -973,20 +988,7 @@ export default function QuizManagementPage() {
             {/* ── Live / Mega Quizzes Tab ── */}
             {activeTab === "live" && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-gray-600 shrink-0">Session</label>
-                    <select
-                      className="p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
-                      value={selectedSessionId}
-                      onChange={(e) => setSelectedSessionId(e.target.value)}
-                    >
-                      <option value="">Select session…</option>
-                      {sessions.map((s: any) => (
-                        <option key={s.id} value={s.id}>S{s.sessionNumber}: {s.title}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="flex items-center justify-end">
                   <Button
                     size="sm"
                     onClick={() => setShowCreateLive(true)}
@@ -996,14 +998,7 @@ export default function QuizManagementPage() {
                   </Button>
                 </div>
 
-                {!selectedSessionId ? (
-                  <Card className="bg-white border-gray-200 shadow-sm">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-gray-400">
-                      <Zap className="h-10 w-10 mb-2 text-gray-200" />
-                      <p className="text-sm font-medium">Select a session to see its live quizzes</p>
-                    </CardContent>
-                  </Card>
-                ) : loadingLive ? (
+                {loadingLive ? (
                   <div className="space-y-3">
                     {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
                   </div>
@@ -1011,7 +1006,7 @@ export default function QuizManagementPage() {
                   <Card className="bg-white border-gray-200 shadow-sm">
                     <CardContent className="flex flex-col items-center justify-center py-12 text-gray-400">
                       <Zap className="h-10 w-10 mb-2 text-gray-200" />
-                      <p className="text-sm font-medium">No live quizzes for this session</p>
+                      <p className="text-sm font-medium">No live quizzes yet</p>
                       <p className="text-xs mt-1">Create a Mega Quiz to run a Kahoot-style live game</p>
                     </CardContent>
                   </Card>

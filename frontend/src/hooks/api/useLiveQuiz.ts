@@ -34,6 +34,15 @@ export function useSessionLiveQuizzes(sessionId: string) {
   });
 }
 
+// Get all live quizzes for a cohort
+export function useCohortLiveQuizzes(cohortId: string) {
+  return useQuery({
+    queryKey: [...LIVE_QUIZ_KEYS.all, 'cohort', cohortId] as const,
+    queryFn: () => apiClient.get<LiveQuiz[]>(`/live-quiz/cohort/${cohortId}`),
+    enabled: !!cohortId,
+  });
+}
+
 // Get leaderboard
 export function useLiveQuizLeaderboard(quizId: string) {
   return useQuery({

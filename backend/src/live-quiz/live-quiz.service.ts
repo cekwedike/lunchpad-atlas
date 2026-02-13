@@ -16,17 +16,19 @@ export class LiveQuizService {
 
   // Create a new live quiz
   async create(createDto: CreateLiveQuizDto) {
-    const quiz = await this.prisma.liveQuiz.create({
+    const quiz = await (this.prisma.liveQuiz as any).create({
       data: {
-        sessionId: createDto.sessionId,
         title: createDto.title,
         description: createDto.description,
         totalQuestions: createDto.questions.length,
         timePerQuestion: createDto.timePerQuestion || 30,
+        sessions: {
+          create: createDto.sessionIds.map((sessionId) => ({ sessionId })),
+        },
         questions: {
           create: createDto.questions.map((q, index) => ({
             questionText: q.questionText,
-            options: q.options as any, // Prisma will serialize as JSON
+            options: q.options as any,
             correctAnswer: q.correctAnswer,
             orderIndex: index,
             timeLimit: q.timeLimit || createDto.timePerQuestion || 30,
@@ -35,9 +37,8 @@ export class LiveQuizService {
         },
       },
       include: {
-        questions: {
-          orderBy: { orderIndex: 'asc' },
-        },
+        sessions: { include: { session: { select: { id: true, title: true } } } },
+        questions: { orderBy: { orderIndex: 'asc' } },
       },
     });
 
@@ -74,18 +75,31 @@ export class LiveQuizService {
     return quiz;
   }
 
+  // Get all live quizzes for a cohort
+  async findByCohort(cohortId: string) {
+    return (this.prisma.liveQuiz as any).findMany({
+      where: {
+        sessions: {
+          some: { session: { cohortId } },
+        },
+      },
+      include: {
+        sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },
+        questions: { orderBy: { orderIndex: 'asc' } },
+        participants: { take: 10, orderBy: { totalScore: 'desc' } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   // Get all quizzes for a session
   async findBySession(sessionId: string) {
-    return this.prisma.liveQuiz.findMany({
-      where: { sessionId },
+    return (this.prisma.liveQuiz as any).findMany({
+      where: { sessions: { some: { sessionId } } },
       include: {
-        questions: {
-          orderBy: { orderIndex: 'asc' },
-        },
-        participants: {
-          take: 10,
-          orderBy: { totalScore: 'desc' },
-        },
+        sessions: { include: { session: { select: { id: true, title: true } } } },
+        questions: { orderBy: { orderIndex: 'asc' } },
+        participants: { take: 10, orderBy: { totalScore: 'desc' } },
       },
       orderBy: { createdAt: 'desc' },
     });

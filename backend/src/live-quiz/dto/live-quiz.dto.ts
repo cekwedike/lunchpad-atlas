@@ -6,6 +6,7 @@ import {
   Min,
   IsArray,
   ValidateNested,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -45,9 +46,9 @@ export class CreateLiveQuizQuestionDto {
 }
 
 export class CreateLiveQuizDto {
-  @IsString()
-  @IsNotEmpty()
-  sessionId: string;
+  @IsArray()
+  @IsUUID('4', { each: true })
+  sessionIds: string[];
 
   @IsString()
   @IsNotEmpty()

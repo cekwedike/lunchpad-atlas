@@ -225,10 +225,11 @@ export class CreateQuizDto {
   @IsUUID()
   cohortId: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ type: [String], required: false })
   @IsOptional()
-  @IsUUID()
-  sessionId?: string;
+  @IsArray()
+  @IsUUID('4', { each: true })
+  sessionIds?: string[];
 
   @ApiProperty({ enum: ['SESSION', 'GENERAL', 'MEGA'] })
   @IsEnum(['SESSION', 'GENERAL', 'MEGA'])
@@ -267,15 +268,31 @@ export class CreateQuizDto {
 }
 
 export class GenerateAIQuestionsDto {
-  @ApiProperty()
-  @IsNotEmpty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  topic: string;
+  topic?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  quizTitle?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   context?: string;
+
+  @ApiProperty({ type: [String], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  sessionIds?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  cohortId?: string;
 
   @ApiProperty()
   @IsInt()

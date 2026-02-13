@@ -18,7 +18,7 @@ export interface FellowQuiz {
   closeAt: string | null;
   createdAt: string;
   status: QuizStatus;
-  session?: { id: string; title: string; sessionNumber: number } | null;
+  sessions?: Array<{ session: { id: string; title: string; sessionNumber: number } }>;
   _count: { questions: number };
 }
 
