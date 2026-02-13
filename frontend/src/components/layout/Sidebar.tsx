@@ -9,7 +9,6 @@ import {
   Trophy,
   User,
   Users,
-  Settings,
   Calendar,
   BarChart3,
   ChevronLeft,
@@ -70,11 +69,6 @@ export function Sidebar() {
       href: '/leaderboard',
       icon: Trophy,
     },
-    {
-      title: 'Profile',
-      href: '/profile',
-      icon: User,
-    },
   ];
 
   const getFacilitatorItems = (): NavItem[] => [
@@ -117,11 +111,6 @@ export function Sidebar() {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
-    },
-    {
-      title: 'Profile',
-      href: '/profile',
-      icon: User,
     },
   ];
 
@@ -175,16 +164,6 @@ export function Sidebar() {
       title: 'Resources (View)',
       href: '/resources',
       icon: GraduationCap,
-    },
-    {
-      title: 'Settings',
-      href: '/dashboard/admin/settings',
-      icon: Settings,
-    },
-    {
-      title: 'Profile',
-      href: '/profile',
-      icon: User,
     },
   ];
 

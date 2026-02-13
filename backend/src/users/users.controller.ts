@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Patch,
   Post,
   Body,
   UseGuards,
@@ -32,6 +33,7 @@ export class UsersController {
   }
 
   @Put('me')
+  @Patch('me')
   updateMyProfile(@Request() req, @Body() dto: UpdateUserDto) {
     return this.usersService.updateProfile(req.user.id, dto);
   }

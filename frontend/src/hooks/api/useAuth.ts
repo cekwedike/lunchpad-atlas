@@ -106,20 +106,34 @@ export function useLogout() {
 }
 
 export function useUpdateProfile() {
-  const { setUser, user } = useAuthStore();
+  const { setUser } = useAuthStore();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: Partial<User>) => {
-      return apiClient.patch<User>('/users/me', data);
+      return apiClient.put<User>('/users/me', data);
     },
     onSuccess: (data) => {
       setUser(data);
-      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success('Profile updated', 'Your changes have been saved');
     },
     onError: (error: any) => {
       toast.error('Update failed', error.message || 'Could not update profile');
+    },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      return apiClient.post('/users/me/change-password', data);
+    },
+    onSuccess: () => {
+      toast.success('Password changed', 'Your password has been updated');
+    },
+    onError: (error: any) => {
+      toast.error('Password change failed', error.message || 'Incorrect current password');
     },
   });
 }

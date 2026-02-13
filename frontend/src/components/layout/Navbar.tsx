@@ -1,7 +1,6 @@
 'use client';
 
-import { Search, Menu, Trophy, User, LogOut, Settings } from 'lucide-react';
-import { useProfile } from '@/hooks/api/useProfile';
+import { Search, Menu, Trophy, User, LogOut } from 'lucide-react';
 import { useLeaderboardRank } from '@/hooks/api/useLeaderboard';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -23,7 +22,6 @@ import { NotificationBell } from '@/components/Notifications';
 export function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
-  const { data: profile } = useProfile();
   // Only show leaderboard trophy for fellows
   const showTrophy = isAuthenticated && user && user.role === 'FELLOW';
   // Get leaderboard score for fellow
@@ -125,13 +123,7 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/profile#settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
+                    Profile &amp; Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

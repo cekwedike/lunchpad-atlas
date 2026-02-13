@@ -1,360 +1,442 @@
 "use client";
 
-import { useState } from "react";
-import { User, Award, Settings, FileText, MessageSquare, ClipboardCheck, Calendar, Lock, Trophy, Edit2, Save, X } from "lucide-react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  User, Award, Settings, FileText, MessageSquare,
+  ClipboardCheck, Trophy, Edit2, Save, X, Lock, Loader2,
+  Calendar, Users, Eye, EyeOff, CheckCircle2, Shield,
+  GraduationCap, Zap,
+} from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar } from "@/components/ui/avatar";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { EmptyState } from "@/components/EmptyState";
-import { StatCard } from "@/components/StatCard";
 import { useProfile, useUserAchievements, useUserStats } from "@/hooks/api/useProfile";
-import { useUpdateProfile } from "@/hooks/api/useAuth";
-import { UserRole } from "@/types/api";
+import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 
-const profileUpdateSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+// ─── Schemas ──────────────────────────────────────────────────────────────────
+const profileSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
 });
 
-type ProfileUpdateData = z.infer<typeof profileUpdateSchema>;
-
-export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState("profile");
-  const [isEditing, setIsEditing] = useState(false);
-  
-  const { data: profile, isLoading: isLoadingProfile, error: profileError, refetch: refetchProfile } = useProfile();
-  const { data: achievements, isLoading: isLoadingAchievements } = useUserAchievements();
-  const { data: stats, isLoading: isLoadingStats } = useUserStats();
-  const updateProfile = useUpdateProfile();
-  
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<ProfileUpdateData>({
-    resolver: zodResolver(profileUpdateSchema),
-    values: profile ? {
-      name: profile.name || '',
-      email: profile.email || '',
-    } : undefined,
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(6, "At least 6 characters"),
+    newPassword: z.string().min(6, "At least 6 characters"),
+    confirmPassword: z.string().min(6, "At least 6 characters"),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
   });
 
-  const onSubmit = async (data: ProfileUpdateData) => {
+type ProfileData = z.infer<typeof profileSchema>;
+type PasswordData = z.infer<typeof passwordSchema>;
+
+// ─── Role config ──────────────────────────────────────────────────────────────
+const ROLE_CFG: Record<string, {
+  label: string; badgeBg: string; badgeText: string;
+  headerGrad: string; icon: React.ComponentType<{ className?: string }>;
+}> = {
+  FELLOW:      { label: "Fellow",      badgeBg: "bg-blue-100",   badgeText: "text-blue-800",  headerGrad: "from-blue-600 to-cyan-500",     icon: User },
+  FACILITATOR: { label: "Facilitator", badgeBg: "bg-green-100",  badgeText: "text-green-800", headerGrad: "from-green-600 to-teal-500",    icon: GraduationCap },
+  ADMIN:       { label: "Admin",       badgeBg: "bg-red-100",    badgeText: "text-red-800",   headerGrad: "from-red-600 to-rose-500",      icon: Shield },
+};
+
+// ─── Password field with show/hide toggle ─────────────────────────────────────
+function PasswordInput({ label, error, defaultShow = false, ...props }: { label: string; error?: string; defaultShow?: boolean } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const [show, setShow] = useState(defaultShow);
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <div className="relative">
+        <Input
+          {...props}
+          type={show ? "text" : "password"}
+          className="pr-10"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setShow((s) => !s)}
+          className="absolute inset-y-0 right-2.5 flex items-center text-gray-400 hover:text-gray-600"
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+      {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+// ─── Change Password form (shared across roles) ───────────────────────────────
+function ChangePasswordSection() {
+  const changePassword = useChangePassword();
+  const [succeeded, setSucceeded] = useState(false);
+
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<PasswordData>({
+    resolver: zodResolver(passwordSchema),
+  });
+
+  const onSubmit = async (data: PasswordData) => {
     try {
-      await updateProfile.mutateAsync({
-        name: data.name,
-        email: data.email,
+      await changePassword.mutateAsync({
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
       });
-      await refetchProfile();
-      reset({ name: data.name, email: data.email });
-      setIsEditing(false);
-    } catch (error) {
-      // Errors are handled in the hook
+      reset();
+      setSucceeded(true);
+      setTimeout(() => setSucceeded(false), 4000);
+    } catch {
+      // toast shown by hook
     }
   };
 
-  const handleCancelEdit = () => {
-    reset({
-      name: profile?.name || '',
-      email: profile?.email || '',
-    });
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-base font-bold text-gray-900">Change Password</h3>
+        <p className="text-sm text-gray-500 mt-0.5">Your password must be at least 6 characters.</p>
+      </div>
+
+      {succeeded && (
+        <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Password updated successfully!
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-sm">
+        <PasswordInput
+          label="Current Password"
+          placeholder="Enter your current password"
+          error={errors.currentPassword?.message}
+          defaultShow={true}
+          {...register("currentPassword")}
+        />
+        <PasswordInput
+          label="New Password"
+          placeholder="Choose a new password"
+          error={errors.newPassword?.message}
+          {...register("newPassword")}
+        />
+        <PasswordInput
+          label="Confirm New Password"
+          placeholder="Repeat your new password"
+          error={errors.confirmPassword?.message}
+          {...register("confirmPassword")}
+        />
+        <Button type="submit" size="sm" disabled={changePassword.isPending} className="gap-1.5">
+          {changePassword.isPending
+            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Updating…</>
+            : <><Lock className="h-3.5 w-3.5" /> Update Password</>
+          }
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+// ─── Inner page ───────────────────────────────────────────────────────────────
+function ProfilePageInner() {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "profile");
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+
+  const { data: profile, isLoading, error, refetch } = useProfile();
+  const { data: achievements, isLoading: loadingAchievements } = useUserAchievements();
+  const { data: stats, isLoading: loadingStats } = useUserStats();
+  const updateProfile = useUpdateProfile();
+
+  const { register, handleSubmit, formState: { errors }, reset: resetProfile } = useForm<ProfileData>({
+    resolver: zodResolver(profileSchema),
+    values: profile ? { name: profile.name || "" } : undefined,
+  });
+
+  const onProfileSubmit = async (data: ProfileData) => {
+    await updateProfile.mutateAsync({ name: data.name });
+    await refetch();
     setIsEditing(false);
   };
 
-  if (isLoadingProfile) {
+  // ── Loading skeleton ───────────────────────────────────────────────────────
+  if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="space-y-6">
-          <Card className="p-8 animate-pulse">
-            <div className="flex items-start gap-6">
-              <div className="w-24 h-24 bg-gray-200 rounded-full"></div>
-              <div className="flex-1 space-y-3">
-                <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              </div>
-            </div>
-          </Card>
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="p-6 animate-pulse"><div className="h-8 bg-gray-200 rounded"></div></Card>
-            <Card className="p-6 animate-pulse"><div className="h-8 bg-gray-200 rounded"></div></Card>
-            <Card className="p-6 animate-pulse"><div className="h-8 bg-gray-200 rounded"></div></Card>
-            <Card className="p-6 animate-pulse"><div className="h-8 bg-gray-200 rounded"></div></Card>
+        <div className="max-w-3xl mx-auto space-y-5">
+          <div className="h-40 rounded-2xl bg-gray-100 animate-pulse" />
+          <div className="grid grid-cols-4 gap-3">
+            {[0,1,2,3].map((i) => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
           </div>
+          <div className="h-64 rounded-2xl bg-gray-100 animate-pulse" />
         </div>
       </DashboardLayout>
     );
   }
 
-  if (profileError) {
+  if (error || !profile) {
     return (
       <DashboardLayout>
-        <ErrorMessage
-          title="Failed to load profile"
-          message={profileError instanceof Error ? profileError.message : 'An error occurred'}
-        />
-        <Button onClick={() => refetchProfile()} className="mt-4">
-          Try Again
-        </Button>
+        <ErrorMessage title="Failed to load profile" message={error instanceof Error ? error.message : "An error occurred"} />
+        <Button onClick={() => refetch()} className="mt-4">Try Again</Button>
       </DashboardLayout>
     );
   }
 
-  if (!profile) {
-    return (
-      <DashboardLayout>
-        <EmptyState
-          icon={User}
-          title="Profile not found"
-          description="Unable to load profile information."
-        />
-      </DashboardLayout>
-    );
-  }
+  const role = profile.role as string;
+  const roleCfg = ROLE_CFG[role] ?? ROLE_CFG.FELLOW;
+  const RoleIcon = roleCfg.icon;
+  const isFellow = role === "FELLOW";
+  const cohort = (profile as any).cohort;
+  const facilitatedCohorts: any[] = (profile as any).facilitatedCohorts ?? [];
+  const memberSince = profile.createdAt
+    ? formatDistanceToNow(new Date(profile.createdAt as any), { addSuffix: true })
+    : null;
+  const initials = profile.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "U";
 
-  const userInitials = profile.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
-  const roleColor = profile.role === UserRole.FELLOW ? 'blue' : profile.role === UserRole.FACILITATOR ? 'green' : 'red';
+  // Role-based tabs
+  const TABS = [
+    { key: "profile",      label: "Profile Info", icon: User },
+    ...(isFellow ? [{ key: "achievements", label: "Achievements", icon: Award }] : []),
+    { key: "settings",     label: "Settings",     icon: Settings },
+  ];
+
+  // ── Info rows for profile view ─────────────────────────────────────────────
+  const infoRows = [
+    { label: "Full Name", value: profile.name },
+    { label: "Email Address", value: profile.email },
+    { label: "Role", value: roleCfg.label },
+    ...(isFellow && cohort ? [{ label: "Cohort", value: cohort.name }] : []),
+    ...(facilitatedCohorts.length > 0 ? [{ label: "Facilitates", value: facilitatedCohorts.map((c) => c.name).join(", ") }] : []),
+    ...(memberSince ? [{ label: "Member Since", value: `Joined ${memberSince}` }] : []),
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Profile Header */}
-        <Card className="p-8">
-          <div className="flex items-start gap-6">
-            <div className="w-24 h-24 bg-gradient-to-br from-atlas-navy to-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-3xl">{userInitials}</span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{profile.name}</h1>
-                  <p className="text-gray-600 mb-3">{profile.email}</p>
-                  <div className="flex gap-3">
-                    <Badge className={`bg-${roleColor}-100 text-${roleColor}-800`}>
-                      {profile.role}
-                    </Badge>
-                    {profile.cohortId && (
-                      <Badge variant="outline">Cohort Member</Badge>
-                    )}
-                  </div>
+      <div className="max-w-3xl mx-auto space-y-5">
+
+        {/* ═══ PROFILE HEADER ════════════════════════════════════════════════ */}
+        <div className={cn("rounded-2xl bg-gradient-to-br p-px", roleCfg.headerGrad)}>
+          <div className="rounded-[15px] bg-white p-6 sm:p-8">
+            <div className="flex items-start gap-5 flex-wrap">
+              {/* Avatar */}
+              <div className={cn(
+                "relative w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 shadow-md bg-gradient-to-br",
+                roleCfg.headerGrad,
+              )}>
+                <span className="text-white font-bold text-2xl select-none">{initials}</span>
+                <div className="absolute -bottom-1.5 -right-1.5 bg-white rounded-full p-1 shadow">
+                  <RoleIcon className="h-3.5 w-3.5 text-gray-700" />
                 </div>
-                {!isEditing && (
-                  <Button
-                    onClick={() => setIsEditing(true)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit Profile
-                  </Button>
-                )}
+              </div>
+
+              {/* Name + meta */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 leading-tight">{profile.name}</h1>
+                    <p className="text-gray-500 text-sm mt-0.5">{profile.email}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                      <Badge className={cn("text-xs font-semibold px-2.5", roleCfg.badgeBg, roleCfg.badgeText)}>
+                        {roleCfg.label}
+                      </Badge>
+                      {isFellow && cohort && (
+                        <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          <Users className="h-3 w-3" /> {cohort.name}
+                        </span>
+                      )}
+                      {facilitatedCohorts.map((c) => (
+                        <span key={c.id} className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          <GraduationCap className="h-3 w-3" /> {c.name}
+                        </span>
+                      ))}
+                      {memberSince && (
+                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                          <Calendar className="h-3 w-3" /> Joined {memberSince}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isEditing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 shrink-0"
+                      onClick={() => { setIsEditing(true); setActiveTab("profile"); }}
+                    >
+                      <Edit2 className="h-3.5 w-3.5" /> Edit Profile
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </Card>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard
-            icon={Trophy}
-            label="Total Points"
-            value={profile.points || 0}
-            isLoading={isLoadingStats}
-          />
-          <StatCard
-            icon={FileText}
-            label="Resources Completed"
-            value={(stats as any)?.resourcesCompleted || 0}
-            isLoading={isLoadingStats}
-          />
-          <StatCard
-            icon={MessageSquare}
-            label="Discussions Posted"
-            value={(stats as any)?.discussionsPosted || 0}
-            isLoading={isLoadingStats}
-          />
-          <StatCard
-            icon={ClipboardCheck}
-            label="Quizzes Taken"
-            value={(stats as any)?.quizzesTaken || 0}
-            isLoading={isLoadingStats}
-          />
         </div>
 
-        {/* Tab Navigation */}
-        <Card>
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab("profile")}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                activeTab === "profile"
-                  ? "text-atlas-navy border-b-2 border-atlas-navy"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <User className="w-5 h-5" />
-              Profile Info
-            </button>
-            <button
-              onClick={() => setActiveTab("achievements")}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                activeTab === "achievements"
-                  ? "text-atlas-navy border-b-2 border-atlas-navy"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <Award className="w-5 h-5" />
-              Achievements
-            </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                activeTab === "settings"
-                  ? "text-atlas-navy border-b-2 border-atlas-navy"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              Settings
-            </button>
+        {/* ═══ FELLOW STATS ═════════════════════════════════════════════════ */}
+        {isFellow && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { icon: Trophy,        label: "Total Points",        value: (stats as any)?.totalPoints ?? 0,        color: "text-amber-600",  bg: "bg-amber-50",  ring: "ring-amber-200" },
+              { icon: FileText,      label: "Resources Done",      value: (stats as any)?.resourcesCompleted ?? 0, color: "text-blue-600",   bg: "bg-blue-50",   ring: "ring-blue-200" },
+              { icon: MessageSquare, label: "Discussions",         value: (stats as any)?.discussionsPosted ?? 0,  color: "text-violet-600", bg: "bg-violet-50", ring: "ring-violet-200" },
+              { icon: ClipboardCheck,label: "Quizzes Taken",       value: (stats as any)?.quizzesTaken ?? 0,       color: "text-green-600",  bg: "bg-green-50",  ring: "ring-green-200" },
+            ].map(({ icon: Icon, label, value, color, bg, ring }) => (
+              <div key={label} className={cn("rounded-xl p-4 ring-1 flex flex-col gap-1", bg, ring)}>
+                {loadingStats ? (
+                  <div className="h-7 w-12 rounded bg-gray-200 animate-pulse" />
+                ) : (
+                  <p className={cn("text-2xl font-bold tabular-nums", color)}>{value}</p>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Icon className={cn("h-3.5 w-3.5", color)} />
+                  <p className="text-xs text-gray-500 font-medium">{label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ═══ TABS ════════════════════════════════════════════════════════ */}
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex border-b border-gray-100 overflow-x-auto">
+            {TABS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => { setActiveTab(key); if (key !== "profile") setIsEditing(false); }}
+                className={cn(
+                  "flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-all border-b-2",
+                  activeTab === key
+                    ? "border-blue-600 text-blue-700 bg-blue-50/50"
+                    : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50",
+                )}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </button>
+            ))}
           </div>
 
-          {/* Tab Content */}
           <div className="p-6">
-            {activeTab === "profile" && (
-              <div className="space-y-6">
-                {isEditing ? (
-                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-4">Edit Personal Information</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                          <Input
-                            {...register('name')}
-                            placeholder="Your name"
-                          />
-                          {errors.name && (
-                            <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                          <Input
-                            {...register('email')}
-                            type="email"
-                            placeholder="your.email@example.com"
-                          />
-                          {errors.email && (
-                            <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Button type="submit" className="bg-atlas-navy hover:bg-atlas-navy/90">
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
-                      </Button>
-                      <Button type="button" onClick={handleCancelEdit} variant="outline">
-                        <X className="w-4 h-4 mr-2" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h3>
-                      <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Name:</span>
-                          <span className="font-semibold text-gray-900">{profile.name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Email:</span>
-                          <span className="font-semibold text-gray-900">{profile.email}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Role:</span>
-                          <span className="font-semibold text-gray-900">{profile.role}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
-            {activeTab === "achievements" && (
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Your Achievements</h3>
-                {isLoadingAchievements ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Card key={i} className="p-4 animate-pulse">
-                        <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                      </Card>
+            {/* ── PROFILE INFO ──────────────────────────────────────────── */}
+            {activeTab === "profile" && (
+              isEditing ? (
+                <form onSubmit={handleSubmit(onProfileSubmit)} className="space-y-5 max-w-sm">
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-0.5">Edit your name</h3>
+                    <p className="text-sm text-gray-500">Your email address cannot be changed here.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+                    <Input {...register("name")} placeholder="Your name" />
+                    {errors.name && <p className="text-red-600 text-xs mt-1">{errors.name.message}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" disabled={updateProfile.isPending} className="gap-1.5">
+                      {updateProfile.isPending
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+                        : <><Save className="h-3.5 w-3.5" /> Save Changes</>
+                      }
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5"
+                      onClick={() => { resetProfile(); setIsEditing(false); }}>
+                      <X className="h-3.5 w-3.5" /> Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-3">Personal Information</h3>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100 overflow-hidden">
+                    {infoRows.map(({ label, value }) => (
+                      <div key={label} className="flex items-center justify-between px-4 py-3 text-sm">
+                        <span className="text-gray-500 shrink-0 mr-4">{label}</span>
+                        <span className="font-medium text-gray-900 text-right break-all">{value}</span>
+                      </div>
                     ))}
                   </div>
-                ) : achievements && achievements.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {achievements.map((achievement: any) => (
-                      <Card key={achievement.id} className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-yellow-100 rounded-lg">
-                            <Award className="w-6 h-6 text-yellow-600" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 mb-1">
-                              {achievement.achievement?.title || 'Achievement'}
-                            </h4>
-                            <p className="text-sm text-gray-600 mb-2">
-                              {achievement.achievement?.description || 'Unlocked achievement'}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Unlocked {formatDistanceToNow(new Date(achievement.unlockedAt))} ago
-                            </p>
-                          </div>
+                </div>
+              )
+            )}
+
+            {/* ── ACHIEVEMENTS (fellows only) ────────────────────────────── */}
+            {activeTab === "achievements" && isFellow && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900">Your Achievements</h3>
+                  {!loadingAchievements && (achievements as any[])?.length > 0 && (
+                    <span className="text-xs text-gray-400">{(achievements as any[]).length} unlocked</span>
+                  )}
+                </div>
+                {loadingAchievements ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[1,2,3,4].map((i) => <div key={i} className="h-24 rounded-xl bg-gray-100 animate-pulse" />)}
+                  </div>
+                ) : achievements && (achievements as any[]).length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(achievements as any[]).map((ua) => (
+                      <div key={ua.id} className="flex items-start gap-3 p-4 rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50">
+                        <div className="p-2.5 bg-amber-100 rounded-xl shrink-0 border border-amber-200">
+                          <Award className="h-5 w-5 text-amber-600" />
                         </div>
-                      </Card>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm">{ua.achievement?.title ?? "Achievement"}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{ua.achievement?.description ?? "Unlocked achievement"}</p>
+                          <p className="text-xs text-amber-600 mt-1.5 font-medium flex items-center gap-1">
+                            <Zap className="h-3 w-3" />
+                            {formatDistanceToNow(new Date(ua.unlockedAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (
                   <EmptyState
                     icon={Award}
                     title="No achievements yet"
-                    description="Complete resources and participate in activities to unlock achievements."
+                    description="Complete resources and quizzes to unlock your first achievement."
                   />
                 )}
               </div>
             )}
 
+            {/* ── SETTINGS ──────────────────────────────────────────────── */}
             {activeTab === "settings" && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Notification Preferences</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Notification settings will be available soon.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Privacy Settings</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Privacy settings will be available soon.
-                  </p>
-                </div>
-              </div>
+              <ChangePasswordSection />
             )}
           </div>
-        </Card>
+        </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+// ─── Page (Suspense for useSearchParams) ──────────────────────────────────────
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      </DashboardLayout>
+    }>
+      <ProfilePageInner />
+    </Suspense>
   );
 }
