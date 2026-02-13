@@ -1,152 +1,145 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AchievementsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   /**
-   * Check and award achievements for a user after specific events
-   * Called after resource completion, quiz completion, etc.
+   * Check and award achievements for a user after specific events.
+   * Called after resource completion, quiz completion, discussion post, etc.
    */
   async checkAndAwardAchievements(userId: string): Promise<any[]> {
     const awardedAchievements: any[] = [];
 
-    // Get all achievements that user hasn't unlocked yet
-    const unlockedAchievementIds = await this.prisma.userAchievement.findMany({
-      where: { userId },
-      select: { achievementId: true },
+    // Get all achievements the user hasn't unlocked yet
+    const unlockedIds = (
+      await this.prisma.userAchievement.findMany({
+        where: { userId },
+        select: { achievementId: true },
+      })
+    ).map((ua) => ua.achievementId);
+
+    const available = await this.prisma.achievement.findMany({
+      where: { id: { notIn: unlockedIds } },
     });
 
-    const unlockedIds = unlockedAchievementIds.map((ua) => ua.achievementId);
+    if (available.length === 0) return [];
 
-    const availableAchievements = await this.prisma.achievement.findMany({
-      where: {
-        id: { notIn: unlockedIds },
-      },
-    });
+    // ── Gather all stats in parallel ──────────────────────────────────────────
+    const [
+      resourceCount,
+      quizCount,
+      perfectQuizCount,
+      discussionCount,
+      commentCount,
+      liveQuizCount,
+      pointsAgg,
+    ] = await Promise.all([
+      this.prisma.resourceProgress.count({ where: { userId, state: 'COMPLETED' } }),
+      this.prisma.quizResponse.count({ where: { userId, passed: true } }),
+      this.prisma.quizResponse.count({ where: { userId, score: 100 } }),
+      this.prisma.discussion.count({ where: { userId } }),
+      this.prisma.discussionComment.count({ where: { userId } }),
+      this.prisma.liveQuizParticipant.count({ where: { userId } }),
+      this.prisma.pointsLog.aggregate({ where: { userId }, _sum: { points: true } }),
+    ]);
 
-    // Get user stats for checking criteria
-    const [resourceCount, quizCount, perfectQuizzes, discussionCount] =
-      await Promise.all([
-        this.prisma.resourceProgress.count({
-          where: { userId, state: 'COMPLETED' },
-        }),
-        this.prisma.quizResponse.count({
-          where: { userId, passed: true },
-        }),
-        this.prisma.quizResponse.count({
-          where: { userId, score: 100 },
-        }),
-        this.prisma.discussion.count({
-          where: { userId },
-        }),
-      ]);
+    const totalPoints = pointsAgg._sum.points ?? 0;
 
     const userStats = {
       resourceCount,
       quizCount,
-      perfectQuizzes,
+      perfectQuizCount,
       discussionCount,
+      commentCount,
+      liveQuizCount,
+      totalPoints,
     };
 
-    // Check each achievement's criteria
-    for (const achievement of availableAchievements) {
-      let criteriaObj: any = {};
-
+    // ── Check each available achievement ──────────────────────────────────────
+    for (const achievement of available) {
+      let criteria: Record<string, any> = {};
       try {
-        criteriaObj =
+        criteria =
           typeof achievement.criteria === 'string'
-            ? JSON.parse(achievement.criteria)
-            : achievement.criteria;
-      } catch (e) {
-        console.error('Failed to parse achievement criteria:', achievement.id);
+            ? JSON.parse(achievement.criteria as string)
+            : (achievement.criteria as Record<string, any>);
+      } catch {
+        console.error('Failed to parse criteria for achievement:', achievement.id);
         continue;
       }
 
-      const isMet = this.checkCriteria(criteriaObj, userStats);
+      if (!this.checkCriteria(criteria, userStats)) continue;
 
-      if (isMet) {
-        // Award achievement
-        await this.prisma.userAchievement.create({
-          data: {
-            userId,
-            achievementId: achievement.id,
-            unlockedAt: new Date(),
-          },
-        });
+      // Award the achievement
+      await this.prisma.userAchievement.create({
+        data: { userId, achievementId: achievement.id, unlockedAt: new Date() },
+      });
 
-        // Award points (not using totalPoints field since it doesn't exist)
-        // Points are tracked through PointsLog only
-
-        // Log achievement points
+      // Log the achievement bonus points
+      if (achievement.pointValue > 0) {
         await this.prisma.pointsLog.create({
           data: {
             userId,
             points: achievement.pointValue,
-            eventType: 'DISCUSSION_POST', // Using existing event type
+            eventType: 'ADMIN_ADJUSTMENT',
             description: `Achievement unlocked: ${achievement.name}`,
           },
         });
-
-        awardedAchievements.push(achievement);
       }
+
+      // Send real-time + email notification
+      await this.notificationsService.notifyAchievementEarned(
+        userId,
+        achievement.name,
+        achievement.id,
+      );
+
+      awardedAchievements.push(achievement);
     }
 
     return awardedAchievements;
   }
 
   /**
-   * Check if achievement criteria are met based on user stats
+   * Returns true when ALL criteria keys are satisfied by userStats.
    */
-  private checkCriteria(criteria: any, userStats: any): boolean {
-    // Resource count achievements
-    if (criteria.resourceCount !== undefined) {
-      if (userStats.resourceCount < criteria.resourceCount) return false;
+  private checkCriteria(
+    criteria: Record<string, any>,
+    stats: Record<string, number>,
+  ): boolean {
+    for (const [key, required] of Object.entries(criteria)) {
+      // Legacy boolean shorthand
+      if (key === 'quizPerfectScore') {
+        if (required === true && (stats.perfectQuizCount ?? 0) < 1) return false;
+        continue;
+      }
+
+      if (typeof required === 'number') {
+        if ((stats[key] ?? 0) < required) return false;
+      }
     }
-
-    // Quiz count achievements
-    if (criteria.quizCount !== undefined) {
-      if (userStats.quizCount < criteria.quizCount) return false;
-    }
-
-    // Perfect quiz score achievement
-    if (criteria.quizPerfectScore === true) {
-      if (userStats.perfectQuizzes < 1) return false;
-    }
-
-    // Discussion participation
-    if (criteria.discussionCount !== undefined) {
-      if (userStats.discussionCount < criteria.discussionCount) return false;
-    }
-
-    // Add more criteria checks as needed
-    // e.g., streaks, time-based, session-specific, etc.
-
-    return true; // All criteria met
+    return true;
   }
 
-  /**
-   * Get user's achievements
-   */
+  /** Get all achievements a specific user has unlocked */
   async getUserAchievements(userId: string) {
-    const userAchievements = await this.prisma.userAchievement.findMany({
+    return this.prisma.userAchievement.findMany({
       where: { userId },
-      include: {
-        achievement: true,
-      },
+      include: { achievement: true },
       orderBy: { unlockedAt: 'desc' },
     });
-
-    return userAchievements;
   }
 
-  /**
-   * Get all available achievements
-   */
+  /** Get every achievement definition (for the achievements gallery page) */
   async getAllAchievements() {
     return this.prisma.achievement.findMany({
-      orderBy: { pointValue: 'desc' },
+      orderBy: [{ type: 'asc' }, { pointValue: 'asc' }],
     });
   }
 }

@@ -37,6 +37,17 @@ export function useUserAchievements(userId?: string) {
   });
 }
 
+/** All achievement definitions (for the gallery page) */
+export function useAllAchievements() {
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+  return useQuery({
+    queryKey: ['achievements', 'all'],
+    queryFn: () => apiClient.get<any[]>('/achievements'),
+    enabled: hasToken,
+    staleTime: 5 * 60 * 1000, // achievements rarely change
+  });
+}
+
 export function useUserStats(userId?: string) {
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const targetUserId = userId || currentUser?.id;

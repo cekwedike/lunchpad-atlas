@@ -3,18 +3,17 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  User, Award, Settings, FileText, MessageSquare,
+  User, Settings, FileText, MessageSquare,
   ClipboardCheck, Trophy, Edit2, Save, X, Lock, Loader2,
   Calendar, Users, Eye, EyeOff, CheckCircle2, Shield,
-  GraduationCap, Zap,
+  GraduationCap,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { EmptyState } from "@/components/EmptyState";
-import { useProfile, useUserAchievements, useUserStats } from "@/hooks/api/useProfile";
+import { useProfile, useUserStats } from "@/hooks/api/useProfile";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -157,7 +156,6 @@ function ProfilePageInner() {
   }, [searchParams]);
 
   const { data: profile, isLoading, error, refetch } = useProfile();
-  const { data: achievements, isLoading: loadingAchievements } = useUserAchievements();
   const { data: stats, isLoading: loadingStats } = useUserStats();
   const updateProfile = useUpdateProfile();
 
@@ -209,9 +207,8 @@ function ProfilePageInner() {
 
   // Role-based tabs
   const TABS = [
-    { key: "profile",      label: "Profile Info", icon: User },
-    ...(isFellow ? [{ key: "achievements", label: "Achievements", icon: Award }] : []),
-    { key: "settings",     label: "Settings",     icon: Settings },
+    { key: "profile",  label: "Profile Info", icon: User },
+    { key: "settings", label: "Settings",     icon: Settings },
   ];
 
   // ── Info rows for profile view ─────────────────────────────────────────────
@@ -372,47 +369,6 @@ function ProfilePageInner() {
                   </div>
                 </div>
               )
-            )}
-
-            {/* ── ACHIEVEMENTS (fellows only) ────────────────────────────── */}
-            {activeTab === "achievements" && isFellow && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-gray-900">Your Achievements</h3>
-                  {!loadingAchievements && (achievements as any[])?.length > 0 && (
-                    <span className="text-xs text-gray-400">{(achievements as any[]).length} unlocked</span>
-                  )}
-                </div>
-                {loadingAchievements ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[1,2,3,4].map((i) => <div key={i} className="h-24 rounded-xl bg-gray-100 animate-pulse" />)}
-                  </div>
-                ) : achievements && (achievements as any[]).length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(achievements as any[]).map((ua) => (
-                      <div key={ua.id} className="flex items-start gap-3 p-4 rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50">
-                        <div className="p-2.5 bg-amber-100 rounded-xl shrink-0 border border-amber-200">
-                          <Award className="h-5 w-5 text-amber-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 text-sm">{ua.achievement?.title ?? "Achievement"}</p>
-                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{ua.achievement?.description ?? "Unlocked achievement"}</p>
-                          <p className="text-xs text-amber-600 mt-1.5 font-medium flex items-center gap-1">
-                            <Zap className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(ua.unlockedAt), { addSuffix: true })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={Award}
-                    title="No achievements yet"
-                    description="Complete resources and quizzes to unlock your first achievement."
-                  />
-                )}
-              </div>
             )}
 
             {/* ── SETTINGS ──────────────────────────────────────────────── */}

@@ -7,6 +7,7 @@ import {
   BookOpen,
   MessageSquare,
   Trophy,
+  Award,
   User,
   Users,
   Calendar,
@@ -68,6 +69,11 @@ export function Sidebar() {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
+    },
+    {
+      title: 'Achievements',
+      href: '/achievements',
+      icon: Award,
     },
   ];
 
