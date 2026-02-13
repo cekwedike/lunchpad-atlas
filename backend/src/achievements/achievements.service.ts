@@ -93,12 +93,52 @@ export class AchievementsService {
         });
       }
 
-      // Send real-time + email notification
+      // ── Notify the fellow ─────────────────────────────────────────────────
       await this.notificationsService.notifyAchievementEarned(
         userId,
         achievement.name,
         achievement.id,
       );
+
+      // ── Notify facilitators of the fellow's cohort + all admins ───────────
+      const fellow = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, cohortId: true },
+      });
+
+      if (fellow) {
+        const staffWhereClause = fellow.cohortId
+          ? {
+              OR: [
+                { role: 'ADMIN' as const },
+                { role: 'FACILITATOR' as const, cohortId: fellow.cohortId },
+              ],
+            }
+          : { role: 'ADMIN' as const };
+
+        const staff = await this.prisma.user.findMany({
+          where: staffWhereClause,
+          select: { id: true },
+        });
+
+        const fellowName = [fellow.firstName, fellow.lastName].filter(Boolean).join(' ') || 'A fellow';
+        await Promise.all(
+          staff.map((s) =>
+            this.notificationsService.createNotification({
+              userId: s.id,
+              type: 'ACHIEVEMENT_EARNED',
+              title: 'Achievement Unlocked by Fellow',
+              message: `${fellowName} just earned the "${achievement.name}" achievement!`,
+              data: {
+                achievementId: achievement.id,
+                achievementName: achievement.name,
+                fellowId: userId,
+                fellowName,
+              },
+            }),
+          ),
+        );
+      }
 
       awardedAchievements.push(achievement);
     }

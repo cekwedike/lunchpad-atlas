@@ -1,12 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Lock, Trophy, Users, MessageSquare, Zap, Star } from "lucide-react";
+import {
+  Award, Lock, Trophy, MessageSquare, Zap, Star,
+  PlayCircle, BookOpen, Compass, Flag, GraduationCap,
+  PenLine, Pencil, Brain, Medal, CheckCircle, Sparkles,
+  Gamepad2, Monitor, Target, Rocket,
+  MessageCircle, MessagesSquare, Megaphone, Landmark, Globe,
+  Reply, Mic, Radio, Volume2, Heart,
+  Flame, LayoutGrid, Swords, BookMarked, MonitorPlay, Sprout, BadgeCheck, Diamond, Crown,
+  TrendingUp, Gem, Wallet, Coins, CircleDollarSign, ShieldCheck, Infinity,
+} from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Badge } from "@/components/ui/badge";
 import { useAllAchievements, useUserAchievements } from "@/hooks/api/useProfile";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+
+// ── Map icon name strings (stored in DB) → Lucide components ─────────────────
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  PlayCircle, BookOpen, Compass, Flag, GraduationCap,
+  PenLine, Pencil, Brain, Medal, CheckCircle, Star, Sparkles, Award,
+  Gamepad2, Monitor, Target, Trophy, Rocket,
+  MessageCircle, MessageSquare, MessagesSquare, Megaphone, Landmark, Globe,
+  Reply, MessageSquareDot: MessageCircle, Mic, Radio, Volume2, Heart,
+  Zap, Flame, LayoutGrid, Swords, BookMarked, MonitorPlay, Sprout,
+  BadgeCheck, Diamond, Crown,
+  TrendingUp, Gem, Wallet, Coins, CircleDollarSign, ShieldCheck,
+  FlameKindling: Flame, Infinity,
+};
+
+function AchievementIcon({ name, className }: { name?: string; className?: string }) {
+  const Icon = (name && ICON_MAP[name]) ? ICON_MAP[name] : Award;
+  return <Icon className={className} />;
+}
 
 // ── Category metadata ──────────────────────────────────────────────────────────
 const CATEGORIES: Record<string, {
@@ -52,11 +78,14 @@ function AchievementCard({
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            "text-3xl w-12 h-12 flex items-center justify-center rounded-xl shrink-0",
+            "w-12 h-12 flex items-center justify-center rounded-xl shrink-0",
             isUnlocked ? "bg-amber-100 shadow-inner" : "bg-gray-200",
           )}
         >
-          {achievement.iconUrl || "🏅"}
+          <AchievementIcon
+            name={achievement.iconUrl}
+            className={cn("h-6 w-6", isUnlocked ? "text-amber-600" : "text-gray-400")}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-1 flex-wrap">
