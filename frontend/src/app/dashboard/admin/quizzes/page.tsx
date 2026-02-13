@@ -291,6 +291,7 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
   const { data: members = [] } = useCohortMembers(cohortId);
   const startQuiz = useStartLiveQuiz();
   const notifyQuiz = useNotifyLiveQuiz();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fellows = members.filter((m: any) => m.role === 'FELLOW');
   const joinedIds = new Set((quiz?.participants ?? []).map((p: any) => p.userId));
@@ -319,8 +320,19 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
                 {STATUS_LABEL[quiz.status] ?? quiz.status}
               </Badge>
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="gap-1" onClick={() => { queryClient.invalidateQueries({ queryKey: ['live-quiz', quizId] }); queryClient.invalidateQueries({ queryKey: ['live-quiz', quizId, 'leaderboard'] }); }}>
-                  <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  disabled={isRefreshing}
+                  onClick={() => {
+                    setIsRefreshing(true);
+                    queryClient.invalidateQueries({ queryKey: ['live-quiz', quizId] });
+                    queryClient.invalidateQueries({ queryKey: ['live-quiz', quizId, 'leaderboard'] });
+                    setTimeout(() => setIsRefreshing(false), 1000);
+                  }}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
                 </Button>
                 {quiz.status === "PENDING" && (
                   <>

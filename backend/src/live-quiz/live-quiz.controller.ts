@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { LiveQuizService } from './live-quiz.service';
 import {
@@ -29,6 +30,12 @@ export class LiveQuizController {
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
   create(@Body() createDto: CreateLiveQuizDto) {
     return this.liveQuizService.create(createDto);
+  }
+
+  // Get live quizzes for the current user's cohort
+  @Get('my')
+  findMy(@Request() req) {
+    return this.liveQuizService.findForUser(req.user.id);
   }
 
   // Get quiz by ID

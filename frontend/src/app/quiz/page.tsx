@@ -5,12 +5,15 @@ import Link from "next/link";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileQuestion, Clock, Award, CheckCircle, Lock, Timer,
-  Zap, BookOpen, Trophy, ChevronRight,
+  Zap, BookOpen, Trophy, ChevronRight, Loader2,
 } from "lucide-react";
 import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQuizzes";
+import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard } from "@/hooks/api/useLiveQuiz";
+import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -170,6 +173,206 @@ function QuizCard({ quiz }: { quiz: FellowQuiz }) {
   );
 }
 
+// ─── Live Quiz Results ────────────────────────────────────────────────────────
+function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUserId: string }) {
+  const { data: leaderboard = [], isLoading } = useLiveQuizLeaderboard(quizId, { refetchInterval: false });
+
+  if (isLoading) return <div className="mt-3 h-16 animate-pulse rounded-lg bg-amber-50" />;
+  if (!leaderboard.length) return null;
+
+  const sorted = [...leaderboard].sort((a: any, b: any) => b.totalScore - a.totalScore);
+  const myIdx = sorted.findIndex((e: any) => e.userId === currentUserId);
+  const myEntry = myIdx >= 0 ? sorted[myIdx] : null;
+  const myRank = myIdx >= 0 ? myIdx + 1 : null;
+
+  const MEDALS = ["🥇", "🥈", "🥉"];
+  const rankLabel =
+    myRank === 1 ? "1st place!" :
+    myRank === 2 ? "2nd place" :
+    myRank === 3 ? "3rd place" :
+    myRank ? `#${myRank} of ${sorted.length}` : null;
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-amber-100 pt-4">
+      {/* Personal result banner */}
+      {myEntry && (
+        <div className={cn(
+          "rounded-xl px-4 py-3 flex items-center justify-between",
+          myRank === 1 ? "bg-amber-50 border-2 border-amber-300" :
+          myRank === 2 ? "bg-slate-50 border-2 border-slate-300" :
+          myRank === 3 ? "bg-orange-50 border-2 border-orange-200" :
+          "bg-blue-50 border-2 border-blue-200",
+        )}>
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{MEDALS[myRank! - 1] ?? "🎯"}</span>
+            <div>
+              <p className="text-sm font-bold text-gray-900">Your Result</p>
+              <p className="text-xs text-gray-500">
+                {myEntry.correctCount} correct · {rankLabel}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-amber-600">{myEntry.totalScore}</p>
+            <p className="text-xs text-gray-400">points</p>
+          </div>
+        </div>
+      )}
+
+      {/* Leaderboard */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <Trophy className="h-3 w-3" /> Final Leaderboard
+        </p>
+        <div className="space-y-1">
+          {sorted.slice(0, 5).map((entry: any, idx: number) => {
+            const isMe = entry.userId === currentUserId;
+            return (
+              <div
+                key={entry.id}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm",
+                  isMe
+                    ? "bg-blue-50 border border-blue-200 ring-1 ring-blue-300"
+                    : idx === 0
+                    ? "bg-amber-50 border border-amber-200"
+                    : idx === 1
+                    ? "bg-slate-50 border border-slate-200"
+                    : idx === 2
+                    ? "bg-orange-50 border border-orange-100"
+                    : "bg-gray-50 border border-gray-100",
+                )}
+              >
+                <span className="w-6 text-center text-base shrink-0">
+                  {MEDALS[idx] ?? <span className="text-xs text-gray-400 font-mono">{idx + 1}</span>}
+                </span>
+                <span className={cn("flex-1 truncate", isMe ? "font-bold text-blue-800" : "font-medium text-gray-800")}>
+                  {entry.displayName}
+                  {isMe && <span className="ml-1.5 text-xs text-blue-400 font-normal">(you)</span>}
+                </span>
+                <span className="font-mono font-bold text-gray-700 tabular-nums">{entry.totalScore}</span>
+                <span className="text-xs text-gray-400 w-12 text-right">{entry.correctCount}✓</span>
+              </div>
+            );
+          })}
+          {/* Show current user's row if they're outside top 5 */}
+          {myRank !== null && myRank > 5 && myEntry && (
+            <>
+              <div className="text-center text-xs text-gray-300 py-0.5">···</div>
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm bg-blue-50 border border-blue-200 ring-1 ring-blue-300">
+                <span className="w-6 text-center text-xs text-gray-500 font-mono shrink-0">#{myRank}</span>
+                <span className="flex-1 truncate font-bold text-blue-800">
+                  {myEntry.displayName}
+                  <span className="ml-1.5 text-xs text-blue-400 font-normal">(you)</span>
+                </span>
+                <span className="font-mono font-bold text-gray-700 tabular-nums">{myEntry.totalScore}</span>
+                <span className="text-xs text-gray-400 w-12 text-right">{myEntry.correctCount}✓</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Live Quiz Card ────────────────────────────────────────────────────────────
+function LiveQuizCard({ quiz }: { quiz: any }) {
+  const STATUS_CFG: Record<string, { label: string; bg: string; color: string; dot: string }> = {
+    PENDING:   { label: "Waiting to start", bg: "bg-yellow-50",  color: "text-yellow-700", dot: "bg-yellow-400" },
+    ACTIVE:    { label: "Live now!",        bg: "bg-green-50",   color: "text-green-700",  dot: "bg-green-500" },
+    COMPLETED: { label: "Completed",        bg: "bg-gray-50",    color: "text-gray-500",   dot: "bg-gray-400" },
+  };
+  const cfg = STATUS_CFG[quiz.status] ?? STATUS_CFG.PENDING;
+  const hasJoined = quiz.participants && quiz.participants.length > 0;
+  const sessionNames = quiz.sessions?.map((s: any) => `S${s.session.sessionNumber}: ${s.session.title}`).join(' · ');
+
+  const user = useAuthStore((s) => s.user);
+  const joinMutation = useJoinLiveQuiz();
+
+  const canJoin = !hasJoined && (quiz.status === "PENDING" || quiz.status === "ACTIVE");
+
+  const handleJoin = () => {
+    if (!user) return;
+    joinMutation.mutate({
+      quizId: quiz.id,
+      data: {
+        userId: user.id,
+        displayName: user.name || user.email,
+      },
+    });
+  };
+
+  return (
+    <div className={cn(
+      "group relative overflow-hidden rounded-xl border-2 border-amber-200 bg-white transition-all duration-200",
+      quiz.status !== "COMPLETED" ? "hover:shadow-lg" : "opacity-80",
+    )}>
+      <div className="h-1 w-full bg-gradient-to-r from-amber-500 to-orange-500" />
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-xl bg-amber-50 shrink-0">
+            <Zap className="h-5 w-5 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-gray-900 text-base leading-tight truncate">{quiz.title}</h3>
+                {sessionNames && <p className="text-xs text-gray-500 mt-0.5">{sessionNames}</p>}
+                {quiz.description && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{quiz.description}</p>}
+              </div>
+              <span className={cn("flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shrink-0", cfg.bg, cfg.color)}>
+                <span className={cn("w-1.5 h-1.5 rounded-full", cfg.dot, quiz.status === "ACTIVE" && "animate-pulse")} />
+                {cfg.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 mt-3 flex-wrap">
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <FileQuestion className="h-3.5 w-3.5" />{quiz.totalQuestions} questions
+              </span>
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <Clock className="h-3.5 w-3.5" />{quiz.timePerQuestion}s/question
+              </span>
+              <Badge className="text-xs px-2 bg-amber-50 border border-amber-200 text-amber-700">Live</Badge>
+              {hasJoined && <Badge className="text-xs px-2 bg-green-50 border border-green-200 text-green-700">Joined</Badge>}
+            </div>
+
+            {/* Join button */}
+            {canJoin && (
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  onClick={handleJoin}
+                  disabled={joinMutation.isPending}
+                  className={cn(
+                    "gap-1.5 font-semibold",
+                    quiz.status === "ACTIVE"
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-amber-500 hover:bg-amber-600 text-white",
+                  )}
+                >
+                  {joinMutation.isPending ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</>
+                  ) : quiz.status === "ACTIVE" ? (
+                    <><Zap className="h-3.5 w-3.5" /> Join Now</>
+                  ) : (
+                    <><CheckCircle className="h-3.5 w-3.5" /> Register for Quiz</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Final leaderboard for completed quizzes */}
+            {quiz.status === "COMPLETED" && user && (
+              <LiveQuizResults quizId={quiz.id} currentUserId={user.id} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Filter tabs ──────────────────────────────────────────────────────────────
 const FILTER_TABS: Array<{ key: QuizStatus | "ALL"; label: string }> = [
   { key: "ALL",       label: "All" },
@@ -182,6 +385,7 @@ const FILTER_TABS: Array<{ key: QuizStatus | "ALL"; label: string }> = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function QuizzesPage() {
   const { data: quizzes, isLoading, error } = useMyQuizzes();
+  const { data: liveQuizzes = [] } = useMyLiveQuizzes();
   const [filter, setFilter] = useState<QuizStatus | "ALL">("ALL");
 
   const allQuizzes = quizzes ?? [];
@@ -217,6 +421,20 @@ export default function QuizzesPage() {
             Complete quizzes to earn points and climb the leaderboard
           </p>
         </div>
+
+        {/* Live Quizzes Section */}
+        {liveQuizzes.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500" />
+              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Live Quizzes</h2>
+              {liveQuizzes.some((q: any) => q.status === "ACTIVE") && (
+                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full animate-pulse">Live now!</span>
+              )}
+            </div>
+            {liveQuizzes.map((quiz: any) => <LiveQuizCard key={quiz.id} quiz={quiz} />)}
+          </div>
+        )}
 
         {/* Stats bar */}
         {!isLoading && allQuizzes.length > 0 && (
