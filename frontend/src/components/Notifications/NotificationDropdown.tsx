@@ -121,7 +121,8 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
     if (notification.data?.discussionId) return `/dashboard/discussions/${notification.data.discussionId}`;
     if (notification.data?.resourceId) return `/dashboard/resources/${notification.data.resourceId}`;
     if (notification.data?.sessionId) return `/dashboard/sessions/${notification.data.sessionId}`;
-    if (notification.data?.quizId) return `/dashboard/quizzes/${notification.data.quizId}`;
+    if (notification.data?.quizId) return `/quiz`;
+    if (notification.data?.liveQuizId) return `/quiz`;
 
     return null;
   };

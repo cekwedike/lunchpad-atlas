@@ -1070,7 +1070,7 @@ export class AdminService {
   }
 
   async createQuiz(dto: CreateQuizDto) {
-    return this.prisma.quiz.create({
+    const quiz = await this.prisma.quiz.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -1102,6 +1102,27 @@ export class AdminService {
         _count: { select: { questions: true } },
       } as any,
     });
+
+    // Notify all fellows in the cohort about the new quiz
+    if (dto.cohortId) {
+      const fellows = await this.prisma.user.findMany({
+        where: { cohortId: dto.cohortId, role: 'FELLOW' },
+        select: { id: true },
+      });
+      if (fellows.length > 0) {
+        await this.notificationsService.createBulkNotifications(
+          fellows.map((f) => ({
+            userId: f.id,
+            type: 'QUIZ_REMINDER' as any,
+            title: 'New Quiz Available!',
+            message: `"${dto.title}" is now available for you to take.`,
+            data: { quizId: quiz.id },
+          })),
+        );
+      }
+    }
+
+    return quiz;
   }
 
   async deleteQuiz(quizId: string) {

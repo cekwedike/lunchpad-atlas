@@ -89,34 +89,17 @@ export class QuizzesService {
     const cohortId = user.cohortId;
     const now = new Date();
 
-    // Fetch all quizzes for this cohort (session-linked + direct)
-    const [sessionQuizzes, cohortQuizzes] = await Promise.all([
-      this.prisma.quiz.findMany({
-        where: {
-          quizType: 'SESSION',
-          OR: [
-            { cohortId } as any,
-            { sessions: { some: { session: { cohortId } } } } as any,
-          ],
-        } as any,
-        include: {
-          sessions: {
-            include: { session: { select: { id: true, title: true, sessionNumber: true } } },
-          },
-          _count: { select: { questions: true } },
-        } as any,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.quiz.findMany({
-        where: { cohortId, quizType: { in: ['GENERAL', 'MEGA'] } } as any,
-        include: {
-          _count: { select: { questions: true } },
+    // All quizzes (SESSION/GENERAL/MEGA) are always stored with cohortId set
+    const allQuizzes = await this.prisma.quiz.findMany({
+      where: { cohortId },
+      include: {
+        sessions: {
+          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
-
-    const allQuizzes = [...sessionQuizzes, ...cohortQuizzes];
+        _count: { select: { questions: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     // Fetch user's passed attempts for these quizzes
     const quizIds = allQuizzes.map((q) => q.id);

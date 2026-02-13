@@ -75,6 +75,30 @@ export class LiveQuizService {
     return quiz;
   }
 
+  // Get live quizzes for the authenticated user's cohort
+  async findForUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { cohortId: true },
+    });
+    if (!user?.cohortId) return [];
+
+    return (this.prisma.liveQuiz as any).findMany({
+      where: {
+        status: { not: 'CANCELLED' },
+        sessions: { some: { session: { cohortId: user.cohortId } } },
+      },
+      include: {
+        sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },
+        participants: {
+          where: { userId },
+          select: { id: true, totalScore: true, rank: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   // Get all live quizzes for a cohort
   async findByCohort(cohortId: string) {
     return (this.prisma.liveQuiz as any).findMany({
