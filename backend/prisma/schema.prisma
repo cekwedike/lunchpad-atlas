@@ -89,7 +89,7 @@ model User {
   suspensionReason   String?   // Admin note for suspension reason
   cohortId           String?
   currentMonthPoints Int       @default(0) // Points earned this month
-  monthlyPointsCap   Int       @default(1000) // Maximum points per month
+  monthlyPointsCap   Int       @default(2500) // Maximum points per month
   lastPointReset     DateTime? // Last time monthly points were reset
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

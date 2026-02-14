@@ -2,6 +2,11 @@ import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { AchievementType } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  getCohortDurationMonths,
+  getTotalTargetForDuration,
+  getScaledLeaderboardThreshold,
+} from '../common/gamification.utils';
 
 const ACHIEVEMENT_DEFINITIONS = [
   // MILESTONE (18)
@@ -114,6 +119,29 @@ export class AchievementsService implements OnApplicationBootstrap {
 
     if (available.length === 0) return [];
 
+    // ── Resolve cohort scope for this user ────────────────────────────────────
+    // LEADERBOARD achievements use cohort-scoped points (earned since cohort
+    // startDate) and dynamically scaled thresholds based on cohort duration.
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { cohortId: true },
+    });
+
+    let cohortStartDate: Date | null = null;
+    let cohortTotalTarget: number | null = null;
+
+    if (userRecord?.cohortId) {
+      const cohort = await this.prisma.cohort.findUnique({
+        where: { id: userRecord.cohortId },
+        select: { startDate: true, endDate: true },
+      });
+      if (cohort) {
+        cohortStartDate = cohort.startDate;
+        const months = getCohortDurationMonths(cohort.startDate, cohort.endDate);
+        cohortTotalTarget = getTotalTargetForDuration(months);
+      }
+    }
+
     // ── Gather all stats in parallel ──────────────────────────────────────────
     const [
       resourceCount,
@@ -130,7 +158,15 @@ export class AchievementsService implements OnApplicationBootstrap {
       this.prisma.discussion.count({ where: { userId } }),
       this.prisma.discussionComment.count({ where: { userId } }),
       this.prisma.liveQuizParticipant.count({ where: { userId } }),
-      this.prisma.pointsLog.aggregate({ where: { userId }, _sum: { points: true } }),
+      // Points are scoped to the current cohort (since cohort startDate) so
+      // that LEADERBOARD achievements reset when a fellow joins a new cohort.
+      this.prisma.pointsLog.aggregate({
+        where: {
+          userId,
+          ...(cohortStartDate ? { createdAt: { gte: cohortStartDate } } : {}),
+        },
+        _sum: { points: true },
+      }),
     ]);
 
     const totalPoints = pointsAgg._sum.points ?? 0;
@@ -158,7 +194,26 @@ export class AchievementsService implements OnApplicationBootstrap {
         continue;
       }
 
-      if (!this.checkCriteria(criteria, userStats)) continue;
+      // For LEADERBOARD achievements with a totalPoints threshold, scale the
+      // threshold proportionally to the cohort's total-point target so that
+      // milestones feel equally challenging regardless of cohort length.
+      let effectiveCriteria = criteria;
+      if (
+        achievement.type === AchievementType.LEADERBOARD &&
+        cohortTotalTarget !== null &&
+        'totalPoints' in criteria
+      ) {
+        effectiveCriteria = {
+          ...criteria,
+          totalPoints: getScaledLeaderboardThreshold(
+            achievement.name,
+            cohortTotalTarget,
+            criteria.totalPoints as number,
+          ),
+        };
+      }
+
+      if (!this.checkCriteria(effectiveCriteria, userStats)) continue;
 
       // Award the achievement
       await this.prisma.userAchievement.create({

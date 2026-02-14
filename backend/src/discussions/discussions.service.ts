@@ -146,7 +146,7 @@ export class DiscussionsService {
   }
 
   /**
-   * Helper function to award points
+   * Helper function to award points — enforces the shared monthly cap.
    */
   private async awardPoints(
     userId: string,
@@ -156,11 +156,38 @@ export class DiscussionsService {
   ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        currentMonthPoints: true,
+        monthlyPointsCap: true,
+        lastPointReset: true,
+      },
     });
 
     if (!user) return false;
 
-    // Log points
+    // Check if monthly reset is needed
+    const now = new Date();
+    const lastReset = user.lastPointReset;
+    const needsReset =
+      !lastReset ||
+      lastReset.getMonth() !== now.getMonth() ||
+      lastReset.getFullYear() !== now.getFullYear();
+
+    const currentMonthPoints = needsReset ? 0 : user.currentMonthPoints;
+
+    // Enforce monthly cap
+    if (currentMonthPoints + points > user.monthlyPointsCap) {
+      return false;
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        currentMonthPoints: needsReset ? points : { increment: points },
+        lastPointReset: needsReset ? now : undefined,
+      },
+    });
+
     await this.prisma.pointsLog.create({
       data: {
         userId,

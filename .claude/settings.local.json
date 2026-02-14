@@ -11,7 +11,9 @@
       "Bash(npx ts-node:*)",
       "Bash(npx prisma db push --force-reset)",
       "Bash(\"c:\\\\Users\\\\cheed\\\\OneDrive\\\\Desktop\\\\LaunchPad\\\\career-resources-hub\\\\frontend\\\\src\\\\app\\\\dashboard\\\\facilitator\\\\page.tsx\" << 'ENDOFFILE'\nplaceholder\nENDOFFILE)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(powershell:*)",
+      "Bash(python3:*)"
     ]
   }
 }

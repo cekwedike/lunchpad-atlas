@@ -11,6 +11,10 @@ import { PrismaService } from '../prisma.service';
 import { LoginDto, RegisterDto, SetupAdminDto, AuthResponseDto } from './dto/auth.dto';
 import { Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  getCohortDurationMonths,
+  getMonthlyCapForDuration,
+} from '../common/gamification.utils';
 
 @Injectable()
 export class AuthService {
@@ -48,6 +52,19 @@ export class AuthService {
           }
         }
 
+        // Compute the monthly points cap based on the assigned cohort's duration.
+        let monthlyPointsCap: number | undefined;
+        if (cohortId) {
+          const cohort = await this.prisma.cohort.findUnique({
+            where: { id: cohortId },
+            select: { startDate: true, endDate: true },
+          });
+          if (cohort) {
+            const months = getCohortDurationMonths(cohort.startDate, cohort.endDate);
+            monthlyPointsCap = getMonthlyCapForDuration(months);
+          }
+        }
+
       const user = await this.prisma.user.create({
         data: {
           email: dto.email.toLowerCase().trim(),
@@ -56,6 +73,7 @@ export class AuthService {
           passwordHash: hashedPassword,
           role: dto.role || 'FELLOW',
           cohortId,
+          ...(monthlyPointsCap !== undefined ? { monthlyPointsCap } : {}),
         },
       });
 

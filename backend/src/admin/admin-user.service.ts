@@ -2,6 +2,10 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service';
 import { UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  getCohortDurationMonths,
+  getMonthlyCapForDuration,
+} from '../common/gamification.utils';
 
 export interface UserFilters {
   search?: string;
@@ -258,33 +262,58 @@ export class AdminUserService {
   }
 
   /**
-   * Update user cohort assignment
+   * Update user cohort assignment.
+   *
+   * Side-effects when the cohort actually changes:
+   *   - Wipes all UserAchievement rows (per-cohort reset)
+   *   - Resets currentMonthPoints to 0
+   *   - Updates monthlyPointsCap based on the new cohort's duration
    */
   async updateUserCohort(userId: string, cohortId: string | null) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: { id: true, cohortId: true },
     });
 
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
+    let newMonthlyPointsCap: number | undefined;
+
     if (cohortId) {
       const cohort = await this.prisma.cohort.findUnique({
         where: { id: cohortId },
+        select: { id: true, startDate: true, endDate: true },
       });
 
       if (!cohort) {
         throw new NotFoundException(`Cohort with ID ${cohortId} not found`);
       }
+
+      const months = getCohortDurationMonths(cohort.startDate, cohort.endDate);
+      newMonthlyPointsCap = getMonthlyCapForDuration(months);
+    }
+
+    // When the user moves to a different cohort (or is removed from one),
+    // hard-delete their achievement records so they start fresh.
+    const isChangingCohort = user.cohortId !== cohortId;
+    if (isChangingCohort) {
+      await this.prisma.userAchievement.deleteMany({ where: { userId } });
     }
 
     return this.prisma.user.update({
       where: { id: userId },
-      data: { cohortId },
-      include: {
-        cohort: true,
+      data: {
+        cohortId,
+        ...(newMonthlyPointsCap !== undefined
+          ? { monthlyPointsCap: newMonthlyPointsCap }
+          : {}),
+        ...(isChangingCohort
+          ? { currentMonthPoints: 0, lastPointReset: new Date() }
+          : {}),
       },
+      include: { cohort: true },
     });
   }
 
