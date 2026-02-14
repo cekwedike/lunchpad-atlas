@@ -56,15 +56,51 @@ export class CronService {
           data: { cohortId: cohort.id, month, year, startDate, endDate },
         });
 
-        if (pointsThisMonth.length > 0) {
-          await this.prisma.leaderboardEntry.createMany({
-            data: pointsThisMonth.map((p, index) => ({
-              leaderboardId: leaderboard.id,
-              userId: p.userId,
-              rank: index + 1,
-              totalPoints: p._sum.points ?? 0,
-            })),
+        const rankedEntries = pointsThisMonth.map((p, index) => ({
+          leaderboardId: leaderboard.id,
+          userId: p.userId,
+          rank: index + 1,
+          totalPoints: p._sum.points ?? 0,
+        }));
+
+        if (rankedEntries.length > 0) {
+          await this.prisma.leaderboardEntry.createMany({ data: rankedEntries });
+
+          // Award rank-based achievements for fellows who placed in top positions.
+          // These are checked here (not in checkAndAwardAchievements) because rank
+          // is a "≤" comparison and is only known at month-end.
+          const rankAchievements = await this.prisma.achievement.findMany({
+            where: { name: { in: ['Monthly Champion', 'Top 10 Finisher'] } },
+            select: { id: true, name: true, pointValue: true },
           });
+
+          for (const entry of rankedEntries) {
+            for (const ach of rankAchievements) {
+              const maxRank = ach.name === 'Monthly Champion' ? 1 : 10;
+              if (entry.rank > maxRank) continue;
+
+              const alreadyUnlocked = await this.prisma.userAchievement.findUnique({
+                where: {
+                  userId_achievementId: { userId: entry.userId, achievementId: ach.id },
+                },
+              });
+              if (alreadyUnlocked) continue;
+
+              await this.prisma.userAchievement.create({
+                data: { userId: entry.userId, achievementId: ach.id, unlockedAt: new Date() },
+              });
+              if (ach.pointValue > 0) {
+                await this.prisma.pointsLog.create({
+                  data: {
+                    userId: entry.userId,
+                    points: ach.pointValue,
+                    eventType: 'ADMIN_ADJUSTMENT' as any,
+                    description: `Achievement unlocked: ${ach.name}`,
+                  },
+                });
+              }
+            }
+          }
         }
 
         this.logger.log(`Archived leaderboard for cohort ${cohort.name} (${month}/${year})`);

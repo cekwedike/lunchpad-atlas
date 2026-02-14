@@ -10,6 +10,18 @@
  *   4 months → 20,000/mo cap  (80,000 total)
  *   5 months → 24,000/mo cap  (120,000 total)
  *   6+ months→ 26,667/mo cap  (160,000 total)
+ *
+ * Leaderboard achievement milestones for a 4-month cohort (total = 80,000):
+ *   Point Starter      ≈   400 pts  (first session)
+ *   Point Collector    ≈ 2,500 pts  (early month 1)
+ *   Point Accumulator  ≈ 6,000 pts  (mid month 1)
+ *   Point Hoarder      ≈12,000 pts  (end of month 1 for dedicated fellows)
+ *   Point Enthusiast   ≈20,000 pts  (month 2)
+ *   Point Expert       ≈32,000 pts  (month 2–3)
+ *   Point Legend       ≈44,000 pts  (month 3)
+ *   Point Elite        ≈58,000 pts  (month 3–4)
+ *   Living Legend      ≈68,000 pts  (month 4, dedicated fellows only)
+ *   The GOAT           ≈76,000 pts  (near-perfect performance all 4 months)
  */
 
 const MONTHLY_CAP_BY_MONTHS: Record<number, number> = {
@@ -54,33 +66,21 @@ export function getTotalTargetForDuration(months: number): number {
 }
 
 /**
- * Leaderboard achievement thresholds expressed as a fraction of the cohort
- * total target. Spread so that early tiers unlock in month 1 and The GOAT
- * requires dedicated effort through the final month.
- *
- * Reference values for a 4-month cohort (total = 80,000):
- *   Point Starter     ≈     100 pts  (month 1, first week)
- *   Point Collector   ≈     500 pts  (month 1)
- *   Point Accumulator ≈   1,000 pts  (month 1)
- *   Point Hoarder     ≈   3,000 pts  (month 1 end)
- *   Point Enthusiast  ≈   5,000 pts  (month 2 start)
- *   Point Expert      ≈  12,000 pts  (month 2 mid)
- *   Point Legend      ≈  20,000 pts  (month 2 end)
- *   Point Elite       ≈  35,000 pts  (month 3)
- *   Living Legend     ≈  55,000 pts  (month 3 end)
- *   The GOAT          ≈  72,000 pts  (month 4, dedicated fellows only)
+ * Leaderboard achievement thresholds as a fraction of the cohort total target.
+ * Deliberately demanding — only dedicated fellows who consistently hit the
+ * monthly cap will reach the upper tiers.
  */
 const LEADERBOARD_PCT: Record<string, number> = {
-  'Point Starter':     0.00125,
-  'Point Collector':   0.00625,
-  'Point Accumulator': 0.0125,
-  'Point Hoarder':     0.0375,
-  'Point Enthusiast':  0.0625,
-  'Point Expert':      0.15,
-  'Point Legend':      0.25,
-  'Point Elite':       0.4375,
-  'Living Legend':     0.6875,
-  'The GOAT':          0.90,
+  'Point Starter':     0.005,    // ~4-month:  400 pts  (first session)
+  'Point Collector':   0.03125,  // ~4-month:  2,500 pts
+  'Point Accumulator': 0.075,    // ~4-month:  6,000 pts
+  'Point Hoarder':     0.15,     // ~4-month: 12,000 pts
+  'Point Enthusiast':  0.25,     // ~4-month: 20,000 pts
+  'Point Expert':      0.40,     // ~4-month: 32,000 pts
+  'Point Legend':      0.55,     // ~4-month: 44,000 pts
+  'Point Elite':       0.725,    // ~4-month: 58,000 pts
+  'Living Legend':     0.85,     // ~4-month: 68,000 pts
+  'The GOAT':          0.95,     // ~4-month: 76,000 pts (near-perfect all months)
 };
 
 /**
