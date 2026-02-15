@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Loader2, Eye, EyeOff } from "lucide-react";
 import { useSetupStatus, useSetupAdmin } from "@/hooks/api/useAuth";
+import { PasswordTracker } from "@/components/PasswordTracker";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -129,6 +130,7 @@ export default function SetupPage() {
                 </button>
               </div>
               {errors.password && <p className="mt-1 text-sm text-red-300">{errors.password}</p>}
+              <PasswordTracker password={form.password} />
             </div>
 
             {/* Confirm Password */}

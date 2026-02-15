@@ -732,8 +732,27 @@ export class AdminUserService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    // Generate a secure temporary password
-    const tempPassword = crypto.randomBytes(6).toString('base64url'); // ~8 chars, URL-safe
+    // Generate a strong temporary password that meets PASSWORD_REGEX
+    function generateStrongPassword(length = 12) {
+      const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const lower = 'abcdefghijklmnopqrstuvwxyz';
+      const digits = '0123456789';
+      const special = '!@#$%^&*()_+-=[]{};:\"|,.<>/?';
+      const all = upper + lower + digits + special;
+      let password = '';
+      // Ensure at least one of each requirement
+      password += upper[Math.floor(Math.random() * upper.length)];
+      password += lower[Math.floor(Math.random() * lower.length)];
+      password += digits[Math.floor(Math.random() * digits.length)];
+      password += special[Math.floor(Math.random() * special.length)];
+      // Fill the rest
+      for (let i = 4; i < length; i++) {
+        password += all[Math.floor(Math.random() * all.length)];
+      }
+      // Shuffle password
+      return password.split('').sort(() => 0.5 - Math.random()).join('');
+    }
+    const tempPassword = generateStrongPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
     await this.prisma.user.update({
