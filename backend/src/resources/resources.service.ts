@@ -6,12 +6,14 @@ import {
 import { PrismaService } from '../prisma.service';
 import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
 import { AchievementsService } from '../achievements/achievements.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ResourcesService {
   constructor(
     private prisma: PrismaService,
     private achievementsService: AchievementsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -368,6 +370,11 @@ export class ResourcesService {
       const skimmer = await this.isRepeatSkimmer(userId);
       if (skimmer) {
         totalPoints = Math.floor(totalPoints * 0.5);
+        try {
+          await this.notificationsService.notifyAntiSkimmingWarning(userId);
+        } catch {
+          // Non-critical
+        }
       }
 
       // Award points with monthly cap enforcement

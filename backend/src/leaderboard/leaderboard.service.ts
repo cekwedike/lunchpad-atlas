@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { LeaderboardFilterDto, LeaderboardAdjustPointsDto } from './dto/leaderboard.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class LeaderboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   private buildMonthRange(year: number, month: number) {
     const startDate = new Date(year, month - 1, 1);
@@ -594,6 +598,25 @@ export class LeaderboardService {
         },
       },
     });
+
+    // Notify the fellow about the points adjustment
+    try {
+      const adjuster = await this.prisma.user.findUnique({
+        where: { id: adjustedById },
+        select: { firstName: true, lastName: true },
+      });
+      const adjusterName = adjuster
+        ? `${adjuster.firstName} ${adjuster.lastName}`
+        : 'An administrator';
+      await this.notificationsService.notifyPointsAdjusted(
+        userId,
+        adjusterName,
+        points,
+        description,
+      );
+    } catch {
+      // Non-critical
+    }
 
     return { success: true, logId: log.id };
   }

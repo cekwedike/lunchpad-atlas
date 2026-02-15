@@ -9,10 +9,14 @@ import {
   JoinLiveQuizDto,
   SubmitAnswerDto,
 } from './dto/live-quiz.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class LiveQuizService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // Create a new live quiz
   async create(createDto: CreateLiveQuizDto) {
@@ -143,7 +147,7 @@ export class LiveQuizService {
       throw new BadRequestException('Quiz has already been started');
     }
 
-    return this.prisma.liveQuiz.update({
+    const updated = await this.prisma.liveQuiz.update({
       where: { id },
       data: {
         status: 'ACTIVE',
@@ -156,6 +160,26 @@ export class LiveQuizService {
         },
       },
     });
+
+    // Notify fellows in linked cohort(s) that the quiz has started
+    try {
+      const quizSessions = await this.prisma.liveQuizSession.findMany({
+        where: { liveQuizId: quiz.id },
+        select: { session: { select: { cohortId: true } } },
+      });
+      const cohortIds = [...new Set(quizSessions.map((qs) => qs.session.cohortId))];
+      for (const cohortId of cohortIds) {
+        await this.notificationsService.notifyQuizStarted(
+          cohortId,
+          quiz.title,
+          quiz.id,
+        );
+      }
+    } catch {
+      // Non-critical
+    }
+
+    return updated;
   }
 
   // Move to next question

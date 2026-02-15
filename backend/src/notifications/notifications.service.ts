@@ -850,4 +850,227 @@ export class NotificationsService {
 
     return this.createBulkNotifications(notifications);
   }
+
+  // ==================== DISCUSSION MODERATION ====================
+
+  async notifyDiscussionRejected(
+    userId: string,
+    discussionTitle: string,
+    discussionId: string,
+    reason?: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'DISCUSSION_REJECTED',
+      title: 'Discussion Not Approved',
+      message: reason
+        ? `Your discussion "${discussionTitle}" was not approved: ${reason}`
+        : `Your discussion "${discussionTitle}" was not approved. Please review and resubmit.`,
+      data: { discussionId },
+    });
+  }
+
+  async notifyDiscussionFlagged(
+    userId: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'DISCUSSION_FLAGGED',
+      title: 'Discussion Flagged',
+      message: `Your discussion "${discussionTitle}" has been flagged for review.`,
+      data: { discussionId },
+    });
+  }
+
+  async notifyStaffDiscussionPending(
+    cohortId: string,
+    authorName: string,
+    discussionTitle: string,
+    discussionId: string,
+  ) {
+    // Notify facilitators assigned to this cohort + all admins
+    const staff = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'ADMIN' },
+          { role: 'FACILITATOR', cohortId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const notifications = staff.map((user) => ({
+      userId: user.id,
+      type: 'DISCUSSION_PENDING' as NotificationType,
+      title: 'Discussion Awaiting Approval',
+      message: `${authorName} submitted a discussion: "${discussionTitle}"`,
+      data: { discussionId },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  // ==================== POINTS & GAMIFICATION ====================
+
+  async notifyPointsAdjusted(
+    userId: string,
+    adjustedByName: string,
+    points: number,
+    reason?: string,
+  ) {
+    const action = points > 0 ? 'awarded' : 'deducted';
+    const absPoints = Math.abs(points);
+    return this.createNotification({
+      userId,
+      type: 'POINTS_ADJUSTED',
+      title: `Points ${points > 0 ? 'Awarded' : 'Deducted'}`,
+      message: reason
+        ? `${adjustedByName} ${action} ${absPoints} points: ${reason}`
+        : `${adjustedByName} ${action} ${absPoints} points.`,
+      data: { points, adjustedByName },
+    });
+  }
+
+  async notifyAntiSkimmingWarning(userId: string) {
+    return this.createNotification({
+      userId,
+      type: 'ANTI_SKIMMING_WARNING',
+      title: 'Engagement Quality Warning',
+      message:
+        'Your recent resource engagement has been below quality thresholds. Future points will be reduced by 50% until engagement improves.',
+      data: {},
+    });
+  }
+
+  // ==================== USER ACCOUNT ====================
+
+  async notifyUserSuspended(userId: string, reason?: string) {
+    return this.createNotification({
+      userId,
+      type: 'USER_SUSPENDED',
+      title: 'Account Suspended',
+      message: reason
+        ? `Your account has been suspended: ${reason}`
+        : 'Your account has been suspended. Contact an administrator for details.',
+      data: {},
+    });
+  }
+
+  async notifyUserUnsuspended(userId: string) {
+    return this.createNotification({
+      userId,
+      type: 'USER_UNSUSPENDED',
+      title: 'Account Reinstated',
+      message: 'Your account has been reinstated. You can now access the platform normally.',
+      data: {},
+    });
+  }
+
+  // ==================== QUIZ ====================
+
+  async notifyQuizStarted(
+    cohortId: string,
+    quizTitle: string,
+    liveQuizId: string,
+  ) {
+    const fellows = await this.prisma.user.findMany({
+      where: { cohortId, role: 'FELLOW' },
+      select: { id: true },
+    });
+
+    const notifications = fellows.map((fellow) => ({
+      userId: fellow.id,
+      type: 'QUIZ_STARTED' as NotificationType,
+      title: 'Live Quiz Started!',
+      message: `"${quizTitle}" is now live. Join now before it ends!`,
+      data: { liveQuizId },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  // ==================== FELLOW METRIC ALERTS (to staff) ====================
+
+  async notifyFellowInactivity(
+    fellowId: string,
+    fellowName: string,
+    cohortId: string,
+    daysSinceLastActivity: number,
+  ) {
+    const staff = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'ADMIN' },
+          { role: 'FACILITATOR', cohortId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const notifications = staff.map((user) => ({
+      userId: user.id,
+      type: 'FELLOW_INACTIVITY' as NotificationType,
+      title: 'Fellow Inactive',
+      message: `${fellowName} has been inactive for ${daysSinceLastActivity} days.`,
+      data: { fellowId, daysSinceLastActivity },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyFellowMissedSessions(
+    fellowId: string,
+    fellowName: string,
+    cohortId: string,
+    missedCount: number,
+  ) {
+    const staff = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'ADMIN' },
+          { role: 'FACILITATOR', cohortId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const notifications = staff.map((user) => ({
+      userId: user.id,
+      type: 'FELLOW_MISSED_SESSIONS' as NotificationType,
+      title: 'Fellow Missing Sessions',
+      message: `${fellowName} has missed ${missedCount} consecutive sessions.`,
+      data: { fellowId, missedCount },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
+
+  async notifyFellowLowEngagement(
+    fellowId: string,
+    fellowName: string,
+    cohortId: string,
+    details: string,
+  ) {
+    const staff = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'ADMIN' },
+          { role: 'FACILITATOR', cohortId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const notifications = staff.map((user) => ({
+      userId: user.id,
+      type: 'FELLOW_LOW_ENGAGEMENT' as NotificationType,
+      title: 'Fellow Low Engagement',
+      message: `${fellowName}: ${details}`,
+      data: { fellowId, details },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
 }

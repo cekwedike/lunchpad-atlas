@@ -11,6 +11,12 @@ import {
   CheckCircle2,
   Trash2,
   X,
+  Ban,
+  ShieldCheck,
+  Coins,
+  Zap,
+  UserX,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -51,8 +57,18 @@ const notificationIcons: Record<NotificationType, React.ElementType> = {
   [NotificationType.SESSION_UPDATED]: Calendar,
   [NotificationType.USER_PROMOTED]: TrendingUp,
   [NotificationType.DISCUSSION_FLAGGED]: AlertCircle,
+  [NotificationType.DISCUSSION_REJECTED]: Ban,
+  [NotificationType.DISCUSSION_PENDING]: Clock,
   [NotificationType.SYSTEM_ALERT]: AlertCircle,
   [NotificationType.ATTENDANCE_MARKED]: CheckCircle2,
+  [NotificationType.POINTS_ADJUSTED]: Coins,
+  [NotificationType.USER_SUSPENDED]: Ban,
+  [NotificationType.USER_UNSUSPENDED]: ShieldCheck,
+  [NotificationType.QUIZ_STARTED]: Zap,
+  [NotificationType.ANTI_SKIMMING_WARNING]: AlertCircle,
+  [NotificationType.FELLOW_INACTIVITY]: UserX,
+  [NotificationType.FELLOW_MISSED_SESSIONS]: UserX,
+  [NotificationType.FELLOW_LOW_ENGAGEMENT]: AlertCircle,
 };
 
 const notificationColors: Record<NotificationType, string> = {
@@ -74,8 +90,18 @@ const notificationColors: Record<NotificationType, string> = {
   [NotificationType.SESSION_UPDATED]: 'text-green-500',
   [NotificationType.USER_PROMOTED]: 'text-indigo-500',
   [NotificationType.DISCUSSION_FLAGGED]: 'text-red-500',
+  [NotificationType.DISCUSSION_REJECTED]: 'text-red-500',
+  [NotificationType.DISCUSSION_PENDING]: 'text-orange-500',
   [NotificationType.SYSTEM_ALERT]: 'text-amber-500',
   [NotificationType.ATTENDANCE_MARKED]: 'text-green-500',
+  [NotificationType.POINTS_ADJUSTED]: 'text-amber-500',
+  [NotificationType.USER_SUSPENDED]: 'text-red-500',
+  [NotificationType.USER_UNSUSPENDED]: 'text-emerald-500',
+  [NotificationType.QUIZ_STARTED]: 'text-purple-500',
+  [NotificationType.ANTI_SKIMMING_WARNING]: 'text-red-500',
+  [NotificationType.FELLOW_INACTIVITY]: 'text-orange-500',
+  [NotificationType.FELLOW_MISSED_SESSIONS]: 'text-red-500',
+  [NotificationType.FELLOW_LOW_ENGAGEMENT]: 'text-orange-500',
 };
 
 export function NotificationDropdown({ userId, userRole, onClose }: NotificationDropdownProps) {

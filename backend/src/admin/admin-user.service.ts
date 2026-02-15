@@ -662,6 +662,12 @@ export class AdminUserService {
       },
     });
 
+    try {
+      await this.notificationsService.notifyUserSuspended(userId, reason);
+    } catch {
+      // Non-critical
+    }
+
     return { message: 'User suspended', userId };
   }
 
@@ -677,6 +683,12 @@ export class AdminUserService {
     await this.prisma.adminAuditLog.create({
       data: { adminId, action: 'USER_UNSUSPENDED', entityType: 'User', entityId: userId, changes: {} },
     });
+
+    try {
+      await this.notificationsService.notifyUserUnsuspended(userId);
+    } catch {
+      // Non-critical
+    }
 
     return { message: 'User unsuspended', userId };
   }

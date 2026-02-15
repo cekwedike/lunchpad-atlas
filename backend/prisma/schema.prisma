@@ -652,8 +652,18 @@ enum NotificationType {
   SESSION_UPDATED // Session updated
   USER_PROMOTED // User role changed
   DISCUSSION_FLAGGED // Discussion flagged for review
+  DISCUSSION_REJECTED // Discussion rejected by moderator
+  DISCUSSION_PENDING // New discussion awaiting approval (to facilitators/admins)
   SYSTEM_ALERT // System-level alert
   ATTENDANCE_MARKED // Fellow marked present/absent for a session
+  POINTS_ADJUSTED // Admin/facilitator manually adjusted points
+  USER_SUSPENDED // User account suspended
+  USER_UNSUSPENDED // User account reinstated
+  QUIZ_STARTED // Live quiz has started
+  ANTI_SKIMMING_WARNING // Anti-skimming penalty applied
+  FELLOW_INACTIVITY // Fellow inactive for extended period (to staff)
+  FELLOW_MISSED_SESSIONS // Fellow missed consecutive sessions (to staff)
+  FELLOW_LOW_ENGAGEMENT // Fellow consistently low resource engagement (to staff)
 }
 
 model Notification {

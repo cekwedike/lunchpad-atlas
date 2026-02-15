@@ -397,6 +397,21 @@ export class DiscussionsService {
       ? await this.awardPoints(userId, 5, 'DISCUSSION_POST', `Posted discussion: ${dto.title}`)
       : false;
 
+    if (!isApproved && cohortId) {
+      // Fellow's discussion is pending — notify facilitators/admins to review
+      try {
+        const authorName = `${discussion.user.firstName} ${discussion.user.lastName}`;
+        await this.notificationsService.notifyStaffDiscussionPending(
+          cohortId,
+          authorName,
+          discussion.title,
+          discussion.id,
+        );
+      } catch {
+        // Non-critical
+      }
+    }
+
     if (isApproved) {
       // Broadcast new discussion to cohort in real-time
       this.discussionsGateway.broadcastNewDiscussion(discussionWithTopic);
