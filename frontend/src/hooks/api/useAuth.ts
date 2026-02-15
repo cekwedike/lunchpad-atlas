@@ -153,7 +153,7 @@ export function useSetupAdmin() {
   const { setUser } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; password: string }) => {
+    mutationFn: async (data: { name: string; email: string; password: string; confirmPassword: string }) => {
       return apiClient.post<LoginResponse>('/auth/setup', data, { requiresAuth: false });
     },
     onSuccess: (data) => {
