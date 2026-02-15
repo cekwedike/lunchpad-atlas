@@ -8,9 +8,9 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { UseGuards } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { validateWsToken } from '../common/ws-auth.util';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -18,7 +18,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : false),
     credentials: true,
   },
   namespace: '/chat',
@@ -35,12 +35,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      // Extract userId from auth token in handshake
-      const token = client.handshake.auth.token;
-
-      // TODO: Validate JWT token and extract userId
-      // For now, we'll expect userId to be passed directly
-      const userId = client.handshake.auth.userId;
+      const userId = validateWsToken(client);
 
       if (!userId) {
         client.disconnect();

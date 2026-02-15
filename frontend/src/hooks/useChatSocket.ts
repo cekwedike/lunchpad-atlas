@@ -39,9 +39,10 @@ export function useChatSocket(options: UseChatSocketOptions) {
     if (!userId) return;
 
     // Initialize socket connection
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     socketRef.current = io(`${SOCKET_URL}/chat`, {
       auth: {
-        userId,
+        token,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,

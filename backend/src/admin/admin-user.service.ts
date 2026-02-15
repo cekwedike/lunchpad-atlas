@@ -30,6 +30,12 @@ export interface UserActivityEntry {
   metadata?: any;
 }
 
+/** Strip sensitive fields from a user object before returning to the client. */
+function sanitizeUser<T extends Record<string, any>>(user: T): Omit<T, 'passwordHash'> {
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
+
 @Injectable()
 export class AdminUserService {
   constructor(
@@ -138,7 +144,7 @@ export class AdminUserService {
       const isActive = lastActiveMs !== null ? lastActiveMs <= activeThresholdMs : false;
 
       return {
-        ...user,
+        ...sanitizeUser(user),
         lastActiveAt,
         lastActiveMinutes,
         lastActiveSeconds,
@@ -218,7 +224,7 @@ export class AdminUserService {
       : null;
 
     return {
-      ...user,
+      ...sanitizeUser(user),
       lastActiveAt,
       lastActiveSeconds,
     };
@@ -243,6 +249,7 @@ export class AdminUserService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { role },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, cohortId: true },
     });
 
     const admin = await this.prisma.user.findUnique({

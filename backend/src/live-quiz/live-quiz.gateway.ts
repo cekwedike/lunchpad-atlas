@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { LiveQuizService } from './live-quiz.service';
+import { validateWsToken } from '../common/ws-auth.util';
 
 interface QuizRoom {
   quizId: string;
@@ -17,7 +18,7 @@ interface QuizRoom {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : false),
     credentials: true,
   },
   namespace: '/live-quiz',
@@ -33,7 +34,13 @@ export class LiveQuizGateway
   constructor(private liveQuizService: LiveQuizService) {}
 
   handleConnection(client: Socket) {
-    console.log(`Client connected to live quiz: ${client.id}`);
+    const userId = validateWsToken(client);
+    if (!userId) {
+      client.disconnect();
+      return;
+    }
+    (client as any).userId = userId;
+    console.log(`Client connected to live quiz: ${client.id} (User: ${userId})`);
   }
 
   handleDisconnect(client: Socket) {

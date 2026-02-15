@@ -96,9 +96,10 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
 
   useEffect(() => {
     // Initialize socket connection
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     socketRef.current = io(`${SOCKET_URL}/live-quiz`, {
       auth: {
-        userId,
+        token,
       },
       transports: ['websocket'],
     });

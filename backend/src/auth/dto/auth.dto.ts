@@ -2,18 +2,25 @@ import {
   IsEmail,
   IsString,
   MinLength,
+  MaxLength,
+  Matches,
   IsEnum,
   IsOptional,
   IsUUID,
 } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
+/** At least one uppercase, one lowercase, one digit, and one special character */
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).+$/;
+const PASSWORD_MESSAGE =
+  'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character';
+
 export class LoginDto {
   @IsEmail()
   email: string;
 
   @IsString()
-  @MinLength(6)
+  @MaxLength(72)
   password: string;
 }
 
@@ -26,7 +33,9 @@ export class RegisterDto {
   name: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
+  @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_MESSAGE })
   password: string;
 
   @IsEnum(UserRole)
@@ -48,6 +57,8 @@ export class SetupAdminDto {
 
   @IsString()
   @MinLength(8)
+  @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_MESSAGE })
   password: string;
 }
 

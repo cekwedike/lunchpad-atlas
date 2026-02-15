@@ -22,9 +22,10 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
     if (!userId) return;
 
     // Initialize socket connection
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     socketRef.current = io(`${SOCKET_URL}/notifications`, {
       auth: {
-        userId,
+        token,
       },
       transports: ['websocket'],
     });

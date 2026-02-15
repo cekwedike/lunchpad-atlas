@@ -17,9 +17,10 @@ export function useDiscussionsSocket() {
     if (!user?.id) return;
 
     // Create socket connection
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     const socketInstance = io(`${SOCKET_URL}/discussions`, {
       auth: {
-        userId: user.id,
+        token,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,

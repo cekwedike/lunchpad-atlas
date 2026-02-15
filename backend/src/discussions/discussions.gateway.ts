@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma.service';
+import { validateWsToken } from '../common/ws-auth.util';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -17,7 +18,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : false),
     credentials: true,
   },
   namespace: '/discussions',
@@ -35,26 +36,25 @@ export class DiscussionsGateway
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const userId =
-        client.handshake.auth.userId || client.handshake.query.userId;
+      const userId = validateWsToken(client);
 
       if (!userId) {
-        console.log('Connection rejected: No userId provided');
+        console.log('Connection rejected: invalid or missing token');
         client.disconnect();
         return;
       }
 
       // Get user's cohort
       const user = await this.prisma.user.findUnique({
-        where: { id: userId as string },
+        where: { id: userId },
         select: { cohortId: true },
       });
 
       if (user?.cohortId) {
-        client.userId = userId as string;
+        client.userId = userId;
         client.cohortId = user.cohortId;
         this.connectedUsers.set(client.id, {
-          userId: userId as string,
+          userId,
           cohortId: user.cohortId,
         });
 

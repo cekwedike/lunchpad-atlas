@@ -1,23 +1,30 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Security headers
+  app.use(helmet());
+
   // Enable CORS for frontend
-  const allowedOrigins = Array.from(
-    new Set(
-      [
-        process.env.FRONTEND_URL,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:5173',
-      ].filter(Boolean),
-    ),
-  );
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowedOrigins = isProduction
+    ? [process.env.FRONTEND_URL].filter(Boolean)
+    : Array.from(
+        new Set(
+          [
+            process.env.FRONTEND_URL,
+            'http://localhost:3000',
+            'http://localhost:3001',
+            'http://localhost:5173',
+          ].filter(Boolean),
+        ),
+      );
 
   app.enableCors({
     origin: allowedOrigins,

@@ -5,6 +5,7 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { validateWsToken } from '../common/ws-auth.util';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -12,7 +13,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : false),
     credentials: true,
   },
   namespace: '/notifications',
@@ -29,8 +30,7 @@ export class NotificationsGateway
 
   handleConnection(client: AuthenticatedSocket) {
     try {
-      // Extract userId from auth token
-      const userId = client.handshake.auth.userId;
+      const userId = validateWsToken(client);
 
       if (!userId) {
         client.disconnect();
