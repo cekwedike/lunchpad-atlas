@@ -624,9 +624,9 @@ export class NotificationsService {
     message: string,
     data?: any,
   ) {
-    // Get all fellows in cohort
+    // Get all fellows in cohort (filtered by role to exclude facilitators/admins)
     const fellows = await this.prisma.user.findMany({
-      where: { cohortId },
+      where: { cohortId, role: 'FELLOW' },
       select: { id: true },
     });
 

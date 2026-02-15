@@ -25,23 +25,12 @@ export class NotificationsController {
     @Request() req?: any,
   ) {
     const userId = req.user.id;
-    const userRole = req.user.role;
-    const limitNum = limit
-      ? parseInt(limit, 10)
-      : userRole === 'ADMIN'
-        ? 50
-        : 20;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
     const unreadOnlyBool = unreadOnly === 'true';
 
-    // Admins see ALL notifications from all users
-    if (userRole === 'ADMIN') {
-      return this.notificationsService.getAllNotifications(
-        limitNum,
-        unreadOnlyBool,
-      );
-    }
-
-    // Fellows and Facilitators see only their own notifications
+    // All roles see only their own notifications.
+    // Admins receive admin-targeted notifications via notifyAdmins* helpers,
+    // so they don't need to see every fellow/facilitator notification.
     return this.notificationsService.getUserNotifications(
       userId,
       limitNum,
@@ -52,15 +41,8 @@ export class NotificationsController {
   @Get('unread-count')
   async getUnreadCount(@Request() req: any) {
     const userId = req.user.id;
-    const userRole = req.user.role;
 
-    // Admins see count of ALL unread notifications
-    if (userRole === 'ADMIN') {
-      const count = await this.notificationsService.getAllUnreadCount();
-      return { count };
-    }
-
-    // Fellows and Facilitators see only their own unread count
+    // All roles see only their own unread count
     const count = await this.notificationsService.getUnreadCount(userId);
     return { count };
   }
