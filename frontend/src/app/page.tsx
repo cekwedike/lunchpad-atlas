@@ -29,17 +29,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const [scrollY, setScrollY] = useState(0);
   const [selectedRole, setSelectedRole] = useState<"fellow" | "facilitator" | "admin">("fellow");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const router = useRouter();
   const featuresRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -225,10 +218,7 @@ export default function Home() {
         <section className="min-h-screen flex items-center justify-center px-4 sm:px-8 pt-32 pb-20">
           <div className="max-w-6xl w-full grid lg:grid-cols-2 gap-16 items-center">
             {/* Left: Hero Text */}
-            <div
-              className="space-y-8"
-              style={{ transform: `translateY(${scrollY * -0.08}px)` }}
-            >
+            <div className="space-y-8">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2">
                   <Zap className="w-4 h-4 text-blue-400" />
@@ -270,10 +260,7 @@ export default function Home() {
             </div>
 
             {/* Right: Sign In Card */}
-            <div
-              className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto"
-              style={{ transform: `translateY(${scrollY * -0.04}px)` }}
-            >
+            <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
               <div
                 className="bg-white/[0.06] backdrop-blur-2xl border border-white/10 rounded-3xl p-8 space-y-6 shadow-2xl shadow-black/20"
                 suppressHydrationWarning
@@ -377,13 +364,7 @@ export default function Home() {
         <section ref={featuresRef} className="py-32 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto">
             {/* Section Header */}
-            <div
-              className="text-center mb-20 space-y-4"
-              style={{
-                opacity: Math.min(1, Math.max(0, (scrollY - 400) / 300)),
-                transform: `translateY(${Math.max(0, 40 - (scrollY - 400) * 0.1)}px)`,
-              }}
-            >
+            <div className="text-center mb-20 space-y-4">
               <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-full px-4 py-2">
                 <Target className="w-4 h-4 text-purple-400" />
                 <span className="text-purple-300 text-sm font-medium">Platform Features</span>
@@ -408,10 +389,6 @@ export default function Home() {
                   <div
                     key={i}
                     className="group relative rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/15 transition-all duration-500 overflow-hidden"
-                    style={{
-                      opacity: Math.min(1, Math.max(0, (scrollY - 500 - i * 60) / 300)),
-                      transform: `translateY(${Math.max(0, 30 - (scrollY - 500 - i * 60) * 0.08)}px)`,
-                    }}
                   >
                     {/* Gradient top bar */}
                     <div
@@ -457,20 +434,14 @@ export default function Home() {
         {/* ═══════════ HOW IT WORKS ═══════════ */}
         <section className="py-32 px-4 sm:px-8">
           <div className="max-w-5xl mx-auto">
-            <div
-              className="text-center mb-16 space-y-4"
-              style={{
-                opacity: Math.min(1, Math.max(0, (scrollY - 1600) / 300)),
-                transform: `translateY(${Math.max(0, 40 - (scrollY - 1600) * 0.1)}px)`,
-              }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-white">
+            <div className="text-center mb-16 space-y-4">
+              <h2 className="text-4xl md:text-5xl font-bold" style={{ color: "#ffffff" }}>
                 How It{" "}
                 <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
                   Works
                 </span>
               </h2>
-              <p className="text-slate-400 text-lg">Your journey from onboarding to mastery</p>
+              <p className="text-lg" style={{ color: "#e2e8f0" }}>Your journey from onboarding to mastery</p>
             </div>
 
             <div className="grid md:grid-cols-4 gap-8">
@@ -509,13 +480,6 @@ export default function Home() {
                   <div
                     key={i}
                     className="text-center space-y-4"
-                    style={{
-                      opacity: Math.min(
-                        1,
-                        Math.max(0, (scrollY - 1800 - i * 100) / 300),
-                      ),
-                      transform: `translateY(${Math.max(0, 30 - (scrollY - 1800 - i * 100) * 0.08)}px)`,
-                    }}
                   >
                     <div className="mx-auto w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
                       <StepIcon className={`w-7 h-7 ${item.color}`} strokeWidth={1.5} />
@@ -528,33 +492,6 @@ export default function Home() {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ CTA SECTION ═══════════ */}
-        <section className="py-32 px-4 sm:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <div
-              className="bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-teal-500/10 border border-white/10 rounded-3xl p-12 md:p-16 space-y-8"
-              style={{
-                opacity: Math.min(1, Math.max(0, (scrollY - 2400) / 300)),
-              }}
-            >
-              <h2 className="text-3xl md:text-5xl font-bold text-white">
-                Ready to Start Your Journey?
-              </h2>
-              <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-                Join the LaunchPad Fellowship and accelerate your career with gamified learning,
-                real-time collaboration, and a supportive community.
-              </p>
-              <button
-                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold px-8 py-4 rounded-xl transition-all shadow-lg shadow-blue-500/25"
-              >
-                Sign In Now
-                <ArrowRight className="w-5 h-5" />
-              </button>
             </div>
           </div>
         </section>

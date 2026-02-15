@@ -31,8 +31,9 @@
 3. Connect your GitHub repo
 4. Configure:
    - **Name:** `atlas-backend`
-   - **Root Directory:** `backend`
+   - **Root Directory:** *(leave empty — Dockerfile is at repo root)*
    - **Runtime:** `Docker`
+   - **Dockerfile Path:** `./Dockerfile`
    - **Plan:** `Free`
 5. Add **Environment Variables** (Settings → Environment):
 

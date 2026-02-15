@@ -6,20 +6,20 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
-
-# Install ALL dependencies (including devDependencies for build)
+# Copy backend package files
+COPY backend/package.json ./backend/
+WORKDIR /app/backend
 RUN npm install
 
-# Copy prisma schema first (needed for generate)
-COPY prisma ./prisma
-
-# Generate Prisma client
+# Copy prisma schema and generate client
+COPY backend/prisma ./prisma
 RUN npx prisma generate
 
-# Copy source code
-COPY . .
+# Copy shared directory (backend imports from ../shared/)
+COPY shared /app/shared
+
+# Copy backend source code
+COPY backend /app/backend
 
 # Build NestJS
 RUN npx nest build
@@ -30,20 +30,21 @@ FROM node:20-alpine AS production
 # Install OpenSSL for Prisma
 RUN apk add --no-cache openssl
 
-WORKDIR /app
+WORKDIR /app/backend
 
-# Copy package files
-COPY package.json ./
-
-# Install only production dependencies
+# Copy backend package files and install production deps
+COPY backend/package.json ./
 RUN npm install --omit=dev
 
 # Copy prisma schema and generate client
-COPY prisma ./prisma
+COPY backend/prisma ./prisma
 RUN npx prisma generate
 
 # Copy built output from builder
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/backend/dist ./dist
+
+# Copy shared (needed at runtime for imports)
+COPY --from=builder /app/shared /app/shared
 
 # Expose port
 EXPOSE 4000
