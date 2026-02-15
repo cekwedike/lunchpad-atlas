@@ -17,4 +17,12 @@ export class AppController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Get('ping')
+  ping() {
+    return {
+      status: 'pong',
+      timestamp: new Date().toISOString(),
+    };
+  }
 }
