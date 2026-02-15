@@ -423,6 +423,12 @@ export class AdminController {
     return this.adminUserService.unflagUser(userId, req.user.id);
   }
 
+  @Patch('users/:id/reset-password')
+  @ApiOperation({ summary: 'Reset a user\'s password (generates temporary password)' })
+  resetUserPassword(@Param('id') userId: string, @Request() req) {
+    return this.adminUserService.resetUserPassword(userId, req.user.id);
+  }
+
   // ============ Resource Management Endpoints ============
 
   @Post('resources')

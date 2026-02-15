@@ -1073,4 +1073,28 @@ export class NotificationsService {
 
     return this.createBulkNotifications(notifications);
   }
+
+  // ==================== PASSWORD ====================
+
+  async notifyAdminsPasswordChanged(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true, email: true, role: true },
+    });
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN', id: { not: userId } }, // Don't notify the user themselves if admin
+      select: { id: true },
+    });
+
+    const notifications = admins.map((admin) => ({
+      userId: admin.id,
+      type: 'PASSWORD_CHANGED' as NotificationType,
+      title: 'Password Changed',
+      message: `${user?.firstName} ${user?.lastName} (${user?.email}, ${user?.role}) changed their password.`,
+      data: { changedUserId: userId },
+    }));
+
+    return this.createBulkNotifications(notifications);
+  }
 }

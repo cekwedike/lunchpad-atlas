@@ -17,6 +17,7 @@ import {
   Zap,
   UserX,
   Clock,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -69,6 +70,7 @@ const notificationIcons: Record<NotificationType, React.ElementType> = {
   [NotificationType.FELLOW_INACTIVITY]: UserX,
   [NotificationType.FELLOW_MISSED_SESSIONS]: UserX,
   [NotificationType.FELLOW_LOW_ENGAGEMENT]: AlertCircle,
+  [NotificationType.PASSWORD_CHANGED]: KeyRound,
 };
 
 const notificationColors: Record<NotificationType, string> = {
@@ -102,6 +104,7 @@ const notificationColors: Record<NotificationType, string> = {
   [NotificationType.FELLOW_INACTIVITY]: 'text-orange-500',
   [NotificationType.FELLOW_MISSED_SESSIONS]: 'text-red-500',
   [NotificationType.FELLOW_LOW_ENGAGEMENT]: 'text-orange-500',
+  [NotificationType.PASSWORD_CHANGED]: 'text-amber-500',
 };
 
 export function NotificationDropdown({ userId, userRole, onClose }: NotificationDropdownProps) {

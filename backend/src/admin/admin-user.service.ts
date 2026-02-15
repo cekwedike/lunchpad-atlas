@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma.service';
 import { UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -717,5 +719,36 @@ export class AdminUserService {
     });
 
     return { message: 'User flag cleared', userId };
+  }
+
+  async resetUserPassword(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Generate a secure temporary password
+    const tempPassword = crypto.randomBytes(6).toString('base64url'); // ~8 chars, URL-safe
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashedPassword },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'PASSWORD_RESET',
+        entityType: 'User',
+        entityId: userId,
+        changes: { note: 'Password reset by admin' },
+      },
+    });
+
+    return {
+      message: 'Password reset successfully',
+      userId,
+      temporaryPassword: tempPassword,
+      note: 'Share this temporary password securely with the user. They should change it after logging in.',
+    };
   }
 }

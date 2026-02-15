@@ -6,10 +6,14 @@ import {
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
 import { UpdateUserDto, ChangePasswordDto, UserStatsDto } from './dto/user.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -89,8 +93,15 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash: hashedPassword },
+      data: { passwordHash: hashedPassword, passwordChangedAt: new Date() },
     });
+
+    // Notify admins about the password change
+    try {
+      await this.notificationsService.notifyAdminsPasswordChanged(userId);
+    } catch {
+      // Non-critical
+    }
 
     return { message: 'Password changed successfully' };
   }

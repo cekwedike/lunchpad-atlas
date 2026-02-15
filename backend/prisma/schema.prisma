@@ -79,6 +79,7 @@ model User {
   id                 String    @id @default(uuid())
   email              String    @unique
   passwordHash       String
+  passwordChangedAt  DateTime? // Last time password was changed
   firstName          String
   lastName           String
   role               UserRole  @default(FELLOW)
@@ -664,6 +665,7 @@ enum NotificationType {
   FELLOW_INACTIVITY // Fellow inactive for extended period (to staff)
   FELLOW_MISSED_SESSIONS // Fellow missed consecutive sessions (to staff)
   FELLOW_LOW_ENGAGEMENT // Fellow consistently low resource engagement (to staff)
+  PASSWORD_CHANGED // User changed their password (to admins)
 }
 
 model Notification {
