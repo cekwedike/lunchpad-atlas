@@ -107,10 +107,13 @@ class ApiClient {
         }
         throw error;
       }
-      // Network or other errors
+      // Network or other errors (backend unreachable, DNS failure, CORS, etc.)
+      const isNetworkError = error instanceof TypeError && (error.message === 'Failed to fetch' || error.message.includes('NetworkError'));
       throw new ApiClientError(
         0,
-        error instanceof Error ? error.message : 'Network error occurred'
+        isNetworkError
+          ? 'Unable to connect to the server. Please check your connection and try again.'
+          : error instanceof Error ? error.message : 'Network error occurred'
       );
     }
   }
