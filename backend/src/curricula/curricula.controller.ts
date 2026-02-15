@@ -1,8 +1,10 @@
-import { Controller, Post, Param, Get, Body, Put } from '@nestjs/common';
+import { Controller, Post, Param, Get, Body, Put, UseGuards } from '@nestjs/common';
 import { createCohortCurriculum, getCohortCurriculum, updateCohortCurriculum } from './cohortCurriculumUtils';
 import type { Curriculum } from '../../../shared/curriculum.template';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('curricula')
+@UseGuards(JwtAuthGuard)
 export class CurriculaController {
   @Post(':cohortId')
   async create(@Param('cohortId') cohortId: string) {

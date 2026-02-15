@@ -100,10 +100,15 @@ Existing LMS tools do not sufficiently:
 
 ### Requirements
 - Track time spent on each resource
-- Enforce minimum time thresholds
-- Disable video skipping
-- Embed reflection questions/checkpoints
+- Enforce minimum time thresholds (70% of estimated duration)
+- Articles: require 80% scroll depth
+- Videos: require 85% watch completion
 - Completion status only valid after engagement criteria met
+- Repeat skimmer detection: 3+ of last 10 resources with <50% time = 50% point penalty
+
+### Future Enhancements (not yet implemented)
+- Disable video skipping during playback
+- Embed reflection questions/checkpoints within content
 
 ---
 
@@ -119,9 +124,11 @@ Points awarded for:
 - Live-session engagement
 
 ### Rules
-- Monthly point caps
-- Admin-configurable weights
-- Abuse-prevention logic
+- Monthly point caps scale by cohort duration (1-month: 10k, 2-month: 11k, 3-month: 15k, 4-month: 20k, 5-month: 24k, 6+: 26.7k)
+- Core resources: 100 pts, optional: 50 pts (with quality bonus up to +20% and timeliness bonus up to +10%)
+- Discussion posts: 5 pts (100-word min, peer engagement required), comments: 2 pts (3/resource cap)
+- Anti-skimming: repeat skimmers get 50% point penalty
+- Admin and facilitator manual point adjustments (facilitators scoped to own cohort)
 
 ---
 

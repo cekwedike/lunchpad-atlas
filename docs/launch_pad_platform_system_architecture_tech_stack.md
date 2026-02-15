@@ -187,8 +187,9 @@ Each resource has:
 - Expired (optional)
 
 Unlock Rules:
-- Automatically unlock **8 days before session date**
-- Once unlocked, **never re-lock**
+- Automatically unlock based on `session.unlockDate` (set to **8 days before `scheduledDate`**)
+- Admin/facilitator can manually unlock for specific users via ResourceProgress
+- Once unlocked, **never re-lock** (unless admin explicitly changes state)
 
 
 ---

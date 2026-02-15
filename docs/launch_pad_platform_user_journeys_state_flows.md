@@ -19,12 +19,13 @@ This document is role-centric and flow-driven.
 
 ### 2.1 Cohort States
 
-- UPCOMING → ACTIVE → COMPLETED
+- DRAFT → ACTIVE → COMPLETED → ARCHIVED
 
 Effects:
-- UPCOMING: No resources accessible
-- ACTIVE: Resources unlock based on rules
-- COMPLETED: Read-only access
+- DRAFT: Cohort is being configured, not yet visible to fellows
+- ACTIVE: Resources unlock based on session unlock dates
+- COMPLETED: Read-only access, leaderboard archived
+- ARCHIVED: Historical record only
 
 ---
 
@@ -73,10 +74,11 @@ Failure paths:
 
 ### 3.3 Discussion Flow
 
-1. Reads discussion prompt
-2. Submits initial response
-3. Required to comment on another response
-4. Points awarded after validation
+1. Reads discussion prompt or creates a new discussion (100-word minimum)
+2. Discussion submitted for approval (facilitator/admin approves)
+3. Points withheld until user comments on another user's discussion (peer engagement)
+4. Once peer engagement demonstrated, retroactive points awarded for own discussions
+5. Comment replies earn 2 points each (max 3 point-earning comments per resource)
 
 ---
 
@@ -124,11 +126,15 @@ Late entry:
 ### 4.3 Post-Session Review
 
 1. Views aggregated engagement summary
-2. Reviews anonymized feedback
+2. Uploads session transcript for AI analysis
+3. Reviews AI-generated insights
+4. Can adjust points for fellows in their cohort
 
-Facilitators cannot:
-- Modify scores
-- View individual rankings
+Facilitators can:
+- Adjust points for fellows in their own cohort
+- Unlock resources manually for fellows
+- View individual fellow engagement data
+- Manage discussions (pin, lock, approve, moderate)
 
 ---
 
@@ -177,13 +183,22 @@ Facilitators cannot:
 
 ### 6.1 Monthly Reset
 
-- Points reset
-- Achievements recalculated
-- Leaderboard archived
+- currentMonthPoints reset to 0 (via lastPointReset check)
+- Leaderboard calculated per calendar month from PointsLog
+- Monthly leaderboard archived for historical viewing
+- LEADERBOARD achievements use cohort-scoped points (since cohort start date)
+
+### 6.2 Cohort Change Reset
+
+When a user moves to a different cohort:
+- All UserAchievement records deleted
+- currentMonthPoints reset to 0
+- monthlyPointsCap updated to match new cohort duration
+- Achievements can be re-earned in new cohort
 
 ---
 
-### 6.2 Suspension Flow
+### 6.3 Suspension Flow
 
 - User flagged
 - Points frozen
@@ -205,6 +220,11 @@ Facilitators cannot:
 - Resource unlocked notifications
 - Quiz start alerts
 - Achievement awarded notifications
+- Discussion reply notifications
+- Resource update notifications (admin/facilitator)
+- Weekly digest emails (automated via cron)
+- Inactivity nudge emails (3+ days inactive, automated via cron)
+- Live quiz notifications
 
 ---
 

@@ -239,7 +239,6 @@ export class LeaderboardService {
     pointsEvents.forEach((event) => addActivityDay(event.userId, event.createdAt));
     chatMessages.forEach((message) => addActivityDay(message.userId, message.createdAt));
     discussionComments.forEach((comment) => addActivityDay(comment.userId, comment.createdAt));
-    discussionComments.forEach((comment) => addActivityDay(comment.userId, comment.createdAt));
 
     const leaderboardRows = fellows.map((user) => {
       const basePoints = basePointsMap.get(user.id) || 0;
@@ -408,6 +407,17 @@ export class LeaderboardService {
       select: { userId: true, createdAt: true },
     });
 
+    const discussionComments = await this.prisma.discussionComment.findMany({
+      where: {
+        userId: { in: fellowIds },
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: { userId: true, createdAt: true },
+    });
+
     const pointsEvents = await this.prisma.pointsLog.findMany({
       where: pointsWhere,
       select: { userId: true, createdAt: true },
@@ -426,6 +436,17 @@ export class LeaderboardService {
       chatDays.get(message.userId)?.add(key);
     });
 
+    discussionComments.forEach((comment) => {
+      chatCounts.set(comment.userId, (chatCounts.get(comment.userId) || 0) + 1);
+      const date = new Date(comment.createdAt);
+      date.setHours(0, 0, 0, 0);
+      const key = date.toISOString().split('T')[0];
+      if (!chatDays.has(comment.userId)) {
+        chatDays.set(comment.userId, new Set());
+      }
+      chatDays.get(comment.userId)?.add(key);
+    });
+
     const activityDays = new Map<string, Set<string>>();
     const addActivityDay = (userId: string, createdAt: Date) => {
       const date = new Date(createdAt);
@@ -439,6 +460,7 @@ export class LeaderboardService {
 
     pointsEvents.forEach((event) => addActivityDay(event.userId, event.createdAt));
     chatMessages.forEach((message) => addActivityDay(message.userId, message.createdAt));
+    discussionComments.forEach((comment) => addActivityDay(comment.userId, comment.createdAt));
 
     const leaderboardRows = fellows.map((entry) => {
       const basePoints = basePointsMap.get(entry.id) || 0;
@@ -483,6 +505,7 @@ export class LeaderboardService {
         rank: null,
         totalUsers: leaderboardRows.length,
         points: 0,
+        streak: 0,
         message: 'User has no activity in this period',
       };
     }
@@ -518,6 +541,7 @@ export class LeaderboardService {
       select: {
         id: true,
         role: true,
+        cohortId: true,
         currentMonthPoints: true,
         lastPointReset: true,
       },
@@ -537,7 +561,7 @@ export class LeaderboardService {
         select: { cohortId: true },
       });
 
-      if (!facilitator?.cohortId || facilitator.cohortId !== (user as any).cohortId) {
+      if (!facilitator?.cohortId || facilitator.cohortId !== user.cohortId) {
         throw new BadRequestException('Facilitators can only adjust points for their cohort');
       }
     }

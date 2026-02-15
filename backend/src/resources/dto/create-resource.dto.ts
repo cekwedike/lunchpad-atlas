@@ -62,7 +62,7 @@ export class CreateResourceDto {
   isCore?: boolean;
 
   @ApiProperty({
-    description: 'Points awarded for completing this resource',
+    description: 'Points awarded for completing this resource (core=100, optional=50)',
     default: 100,
   })
   @IsOptional()

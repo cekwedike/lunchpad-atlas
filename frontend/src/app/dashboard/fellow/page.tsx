@@ -341,7 +341,7 @@ export default function FellowDashboard() {
                 {[
                   { href: "/resources",    icon: BookOpen,      label: "Resources",     iconClass: "text-indigo-500",  bg: "hover:bg-indigo-50 hover:border-indigo-200" },
                   { href: "/leaderboard",  icon: TrendingUp,    label: "Leaderboard",   iconClass: "text-amber-500",   bg: "hover:bg-amber-50 hover:border-amber-200"  },
-                  { href: "/discussions",  icon: MessageSquare, label: "Discussions",   iconClass: "text-sky-500",     bg: "hover:bg-sky-50 hover:border-sky-200"       },
+                  { href: "/dashboard/discussions",  icon: MessageSquare, label: "Discussions",   iconClass: "text-sky-500",     bg: "hover:bg-sky-50 hover:border-sky-200"       },
                   { href: "/achievements", icon: Award,         label: "Achievements",  iconClass: "text-violet-500",  bg: "hover:bg-violet-50 hover:border-violet-200" },
                 ].map(({ href, icon: Icon, label, iconClass, bg }) => (
                   <Link

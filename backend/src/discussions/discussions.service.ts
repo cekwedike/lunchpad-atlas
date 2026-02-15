@@ -289,6 +289,15 @@ export class DiscussionsService {
       );
     }
 
+    // ── Enforce 100-word minimum for discussion content ───────────────────
+    const plainText = this.stripHtmlToText(dto.content);
+    const wordCount = plainText.split(/\s+/).filter((w) => w.length > 0).length;
+    if (wordCount < 100) {
+      throw new BadRequestException(
+        `Discussion content must be at least 100 words. Current word count: ${wordCount}.`,
+      );
+    }
+
     const topicType: DiscussionTopicType =
       dto.topicType ||
       (dto.resourceId ? 'RESOURCE' : dto.sessionId ? 'SESSION' : 'GENERAL');
@@ -739,6 +748,7 @@ export class DiscussionsService {
         isLocked: true,
         isApproved: true,
         cohortId: true,
+        resourceId: true,
       },
     });
 
@@ -793,13 +803,32 @@ export class DiscussionsService {
       },
     });
 
-    // Award 2 points for replying to a discussion
-    const awarded = await this.awardPoints(
-      userId,
-      2,
-      'DISCUSSION_COMMENT',
-      `Commented on discussion: ${discussion.title}`,
-    );
+    // Award 2 points for replying — but only for the first 3 comments per resource.
+    // Comments on general/session discussions (no resourceId) are always eligible.
+    let awarded = false;
+    const discussionResourceId = (discussion as any).resourceId as string | null;
+
+    let withinResourceCap = true;
+    if (discussionResourceId) {
+      // Count existing comments by this user on discussions linked to the same resource
+      const priorResourceComments = await this.prisma.discussionComment.count({
+        where: {
+          userId,
+          discussion: { resourceId: discussionResourceId },
+          id: { not: comment.id }, // exclude the one we just created
+        },
+      });
+      withinResourceCap = priorResourceComments < 3;
+    }
+
+    if (withinResourceCap) {
+      awarded = await this.awardPoints(
+        userId,
+        2,
+        'DISCUSSION_COMMENT',
+        `Commented on discussion: ${discussion.title}`,
+      );
+    }
 
     // If this is the user's FIRST peer comment (commenting on someone else's discussion),
     // retroactively award points for any own discussions that were withheld.

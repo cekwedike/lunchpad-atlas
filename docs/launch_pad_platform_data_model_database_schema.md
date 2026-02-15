@@ -104,7 +104,9 @@ Fields:
 - created_at (timestamp)
 
 Rules:
-- unlock_date = session_date - 8 days
+- Session has `unlockDate` field, calculated as 8 days before `scheduledDate`
+- Resources unlock automatically when current date >= session.unlockDate
+- Admin/facilitator can manually unlock resources for specific users via ResourceProgress
 
 
 ---
@@ -162,11 +164,12 @@ Immutable log of all points awarded.
 
 Fields:
 - id (UUID, PK)
-- user_id (UUID, FK → users.id)
-- source (enum: RESOURCE | DISCUSSION | QUIZ | SESSION | ADMIN)
-- source_id (UUID)
+- userId (UUID, FK → users.id)
+- eventType (enum: RESOURCE_COMPLETE | DISCUSSION_POST | DISCUSSION_COMMENT | QUIZ_SUBMIT | SESSION_PARTICIPATION | ADMIN_ADJUSTMENT | ACHIEVEMENT_UNLOCK)
 - points (integer)
-- created_at (timestamp)
+- description (text)
+- metadata (JSON, optional)
+- createdAt (timestamp)
 
 
 ### 9.2 achievements

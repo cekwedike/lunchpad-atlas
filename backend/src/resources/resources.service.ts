@@ -264,6 +264,7 @@ export class ResourcesService {
   async markComplete(resourceId: string, userId: string) {
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
+      include: { session: { select: { unlockDate: true } } },
     });
 
     if (!resource) {
@@ -346,7 +347,22 @@ export class ResourcesService {
       const qualityBonus = Math.floor(
         resource.pointValue * existingProgress.engagementQuality * 0.2,
       );
-      let totalPoints = resource.pointValue + qualityBonus;
+
+      // Timeliness bonus: reward completing within 3 days of unlock (10% bonus),
+      // or within 4 days (5% bonus)
+      let timelinessBonus = 0;
+      if (resource.session?.unlockDate) {
+        const now = new Date();
+        const unlockDate = new Date(resource.session.unlockDate);
+        const daysSinceUnlock = (now.getTime() - unlockDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceUnlock >= 0 && daysSinceUnlock <= 3) {
+          timelinessBonus = Math.floor(resource.pointValue * 0.10);
+        } else if (daysSinceUnlock <= 4) {
+          timelinessBonus = Math.floor(resource.pointValue * 0.05);
+        }
+      }
+
+      let totalPoints = resource.pointValue + qualityBonus + timelinessBonus;
 
       // Anti-skimming penalty: halve points for repeat skimmers
       const skimmer = await this.isRepeatSkimmer(userId);
@@ -359,7 +375,7 @@ export class ResourcesService {
         userId,
         totalPoints,
         'RESOURCE_COMPLETE',
-        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}${skimmer ? ' (Anti-skimming penalty: 50% reduction)' : ''}`,
+        `Completed: ${resource.title}${qualityBonus > 0 ? ` (Quality bonus: +${qualityBonus})` : ''}${timelinessBonus > 0 ? ` (Timeliness bonus: +${timelinessBonus})` : ''}${skimmer ? ' (Anti-skimming penalty: 50% reduction)' : ''}`,
       );
 
       // Check and award achievements
@@ -369,6 +385,8 @@ export class ResourcesService {
       return {
         ...progress,
         pointsAwarded: awarded ? totalPoints : 0,
+        qualityBonus: awarded ? qualityBonus : 0,
+        timelinessBonus: awarded ? timelinessBonus : 0,
         cappedMessage: awarded
           ? null
           : 'Monthly point cap reached - no points awarded',

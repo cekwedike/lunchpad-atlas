@@ -35,15 +35,61 @@ export class ResourcesController {
     private engagementService: EnhancedEngagementService,
   ) {}
 
+  // ── Static GET routes MUST come before parameterized :id routes ───────
+
   @Get()
   async getResources(@Request() req, @Query() query: ResourceQueryDto) {
     return await this.resourcesService.getResources(req.user.id, query);
   }
 
+  @Get('engagement/report')
+  @ApiOperation({ summary: 'Get engagement quality report for user' })
+  getEngagementReport(@Request() req, @Query('sessionId') sessionId?: string) {
+    return this.engagementService.generateEngagementReport(
+      req.user.id,
+      sessionId,
+    );
+  }
+
+  @Get('engagement/alerts')
+  @UseGuards(RolesGuard)
+  @Roles('FACILITATOR', 'ADMIN')
+  @ApiOperation({ summary: 'Get skimming detection alerts' })
+  getSkimmingAlerts(
+    @Query('cohortId') cohortId?: string,
+    @Query('threshold') threshold?: string,
+  ) {
+    return this.engagementService.getSkimmingDetectionAlerts(
+      cohortId,
+      threshold ? parseFloat(threshold) : 0.5,
+    );
+  }
+
+  // ── Parameterized :id route (must be AFTER all static GET routes) ─────
+
   @Get(':id')
   getResourceById(@Param('id') id: string, @Request() req) {
     return this.resourcesService.getResourceById(id, req.user.id);
   }
+
+  // ── Static POST routes MUST come before parameterized :id POST routes ─
+
+  @Post('admin/unlock')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'FACILITATOR')
+  @ApiOperation({
+    summary: 'Manually unlock a resource for a specific user',
+  })
+  @ApiResponse({ status: 200, description: 'Resource unlocked successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin/Facilitator only' })
+  adminUnlockResource(@Body() dto: AdminUnlockResourceDto) {
+    return this.resourcesService.adminUnlockResource(
+      dto.userId,
+      dto.resourceId,
+    );
+  }
+
+  // ── Parameterized :id POST routes ─────────────────────────────────────
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Mark a resource as complete' })
@@ -86,43 +132,5 @@ export class ResourcesController {
     @Request() req,
   ) {
     return this.engagementService.trackVideoEngagement(req.user.id, id, data);
-  }
-
-  @Get('engagement/report')
-  @ApiOperation({ summary: 'Get engagement quality report for user' })
-  getEngagementReport(@Request() req, @Query('sessionId') sessionId?: string) {
-    return this.engagementService.generateEngagementReport(
-      req.user.id,
-      sessionId,
-    );
-  }
-
-  @Get('engagement/alerts')
-  @UseGuards(RolesGuard)
-  @Roles('FACILITATOR', 'ADMIN')
-  @ApiOperation({ summary: 'Get skimming detection alerts' })
-  getSkimmingAlerts(
-    @Query('cohortId') cohortId?: string,
-    @Query('threshold') threshold?: string,
-  ) {
-    return this.engagementService.getSkimmingDetectionAlerts(
-      cohortId,
-      threshold ? parseFloat(threshold) : 0.5,
-    );
-  }
-
-  @Post('admin/unlock')
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
-  @ApiOperation({
-    summary: 'Admin manually unlocks a resource for a specific user',
-  })
-  @ApiResponse({ status: 200, description: 'Resource unlocked successfully' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
-  adminUnlockResource(@Body() dto: AdminUnlockResourceDto) {
-    return this.resourcesService.adminUnlockResource(
-      dto.userId,
-      dto.resourceId,
-    );
   }
 }

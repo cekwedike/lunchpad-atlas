@@ -115,12 +115,17 @@ Facilitators cannot:
 
 ---
 
-### 4.4 Restricted Actions
+### 4.4 Gamification Control
+
+Facilitators can:
+- Adjust points (award or deduct) for fellows **in their own cohort only**
+- Manually unlock resources for fellows in their cohort
+
+### 4.5 Restricted Actions
 
 Facilitators cannot:
 - Manage users (create, suspend, flag, delete accounts)
 - Manage or reassign cohorts
-- Award or deduct points manually
 - Modify gamification rules or achievement definitions
 - Access data for cohorts they are not assigned to
 

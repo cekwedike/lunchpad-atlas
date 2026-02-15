@@ -564,6 +564,12 @@ export class AdminService {
       }
     }
 
+    // Auto-set pointValue based on isCore: core=100, optional=50
+    let effectivePointValue = dto.pointValue;
+    if (dto.isCore !== undefined && effectivePointValue === undefined) {
+      effectivePointValue = dto.isCore ? 100 : 50;
+    }
+
     const updatedResource = await this.prisma.resource.update({
       where: { id: resourceId },
       data: {
@@ -575,7 +581,7 @@ export class AdminService {
         ...(dto.duration !== undefined && { duration: dto.duration }),
         ...(dto.estimatedMinutes && { estimatedMinutes: dto.estimatedMinutes }),
         ...(dto.isCore !== undefined && { isCore: dto.isCore }),
-        ...(dto.pointValue !== undefined && { pointValue: dto.pointValue }),
+        ...(effectivePointValue !== undefined && { pointValue: effectivePointValue }),
         ...(dto.order && { order: dto.order }),
         ...(dto.state && { state: dto.state }),
       },

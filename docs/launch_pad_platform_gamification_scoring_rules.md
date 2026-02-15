@@ -22,6 +22,7 @@ It is written to be **machine-readable in intent**, safe for AI-assisted develop
 - **Effort-weighted**: Optional depth is rewarded but not mandatory
 - **Anti-exploit**: Skimming and spam are penalized
 - **Explainable**: Admins can always see why points were awarded
+- **Cohort-aware**: Point caps and achievement thresholds scale with cohort duration
 
 ---
 
@@ -31,14 +32,29 @@ It is written to be **machine-readable in intent**, safe for AI-assisted develop
 
 | Source | Description |
 |------|------------|
-| Resource Completion | Articles & videos |
-| Discussion Engagement | Prompts, replies, comments |
-| Quiz Performance | Timed quizzes |
-| Session Engagement | Live participation |
-| Achievements | Milestones |
-| Admin Adjustments | Manual overrides |
+| Resource Completion | Articles & videos (core and optional) |
+| Discussion Engagement | Posts and comment replies |
+| Quiz Performance | Timed quizzes with accuracy and speed bonuses |
+| Chat Engagement | Chat message bonuses and streak bonuses |
+| Achievements | Milestones across multiple categories |
+| Admin/Facilitator Adjustments | Manual point overrides |
 
-All points are recorded in `points_log` and are immutable.
+All points are recorded in `PointsLog` and are immutable.
+
+### 3.2 Monthly Point Cap (Cohort-Duration-Aware)
+
+The monthly point-earning cap scales based on cohort duration:
+
+| Cohort Duration | Monthly Cap | Total Target |
+|----------------|-------------|-------------|
+| 1 month | 10,000/mo | 10,000 |
+| 2 months | 11,000/mo | 22,000 |
+| 3 months | 15,000/mo | 45,000 |
+| 4 months | 20,000/mo | 80,000 |
+| 5 months | 24,000/mo | 120,000 |
+| 6+ months | 26,667/mo | 160,000 |
+
+The cap is set on user registration (based on assigned cohort) and updated when a user's cohort changes.
 
 ---
 
@@ -46,66 +62,61 @@ All points are recorded in `points_log` and are immutable.
 
 ### 4.1 Core Resources
 
-Awarded only if **minimum engagement thresholds** are met.
+Base points: **100 points**
 
-- Article (core): 30 points
-- Video (core): 30 points
-
-Requirements:
-- ≥ 80% scroll depth (articles)
-- ≥ 85% watch completion (videos)
-- Minimum time spent ≥ 70% of estimated duration
-
-Failure to meet thresholds = 0 points
-
----
+Requirements (anti-skimming validation):
+- Articles: >= 80% scroll depth
+- Videos: >= 85% watch completion
+- All types: minimum time spent >= 70% of estimated duration
+- Failure to meet thresholds = completion blocked (ForbiddenException)
 
 ### 4.2 Optional (Deep-Dive) Resources
 
-- Article (optional): 15 points
-- Video (optional): 15 points
+Base points: **50 points**
 
 Same engagement thresholds apply.
 
----
+### 4.3 Engagement Quality Bonus
 
-### 4.3 Anti-Skimming Penalties
+Up to **20% extra points** based on engagement quality score (0.0-1.0):
+- `qualityBonus = floor(pointValue * engagementQuality * 0.2)`
+- Example: 100-point resource with 0.8 quality = +16 bonus points
 
-If a user completes >3 resources with:
-- <50% time spent OR
-- Abnormally fast completion
+### 4.4 Timeliness Bonus
 
-Then:
-- Flag for review
-- Future resource points reduced by 50% until reset
+Bonus for completing resources promptly after they unlock:
+- Within **3 days** of session unlock date: **+10%** of base points
+- Within **4 days** of session unlock date: **+5%** of base points
+- After 4 days: no timeliness bonus
+
+### 4.5 Anti-Skimming Penalties
+
+If a user is identified as a repeat skimmer (multiple resources with insufficient engagement):
+- All future resource points reduced by **50%** until behavior improves
+- Applied after quality bonus and timeliness bonus calculations
 
 ---
 
 ## 5. Discussion & Social Engagement Points
 
-### 5.1 Discussion Prompt Submission
+### 5.1 Discussion Post Submission
 
-- Initial response: 20 points
-- Must be ≥ 100 words
-- Must be original (basic duplication check)
+- Points: **5 points** per approved discussion post
+- Must be >= **100 words** (HTML stripped, then word-counted)
+- Points withheld until the user has made at least one comment on another user's discussion (peer engagement requirement)
+- Retroactively awarded once peer engagement is demonstrated
 
----
+### 5.2 Commenting on Discussions
 
-### 5.2 Commenting on Others
+- Points: **2 points** per comment reply
+- Maximum **3 point-earning comments per resource** (still allows posting beyond 3, just no additional points)
+- Comments on general/session discussions (no linked resource) always earn points
 
-- Meaningful reply: 10 points
-- Max 3 replies per resource
+### 5.3 Chat Engagement
 
-Low-effort replies ("Great post", emojis only) = 0 points
-
----
-
-### 5.3 Social Chat Engagement
-
-- Quality chat participation: 2–5 points
-- Daily cap: 10 points
-
-Admin moderation can nullify spam activity.
+Chat bonuses are calculated in the leaderboard system:
+- Message count bonuses based on total chat messages in the period
+- Chat streak bonuses for consecutive days of chat participation
 
 ---
 
@@ -113,108 +124,135 @@ Admin moderation can nullify spam activity.
 
 ### 6.1 Base Scoring
 
-- Correct answer: 10 points
-- Incorrect answer: 0 points
+- Base points per quiz (set by admin, typically 50-100)
+- Accuracy bonus based on percentage of correct answers
+- Speed bonus for fast completion
+
+### 6.2 Live Quizzes
+
+- Real-time quiz sessions managed by facilitators/admins
+- Leaderboard visible during quiz
+- Points awarded immediately upon submission
 
 ---
 
-### 6.2 Time Bonus
+## 7. Achievements System
 
-- Top 25% finishers: +10 bonus points
-- Middle 50%: +5 bonus points
-- Bottom 25%: no bonus
+### 7.1 Achievement Types
 
----
+| Type | Description |
+|------|------------|
+| STREAK | Consecutive days of activity |
+| COMPLETION | Resource completion milestones |
+| QUIZ | Quiz performance milestones |
+| ENGAGEMENT | Overall engagement metrics |
+| DISCUSSION | Discussion participation milestones |
+| LEADERBOARD | Total points milestones (scaled by cohort duration) |
 
-### 6.3 Multipliers
+### 7.2 LEADERBOARD Achievement Thresholds
 
-Admin-controlled multipliers:
-- x1 (default)
-- x2
-- x3
+Thresholds scale as a percentage of the cohort's total point target:
 
-Applied to total quiz score.
+| Achievement | % of Total Target | 4-Month Example |
+|------------|-------------------|-----------------|
+| Point Starter | 0.5% | ~400 pts |
+| Point Collector | 3.125% | ~2,500 pts |
+| Point Accumulator | 7.5% | ~6,000 pts |
+| Point Hoarder | 15% | ~12,000 pts |
+| Point Enthusiast | 25% | ~20,000 pts |
+| Point Expert | 40% | ~32,000 pts |
+| Point Legend | 55% | ~44,000 pts |
+| Point Elite | 72.5% | ~58,000 pts |
+| Living Legend | 85% | ~68,000 pts |
+| The GOAT | 95% | ~76,000 pts |
 
----
+### 7.3 Achievement Reset on Cohort Change
 
-## 7. Session Engagement Points
+When a user is moved to a different cohort:
+- All `UserAchievement` records are deleted
+- `currentMonthPoints` is reset to 0
+- `monthlyPointsCap` is updated to match new cohort duration
+- Achievements can be re-earned in the new cohort
 
-### 7.1 Live Session Participation
+### 7.4 Achievement Points
 
-Admin or AI-assisted scoring based on:
-- Attendance duration
-- Chat participation
-- Poll responses
-
-Typical range:
-- 10–30 points per session
-
----
-
-## 8. Achievements System
-
-### 8.1 Achievement Types
-
-| Achievement | Condition | Points |
-|-----------|----------|--------|
-| Consistency Star | 100% core resources in a month | 50 |
-| Deep Diver | Completed all optional resources | 30 |
-| Discussion Leader | 5 quality discussions | 40 |
-| Quiz Master | Top 3 in a quiz | 25 |
-| Monthly Champion | #1 leaderboard | 100 |
-
-Achievements are awarded once per month unless stated.
+Each achievement awards bonus points (defined in the achievement definition). Achievements are checked and awarded automatically after point-earning actions.
 
 ---
 
-## 9. Leaderboard Mechanics
+## 8. Leaderboard Mechanics
 
-### 9.1 Monthly Reset
+### 8.1 Monthly Periods
 
-- Leaderboard resets at 00:00 UTC on first day of month
-- Historical leaderboards remain viewable
+- Leaderboard calculated per calendar month
+- Points aggregated from `PointsLog` within the month's date range
+- Historical months remain viewable via month/year selection
+
+### 8.2 Ranking Calculation
+
+Total score = Base Points + Chat Bonus + Activity Streak Bonus
+
+Where:
+- **Base Points**: Sum of all `PointsLog` entries in the period
+- **Chat Bonus**: Message count bonus + chat streak bonus
+- **Activity Streak Bonus**: Based on consecutive days with any activity (resources, quizzes, discussions, chat)
+
+### 8.3 Tie Breaking
+
+Ties broken by base points (higher base points ranks higher).
+
+### 8.4 Activity Streak
+
+Calculated from unique activity days across:
+- Points log events (resource completions, quiz submissions, discussion posts)
+- Chat messages
+- Discussion comments
 
 ---
 
-### 9.2 Ranking Rules
+## 9. Anti-Gaming & Fair Use Rules
 
-- Sorted by total monthly points
-- Ties broken by:
-  1. Core resources completed
-  2. Quiz performance
-  3. Time consistency
-
----
-
-## 10. Anti-Gaming & Fair Use Rules
-
-- Daily point caps for social/chat activity
-- Resource completion cooldowns
-- Duplicate discussion detection
-- Admin suspension powers
+- Monthly point cap enforced per user (based on cohort duration)
+- Anti-skimming validation on resource completion (scroll depth, watch percentage, time spent)
+- Repeat skimmer detection with 50% point penalty
+- Discussion 100-word minimum with HTML stripping
+- Comment point cap (3 per resource) to prevent point farming
+- Peer engagement requirement for discussion post points
+- Admin suspension powers (isSuspended flag)
 
 Violations may result in:
-- Point nullification
-- Temporary point freeze
-- Leaderboard exclusion
+- Point reduction (anti-skimming penalty)
+- Point cap enforcement (monthly limit)
+- Account suspension (admin action)
 
 ---
 
-## 11. Admin Controls
+## 10. Admin & Facilitator Controls
 
-Admins can:
-- Award or deduct points
-- Disable achievements
-- Reset user monthly points
-- Flag suspicious activity
+### Admins can:
+- Award or deduct points for any user
+- Create/manage achievements
+- Manage all cohorts, sessions, and resources
+- Suspend users
+- View all analytics and audit logs
 
-All admin actions are logged.
+### Facilitators can:
+- Adjust points for fellows **in their own cohort only**
+- Manage resources and discussions in their cohort
+- Unlock resources manually for fellows
+- View cohort-scoped analytics
+
+All admin/facilitator actions are logged in `AdminAuditLog`.
 
 ---
 
-## 12. Next Document
+## 11. Point Event Types
 
-**User Roles, Permissions & Access Control Specification**
-
-This will define exactly what each role can see and do across the platform.
-
+| Event Type | Description |
+|-----------|------------|
+| RESOURCE_COMPLETE | Resource completion with quality/timeliness bonuses |
+| QUIZ_SUBMIT | Quiz completion with accuracy/speed bonuses |
+| DISCUSSION_POST | Discussion creation (5 pts, peer engagement required) |
+| DISCUSSION_COMMENT | Discussion reply (2 pts, 3 per resource cap) |
+| ADMIN_ADJUSTMENT | Manual point adjustment by admin/facilitator |
+| ACHIEVEMENT_UNLOCK | Points awarded for unlocking an achievement |

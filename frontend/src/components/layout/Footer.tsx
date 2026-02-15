@@ -86,7 +86,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/discussions"
+                  href="/dashboard/discussions"
                   className="text-sm text-gray-600 hover:text-atlas-navy transition-colors"
                 >
                   Discussions
