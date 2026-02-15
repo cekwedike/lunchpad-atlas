@@ -118,6 +118,9 @@ export class AuthService {
     if (adminCount > 0) {
       throw new ForbiddenException('Setup already complete. An admin account already exists.');
     }
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match.');
+    }
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {

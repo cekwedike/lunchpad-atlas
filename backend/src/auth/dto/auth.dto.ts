@@ -60,6 +60,11 @@ export class SetupAdminDto {
   @MaxLength(72)
   @Matches(PASSWORD_REGEX, { message: PASSWORD_MESSAGE })
   password: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  confirmPassword: string;
 }
 
 export class AuthResponseDto {
