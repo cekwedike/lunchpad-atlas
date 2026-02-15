@@ -74,14 +74,14 @@
    | `NEXT_PUBLIC_API_URL` | `https://atlas-backend.onrender.com/api/v1` |
 
 6. Click **Deploy**
-7. Your frontend URL will be something like: `https://atlas-platform.vercel.app`
+7. Your frontend URL will be something like: `https://launchpadatlas.vercel.app/`
 
 ---
 
 ## Step 4: Update Render with Frontend URL
 
 1. Go back to Render dashboard → your backend service → Environment
-2. Set `FRONTEND_URL` to your Vercel URL (e.g., `https://atlas-platform.vercel.app`)
+2. Set `FRONTEND_URL` to your Vercel URL (e.g., `https://launchpadatlas.vercel.app/`)
 3. Render will auto-redeploy
 
 ---
