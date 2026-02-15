@@ -189,7 +189,6 @@ export default function Home() {
             backgroundPosition: "center",
             backgroundAttachment: "fixed",
             filter: "brightness(0.35)",
-            transform: `translateY(${scrollY * 0.15}px) scale(1.1)`,
           }}
         />
         <div
@@ -389,13 +388,13 @@ export default function Home() {
                 <Target className="w-4 h-4 text-purple-400" />
                 <span className="text-purple-300 text-sm font-medium">Platform Features</span>
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold text-white">
+              <h2 className="text-4xl md:text-5xl font-bold" style={{ color: "#ffffff" }}>
                 Everything You Need to{" "}
                 <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                   Succeed
                 </span>
               </h2>
-              <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              <p className="text-lg max-w-2xl mx-auto" style={{ color: "#e2e8f0" }}>
                 A complete learning ecosystem with gamification, real-time collaboration, and
                 powerful management tools.
               </p>
@@ -428,8 +427,8 @@ export default function Home() {
                           <CategoryIcon className="w-6 h-6 text-white" strokeWidth={1.5} />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-white">{category.title}</h3>
-                          <p className="text-slate-300 text-xs">{category.subtitle}</p>
+                          <h3 className="text-lg font-semibold" style={{ color: "#ffffff" }}>{category.title}</h3>
+                          <p className="text-xs" style={{ color: "#cbd5e1" }}>{category.subtitle}</p>
                         </div>
                       </div>
 
@@ -439,8 +438,8 @@ export default function Home() {
                           const FeatureIcon = feature.icon;
                           return (
                             <li key={j} className="flex items-start gap-3">
-                              <FeatureIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                              <span className="text-slate-300 text-sm leading-snug">
+                              <FeatureIcon className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#94a3b8" }} />
+                              <span className="text-sm leading-snug" style={{ color: "#cbd5e1" }}>
                                 {feature.text}
                               </span>
                             </li>
@@ -524,8 +523,8 @@ export default function Home() {
                     <div className="text-xs font-bold text-slate-400 tracking-widest">
                       STEP {item.step}
                     </div>
-                    <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
+                    <h3 className="text-lg font-semibold" style={{ color: "#ffffff" }}>{item.title}</h3>
+                    <p className="text-sm leading-relaxed" style={{ color: "#cbd5e1" }}>{item.desc}</p>
                   </div>
                 );
               })}
