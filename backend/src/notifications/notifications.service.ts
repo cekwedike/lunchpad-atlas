@@ -118,10 +118,12 @@ export class NotificationsService {
     if (data.discussionId)
       return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
     if (data.resourceId)
-      return `${baseUrl}/dashboard/resources/${data.resourceId}`;
+      return `${baseUrl}/resources/${data.resourceId}`;
     if (data.sessionId)
-      return `${baseUrl}/dashboard/sessions/${data.sessionId}`;
-    if (data.quizId) return `${baseUrl}/dashboard/quizzes/${data.quizId}`;
+      return `${baseUrl}/dashboard/attendance`;
+    if (data.liveQuizId)
+      return `${baseUrl}/dashboard/live-quiz/${data.liveQuizId}`;
+    if (data.quizId) return `${baseUrl}/quiz/${data.quizId}`;
 
     return undefined;
   }

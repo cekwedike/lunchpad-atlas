@@ -148,10 +148,10 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
     if (notification.data?.url) return notification.data.url as string;
     if (notification.data?.channelId) return `/dashboard/chat?channelId=${notification.data.channelId}`;
     if (notification.data?.discussionId) return `/dashboard/discussions/${notification.data.discussionId}`;
-    if (notification.data?.resourceId) return `/dashboard/resources/${notification.data.resourceId}`;
-    if (notification.data?.sessionId) return `/dashboard/sessions/${notification.data.sessionId}`;
-    if (notification.data?.quizId) return `/quiz`;
-    if (notification.data?.liveQuizId) return `/quiz`;
+    if (notification.data?.resourceId) return `/resources/${notification.data.resourceId}`;
+    if (notification.data?.sessionId) return `/dashboard/attendance`;
+    if (notification.data?.liveQuizId) return `/dashboard/live-quiz/${notification.data.liveQuizId}`;
+    if (notification.data?.quizId) return `/quiz/${notification.data.quizId}`;
 
     return null;
   };

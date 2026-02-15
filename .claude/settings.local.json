@@ -20,7 +20,8 @@
       "Bash(npx prisma migrate:*)",
       "Bash(npx:*)",
       "Bash(node_modules/.bin/tsc:*)",
-      "Bash(\"c:/Users/cheed/OneDrive/Desktop/LaunchPad/career-resources-hub/node_modules/.bin/tsc\" --noEmit -p \"c:/Users/cheed/OneDrive/Desktop/LaunchPad/career-resources-hub/backend/tsconfig.json\")"
+      "Bash(\"c:/Users/cheed/OneDrive/Desktop/LaunchPad/career-resources-hub/node_modules/.bin/tsc\" --noEmit -p \"c:/Users/cheed/OneDrive/Desktop/LaunchPad/career-resources-hub/backend/tsconfig.json\")",
+      "Bash(pnpm:*)"
     ]
   }
 }
