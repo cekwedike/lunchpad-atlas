@@ -38,7 +38,12 @@ export default function SetupPage() {
     e.preventDefault();
     if (!validate()) return;
     try {
-      await setupAdmin.mutateAsync({ name: form.name, email: form.email, password: form.password });
+      await setupAdmin.mutateAsync({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        confirmPassword: typeof form.confirmPassword === "string" ? form.confirmPassword : "",
+      });
       router.replace("/dashboard/admin");
     } catch {
       // error handled by hook
