@@ -68,7 +68,13 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   await app.listen(port);
 
-  console.log(`🚀 Backend API running on: http://localhost:${port}/api/v1`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  const publicUrl = process.env.RENDER_EXTERNAL_URL || process.env.RENDER_PUBLIC_URL || null;
+  if (publicUrl) {
+    console.log(`🚀 Backend API running on: ${publicUrl}/api/v1`);
+    console.log(`📚 API Documentation: ${publicUrl}/api/docs`);
+  } else {
+    console.log(`🚀 Backend API running on: http://localhost:${port}/api/v1`);
+    console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  }
 }
 bootstrap();
