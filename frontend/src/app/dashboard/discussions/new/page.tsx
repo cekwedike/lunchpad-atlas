@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,14 @@ import { useCohorts } from "@/hooks/api/useAdmin";
 import { toast } from "sonner";
 
 export default function NewDiscussionPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="flex items-center justify-center h-[calc(100vh-4rem)]"><p className="text-gray-500">Loading...</p></div></DashboardLayout>}>
+      <NewDiscussionContent />
+    </Suspense>
+  );
+}
+
+function NewDiscussionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: profile } = useProfile();

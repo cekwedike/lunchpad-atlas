@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SessionAnalyticsDashboard } from '@/components/SessionAnalyticsDashboard';
 import { SessionTranscriptUploader } from '@/components/SessionTranscriptUploader';
@@ -9,6 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BarChart3, Upload } from 'lucide-react';
 
 export default function SessionAnalyticsPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto py-8"><p className="text-muted-foreground">Loading analytics...</p></div>}>
+      <SessionAnalyticsContent />
+    </Suspense>
+  );
+}
+
+function SessionAnalyticsContent() {
   const searchParams = useSearchParams();
   const cohortId = searchParams.get('cohortId');
   const sessionId = searchParams.get('sessionId');

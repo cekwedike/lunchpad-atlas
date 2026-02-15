@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,14 @@ import { toast } from "sonner";
 import type { ChatMessage } from "@/types/chat";
 
 export default function ChatRoomPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="flex items-center justify-center h-[calc(100vh-4rem)]"><p className="text-gray-500">Loading chat...</p></div></DashboardLayout>}>
+      <ChatRoomContent />
+    </Suspense>
+  );
+}
+
+function ChatRoomContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: profile } = useProfile();

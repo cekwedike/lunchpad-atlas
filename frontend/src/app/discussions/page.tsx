@@ -1,13 +1,18 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
-/**
- * Redirect to the main discussions page under /dashboard/discussions.
- * Preserves any query params (e.g. ?resourceId=...).
- */
 export default function DiscussionsRedirect() {
+  return (
+    <Suspense fallback={null}>
+      <DiscussionsRedirectContent />
+    </Suspense>
+  );
+}
+
+function DiscussionsRedirectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
