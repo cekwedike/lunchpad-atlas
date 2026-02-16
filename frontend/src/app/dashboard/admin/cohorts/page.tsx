@@ -390,11 +390,19 @@ export default function AdminCohortsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Start Date *</Label>
-                <Input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} />
+                <Input
+                  type="date"
+                  value={formData.startDate ? formData.startDate.slice(0, 10) : ""}
+                  onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>End Date *</Label>
-                <Input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} />
+                <Input
+                  type="date"
+                  value={formData.endDate ? formData.endDate.slice(0, 10) : ""}
+                  onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                />
               </div>
               <p className="text-xs text-gray-500">Facilitators can be assigned after creating the cohort via the Members panel.</p>
             </div>
