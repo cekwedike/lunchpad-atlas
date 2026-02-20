@@ -3,11 +3,12 @@ import { Notification, NotificationResponse } from '@/types/notification';
 import { apiClient } from '@/lib/api-client';
 
 // Fetch notifications
-export function useNotifications(userId: string) {
+export function useNotifications(userId: string, limit?: number) {
   return useQuery<NotificationResponse>({
-    queryKey: ['notifications', userId],
+    queryKey: ['notifications', userId, limit],
     queryFn: async () => {
-      const data = await apiClient.get<any>('/notifications');
+      const params = limit ? `?limit=${limit}` : '?limit=200';
+      const data = await apiClient.get<any>(`/notifications${params}`);
       const notifications = Array.isArray(data) ? data : (data?.notifications ?? []);
       const unreadCount = Array.isArray(data)
         ? data.filter((item: Notification) => !item.isRead).length
@@ -67,6 +68,20 @@ export function useDeleteNotification() {
   return useMutation({
     mutationFn: async (notificationId: string) => {
       return apiClient.delete(`/notifications/${notificationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+// Delete all notifications
+export function useDeleteAllNotifications() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      return apiClient.delete('/notifications/all');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

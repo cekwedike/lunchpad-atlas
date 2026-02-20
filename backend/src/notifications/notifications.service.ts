@@ -617,6 +617,20 @@ export class NotificationsService {
     });
   }
 
+  async deleteAll(userId: string) {
+    return this.prisma.notification.updateMany({
+      where: { userId },
+      data: { isDeleted: true },
+    });
+  }
+
+  async deleteAllAdmin() {
+    return this.prisma.notification.updateMany({
+      where: {},
+      data: { isDeleted: true },
+    });
+  }
+
   // ==================== BATCH OPERATIONS ====================
 
   async sendCohortNotification(

@@ -81,6 +81,19 @@ export class NotificationsController {
 
   // ==================== DELETE ====================
 
+  @Delete('all')
+  async deleteAll(@Request() req: any) {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (userRole === 'ADMIN') {
+      await this.notificationsService.deleteAllAdmin();
+    } else {
+      await this.notificationsService.deleteAll(userId);
+    }
+    return { success: true };
+  }
+
   @Delete(':id')
   async deleteNotification(@Param('id') id: string, @Request() req: any) {
     const userId = req.user.id;
