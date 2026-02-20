@@ -1,3 +1,6 @@
+# Files To Ignore
+seed-platform.js
+
 # Dependencies
 **/node_modules
 .pnpm-store/
