@@ -169,6 +169,8 @@ export class AdminService {
 
     // Exclude facilitatorId from the DTO since facilitators are managed via CohortFacilitator
     const { facilitatorId: _ignored, ...updateData } = dto as any;
+    if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+    if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
     const updatedCohort = await this.prisma.cohort.update({
       where: { id: cohortId },
       data: updateData,
