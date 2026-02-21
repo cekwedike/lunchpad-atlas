@@ -1,55 +1,57 @@
-import { format, formatDistance, formatRelative, formatDistanceToNowStrict, subDays, addDays, differenceInDays, differenceInHours, differenceInMinutes, isPast, isFuture } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import {
+  format,
+  formatDistance,
+  formatRelative,
+  formatDistanceToNowStrict,
+  subDays,
+  differenceInDays,
+  differenceInHours,
+  differenceInMinutes,
+  isPast,
+  isFuture,
+} from 'date-fns';
 
-const WAT_TIMEZONE = 'Africa/Lagos';
+// ─── Timezone helpers ─────────────────────────────────────────────────────────
 
 /**
- * Format date to WAT timezone with timestamp
- * @param date - Date to format
- * @param formatStr - Format string (default shows like: 'Feb 7, 2026 3:45 PM WAT')
+ * Returns the viewer's IANA timezone string detected from the browser.
+ * Falls back to 'UTC' in environments where Intl is unavailable (e.g. old SSR).
  */
-export function formatToWAT(date: Date | string, formatStr: string = 'MMM d, yyyy h:mm a'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+export function getUserTimezone(): string {
   try {
-    const watDate = toZonedTime(dateObj, WAT_TIMEZONE);
-    return format(watDate, formatStr) + ' WAT';
-  } catch (error) {
-    // Fallback if timezone conversion fails
-    return format(dateObj, formatStr) + ' WAT';
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
   }
 }
 
 /**
- * Format relative time in WAT (e.g., "2 hours ago")
+ * Returns the short timezone abbreviation for the viewer's current timezone
+ * (e.g. "WAT", "EST", "GMT+5:30").
+ * Pass a specific `date` when DST matters (summer vs winter offset).
  */
-export function formatRelativeTimeWAT(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+export function getTimezoneAbbr(date?: Date | string): string {
   try {
-    const watDate = toZonedTime(dateObj, WAT_TIMEZONE);
-    return formatDistance(watDate, new Date(), { addSuffix: true });
-  } catch (error) {
-    // Fallback
-    return formatDistance(dateObj, new Date(), { addSuffix: true });
+    const d = date ? (typeof date === 'string' ? new Date(date) : date) : new Date();
+    const parts = new Intl.DateTimeFormat(undefined, {
+      timeZoneName: 'short',
+    }).formatToParts(d);
+    return parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
+  } catch {
+    return '';
   }
 }
 
-/**
- * Format relative time with exact WAT timestamp (e.g., "2 minutes ago • Feb 7, 2026 3:45 PM WAT")
- */
-export function formatRelativeTimeWATDetailed(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  try {
-    const watDate = toZonedTime(dateObj, WAT_TIMEZONE);
-    const relative = formatDistanceToNowStrict(watDate, { addSuffix: true });
-    return `${relative} • ${formatToWAT(watDate)}`;
-  } catch (error) {
-    const relative = formatDistanceToNowStrict(dateObj, { addSuffix: true });
-    return `${relative} • ${formatToWAT(dateObj)}`;
-  }
-}
+// ─── Primary formatting functions ────────────────────────────────────────────
 
 /**
- * Format a timestamp in the viewer's local timezone (no relative prefix)
+ * Formats a timestamp in the viewer's local timezone, including a short
+ * timezone label so the user always knows which timezone is being shown.
+ *
+ * Example outputs (same UTC instant, different viewers):
+ *   "Feb 7, 2026, 3:45 PM WAT"   (Lagos)
+ *   "Feb 7, 2026, 10:45 AM EST"  (New York)
+ *   "Feb 8, 2026, 12:45 AM SGT"  (Singapore)
  */
 export function formatLocalTimestamp(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -60,14 +62,47 @@ export function formatLocalTimestamp(date: Date | string): string {
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+      timeZoneName: 'short',
     }).format(dateObj);
-  } catch (error) {
+  } catch {
     return dateObj.toLocaleString();
   }
 }
 
 /**
- * Format date to relative time (e.g., "2 hours ago", "in 3 days")
+ * Formats a timestamp with a custom date-fns format string, appending the
+ * viewer's timezone abbreviation.
+ * (Replaces the former `formatToWAT` which was hardcoded to Africa/Lagos.)
+ *
+ * Example: formatTimestamp(date, 'MMM d, yyyy h:mm a') → "Feb 7, 2026 3:45 PM WAT"
+ */
+export function formatTimestamp(
+  date: Date | string,
+  formatStr: string = 'MMM d, yyyy h:mm a',
+): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  try {
+    const tzAbbr = getTimezoneAbbr(dateObj);
+    return format(dateObj, formatStr) + (tzAbbr ? ` ${tzAbbr}` : '');
+  } catch {
+    return format(dateObj, formatStr);
+  }
+}
+
+/**
+ * @deprecated Use `formatTimestamp` instead.
+ * Kept for backward compatibility — now uses the viewer's local timezone
+ * instead of the previously hardcoded WAT (Africa/Lagos).
+ */
+export function formatToWAT(date: Date | string, formatStr: string = 'MMM d, yyyy h:mm a'): string {
+  return formatTimestamp(date, formatStr);
+}
+
+// ─── Relative time functions ──────────────────────────────────────────────────
+
+/**
+ * Returns a human-readable relative time string ("2 hours ago", "in 3 days").
+ * Relative time is timezone-agnostic — it always computes from the real UTC now.
  */
 export function formatRelativeTime(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -75,7 +110,40 @@ export function formatRelativeTime(date: Date | string): string {
 }
 
 /**
- * Format date to a readable string
+ * @deprecated Use `formatRelativeTime` instead.
+ * Previously converted to WAT before computing distance (which was a bug —
+ * `toZonedTime` shifts the internal UTC value, making relative times off by
+ * the UTC offset). Now correctly computes relative time from the raw UTC
+ * timestamp and shows the label in the viewer's local timezone.
+ */
+export function formatRelativeTimeWAT(date: Date | string): string {
+  return formatRelativeTime(date);
+}
+
+/**
+ * Returns "X ago • Feb 7, 2026, 3:45 PM WAT" — combined relative + absolute
+ * timestamp in the viewer's local timezone.
+ * (Replaces `formatRelativeTimeWATDetailed`.)
+ */
+export function formatRelativeTimestampDetailed(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const relative = formatDistanceToNowStrict(dateObj, { addSuffix: true });
+  const absolute = formatLocalTimestamp(dateObj);
+  return `${relative} • ${absolute}`;
+}
+
+/**
+ * @deprecated Use `formatRelativeTimestampDetailed` instead.
+ */
+export function formatRelativeTimeWATDetailed(date: Date | string): string {
+  return formatRelativeTimestampDetailed(date);
+}
+
+// ─── Generic date formatting ──────────────────────────────────────────────────
+
+/**
+ * Format a date to a readable string using a date-fns format string.
+ * Uses the viewer's local timezone (via the browser's Date object).
  */
 export function formatDate(date: Date | string, formatStr: string = 'PPP'): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -83,75 +151,82 @@ export function formatDate(date: Date | string, formatStr: string = 'PPP'): stri
 }
 
 /**
- * Format date to relative format (e.g., "today at 3:00 PM", "yesterday at 5:00 PM")
+ * Format date to relative format (e.g., "today at 3:00 PM", "yesterday at 5:00 PM").
+ * Uses the viewer's local timezone.
  */
 export function formatRelativeDate(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   return formatRelative(dateObj, new Date());
 }
 
-/**
- * Calculate unlock date (8 days before session date)
- */
+// ─── Resource / session logic ─────────────────────────────────────────────────
+
+/** Calculate the unlock date: 8 days before the session date. */
 export function calculateUnlockDate(sessionDate: Date | string): Date {
   const dateObj = typeof sessionDate === 'string' ? new Date(sessionDate) : sessionDate;
   return subDays(dateObj, 8);
 }
 
-/**
- * Check if a resource is unlocked based on session date
- */
+/** Returns true if the resource has passed its unlock date. */
 export function isResourceUnlocked(sessionDate: Date | string): boolean {
-  const unlockDate = calculateUnlockDate(sessionDate);
-  return isPast(unlockDate);
+  return isPast(calculateUnlockDate(sessionDate));
 }
 
-/**
- * Get days until a session
- */
+/** Days remaining until the session (0 if already past). */
 export function getDaysUntilSession(sessionDate: Date | string): number {
   const dateObj = typeof sessionDate === 'string' ? new Date(sessionDate) : sessionDate;
   const days = differenceInDays(dateObj, new Date());
   return days > 0 ? days : 0;
 }
 
-/**
- * Get hours until a date
- */
+/** Hours remaining until a date (0 if already past). */
 export function getHoursUntil(date: Date | string): number {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const hours = differenceInHours(dateObj, new Date());
-  return hours > 0 ? hours : 0;
+  return Math.max(0, differenceInHours(dateObj, new Date()));
 }
 
-/**
- * Get minutes until a date
- */
+/** Minutes remaining until a date (0 if already past). */
 export function getMinutesUntil(date: Date | string): number {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const minutes = differenceInMinutes(dateObj, new Date());
-  return minutes > 0 ? minutes : 0;
+  return Math.max(0, differenceInMinutes(dateObj, new Date()));
 }
 
-/**
- * Check if date is in the past
- */
+/** Days remaining until the resource unlock date (0 if already unlocked). */
+export function getDaysUntilUnlock(sessionDate: Date | string): number {
+  return getDaysUntilSession(calculateUnlockDate(sessionDate));
+}
+
+// ─── Boolean date predicates ──────────────────────────────────────────────────
+
 export function isDatePast(date: Date | string): boolean {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return isPast(dateObj);
+  return isPast(typeof date === 'string' ? new Date(date) : date);
 }
 
-/**
- * Check if date is in the future
- */
 export function isDateFuture(date: Date | string): boolean {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return isFuture(dateObj);
+  return isFuture(typeof date === 'string' ? new Date(date) : date);
 }
 
+// ─── Countdown ────────────────────────────────────────────────────────────────
+
 /**
- * Get role badge color classes for Tailwind
+ * Returns a compact countdown string: "2d 5h", "3h 20m", "45m", or "Expired".
  */
+export function formatCountdown(targetDate: Date | string): string {
+  const dateObj = typeof targetDate === 'string' ? new Date(targetDate) : targetDate;
+  if (isPast(dateObj)) return 'Expired';
+
+  const now = new Date();
+  const days = differenceInDays(dateObj, now);
+  const hours = differenceInHours(dateObj, now) % 24;
+  const minutes = differenceInMinutes(dateObj, now) % 60;
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+// ─── Role display helpers ─────────────────────────────────────────────────────
+
 export function getRoleBadgeColor(role: string): string {
   switch (role?.toUpperCase()) {
     case 'ADMIN':
@@ -165,9 +240,6 @@ export function getRoleBadgeColor(role: string): string {
   }
 }
 
-/**
- * Get role display name
- */
 export function getRoleDisplayName(role: string): string {
   switch (role?.toUpperCase()) {
     case 'ADMIN':
@@ -179,36 +251,4 @@ export function getRoleDisplayName(role: string): string {
     default:
       return role || 'User';
   }
-}
-
-/**
- * Format countdown display (e.g., "2d 5h 30m")
- */
-export function formatCountdown(targetDate: Date | string): string {
-  const dateObj = typeof targetDate === 'string' ? new Date(targetDate) : targetDate;
-  const now = new Date();
-  
-  if (isPast(dateObj)) {
-    return 'Expired';
-  }
-  
-  const days = differenceInDays(dateObj, now);
-  const hours = differenceInHours(dateObj, now) % 24;
-  const minutes = differenceInMinutes(dateObj, now) % 60;
-  
-  if (days > 0) {
-    return `${days}d ${hours}h`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
-  }
-}
-
-/**
- * Get days until resource unlock
- */
-export function getDaysUntilUnlock(sessionDate: Date | string): number {
-  const unlockDate = calculateUnlockDate(sessionDate);
-  return getDaysUntilSession(unlockDate);
 }
