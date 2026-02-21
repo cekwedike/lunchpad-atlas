@@ -56,17 +56,20 @@ export default function AdminUsersPage() {
   });
 
   // Generate auto-password for Fellows and Facilitators
+  // Must satisfy backend PASSWORD_REGEX: uppercase + lowercase + digit + special char, min 8 chars
   const generatePassword = (name: string, role: "FELLOW" | "FACILITATOR" | "ADMIN"): string => {
     if (role === "ADMIN") {
       return ""; // Admins set their own password
     }
-    
-    // Get first name (first 4-5 letters) + current year
+
+    // e.g. "Marvellous Egbeleke" → "Marve@2026"
     const firstName = name.split(' ')[0] || name;
-    const namePrefix = firstName.substring(0, Math.min(5, firstName.length)).toLowerCase();
+    const namePrefix = firstName.substring(0, Math.min(5, firstName.length));
+    // Ensure first char is uppercase, rest lowercase
+    const prefix = namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1).toLowerCase();
     const year = new Date().getFullYear();
-    
-    return `${namePrefix}${year}`;
+
+    return `${prefix}@${year}`;
   };
 
   const handleAddUser = async () => {
@@ -75,9 +78,9 @@ export default function AdminUsersPage() {
       // Generate password if not set (for Fellows/Facilitators)
       const passwordToUse = formData.password || generatePassword(formData.name, formData.role);
       
-      // Validate password length
-      if (!passwordToUse || passwordToUse.length < 6) {
-        toast.error('Password must be at least 6 characters');
+      // Validate password length (backend requires min 8)
+      if (!passwordToUse || passwordToUse.length < 8) {
+        toast.error('Password must be at least 8 characters');
         setIsSubmitting(false);
         return;
       }

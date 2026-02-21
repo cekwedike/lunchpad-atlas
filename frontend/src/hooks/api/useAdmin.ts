@@ -373,22 +373,23 @@ export function useCreateUser() {
     },
     onError: (error: any) => {
       console.error('User creation error:', error);
-      
-      let errorMessage = 'Email may already be in use';
-      
-      // Extract detailed error message
-      if (error.message) {
-        errorMessage = error.message;
+
+      let errorMessage: string = 'Email may already be in use';
+
+      const raw = error.message;
+      if (raw) {
+        // NestJS ValidationPipe returns message as string[] — join them
+        errorMessage = Array.isArray(raw) ? raw.join('. ') : String(raw);
       }
-      
-      // Handle validation errors
-      if (error.errors) {
-        const validationErrors = Object.entries(error.errors)
-          .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+
+      // Handle structured errors (Record<string, string[]>) — guard against non-objects
+      if (error.errors && typeof error.errors === 'object' && !Array.isArray(error.errors)) {
+        const validationErrors = Object.entries(error.errors as Record<string, any>)
+          .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
           .join('; ');
-        errorMessage = validationErrors;
+        if (validationErrors) errorMessage = validationErrors;
       }
-      
+
       toast.error('Failed to create user', {
         description: errorMessage,
       });
