@@ -121,6 +121,7 @@ model User {
   liveQuizParticipants LiveQuizParticipant[]
   attendance         Attendance[]
   chatMessages       ChatMessage[]
+  pushSubscriptions  PushSubscription[]
 
   @@index([email])
   @@index([cohortId])
@@ -687,6 +688,24 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@map("notifications")
+}
+
+// ==================== PUSH SUBSCRIPTIONS ====================
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String   // Public key
+  auth      String   // Auth secret
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ==================== LIVE KAHOOT QUIZZES ====================

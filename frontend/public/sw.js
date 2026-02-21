@@ -135,3 +135,62 @@ async function networkFirst(request) {
     return cached ?? Response.error();
   }
 }
+
+// ─── Push ─────────────────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'ATLAS', body: 'You have a new notification.' };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    data: data.data ?? {},
+    vibrate: [100, 50, 100],
+    requireInteraction: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// ─── Notification Click ───────────────────────────────────────────────────────
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const notifData = event.notification.data ?? {};
+  let targetUrl = '/dashboard';
+
+  if (notifData.channelId) targetUrl = `/dashboard/chat?channelId=${notifData.channelId}`;
+  else if (notifData.discussionId) targetUrl = `/dashboard/discussions/${notifData.discussionId}`;
+  else if (notifData.resourceId) targetUrl = `/resources/${notifData.resourceId}`;
+  else if (notifData.liveQuizId) targetUrl = `/dashboard/live-quiz/${notifData.liveQuizId}`;
+  else if (notifData.quizId) targetUrl = `/quiz/${notifData.quizId}`;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Focus an existing tab if one is already open
+        for (const client of clientList) {
+          if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+            client.focus();
+            client.navigate(targetUrl);
+            return;
+          }
+        }
+        // Otherwise open a new tab
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+      }),
+  );
+});

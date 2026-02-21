@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { NotificationType } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { NotificationsGateway } from './notifications.gateway';
+import { PushService } from '../push/push.service';
 
 export interface CreateNotificationDto {
   userId: string;
@@ -20,6 +21,7 @@ export class NotificationsService {
     private emailService: EmailService,
     private configService: ConfigService,
     private notificationsGateway: NotificationsGateway,
+    private pushService: PushService,
   ) {}
 
   // ==================== CREATE NOTIFICATIONS ====================
@@ -58,6 +60,12 @@ export class NotificationsService {
     this.sendNotificationEmail(dto).catch((error) => {
       console.error('Failed to send notification email:', error);
     });
+
+    this.pushService
+      .sendPushToUser(dto.userId, { title: dto.title, body: dto.message, data: dto.data })
+      .catch((error) => {
+        console.error('Failed to send push notification:', error);
+      });
 
     return notification;
   }

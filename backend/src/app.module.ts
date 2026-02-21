@@ -23,6 +23,7 @@ import { EmailModule } from './email/email.module';
 import { CurriculaModule } from './curricula/curricula.module';
 import { FacilitatorModule } from './facilitator/facilitator.module';
 import { CronModule } from './cron/cron.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { CronModule } from './cron/cron.module';
     CurriculaModule,
     FacilitatorModule,
     CronModule,
+    PushModule,
   ],
   controllers: [AppController],
   providers: [
