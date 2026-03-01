@@ -52,6 +52,9 @@ function ChatRoomContent() {
   const { data: channelById } = useChannelById(selectedChannelId || undefined, !!selectedChannelId && !channelFromList);
   const mainChannel = channelFromList ?? channelById;
   const isDmChannel = mainChannel?.type === 'DIRECT_MESSAGE';
+  // True only when an admin is viewing a DM they are NOT a participant in
+  const isAdminDmObserver = isDmChannel && isAdmin &&
+    !!profile?.id && !(mainChannel?.name ?? '').includes(profile.id);
   const cohortChatName = mainChannel?.name || mainChannel?.cohort?.name || 'Cohort Chat';
   const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
   const sendMessage = useSendMessage();
@@ -288,9 +291,9 @@ function ChatRoomContent() {
                   This chat room is locked for announcements. You can read messages but cannot post.
                 </div>
               )}
-              {isDmChannel && isAdmin && (
+              {isAdminDmObserver && (
                 <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                  This is a private conversation. Admins can view but not participate.
+                  This is a private conversation. You can view but not participate.
                 </div>
               )}
               <div className="flex items-end gap-2">
@@ -300,12 +303,12 @@ function ChatRoomContent() {
                   onChange={(e) => setChatMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="flex-1"
-                  disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || (isDmChannel && isAdmin)}
+                  disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
                 />
                 <Button
                   size="icon"
                   onClick={handleSendMessage}
-                  disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats) || (isDmChannel && isAdmin)}
+                  disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Send className="h-4 w-4" />
