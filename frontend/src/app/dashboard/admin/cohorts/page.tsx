@@ -86,10 +86,11 @@ export default function AdminCohortsPage() {
 
   const cohorts: Cohort[] = Array.isArray(cohortsData) ? cohortsData : [];
 
-  // Fetch ALL members (fellows + facilitators) for the selected cohort
-  const { data: cohortMembers = [], isLoading: membersLoading } = useCohortMembers(
+  const { data: allCohortMembers = [], isLoading: membersLoading } = useCohortMembers(
     selectedCohort && isMembersDialogOpen ? selectedCohort.id : undefined
   );
+  // Only show FELLOW-role users in the Fellows section; facilitators appear in their own section above
+  const cohortMembers = (allCohortMembers as any[]).filter((m) => m.role === 'FELLOW');
 
   // Fetch all fellows for the "Add Member" dialog
   const { data: fellowsWithoutCohortResponse } = useAdminUsers(
