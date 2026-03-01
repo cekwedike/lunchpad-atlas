@@ -358,27 +358,43 @@ export class ChatService {
       await this.awardChatPoints(userId, createMessageDto.content).catch(() => undefined);
     }
 
-    const recipients = await this.getChatNotificationRecipients(
-      message.channel.cohortId,
-      userId,
-    );
+    const senderName =
+      `${message.user?.firstName || ''} ${message.user?.lastName || ''}`.trim() ||
+      'Someone';
+    const preview =
+      createMessageDto.content.length > 120
+        ? `${createMessageDto.content.slice(0, 117)}...`
+        : createMessageDto.content;
 
-    if (recipients.length > 0) {
-      const senderName =
-        `${message.user?.firstName || ''} ${message.user?.lastName || ''}`.trim() ||
-        'Someone';
-      const preview =
-        createMessageDto.content.length > 120
-          ? `${createMessageDto.content.slice(0, 117)}...`
-          : createMessageDto.content;
-
-      await this.notificationsService.notifyBulkChatMessage(
-        recipients,
-        senderName,
-        message.channel.name,
-        preview,
-        message.channel.id,
+    if (channel.type === ChannelType.DIRECT_MESSAGE) {
+      // For DMs, only notify the other participant — not the whole cohort
+      const participants = this.extractDmParticipants(channel.name);
+      if (participants) {
+        const otherParticipantId = participants.find((id) => id !== userId);
+        if (otherParticipantId) {
+          await this.notificationsService.notifyDirectMessage(
+            otherParticipantId,
+            senderName,
+            preview,
+            message.channel.id,
+          );
+        }
+      }
+    } else {
+      const recipients = await this.getChatNotificationRecipients(
+        message.channel.cohortId,
+        userId,
       );
+
+      if (recipients.length > 0) {
+        await this.notificationsService.notifyBulkChatMessage(
+          recipients,
+          senderName,
+          message.channel.name,
+          preview,
+          message.channel.id,
+        );
+      }
     }
 
     return message;

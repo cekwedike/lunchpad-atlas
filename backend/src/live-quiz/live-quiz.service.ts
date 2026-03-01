@@ -83,14 +83,46 @@ export class LiveQuizService {
   async findForUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { cohortId: true },
+      select: { cohortId: true, role: true },
     });
-    if (!user?.cohortId) return [];
+
+    if (!user) return [];
+
+    let cohortIds: string[] = [];
+
+    if (user.role === 'ADMIN') {
+      // Admins see all live quizzes across all cohorts
+      return (this.prisma.liveQuiz as any).findMany({
+        where: { status: { not: 'CANCELLED' } },
+        include: {
+          sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },
+          participants: {
+            where: { userId },
+            select: { id: true, totalScore: true, rank: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (user.role === 'FACILITATOR') {
+      // Facilitators see quizzes from the cohorts they facilitate
+      const facilitatedCohorts = await (this.prisma as any).cohortFacilitator.findMany({
+        where: { userId },
+        select: { cohortId: true },
+      });
+      cohortIds = facilitatedCohorts.map((fc: any) => fc.cohortId);
+    } else if (user.cohortId) {
+      // Fellows see quizzes from their own cohort
+      cohortIds = [user.cohortId];
+    }
+
+    if (cohortIds.length === 0) return [];
 
     return (this.prisma.liveQuiz as any).findMany({
       where: {
         status: { not: 'CANCELLED' },
-        sessions: { some: { session: { cohortId: user.cohortId } } },
+        sessions: { some: { session: { cohortId: { in: cohortIds } } } },
       },
       include: {
         sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },

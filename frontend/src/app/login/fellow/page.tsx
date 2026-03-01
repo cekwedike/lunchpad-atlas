@@ -141,6 +141,7 @@ export default function FellowLoginPage() {
                   )}
                 </button>
               </div>
+              <p className="mt-1 text-xs text-white/50">Password is case-sensitive</p>
               {errors.password && (
                 <p className="mt-1 text-sm text-red-300">{errors.password.message}</p>
               )}

@@ -12,7 +12,7 @@ import {
   Zap, BookOpen, Trophy, ChevronRight, Loader2,
 } from "lucide-react";
 import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQuizzes";
-import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard, useLiveQuiz, useSubmitAnswer } from "@/hooks/api/useLiveQuiz";
+import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard, useLiveQuiz, useSubmitAnswer, useParticipantAnswers } from "@/hooks/api/useLiveQuiz";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 
@@ -175,13 +175,17 @@ function QuizCard({ quiz }: { quiz: FellowQuiz }) {
 
 // ─── Live Quiz Taker ──────────────────────────────────────────────────────────
 // Fellow-paced: each fellow controls their own question advancement.
-// No server sync needed — each fellow is fully independent.
+// Answers are persisted server-side so refreshing resumes from where they left off.
 function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantId: string }) {
   // Load once; the parent polls for status changes (ACTIVE→COMPLETED)
   const { data: quiz } = useLiveQuiz(quizId);
   const submitAnswer = useSubmitAnswer();
 
+  // Load existing answers to resume after a page refresh
+  const { data: existingAnswers, isLoading: loadingAnswers } = useParticipantAnswers(participantId);
+
   const [localIdx, setLocalIdx] = useState(0);
+  const [resumeChecked, setResumeChecked] = useState(false);
   // phase: 'answering' → fellow picking; 'result' → feedback shown + Next button
   const [phase, setPhase] = useState<'answering' | 'result'>('answering');
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -192,6 +196,22 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
   const questions: any[] = (quiz as any)?.questions ?? [];
   const currentQuestion = questions[localIdx] ?? null;
   const isFinished = questions.length > 0 && localIdx >= questions.length;
+
+  // On first load, jump to the first unanswered question so refreshing resumes progress
+  useEffect(() => {
+    if (resumeChecked || loadingAnswers || questions.length === 0) return;
+    if (existingAnswers && existingAnswers.length > 0) {
+      const answeredIds = new Set(existingAnswers.map((a) => a.questionId));
+      const firstUnanswered = questions.findIndex((q) => !answeredIds.has(q.id));
+      if (firstUnanswered > 0) {
+        setLocalIdx(firstUnanswered);
+      } else if (firstUnanswered === -1) {
+        // All questions already answered — skip to finished state
+        setLocalIdx(questions.length);
+      }
+    }
+    setResumeChecked(true);
+  }, [existingAnswers, loadingAnswers, questions, resumeChecked]);
 
   // Reset state each time we move to a new question
   useEffect(() => {
@@ -235,8 +255,8 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
 
   const handleNext = () => setLocalIdx((i) => i + 1);
 
-  // Loading state
-  if (!quiz || (!currentQuestion && !isFinished)) {
+  // Loading state — wait for quiz data and resume check
+  if (!quiz || loadingAnswers || !resumeChecked || (!currentQuestion && !isFinished)) {
     return (
       <div className="mt-4 border-t border-amber-100 pt-4 flex items-center justify-center py-6 gap-2 text-gray-500">
         <Loader2 className="h-4 w-4 animate-spin" />

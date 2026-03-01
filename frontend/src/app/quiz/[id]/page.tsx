@@ -135,8 +135,8 @@ export default function QuizPage({ params }: { params: { id: string } }) {
           title="Quiz not found"
           message="This quiz could not be found or has no questions."
         />
-        <Button onClick={() => router.push('/resources')} className="mt-4">
-          Back to Resources
+        <Button onClick={() => router.push('/quiz')} className="mt-4">
+          Back to Quizzes
         </Button>
       </DashboardLayout>
     );
@@ -261,10 +261,10 @@ export default function QuizPage({ params }: { params: { id: string } }) {
 
             <div className="flex gap-4 justify-center">
               <Button
-                onClick={() => router.push("/resources")}
+                onClick={() => router.push("/quiz")}
                 className="bg-atlas-navy hover:bg-atlas-navy/90"
               >
-                Back to Resources
+                Back to Quizzes
               </Button>
               {!passed && (
                 <Button
@@ -375,7 +375,7 @@ export default function QuizPage({ params }: { params: { id: string } }) {
 
         {/* Question */}
         <Card className="p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">{currentQ.questionText}</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">{currentQ.question || currentQ.questionText}</h2>
           
           <div className="space-y-3">
             {currentQ.options.map((option: string, index: number) => (

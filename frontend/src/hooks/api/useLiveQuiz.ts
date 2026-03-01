@@ -146,6 +146,18 @@ export function useSubmitAnswer() {
   });
 }
 
+// Get participant's existing answers (used to resume after page refresh)
+export function useParticipantAnswers(participantId: string) {
+  return useQuery({
+    queryKey: LIVE_QUIZ_KEYS.participantAnswers(participantId),
+    queryFn: () => apiClient.get<{ questionId: string; selectedAnswer: number; isCorrect: boolean }[]>(
+      `/live-quiz/participant/${participantId}/answers`,
+    ),
+    enabled: !!participantId,
+    staleTime: 0,
+  });
+}
+
 // Delete quiz (facilitator/admin only)
 export function useDeleteLiveQuiz() {
   const queryClient = useQueryClient();

@@ -19,16 +19,15 @@ export class LeaderboardService {
   private async getCohortActiveRange(cohortId: string) {
     const cohort = await this.prisma.cohort.findUnique({
       where: { id: cohortId },
-      select: { id: true, state: true, startDate: true, endDate: true },
+      select: { id: true, startDate: true, endDate: true },
     });
 
-    if (!cohort || cohort.state !== 'ACTIVE') {
+    if (!cohort) {
       return null;
     }
 
     const now = new Date();
     const end = cohort.endDate < now ? cohort.endDate : now;
-    if (end < cohort.startDate) return null;
 
     return {
       startDate: cohort.startDate,
@@ -105,16 +104,14 @@ export class LeaderboardService {
     endDate = monthRange.endDate;
 
     let cohortRange: { startDate: Date; endDate: Date } | null = null;
+    let filterByDateRange = true;
     if (cohortId) {
       cohortRange = await this.getCohortActiveRange(cohortId);
+      // If the cohort hasn't started yet or the selected month is outside the cohort's
+      // active range, still show the leaderboard — just don't filter by date range so
+      // fellows appear with 0 points rather than returning an empty list.
       if (!cohortRange || !this.isRangeWithin(startDate, endDate, cohortRange)) {
-        return {
-          data: [],
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-        };
+        filterByDateRange = false;
       }
     }
 
@@ -151,10 +148,7 @@ export class LeaderboardService {
     }
 
     const pointsWhere: any = {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
-      },
+      ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
       userId: { in: fellowIds },
     };
 
@@ -181,10 +175,7 @@ export class LeaderboardService {
       where: {
         userId: { in: fellowIds },
         isDeleted: false,
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
+        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
       },
       select: { userId: true, createdAt: true },
     });
@@ -192,10 +183,7 @@ export class LeaderboardService {
     const discussionComments = await this.prisma.discussionComment.findMany({
       where: {
         userId: { in: fellowIds },
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
+        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
       },
       select: { userId: true, createdAt: true },
     });
@@ -336,19 +324,11 @@ export class LeaderboardService {
     endDate = monthRange.endDate;
 
     let cohortRange: { startDate: Date; endDate: Date } | null = null;
+    let filterByDateRange = true;
     if (cohortId) {
       cohortRange = await this.getCohortActiveRange(cohortId);
       if (!cohortRange || !this.isRangeWithin(startDate, endDate, cohortRange)) {
-        return {
-          rank: null,
-          totalUsers: 0,
-          points: 0,
-          streak: 0,
-          userId,
-          userName: `${user.firstName} ${user.lastName}`.trim(),
-          email: user.email,
-          message: 'Leaderboard is only available during active cohort months',
-        };
+        filterByDateRange = false;
       }
     }
 
@@ -381,10 +361,7 @@ export class LeaderboardService {
     }
 
     const pointsWhere: any = {
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
-      },
+      ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
       userId: { in: fellowIds },
     };
 
@@ -403,10 +380,7 @@ export class LeaderboardService {
       where: {
         userId: { in: fellowIds },
         isDeleted: false,
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
+        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
       },
       select: { userId: true, createdAt: true },
     });
@@ -414,10 +388,7 @@ export class LeaderboardService {
     const discussionComments = await this.prisma.discussionComment.findMany({
       where: {
         userId: { in: fellowIds },
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
+        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
       },
       select: { userId: true, createdAt: true },
     });

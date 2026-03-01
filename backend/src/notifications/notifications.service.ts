@@ -395,6 +395,21 @@ export class NotificationsService {
     });
   }
 
+  async notifyDirectMessage(
+    userId: string,
+    senderName: string,
+    messagePreview: string,
+    channelId: string,
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'SYSTEM_ALERT',
+      title: `Private message from ${senderName}`,
+      message: messagePreview,
+      data: { senderName, channelName: `DM: ${senderName}`, channelId, isDm: true },
+    });
+  }
+
   async notifyBulkChatMessage(
     userIds: string[],
     senderName: string,
