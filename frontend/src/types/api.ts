@@ -188,11 +188,13 @@ export interface Quiz {
 export interface QuizQuestion {
   id: string;
   quizId: string;
-  questionText: string;
-  questionType: string;
+  /** Standard quiz questions return 'question'; live quiz questions return 'questionText' */
+  question?: string;
+  questionText?: string;
+  questionType?: string;
   options: string[];
-  correctAnswer: string;
-  points: number;
+  correctAnswer?: string;
+  points?: number;
   order: number;
 }
 
