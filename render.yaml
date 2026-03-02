@@ -11,7 +11,9 @@ services:
       - key: PORT
         value: "4000"
       - key: DATABASE_URL
-        sync: false  # Set manually in Render dashboard
+        sync: false  # Neon pooled connection URL (used by app at runtime)
+      - key: DIRECT_URL
+        sync: false  # Neon direct (non-pooled) connection URL (used by prisma migrate)
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
