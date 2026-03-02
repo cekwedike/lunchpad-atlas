@@ -23,6 +23,7 @@ export class QuizzesService {
     points: number,
     eventType: string,
     description: string,
+    bypassCap = false,
   ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -48,8 +49,8 @@ export class QuizzesService {
       currentMonthPoints = 0;
     }
 
-    // Check if user would exceed monthly cap
-    if (currentMonthPoints + points > user.monthlyPointsCap) {
+    // Check if user would exceed monthly cap (skipped for mega quiz tiered rewards)
+    if (!bypassCap && currentMonthPoints + points > user.monthlyPointsCap) {
       return false; // Cap reached, no points awarded
     }
 
@@ -89,9 +90,14 @@ export class QuizzesService {
     const cohortId = user.cohortId;
     const now = new Date();
 
-    // All quizzes (SESSION/GENERAL/MEGA) are always stored with cohortId set
+    // Include quizzes directly assigned to this cohort OR linked via sessions
     const allQuizzes = await this.prisma.quiz.findMany({
-      where: { cohortId },
+      where: {
+        OR: [
+          { cohortId },
+          { sessions: { some: { session: { cohortId } } } },
+        ],
+      },
       include: {
         sessions: {
           include: { session: { select: { id: true, title: true, sessionNumber: true } } },
@@ -231,20 +237,52 @@ export class QuizzesService {
 
     let pointsAwarded = 0;
     let cappedMessage: string | null = null;
+    let megaQuizRank: number | undefined;
+    let totalMegaSubmissions: number | undefined;
 
-    if (passed && previousAttempts === 0 && totalPoints > 0) {
-      // Award points with monthly cap enforcement
-      const awarded = await this.awardPoints(
-        userId,
-        totalPoints,
-        'QUIZ_SUBMIT',
-        `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}`,
-      );
+    if (passed && previousAttempts === 0) {
+      if ((quiz as any).quizType === 'MEGA') {
+        // MEGA quiz: tiered leaderboard points based on rank among all passing submissions
+        const higherScores = await this.prisma.quizResponse.count({
+          where: { quizId, passed: true, score: { gt: score } },
+        });
+        const allPassingCount = await this.prisma.quizResponse.count({
+          where: { quizId, passed: true },
+        });
+        megaQuizRank = higherScores + 1;
+        totalMegaSubmissions = allPassingCount + 1; // +1 for this new submission
 
-      if (awarded) {
-        pointsAwarded = totalPoints;
-      } else {
-        cappedMessage = 'Monthly point cap reached - no points awarded';
+        const tieredPoints =
+          megaQuizRank === 1 ? 3000 :
+          megaQuizRank === 2 ? 2000 :
+          megaQuizRank === 3 ? 1000 :
+          megaQuizRank <= 7  ? 500  : 200;
+
+        const awarded = await this.awardPoints(
+          userId,
+          tieredPoints,
+          'QUIZ_SUBMIT',
+          `Mega Quiz: ${quiz.title} - Rank #${megaQuizRank} (score: ${score}%)`,
+          true, // bypass monthly cap for mega quiz tiered rewards
+        );
+
+        if (awarded) {
+          pointsAwarded = tieredPoints;
+        }
+      } else if (totalPoints > 0) {
+        // Regular SESSION/GENERAL quiz: existing cap-enforced behaviour
+        const awarded = await this.awardPoints(
+          userId,
+          totalPoints,
+          'QUIZ_SUBMIT',
+          `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}`,
+        );
+
+        if (awarded) {
+          pointsAwarded = totalPoints;
+        } else {
+          cappedMessage = 'Monthly point cap reached - no points awarded';
+        }
       }
     }
 
@@ -276,12 +314,15 @@ export class QuizzesService {
       quizId: response.quizId,
       score: response.score,
       passed: response.passed,
+      quizType: (quiz as any).quizType,
       basePoints: passed ? quiz.pointValue : 0,
       multiplier: quiz.multiplier || 1.0,
       timeBonus,
       totalPoints,
       pointsAwarded,
       cappedMessage,
+      megaQuizRank,
+      totalMegaSubmissions,
       timeTaken: response.timeTaken,
       completedAt: response.completedAt,
       newAchievements: newAchievements.length > 0 ? newAchievements : undefined,

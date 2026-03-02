@@ -71,7 +71,7 @@ export function useSubmitQuiz(quizId: string) {
       if (data.passed) {
         toast.success(
           'Quiz passed!',
-          `You scored ${data.score}% and earned ${data.pointsEarned} points`
+          `You scored ${data.score}% and earned ${(data as any).pointsAwarded} points`
         );
       } else {
         toast.warning(

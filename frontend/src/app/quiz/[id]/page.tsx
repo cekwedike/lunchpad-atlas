@@ -144,9 +144,17 @@ export default function QuizPage({ params }: { params: { id: string } }) {
 
   if (quizResult) {
     const passed = quizResult.passed;
+    const isMega = quizResult.quizType === 'MEGA';
     const hasTimeBonus = quizResult.timeBonus && quizResult.timeBonus > 0;
     const hasMultiplier = quizResult.multiplier && quizResult.multiplier !== 1.0;
-    
+
+    const rankLabel = (rank: number) => {
+      if (rank === 1) return '1st';
+      if (rank === 2) return '2nd';
+      if (rank === 3) return '3rd';
+      return `${rank}th`;
+    };
+
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto">
@@ -160,12 +168,12 @@ export default function QuizPage({ params }: { params: { id: string } }) {
                 <XCircle className="w-12 h-12 text-red-600" />
               )}
             </div>
-            
+
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {passed ? "Congratulations!" : "Keep Learning!"}
             </h1>
             <p className="text-lg text-gray-600 mb-8">
-              {passed 
+              {passed
                 ? "You've successfully completed this quiz!"
                 : "You didn't pass this time, but you can try again."}
             </p>
@@ -183,53 +191,108 @@ export default function QuizPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            {passed && quizResult.pointsAwarded > 0 && (
-              <div className="mb-8 space-y-4">
-                {/* Points Breakdown */}
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="font-semibold text-blue-900 mb-3">Points Breakdown</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Base Points:</span>
-                      <span className="font-semibold text-gray-900">{quizResult.basePoints}</span>
-                    </div>
-                    {hasMultiplier && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-700">Multiplier ({quizResult.multiplier}x):</span>
-                        <span className="font-semibold text-gray-900">
-                          {Math.round(quizResult.basePoints * quizResult.multiplier)}
-                        </span>
-                      </div>
-                    )}
-                    {hasTimeBonus && (
-                      <div className="flex justify-between items-center text-green-700">
-                        <span>Time Bonus:</span>
-                        <span className="font-semibold">+{quizResult.timeBonus}</span>
-                      </div>
-                    )}
-                    <div className="border-t border-blue-300 pt-2 mt-2 flex justify-between items-center">
-                      <span className="font-bold text-blue-900">Total Points:</span>
-                      <span className="font-bold text-blue-900">{quizResult.totalPoints}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Final Award */}
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-900 font-semibold text-lg">
-                    🎉 +{quizResult.pointsAwarded} points earned!
-                  </p>
-                  {quizResult.timeTaken && (
-                    <p className="text-sm text-green-700 mt-1">
-                      Completed in {Math.floor(quizResult.timeTaken / 60)}:{(quizResult.timeTaken % 60).toString().padStart(2, '0')}
-                    </p>
-                  )}
-                </div>
+            {passed && (
+              <div className="mb-8 space-y-4 text-left">
 
-                {/* New Achievements */}
+                {/* MEGA quiz: rank-based leaderboard reward */}
+                {isMega && quizResult.megaQuizRank && (
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5">
+                    <h3 className="font-bold text-indigo-900 text-lg mb-4">Mega Quiz Results</h3>
+
+                    {/* Rank banner */}
+                    <div className="flex items-center justify-between rounded-lg bg-white border border-indigo-100 px-4 py-3 mb-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500 mb-0.5">Your Rank</p>
+                        <p className="text-2xl font-extrabold text-indigo-900">
+                          {rankLabel(quizResult.megaQuizRank)} Place
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Participants</p>
+                        <p className="text-2xl font-extrabold text-gray-700">{quizResult.totalMegaSubmissions}</p>
+                      </div>
+                    </div>
+
+                    {/* Points transparency */}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center text-gray-600">
+                        <span>Quiz score</span>
+                        <span className="font-semibold text-gray-900">{quizResult.score}%</span>
+                      </div>
+                      <div className="flex justify-between items-center text-gray-600">
+                        <span>Rank among cohort</span>
+                        <span className="font-semibold text-gray-900">{rankLabel(quizResult.megaQuizRank)}</span>
+                      </div>
+                      <div className="border-t border-indigo-200 pt-2 mt-1 flex justify-between items-center">
+                        <span className="font-bold text-indigo-900">Leaderboard points added</span>
+                        <span className="font-extrabold text-indigo-700 text-lg">+{quizResult.pointsAwarded} pts</span>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-xs text-indigo-500">
+                      Rankings are based on quiz score. Points are awarded by final position, not raw quiz score.
+                    </p>
+                  </div>
+                )}
+
+                {/* Regular quiz: existing points breakdown */}
+                {!isMega && quizResult.pointsAwarded > 0 && (
+                  <>
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h3 className="font-semibold text-blue-900 mb-3">Points Breakdown</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-700">Base Points:</span>
+                          <span className="font-semibold text-gray-900">{quizResult.basePoints}</span>
+                        </div>
+                        {hasMultiplier && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-700">Multiplier ({quizResult.multiplier}x):</span>
+                            <span className="font-semibold text-gray-900">
+                              {Math.round(quizResult.basePoints * quizResult.multiplier)}
+                            </span>
+                          </div>
+                        )}
+                        {hasTimeBonus && (
+                          <div className="flex justify-between items-center text-green-700">
+                            <span>Time Bonus:</span>
+                            <span className="font-semibold">+{quizResult.timeBonus}</span>
+                          </div>
+                        )}
+                        <div className="border-t border-blue-300 pt-2 mt-2 flex justify-between items-center">
+                          <span className="font-bold text-blue-900">Total Points:</span>
+                          <span className="font-bold text-blue-900">+{quizResult.pointsAwarded}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {quizResult.timeTaken > 0 && (
+                      <p className="text-sm text-gray-500 text-center">
+                        Completed in {Math.floor(quizResult.timeTaken / 60)}:{(quizResult.timeTaken % 60).toString().padStart(2, '0')}
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* Monthly cap warning (regular quizzes only) */}
+                {!isMega && quizResult.cappedMessage && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-yellow-900 text-sm">{quizResult.cappedMessage}</p>
+                  </div>
+                )}
+
+                {/* Already passed */}
+                {!isMega && quizResult.pointsAwarded === 0 && !quizResult.cappedMessage && (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-gray-700 text-sm text-center">
+                      No points awarded — you have already passed this quiz before.
+                    </p>
+                  </div>
+                )}
+
+                {/* Achievements */}
                 {quizResult.newAchievements && quizResult.newAchievements.length > 0 && (
                   <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <h3 className="font-semibold text-purple-900 mb-2">🏆 New Achievements Unlocked!</h3>
+                    <h3 className="font-semibold text-purple-900 mb-2">New Achievements Unlocked!</h3>
                     <div className="space-y-1">
                       {quizResult.newAchievements.map((achievement: any) => (
                         <p key={achievement.id} className="text-sm text-purple-700">
@@ -239,23 +302,6 @@ export default function QuizPage({ params }: { params: { id: string } }) {
                     </div>
                   </div>
                 )}
-
-                {/* Monthly Cap Warning */}
-                {quizResult.cappedMessage && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-yellow-900 text-sm">
-                      ⚠️ {quizResult.cappedMessage}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {passed && quizResult.pointsAwarded === 0 && !quizResult.cappedMessage && (
-              <div className="mb-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <p className="text-gray-700 text-sm">
-                  No points awarded - you've already passed this quiz before.
-                </p>
               </div>
             )}
 
