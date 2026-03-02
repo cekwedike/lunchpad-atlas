@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileQuestion, Clock, Award, CheckCircle, XCircle, Lock, Timer,
-  Zap, BookOpen, Trophy, ChevronRight, Loader2,
+  Zap, BookOpen, Trophy, ChevronRight, Loader2, Crown, Medal, Flame, Star,
 } from "lucide-react";
 import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQuizzes";
 import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard, useLiveQuiz, useSubmitAnswer, useParticipantAnswers } from "@/hooks/api/useLiveQuiz";
@@ -47,6 +47,24 @@ const QUIZ_TYPE_CONFIG = {
   GENERAL: { label: "General",  icon: FileQuestion, bg: "bg-emerald-50", border: "border-emerald-200", accent: "from-emerald-500 to-teal-500",  iconColor: "text-emerald-600" },
   MEGA:    { label: "Mega",     icon: Zap,          bg: "bg-amber-50",   border: "border-amber-200",   accent: "from-amber-500 to-orange-500",  iconColor: "text-amber-600" },
 };
+
+// Tiered leaderboard points awarded by finish rank in a live/mega quiz
+function getLeaderboardPoints(rank: number): number {
+  if (rank === 1) return 3000;
+  if (rank === 2) return 2000;
+  if (rank === 3) return 1000;
+  if (rank <= 7) return 500;
+  return 200;
+}
+
+// Rank icon: Crown for 1st, Medal for 2nd/3rd, number otherwise
+function RankBadge({ rank, size = "sm" }: { rank: number; size?: "sm" | "lg" }) {
+  const cls = size === "lg" ? "h-6 w-6" : "h-4 w-4";
+  if (rank === 1) return <Crown className={cn(cls, "text-amber-500")} />;
+  if (rank === 2) return <Medal className={cn(cls, "text-slate-400")} />;
+  if (rank === 3) return <Medal className={cn(cls, "text-orange-400")} />;
+  return <span className={cn("font-bold text-gray-500 font-mono", size === "lg" ? "text-sm" : "text-xs")}>#{rank}</span>;
+}
 
 // ─── Countdown hook ───────────────────────────────────────────────────────────
 function useCountdown(targetDate: string | null) {
@@ -269,13 +287,20 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
   if (isFinished) {
     return (
       <div className="mt-4 border-t border-amber-100 pt-4 flex flex-col items-center py-6 gap-3 text-center">
-        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-purple-100">
-          <Trophy className="h-6 w-6 text-purple-600" />
+        <div className="relative">
+          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-purple-100">
+            <Trophy className="h-7 w-7 text-purple-600" />
+          </div>
+          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
+            <Star className="h-3 w-3 text-white" />
+          </div>
         </div>
-        <p className="font-bold text-gray-900 text-lg">Quiz complete!</p>
-        <p className="text-sm text-gray-500">Waiting for final results…</p>
+        <div>
+          <p className="font-bold text-gray-900 text-lg">All done!</p>
+          <p className="text-sm text-gray-500">Waiting for final results to be tallied…</p>
+        </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Loader2 className="h-3 w-3 animate-spin" /> Hang tight
+          <Loader2 className="h-3 w-3 animate-spin" /> Results loading
         </div>
       </div>
     );
@@ -402,7 +427,10 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
                      answerResult.isCorrect ? "Correct!" : "Wrong answer"}
                   </p>
                   {answerResult?.newStreak > 1 && (
-                    <p className="text-xs text-amber-600">{answerResult.newStreak}x streak!</p>
+                    <p className="text-xs text-amber-600 flex items-center gap-0.5">
+                      <Flame className="h-3 w-3" />
+                      {answerResult.newStreak}x streak!
+                    </p>
                   )}
                   {!answerResult?.isCorrect && answerResult != null && (
                     <p className="text-xs text-gray-500">
@@ -457,92 +485,115 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
   const myIdx = sorted.findIndex((e: any) => e.userId === currentUserId);
   const myEntry = myIdx >= 0 ? sorted[myIdx] : null;
   const myRank = myIdx >= 0 ? myIdx + 1 : null;
+  const myLeaderboardPoints = myRank ? getLeaderboardPoints(myRank) : null;
 
-  const rankLabel =
-    myRank === 1 ? "1st place!" :
-    myRank === 2 ? "2nd place" :
-    myRank === 3 ? "3rd place" :
-    myRank ? `#${myRank} of ${sorted.length}` : null;
+  const rankStyle = (rank: number | null) => {
+    if (rank === 1) return { bg: "bg-gradient-to-br from-amber-50 to-yellow-100", border: "border-amber-300", text: "text-amber-700", icon: "bg-amber-100" };
+    if (rank === 2) return { bg: "bg-gradient-to-br from-slate-50 to-gray-100", border: "border-slate-300", text: "text-slate-700", icon: "bg-slate-100" };
+    if (rank === 3) return { bg: "bg-gradient-to-br from-orange-50 to-amber-50", border: "border-orange-200", text: "text-orange-700", icon: "bg-orange-100" };
+    return { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", icon: "bg-blue-100" };
+  };
+
+  const myStyle = rankStyle(myRank);
 
   return (
-    <div className="mt-4 space-y-3 border-t border-amber-100 pt-4">
+    <div className="mt-4 space-y-4 border-t border-amber-100 pt-4">
       {/* Personal result banner */}
-      {myEntry && (
-        <div className={cn(
-          "rounded-xl px-4 py-3 flex items-center justify-between",
-          myRank === 1 ? "bg-amber-50 border-2 border-amber-300" :
-          myRank === 2 ? "bg-slate-50 border-2 border-slate-300" :
-          myRank === 3 ? "bg-orange-50 border-2 border-orange-200" :
-          "bg-blue-50 border-2 border-blue-200",
-        )}>
-          <div className="flex items-center gap-3">
-            <span className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-              myRank === 1 ? "bg-amber-400 text-white" :
-              myRank === 2 ? "bg-gray-400 text-white" :
-              myRank === 3 ? "bg-orange-400 text-white" :
-              "bg-blue-400 text-white"
-            )}>#{myRank}</span>
-            <div>
-              <p className="text-sm font-bold text-gray-900">Your Result</p>
-              <p className="text-xs text-gray-500">
-                {myEntry.correctCount} correct · {rankLabel}
-              </p>
+      {myEntry && myRank && (
+        <div className={cn("rounded-xl p-4 border-2", myStyle.bg, myStyle.border)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn("w-11 h-11 rounded-full flex items-center justify-center shrink-0", myStyle.icon)}>
+                <RankBadge rank={myRank} size="lg" />
+              </div>
+              <div>
+                <p className={cn("text-sm font-bold", myStyle.text)}>Your Final Result</p>
+                <p className="text-xs text-gray-500">
+                  {myEntry.correctCount} correct &middot; {sorted.length} participants
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900">{myEntry.totalScore.toLocaleString()}</p>
+              <p className="text-xs text-gray-400">quiz score</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-amber-600">{myEntry.totalScore}</p>
-            <p className="text-xs text-gray-400">points</p>
-          </div>
+
+          {/* Leaderboard points earned */}
+          {myLeaderboardPoints && (
+            <div className="mt-3 pt-3 border-t border-black/5 flex items-center justify-between rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-purple-100">
+                  <Star className="h-3.5 w-3.5 text-purple-600" />
+                </div>
+                <span className="text-xs font-semibold text-gray-700">Leaderboard Points Earned</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-bold text-purple-700">+{myLeaderboardPoints.toLocaleString()}</span>
+                <span className="text-xs text-gray-400">pts</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Leaderboard */}
+      {/* Leaderboard table */}
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Trophy className="h-3 w-3" /> Final Leaderboard
         </p>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {sorted.slice(0, 5).map((entry: any, idx: number) => {
+            const rank = idx + 1;
             const isMe = entry.userId === currentUserId;
+            const lbPoints = getLeaderboardPoints(rank);
             return (
               <div
                 key={entry.id}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm",
                   isMe
                     ? "bg-blue-50 border border-blue-200 ring-1 ring-blue-300"
-                    : idx === 0
+                    : rank === 1
                     ? "bg-amber-50 border border-amber-200"
-                    : idx === 1
+                    : rank === 2
                     ? "bg-slate-50 border border-slate-200"
-                    : idx === 2
+                    : rank === 3
                     ? "bg-orange-50 border border-orange-100"
                     : "bg-gray-50 border border-gray-100",
                 )}
               >
-                <span className="w-6 text-center text-xs font-bold text-gray-500 font-mono shrink-0">{idx + 1}</span>
+                <div className="w-6 flex items-center justify-center shrink-0">
+                  <RankBadge rank={rank} />
+                </div>
                 <span className={cn("flex-1 truncate", isMe ? "font-bold text-blue-800" : "font-medium text-gray-800")}>
                   {entry.displayName}
                   {isMe && <span className="ml-1.5 text-xs text-blue-400 font-normal">(you)</span>}
                 </span>
-                <span className="font-mono font-bold text-gray-700 tabular-nums">{entry.totalScore}</span>
-                <span className="text-xs text-gray-400 w-14 text-right">{entry.correctCount} correct</span>
+                <div className="text-right shrink-0">
+                  <p className="font-mono font-bold text-gray-800 tabular-nums text-sm">{entry.totalScore.toLocaleString()}</p>
+                  <p className="text-xs font-medium text-purple-500">+{lbPoints.toLocaleString()} lb pts</p>
+                </div>
               </div>
             );
           })}
+
           {/* Show current user's row if they're outside top 5 */}
           {myRank !== null && myRank > 5 && myEntry && (
             <>
               <div className="text-center text-xs text-gray-300 py-0.5">···</div>
-              <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm bg-blue-50 border border-blue-200 ring-1 ring-blue-300">
-                <span className="w-6 text-center text-xs text-gray-500 font-mono shrink-0">#{myRank}</span>
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm bg-blue-50 border border-blue-200 ring-1 ring-blue-300">
+                <div className="w-6 flex items-center justify-center shrink-0">
+                  <RankBadge rank={myRank} />
+                </div>
                 <span className="flex-1 truncate font-bold text-blue-800">
                   {myEntry.displayName}
                   <span className="ml-1.5 text-xs text-blue-400 font-normal">(you)</span>
                 </span>
-                <span className="font-mono font-bold text-gray-700 tabular-nums">{myEntry.totalScore}</span>
-                <span className="text-xs text-gray-400 w-14 text-right">{myEntry.correctCount} correct</span>
+                <div className="text-right shrink-0">
+                  <p className="font-mono font-bold text-gray-800 tabular-nums text-sm">{myEntry.totalScore.toLocaleString()}</p>
+                  <p className="text-xs font-medium text-purple-500">+{getLeaderboardPoints(myRank).toLocaleString()} lb pts</p>
+                </div>
               </div>
             </>
           )}
