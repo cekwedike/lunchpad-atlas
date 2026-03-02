@@ -206,7 +206,7 @@ export default function ResourcesPage() {
                     Career Development Curriculum
                   </span>
                 </div>
-                <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">
+                <h1 className="text-3xl font-extrabold leading-tight md:text-4xl text-white">
                   Hey, {(profile as any)?.firstName || "Fellow"}!
                 </h1>
                 <p className="mt-2 text-blue-200">{fellowGreeting}</p>
@@ -338,10 +338,11 @@ export default function ResourcesPage() {
         {/* ── Main Curriculum ────────────────────────────────────── */}
         {userCohortId && months.length > 0 && (
           <div className="space-y-6">
-            {/* Month Pill Tabs */}
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            {/* Month Tabs — segmented control */}
+            <div className="flex rounded-2xl bg-gray-100 p-1">
               {months.map((month) => {
                 const isActive = selectedMonth === month.id;
+                const TabIcon = month.config.icon;
                 return (
                   <button
                     key={month.id}
@@ -349,19 +350,14 @@ export default function ResourcesPage() {
                       setSelectedMonth(month.id);
                       setSelectedSession(null);
                     }}
-                    className={`flex-shrink-0 flex items-center gap-2.5 rounded-2xl px-5 py-3 text-sm font-semibold transition-all duration-200 ${
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
                       isActive
-                        ? `bg-gradient-to-r ${month.config.gradient} text-white shadow-lg scale-105`
-                        : "bg-white text-blue-800 border border-gray-200 hover:border-blue-200 hover:shadow-md hover:scale-105"
+                        ? `bg-gradient-to-r ${month.config.gradient} text-white shadow-sm`
+                        : "text-gray-500 hover:text-gray-700"
                     }`}
                   >
-                    {(() => { const TabIcon = month.config.icon; return <TabIcon className="h-4 w-4 flex-shrink-0" />; })()}
+                    <TabIcon className="h-4 w-4 flex-shrink-0" />
                     <span>{month.number}</span>
-                    {month.title !== month.number && (
-                      <span className={`hidden sm:inline text-xs ${isActive ? "text-white/75" : "text-gray-400"}`}>
-                        · {month.title}
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -388,7 +384,7 @@ export default function ResourcesPage() {
                         <p className="text-xs font-bold uppercase tracking-widest text-white/60">
                           {selectedMonthData.number}
                         </p>
-                        <h2 className="text-2xl font-extrabold">{selectedMonthData.title}</h2>
+                        <h2 className="text-2xl font-extrabold text-white">{selectedMonthData.title}</h2>
                       </div>
                     </div>
                     <div className="hidden sm:flex flex-col items-end">
