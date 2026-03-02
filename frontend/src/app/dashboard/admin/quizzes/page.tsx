@@ -229,6 +229,8 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
   const [timeLimit, setTimeLimit] = useState(quiz.timeLimit ?? 0);
   const [passingScore, setPassingScore] = useState(quiz.passingScore ?? 70);
   const [pointValue, setPointValue] = useState(quiz.pointValue ?? 200);
+  const [maxAttempts, setMaxAttempts] = useState<number>(quiz.maxAttempts ?? 0);
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState<boolean>(quiz.showCorrectAnswers ?? false);
   const [openAt, setOpenAt] = useState(quiz.openAt ? new Date(quiz.openAt).toISOString().slice(0, 16) : "");
   const [closeAt, setCloseAt] = useState(quiz.closeAt ? new Date(quiz.closeAt).toISOString().slice(0, 16) : "");
   const [questions, setQuestions] = useState<Array<{ question: string; options: [string,string,string,string]; correctAnswer: string }>>(
@@ -246,6 +248,7 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
       quizId: quiz.id, cohortId,
       title, description: description || undefined,
       timeLimit, passingScore, pointValue,
+      maxAttempts, showCorrectAnswers,
       openAt: openAt || null, closeAt: closeAt || null,
       questions: questions.map((q, i) => ({ ...q, order: i + 1 })),
     });
@@ -279,6 +282,35 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
             <div className="space-y-1">
               <Label className="text-xs">Point Value</Label>
               <Input type="number" min={0} value={pointValue} onChange={(e) => setPointValue(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Max Attempts</Label>
+              <select
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                value={maxAttempts}
+                onChange={(e) => setMaxAttempts(Number(e.target.value))}
+              >
+                <option value={0}>Unlimited</option>
+                <option value={1}>1 attempt (no retries)</option>
+                <option value={2}>2 attempts (1 retry)</option>
+                <option value={3}>3 attempts (2 retries)</option>
+                <option value={4}>4 attempts (3 retries)</option>
+                <option value={5}>5 attempts (4 retries)</option>
+              </select>
+              <p className="text-xs text-gray-400">Points are halved on each retry attempt.</p>
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+              <input
+                id="edit-show-correct"
+                type="checkbox"
+                checked={showCorrectAnswers}
+                onChange={(e) => setShowCorrectAnswers(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <div>
+                <Label htmlFor="edit-show-correct" className="text-sm font-medium cursor-pointer">Show correct answers after quiz</Label>
+                <p className="text-xs text-gray-400">Fellows will see the correct answer for each question after completing.</p>
+              </div>
             </div>
             {/* Schedule section */}
             <div className="sm:col-span-2 border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50">
@@ -587,6 +619,8 @@ function CreateStandardQuizDialog({
   const [timeLimit, setTimeLimit] = useState(0);
   const [passingScore, setPassingScore] = useState(70);
   const [pointValue, setPointValue] = useState(200);
+  const [maxAttempts, setMaxAttempts] = useState(0);
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState(false);
   const [openAt, setOpenAt] = useState("");
   const [closeAt, setCloseAt] = useState("");
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
@@ -601,7 +635,7 @@ function CreateStandardQuizDialog({
 
   const resetForm = () => {
     setTitle(""); setDescription(""); setQuizType("SESSION"); setSelectedSessionIds([]);
-    setTimeLimit(0); setPassingScore(70); setPointValue(200); setQuestions([]);
+    setTimeLimit(0); setPassingScore(70); setPointValue(200); setMaxAttempts(0); setShowCorrectAnswers(false); setQuestions([]);
     setOpenAt(""); setCloseAt("");
     setAiCount(5); setAiDifficulty("medium");
     setShowAiForm(false);
@@ -660,6 +694,7 @@ function CreateStandardQuizDialog({
     await createQuiz.mutateAsync({
       title, description: description || undefined,
       cohortId, quizType, timeLimit, passingScore, pointValue,
+      maxAttempts, showCorrectAnswers,
       openAt: openAt || undefined,
       closeAt: closeAt || undefined,
       sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
@@ -768,6 +803,36 @@ function CreateStandardQuizDialog({
             <div className="space-y-1">
               <Label className="text-sm font-medium">Point Value</Label>
               <Input type="number" min={1} value={pointValue} onChange={(e) => setPointValue(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Max Attempts</Label>
+              <select
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                value={maxAttempts}
+                onChange={(e) => setMaxAttempts(Number(e.target.value))}
+              >
+                <option value={0}>Unlimited</option>
+                <option value={1}>1 attempt (no retries)</option>
+                <option value={2}>2 attempts (1 retry)</option>
+                <option value={3}>3 attempts (2 retries)</option>
+                <option value={4}>4 attempts (3 retries)</option>
+                <option value={5}>5 attempts (4 retries)</option>
+              </select>
+              <p className="text-xs text-gray-400">Points are halved on each retry attempt.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+            <input
+              id="create-show-correct"
+              type="checkbox"
+              checked={showCorrectAnswers}
+              onChange={(e) => setShowCorrectAnswers(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <div>
+              <Label htmlFor="create-show-correct" className="text-sm font-medium cursor-pointer">Show correct answers after quiz</Label>
+              <p className="text-xs text-gray-400">Fellows will see the correct answer for each question after completing.</p>
             </div>
           </div>
 

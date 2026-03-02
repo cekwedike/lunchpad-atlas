@@ -7,7 +7,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useQuiz, useQuizQuestions, useSubmitQuiz } from "@/hooks/api/useQuizzes";
+import { useQuiz, useQuizQuestions, useSubmitQuiz, useQuizAttempts, useQuizReview } from "@/hooks/api/useQuizzes";
 import type { QuizQuestion } from "@/types/api";
 
 export default function QuizPage() {
@@ -17,14 +17,18 @@ export default function QuizPage() {
   
   const { data: quiz, isLoading: isLoadingQuiz, error: quizError, refetch: refetchQuiz } = useQuiz(quizId);
   const { data: questions, isLoading: isLoadingQuestions, error: questionsError } = useQuizQuestions(quizId);
+  const { data: attempts } = useQuizAttempts(quizId);
   const submitQuizMutation = useSubmitQuiz(quizId);
-  
+
   const [started, setStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [quizResult, setQuizResult] = useState<any>(null);
+  const [showReview, setShowReview] = useState(false);
+
+  const { data: reviewData } = useQuizReview(quizId, showReview);
 
   // Initialize timer when quiz starts
   useEffect(() => {
@@ -164,6 +168,8 @@ export default function QuizPage() {
     const isMega = quizResult.quizType === 'MEGA';
     const hasTimeBonus = quizResult.timeBonus && quizResult.timeBonus > 0;
     const hasMultiplier = quizResult.multiplier && quizResult.multiplier !== 1.0;
+    const attemptsRemaining: number | null = quizResult.attemptsRemaining;
+    const canRetry = !passed && (attemptsRemaining === null || attemptsRemaining > 0);
 
     const rankLabel = (rank: number) => {
       if (rank === 1) return '1st';
@@ -322,14 +328,30 @@ export default function QuizPage() {
               </div>
             )}
 
-            <div className="flex gap-4 justify-center">
+            {/* Attempt info for failed quizzes */}
+            {!passed && (
+              <div className={`mb-4 p-3 rounded-lg text-sm text-center ${
+                attemptsRemaining === 0
+                  ? 'bg-red-50 border border-red-200 text-red-800'
+                  : 'bg-amber-50 border border-amber-200 text-amber-800'
+              }`}>
+                {attemptsRemaining === 0
+                  ? 'You have used all your attempts for this quiz.'
+                  : attemptsRemaining !== null
+                    ? `${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining — points will be halved on next attempt.`
+                    : 'You can retry this quiz.'
+                }
+              </div>
+            )}
+
+            <div className="flex gap-4 justify-center mb-6">
               <Button
                 onClick={() => router.push("/quiz")}
                 className="bg-atlas-navy hover:bg-atlas-navy/90"
               >
                 Back to Quizzes
               </Button>
-              {!passed && (
+              {canRetry && (
                 <Button
                   onClick={() => {
                     setQuizResult(null);
@@ -337,13 +359,56 @@ export default function QuizPage() {
                     setCurrentQuestion(0);
                     setAnswers({});
                     setStartTime(0);
+                    setShowReview(false);
+                    setTimeRemaining(null);
                   }}
                   variant="outline"
                 >
                   Try Again
                 </Button>
               )}
+              <Button
+                onClick={() => setShowReview((v) => !v)}
+                variant="outline"
+                className="border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                {showReview ? 'Hide Review' : 'Review My Answers'}
+              </Button>
             </div>
+
+            {/* Answer review panel */}
+            {showReview && (
+              <div className="text-left space-y-3 border-t border-gray-200 pt-6">
+                <h3 className="font-semibold text-gray-900 mb-4">Answer Review</h3>
+                {reviewData ? reviewData.questions.map((q, idx) => (
+                  <div key={q.id} className={`p-4 rounded-lg border ${q.isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="font-medium text-gray-900 mb-2">
+                      <span className="text-gray-500 mr-2">{idx + 1}.</span>
+                      {q.question}
+                    </p>
+                    <div className="space-y-1 text-sm">
+                      {(Array.isArray(q.options) ? q.options : []).map((opt, i) => {
+                        const isUserAnswer = opt === q.userAnswer;
+                        const isCorrectAnswer = reviewData.showCorrectAnswers && opt === q.correctAnswer;
+                        return (
+                          <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded ${
+                            isCorrectAnswer ? 'bg-green-100 text-green-900 font-medium'
+                            : isUserAnswer && !q.isCorrect ? 'bg-red-100 text-red-900'
+                            : 'text-gray-700'
+                          }`}>
+                            {isUserAnswer ? (q.isCorrect ? <CheckCircle className="w-4 h-4 text-green-600 shrink-0" /> : <XCircle className="w-4 h-4 text-red-600 shrink-0" />) : <span className="w-4 h-4 shrink-0" />}
+                            <span>{opt}</span>
+                            {isCorrectAnswer && !isUserAnswer && <span className="ml-auto text-xs text-green-700">(correct answer)</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-sm text-gray-500 text-center">Loading review...</p>
+                )}
+              </div>
+            )}
           </Card>
         </div>
       </DashboardLayout>
@@ -378,6 +443,24 @@ export default function QuizPage() {
               </div>
             </div>
 
+            {/* Attempt tracker */}
+            {(() => {
+              const maxAttempts = quiz.maxAttempts;
+              const usedAttempts = attempts?.length ?? 0;
+              const attemptsLeft = maxAttempts > 0 ? maxAttempts - usedAttempts : null;
+              const exhausted = attemptsLeft !== null && attemptsLeft <= 0;
+              return (
+                <div className={`mb-4 p-3 rounded-lg border text-sm ${exhausted ? 'bg-red-50 border-red-200 text-red-800' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                  {maxAttempts === 0
+                    ? `Attempt ${usedAttempts + 1} — unlimited retries allowed`
+                    : exhausted
+                      ? `You have used all ${maxAttempts} attempt${maxAttempts !== 1 ? 's' : ''} for this quiz.`
+                      : `Attempt ${usedAttempts + 1} of ${maxAttempts}${usedAttempts > 0 ? ` — points reduced by ${Math.round((1 - 1 / Math.pow(2, usedAttempts)) * 100)}% for retries` : ''}`
+                  }
+                </div>
+              );
+            })()}
+
             <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-900">
                 <span className="font-semibold">Instructions:</span>{" "}
@@ -389,12 +472,21 @@ export default function QuizPage() {
               </p>
             </div>
 
-            <Button
-              onClick={handleStart}
-              className="w-full bg-atlas-navy hover:bg-atlas-navy/90 text-lg py-6"
-            >
-              Start Quiz
-            </Button>
+            {(() => {
+              const maxAttempts = quiz.maxAttempts;
+              const usedAttempts = attempts?.length ?? 0;
+              const exhausted = maxAttempts > 0 && usedAttempts >= maxAttempts;
+              return exhausted ? (
+                <Button disabled className="w-full text-lg py-6">No Attempts Remaining</Button>
+              ) : (
+                <Button
+                  onClick={handleStart}
+                  className="w-full bg-atlas-navy hover:bg-atlas-navy/90 text-lg py-6"
+                >
+                  Start Quiz
+                </Button>
+              );
+            })()}
           </Card>
         </div>
       </DashboardLayout>

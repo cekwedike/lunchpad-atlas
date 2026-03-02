@@ -592,6 +592,8 @@ export function useUpdateQuiz() {
       timeLimit?: number;
       passingScore?: number;
       pointValue?: number;
+      maxAttempts?: number;
+      showCorrectAnswers?: boolean;
       openAt?: string | null;
       closeAt?: string | null;
       questions?: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;
@@ -625,6 +627,8 @@ export function useCreateQuiz() {
       timeLimit: number;
       passingScore: number;
       pointValue: number;
+      maxAttempts?: number;
+      showCorrectAnswers?: boolean;
       openAt?: string;
       closeAt?: string;
       questions: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;

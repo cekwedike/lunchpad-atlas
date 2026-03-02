@@ -10,6 +10,7 @@ import {
   IsUUID,
   ValidateNested,
   Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -240,6 +241,18 @@ export class CreateQuizDto {
   @IsInt()
   @Min(1)
   pointValue: number;
+
+  @ApiProperty({ required: false, description: '0 = unlimited; 1-5 = max total attempts' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(5)
+  maxAttempts?: number;
+
+  @ApiProperty({ required: false, description: 'Show correct answers to fellows after completing quiz' })
+  @IsOptional()
+  @IsBoolean()
+  showCorrectAnswers?: boolean;
 
   @ApiProperty({ required: false, description: 'ISO date string - when quiz opens for fellows' })
   @IsOptional()

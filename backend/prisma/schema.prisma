@@ -452,7 +452,9 @@ model Quiz {
   timeLimit    Int       @default(0) // Minutes, 0 = no time limit
   passingScore Int       @default(70) // Percentage
   pointValue   Int       @default(200)
-  multiplier   Float     @default(1.0) // Score multiplier (admin-controlled)
+  multiplier         Float     @default(1.0) // Score multiplier (admin-controlled)
+  maxAttempts        Int       @default(0)   // 0 = unlimited; 1-5 = max total attempts
+  showCorrectAnswers Boolean   @default(false) // Whether to reveal correct answers after quiz
   openAt       DateTime? // When quiz opens for fellows (null = open immediately)
   closeAt      DateTime? // When quiz closes (null = never closes)
   createdAt    DateTime  @default(now())

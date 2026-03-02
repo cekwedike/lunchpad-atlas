@@ -58,6 +58,25 @@ export function useQuizAttempts(quizId: string, userId?: string) {
   });
 }
 
+export function useQuizReview(quizId: string, enabled = false) {
+  return useQuery({
+    queryKey: ['quiz-review', quizId],
+    queryFn: () => apiClient.get<{
+      showCorrectAnswers: boolean;
+      questions: Array<{
+        id: string;
+        question: string;
+        options: string[];
+        userAnswer: string | null;
+        isCorrect: boolean;
+        correctAnswer?: string;
+      }>;
+      attempt: { score: number; passed: boolean; completedAt: string };
+    }>(`/quizzes/${quizId}/review`),
+    enabled: !!quizId && enabled,
+  });
+}
+
 export function useSubmitQuiz(quizId: string) {
   const queryClient = useQueryClient();
 

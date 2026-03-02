@@ -44,6 +44,11 @@ export class QuizzesController {
     return this.quizzesService.getQuizAttempts(id, req.user.id);
   }
 
+  @Get(':id/review')
+  getQuizReview(@Param('id') id: string, @Request() req) {
+    return this.quizzesService.getQuizReview(id, req.user.id);
+  }
+
   @Post(':id/submit')
   submitQuiz(
     @Param('id') id: string,

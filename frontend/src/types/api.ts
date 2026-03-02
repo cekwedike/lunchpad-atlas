@@ -183,6 +183,8 @@ export interface Quiz {
   passingScore: number;
   pointValue: number;
   multiplier: number;
+  maxAttempts: number; // 0 = unlimited; 1-5 = max total attempts
+  showCorrectAnswers: boolean;
   openAt: string | null;
   closeAt: string | null;
   createdAt: string;

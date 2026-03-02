@@ -1121,6 +1121,8 @@ export class AdminService {
         timeLimit: dto.timeLimit,
         passingScore: dto.passingScore,
         pointValue: dto.pointValue,
+        maxAttempts: dto.maxAttempts ?? 0,
+        showCorrectAnswers: dto.showCorrectAnswers ?? false,
         openAt: dto.openAt ? new Date(dto.openAt) : undefined,
         closeAt: dto.closeAt ? new Date(dto.closeAt) : undefined,
         sessions: dto.sessionIds?.length
@@ -1179,6 +1181,8 @@ export class AdminService {
     timeLimit?: number;
     passingScore?: number;
     pointValue?: number;
+    maxAttempts?: number;
+    showCorrectAnswers?: boolean;
     openAt?: string | null;
     closeAt?: string | null;
     questions?: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;
@@ -1208,6 +1212,8 @@ export class AdminService {
         ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
         ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
         ...(dto.pointValue !== undefined && { pointValue: dto.pointValue }),
+        ...(dto.maxAttempts !== undefined && { maxAttempts: dto.maxAttempts }),
+        ...(dto.showCorrectAnswers !== undefined && { showCorrectAnswers: dto.showCorrectAnswers }),
         ...(dto.openAt !== undefined && { openAt: dto.openAt ? new Date(dto.openAt) : null }),
         ...(dto.closeAt !== undefined && { closeAt: dto.closeAt ? new Date(dto.closeAt) : null }),
       },

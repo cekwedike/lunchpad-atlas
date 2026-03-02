@@ -190,6 +190,18 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
+    // Enforce max attempt limit (0 = unlimited)
+    const totalAllAttempts = await this.prisma.quizResponse.count({
+      where: { quizId, userId },
+    });
+    const maxAttempts = (quiz as any).maxAttempts as number;
+    if (maxAttempts > 0 && totalAllAttempts >= maxAttempts) {
+      throw new BadRequestException('Maximum attempts reached for this quiz');
+    }
+
+    // Attempt number determines points reduction (1-indexed)
+    const attemptNumber = totalAllAttempts + 1;
+
     // Get questions with correct answers
     const questions = await this.prisma.quizQuestion.findMany({
       where: { quizId },
@@ -209,29 +221,30 @@ export class QuizzesService {
     const passed = score >= quiz.passingScore;
 
     // Calculate time bonus (faster completion = more points)
-    // Formula: if completed in <50% of time limit, +20% bonus
-    //          if completed in 50-75% of time limit, +10% bonus
-    //          if completed in 75-100% of time limit, 0% bonus
     let timeBonus = 0;
     const timeTaken = dto.timeTaken || 0;
     const timeLimitSeconds = quiz.timeLimit * 60;
 
-    if (timeTaken > 0 && timeTaken < timeLimitSeconds) {
+    if (timeTaken > 0 && timeLimitSeconds > 0 && timeTaken < timeLimitSeconds) {
       const timePercentage = timeTaken / timeLimitSeconds;
       if (timePercentage < 0.5) {
-        timeBonus = Math.round(quiz.pointValue * 0.2); // 20% bonus
+        timeBonus = Math.round(quiz.pointValue * 0.2);
       } else if (timePercentage < 0.75) {
-        timeBonus = Math.round(quiz.pointValue * 0.1); // 10% bonus
+        timeBonus = Math.round(quiz.pointValue * 0.1);
       }
     }
 
     // Apply quiz multiplier
     const basePoints = passed ? quiz.pointValue : 0;
     const multipliedPoints = Math.round(basePoints * (quiz.multiplier || 1.0));
-    const totalPoints = multipliedPoints + (passed ? timeBonus : 0);
 
-    // Check previous attempts - only award points on first successful attempt
-    const previousAttempts = await this.prisma.quizResponse.count({
+    // Retry points reduction: each subsequent attempt halves the points
+    // Attempt 1: ×1.0 | Attempt 2: ×0.5 | Attempt 3: ×0.25 | ...
+    const retryMultiplier = 1 / Math.pow(2, attemptNumber - 1);
+    const totalPoints = Math.round((multipliedPoints + (passed ? timeBonus : 0)) * retryMultiplier);
+
+    // Check previous passed attempts - only award points on first successful attempt
+    const previousPassedAttempts = await this.prisma.quizResponse.count({
       where: { quizId, userId, passed: true },
     });
 
@@ -240,7 +253,10 @@ export class QuizzesService {
     let megaQuizRank: number | undefined;
     let totalMegaSubmissions: number | undefined;
 
-    if (passed && previousAttempts === 0) {
+    // Compute attemptsRemaining (null = unlimited)
+    const attemptsRemaining = maxAttempts > 0 ? maxAttempts - attemptNumber : null;
+
+    if (passed && previousPassedAttempts === 0) {
       if ((quiz as any).quizType === 'MEGA') {
         // MEGA quiz: tiered leaderboard points based on rank among all passing submissions
         const higherScores = await this.prisma.quizResponse.count({
@@ -250,7 +266,7 @@ export class QuizzesService {
           where: { quizId, passed: true },
         });
         megaQuizRank = higherScores + 1;
-        totalMegaSubmissions = allPassingCount + 1; // +1 for this new submission
+        totalMegaSubmissions = allPassingCount + 1;
 
         const tieredPoints =
           megaQuizRank === 1 ? 3000 :
@@ -263,19 +279,20 @@ export class QuizzesService {
           tieredPoints,
           'QUIZ_SUBMIT',
           `Mega Quiz: ${quiz.title} - Rank #${megaQuizRank} (score: ${score}%)`,
-          true, // bypass monthly cap for mega quiz tiered rewards
+          true,
         );
 
         if (awarded) {
           pointsAwarded = tieredPoints;
         }
       } else if (totalPoints > 0) {
-        // Regular SESSION/GENERAL quiz: existing cap-enforced behaviour
+        // Regular SESSION/GENERAL quiz
+        const retryNote = attemptNumber > 1 ? ` (attempt ${attemptNumber}, ${Math.round(retryMultiplier * 100)}% points)` : '';
         const awarded = await this.awardPoints(
           userId,
           totalPoints,
           'QUIZ_SUBMIT',
-          `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}`,
+          `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}${retryNote}`,
         );
 
         if (awarded) {
@@ -317,6 +334,10 @@ export class QuizzesService {
       quizType: (quiz as any).quizType,
       basePoints: passed ? quiz.pointValue : 0,
       multiplier: quiz.multiplier || 1.0,
+      retryMultiplier,
+      attemptNumber,
+      maxAttempts,
+      attemptsRemaining,
       timeBonus,
       totalPoints,
       pointsAwarded,
@@ -326,6 +347,58 @@ export class QuizzesService {
       timeTaken: response.timeTaken,
       completedAt: response.completedAt,
       newAchievements: newAchievements.length > 0 ? newAchievements : undefined,
+    };
+  }
+
+  async getQuizReview(quizId: string, userId: string) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+
+    // Get the user's most recent attempt
+    const latestAttempt = await this.prisma.quizResponse.findFirst({
+      where: { quizId, userId },
+      orderBy: { completedAt: 'desc' },
+    });
+
+    if (!latestAttempt) {
+      throw new NotFoundException('No attempts found for this quiz');
+    }
+
+    // Get all questions with correct answers
+    const questions = await this.prisma.quizQuestion.findMany({
+      where: { quizId },
+      orderBy: { order: 'asc' },
+    });
+
+    const userAnswers = (latestAttempt.answers as Record<string, string>) || {};
+    const showCorrectAnswers = (quiz as any).showCorrectAnswers as boolean;
+
+    const reviewQuestions = questions.map((q) => {
+      const userAnswer = userAnswers[q.id] ?? null;
+      const isCorrect = userAnswer === q.correctAnswer;
+      return {
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        userAnswer,
+        isCorrect,
+        ...(showCorrectAnswers && { correctAnswer: q.correctAnswer }),
+      };
+    });
+
+    return {
+      showCorrectAnswers,
+      questions: reviewQuestions,
+      attempt: {
+        score: latestAttempt.score,
+        passed: latestAttempt.passed,
+        completedAt: latestAttempt.completedAt,
+      },
     };
   }
 }
