@@ -20,7 +20,6 @@ import {
   Edit,
   Unlock,
   CheckCircle2,
-  Sparkles,
   PlayCircle,
   Star,
   ChevronDown,
@@ -184,10 +183,10 @@ export default function ResourcesPage() {
       : completionRate < 40
       ? "Great start — keep the momentum going!"
       : completionRate < 75
-      ? "You're on fire! More than halfway there 🔥"
+      ? "You're on fire! More than halfway there."
       : completionRate < 100
-      ? "Almost there — you're absolutely crushing it 🚀"
-      : "You've completed everything! You're a legend 🏆";
+      ? "Almost there — you're absolutely crushing it!"
+      : "You've completed everything! You're a legend.";
 
   return (
     <DashboardLayout>
@@ -203,13 +202,12 @@ export default function ResourcesPage() {
             <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex-1">
                 <div className="mb-3 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-yellow-400" />
                   <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300">
                     Career Development Curriculum
                   </span>
                 </div>
                 <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">
-                  Hey, {(profile as any)?.firstName || "Fellow"}! 👋
+                  Hey, {(profile as any)?.firstName || "Fellow"}!
                 </h1>
                 <p className="mt-2 text-blue-200">{fellowGreeting}</p>
 
@@ -329,8 +327,8 @@ export default function ResourcesPage() {
 
         {userCohortId && sessions.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 bg-gray-50 py-24 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-orange-100">
-              <Sparkles className="h-10 w-10 text-amber-500" />
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <BookOpen className="h-10 w-10 text-blue-500" />
             </div>
             <p className="text-lg font-semibold text-gray-700">No sessions found for this cohort</p>
             <p className="mt-2 text-sm text-gray-500">Sessions need to be created first.</p>
@@ -354,7 +352,7 @@ export default function ResourcesPage() {
                     className={`flex-shrink-0 flex items-center gap-2.5 rounded-2xl px-5 py-3 text-sm font-semibold transition-all duration-200 ${
                       isActive
                         ? `bg-gradient-to-r ${month.config.gradient} text-white shadow-lg scale-105`
-                        : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:shadow-md hover:scale-105"
+                        : "bg-white text-blue-800 border border-gray-200 hover:border-blue-200 hover:shadow-md hover:scale-105"
                     }`}
                   >
                     {(() => { const TabIcon = month.config.icon; return <TabIcon className="h-4 w-4 flex-shrink-0" />; })()}
@@ -421,7 +419,7 @@ export default function ResourcesPage() {
                           isExpanded
                             ? `border-transparent ring-2 ${selectedMonthData.config.ring} shadow-lg bg-white`
                             : isUnlocked
-                            ? "border-gray-200 bg-white hover:shadow-md hover:border-gray-300"
+                            ? `border-gray-200 bg-white hover:shadow-md hover:${selectedMonthData.config.lightBorder}`
                             : "border-gray-200 bg-gray-50/80 opacity-75"
                         }`}
                         onClick={() => setSelectedSession(isExpanded ? null : session.id)}
@@ -452,18 +450,16 @@ export default function ResourcesPage() {
                               </div>
                               <div>
                                 <p
-                                  className={`text-xs font-semibold uppercase tracking-wide mb-0.5 ${
-                                    isExpanded ? selectedMonthData.config.textColor : "text-gray-400"
-                                  }`}
+                                  className={`text-xs font-semibold uppercase tracking-wide mb-0.5 ${selectedMonthData.config.textColor}`}
                                 >
                                   Session {session.sessionNumber}
                                 </p>
-                                <h3 className="font-semibold text-gray-900 leading-snug">{session.title}</h3>
+                                <h3 className="font-semibold text-blue-950 leading-snug">{session.title}</h3>
                               </div>
                             </div>
                             <ChevronDown
-                              className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform duration-200 ${
-                                isExpanded ? "rotate-180" : ""
+                              className={`h-5 w-5 flex-shrink-0 transition-transform duration-200 ${
+                                isExpanded ? `rotate-180 ${selectedMonthData.config.textColor}` : "text-gray-300"
                               }`}
                             />
                           </div>
