@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Clock, CheckCircle, Award, XCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -10,9 +10,10 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { useQuiz, useQuizQuestions, useSubmitQuiz } from "@/hooks/api/useQuizzes";
 import type { QuizQuestion } from "@/types/api";
 
-export default function QuizPage({ params }: { params: { id: string } }) {
+export default function QuizPage() {
   const router = useRouter();
-  const quizId = params.id;
+  const params = useParams();
+  const quizId = params.id as string;
   
   const { data: quiz, isLoading: isLoadingQuiz, error: quizError, refetch: refetchQuiz } = useQuiz(quizId);
   const { data: questions, isLoading: isLoadingQuestions, error: questionsError } = useQuizQuestions(quizId);
