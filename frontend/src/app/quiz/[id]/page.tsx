@@ -22,17 +22,18 @@ export default function QuizPage() {
   const [started, setStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [quizResult, setQuizResult] = useState<any>(null);
 
   // Initialize timer when quiz starts
   useEffect(() => {
-    if (started && quiz?.timeLimit) {
-      setTimeRemaining(quiz.timeLimit * 60); // Convert minutes to seconds
+    if (started) {
+      const timeLimit = quiz?.timeLimit;
+      setTimeRemaining(timeLimit ? timeLimit * 60 : null); // null = no limit
       setStartTime(Date.now());
     }
-  }, [started, quiz?.timeLimit]);
+  }, [started, quiz]);
 
   const handleSubmit = useCallback(async () => {
     if (!questions) return;
@@ -53,10 +54,11 @@ export default function QuizPage() {
 
   // Timer countdown
   useEffect(() => {
-    if (!started || timeRemaining <= 0) return;
+    if (!started || timeRemaining === null || timeRemaining <= 0) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
+        if (prev === null) return null;
         if (prev <= 1) {
           handleSubmit();
           return 0;
@@ -371,8 +373,8 @@ export default function QuizPage() {
               </div>
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <Award className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Max Attempts</p>
-                <p className="text-lg font-bold text-gray-900">{quiz.maxAttempts}</p>
+                <p className="text-sm text-gray-600">Questions</p>
+                <p className="text-lg font-bold text-gray-900">{questions.length}</p>
               </div>
             </div>
 
@@ -401,7 +403,7 @@ export default function QuizPage() {
 
   const currentQ = questions[currentQuestion];
   const selectedAnswer = answers[currentQ.id];
-  const isLowTime = timeRemaining > 0 && timeRemaining < 120; // Less than 2 minutes
+  const isLowTime = timeRemaining !== null && timeRemaining > 0 && timeRemaining < 120;
 
   return (
     <DashboardLayout>
@@ -412,14 +414,21 @@ export default function QuizPage() {
             <Award className="w-6 h-6 text-atlas-navy" />
             <span className="font-bold text-xl text-gray-900">{quiz.title}</span>
           </div>
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-            isLowTime ? 'bg-red-100' : 'bg-gray-100'
-          }`}>
-            <Clock className={`w-5 h-5 ${isLowTime ? 'text-red-600' : 'text-gray-600'}`} />
-            <span className={`font-semibold ${isLowTime ? 'text-red-600' : 'text-gray-900'}`}>
-              {formatTime(timeRemaining)}
-            </span>
-          </div>
+          {timeRemaining !== null ? (
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+              isLowTime ? 'bg-red-100' : 'bg-gray-100'
+            }`}>
+              <Clock className={`w-5 h-5 ${isLowTime ? 'text-red-600' : 'text-gray-600'}`} />
+              <span className={`font-semibold ${isLowTime ? 'text-red-600' : 'text-gray-900'}`}>
+                {formatTime(timeRemaining)}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100">
+              <Clock className="w-5 h-5 text-gray-400" />
+              <span className="text-sm text-gray-500">No limit</span>
+            </div>
+          )}
         </div>
 
         {/* Progress Bar */}
@@ -445,7 +454,7 @@ export default function QuizPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">{currentQ.question || currentQ.questionText}</h2>
           
           <div className="space-y-3">
-            {currentQ.options.map((option: string, index: number) => (
+            {(Array.isArray(currentQ.options) ? currentQ.options : []).map((option: string, index: number) => (
               <button
                 key={index}
                 onClick={() => handleAnswerSelect(currentQ.id, option)}

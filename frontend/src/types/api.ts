@@ -178,11 +178,14 @@ export interface Quiz {
   id: string;
   title: string;
   description: string | null;
-  resourceId: string;
-  timeLimit: number | null;
+  quizType: 'SESSION' | 'GENERAL' | 'MEGA';
+  timeLimit: number; // 0 = no limit
   passingScore: number;
-  maxAttempts: number;
-  createdAt: Date;
+  pointValue: number;
+  multiplier: number;
+  openAt: string | null;
+  closeAt: string | null;
+  createdAt: string;
 }
 
 export interface QuizQuestion {
