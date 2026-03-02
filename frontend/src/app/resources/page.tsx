@@ -37,40 +37,36 @@ import { format } from "date-fns";
 
 const MONTH_CONFIG = [
   {
-    gradient: "from-blue-500 to-indigo-600",
+    gradient: "from-blue-900 to-blue-600",
     light: "bg-blue-50",
     lightBorder: "border-blue-200",
     textColor: "text-blue-700",
     ring: "ring-blue-300",
     icon: BookOpen,
-    emoji: "📘",
   },
   {
-    gradient: "from-violet-500 to-purple-600",
-    light: "bg-violet-50",
-    lightBorder: "border-violet-200",
-    textColor: "text-violet-700",
-    ring: "ring-violet-300",
+    gradient: "from-blue-700 to-indigo-600",
+    light: "bg-indigo-50",
+    lightBorder: "border-indigo-200",
+    textColor: "text-indigo-700",
+    ring: "ring-indigo-300",
     icon: Target,
-    emoji: "🎯",
   },
   {
-    gradient: "from-emerald-500 to-teal-600",
-    light: "bg-emerald-50",
-    lightBorder: "border-emerald-200",
-    textColor: "text-emerald-700",
-    ring: "ring-emerald-300",
+    gradient: "from-indigo-700 to-blue-500",
+    light: "bg-blue-50",
+    lightBorder: "border-blue-200",
+    textColor: "text-blue-600",
+    ring: "ring-blue-200",
     icon: Globe,
-    emoji: "🌍",
   },
   {
-    gradient: "from-amber-500 to-orange-500",
-    light: "bg-amber-50",
-    lightBorder: "border-amber-200",
-    textColor: "text-amber-700",
-    ring: "ring-amber-300",
+    gradient: "from-blue-800 to-indigo-500",
+    light: "bg-indigo-50",
+    lightBorder: "border-indigo-200",
+    textColor: "text-indigo-600",
+    ring: "ring-indigo-200",
     icon: Lightbulb,
-    emoji: "✨",
   },
 ];
 
@@ -198,7 +194,7 @@ export default function ResourcesPage() {
       <div className="space-y-6 pb-12">
         {/* ── Fellow Hero Banner ─────────────────────────────────── */}
         {isFellow && (
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b0b45] via-[#1a1880] to-indigo-700 px-8 py-10 text-white shadow-xl">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-700 px-8 py-10 text-white shadow-xl">
             {/* Decorative blobs */}
             <div className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-indigo-400/10 blur-3xl" />
@@ -238,7 +234,7 @@ export default function ResourcesPage() {
 
               {/* Stat bubbles */}
               {userCohortId && (
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3 flex-shrink-0">
                   {[
                     { label: "Sessions", value: sessions.length, icon: Calendar },
                     { label: "Articles", value: getArticleCount(), icon: FileText },
@@ -246,11 +242,11 @@ export default function ResourcesPage() {
                   ].map(({ label, value, icon: Icon }) => (
                     <div
                       key={label}
-                      className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-4 py-4 text-center backdrop-blur-sm min-w-[68px]"
+                      className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-3 py-3 sm:px-4 sm:py-4 text-center backdrop-blur-sm min-w-[60px] sm:min-w-[68px]"
                     >
-                      <Icon className="h-4 w-4 text-white/50 mb-1" />
-                      <p className="text-2xl font-extrabold leading-none">{value}</p>
-                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-blue-200">{label}</p>
+                      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white/50 mb-1" />
+                      <p className="text-xl sm:text-2xl font-extrabold leading-none">{value}</p>
+                      <p className="mt-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-blue-200">{label}</p>
                     </div>
                   ))}
                 </div>
@@ -361,10 +357,10 @@ export default function ResourcesPage() {
                         : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:shadow-md hover:scale-105"
                     }`}
                   >
-                    <span className="text-base">{month.config.emoji}</span>
+                    {(() => { const TabIcon = month.config.icon; return <TabIcon className="h-4 w-4 flex-shrink-0" />; })()}
                     <span>{month.number}</span>
                     {month.title !== month.number && (
-                      <span className={`text-xs ${isActive ? "text-white/75" : "text-gray-400"}`}>
+                      <span className={`hidden sm:inline text-xs ${isActive ? "text-white/75" : "text-gray-400"}`}>
                         · {month.title}
                       </span>
                     )}

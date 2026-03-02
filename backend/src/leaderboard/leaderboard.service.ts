@@ -103,18 +103,6 @@ export class LeaderboardService {
     startDate = monthRange.startDate;
     endDate = monthRange.endDate;
 
-    let cohortRange: { startDate: Date; endDate: Date } | null = null;
-    let filterByDateRange = true;
-    if (cohortId) {
-      cohortRange = await this.getCohortActiveRange(cohortId);
-      // If the cohort hasn't started yet or the selected month is outside the cohort's
-      // active range, still show the leaderboard — just don't filter by date range so
-      // fellows appear with 0 points rather than returning an empty list.
-      if (!cohortRange || !this.isRangeWithin(startDate, endDate, cohortRange)) {
-        filterByDateRange = false;
-      }
-    }
-
     // Build where clause
     const fellowWhere: any = {
       role: 'FELLOW',
@@ -147,8 +135,9 @@ export class LeaderboardService {
       };
     }
 
+    // Always filter by the requested month's date range so scores are monthly
     const pointsWhere: any = {
-      ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+      createdAt: { gte: startDate, lte: endDate },
       userId: { in: fellowIds },
     };
 
@@ -175,7 +164,7 @@ export class LeaderboardService {
       where: {
         userId: { in: fellowIds },
         isDeleted: false,
-        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+        createdAt: { gte: startDate, lte: endDate },
       },
       select: { userId: true, createdAt: true },
     });
@@ -183,7 +172,7 @@ export class LeaderboardService {
     const discussionComments = await this.prisma.discussionComment.findMany({
       where: {
         userId: { in: fellowIds },
-        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+        createdAt: { gte: startDate, lte: endDate },
       },
       select: { userId: true, createdAt: true },
     });
@@ -323,15 +312,6 @@ export class LeaderboardService {
     startDate = monthRange.startDate;
     endDate = monthRange.endDate;
 
-    let cohortRange: { startDate: Date; endDate: Date } | null = null;
-    let filterByDateRange = true;
-    if (cohortId) {
-      cohortRange = await this.getCohortActiveRange(cohortId);
-      if (!cohortRange || !this.isRangeWithin(startDate, endDate, cohortRange)) {
-        filterByDateRange = false;
-      }
-    }
-
     const fellowWhere: any = {
       role: 'FELLOW',
     };
@@ -360,8 +340,9 @@ export class LeaderboardService {
       };
     }
 
+    // Always filter by the requested month's date range so scores are monthly
     const pointsWhere: any = {
-      ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+      createdAt: { gte: startDate, lte: endDate },
       userId: { in: fellowIds },
     };
 
@@ -380,7 +361,7 @@ export class LeaderboardService {
       where: {
         userId: { in: fellowIds },
         isDeleted: false,
-        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+        createdAt: { gte: startDate, lte: endDate },
       },
       select: { userId: true, createdAt: true },
     });
@@ -388,7 +369,7 @@ export class LeaderboardService {
     const discussionComments = await this.prisma.discussionComment.findMany({
       where: {
         userId: { in: fellowIds },
-        ...(filterByDateRange ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+        createdAt: { gte: startDate, lte: endDate },
       },
       select: { userId: true, createdAt: true },
     });
@@ -684,7 +665,15 @@ export class LeaderboardService {
       return { months: [] };
     }
 
-    const start = new Date(cohortRange.startDate.getFullYear(), cohortRange.startDate.getMonth(), 1);
+    const now = new Date();
+    // If the cohort hasn't started yet, show months from now (so the current month is
+    // always available). Otherwise show from cohort start up to now (or cohort end).
+    const effectiveStart =
+      cohortRange.startDate > now
+        ? new Date(now.getFullYear(), now.getMonth(), 1)
+        : new Date(cohortRange.startDate.getFullYear(), cohortRange.startDate.getMonth(), 1);
+    // cohortRange.endDate is already min(cohort.endDate, now) from getCohortActiveRange
+    const start = effectiveStart;
     const end = new Date(cohortRange.endDate.getFullYear(), cohortRange.endDate.getMonth(), 1);
 
     const months: Array<{ month: number; year: number; label: string }> = [];

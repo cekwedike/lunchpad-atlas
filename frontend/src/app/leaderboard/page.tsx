@@ -120,7 +120,8 @@ export default function LeaderboardPage() {
 
   const allEntries = leaderboard?.data || [];
   const topThree = allEntries.slice(0, 3);
-  const remaining = allEntries.slice(3);
+  // Always show the full ranked list so entries are visible even when there are fewer than 4 fellows
+  const rankedList = allEntries;
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="w-6 h-6 text-yellow-500" />;
@@ -479,7 +480,7 @@ export default function LeaderboardPage() {
               )}
 
               <section className="space-y-3">
-                {remaining.map((entry) => {
+                {rankedList.map((entry) => {
                   const isCurrentUser = entry.userId === profile?.id;
                   return (
                     <Card key={entry.userId} className={isCurrentUser ? "border-blue-200 bg-blue-50/60" : "border-slate-200"}>
