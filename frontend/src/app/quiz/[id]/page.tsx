@@ -128,12 +128,26 @@ export default function QuizPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!quiz || !questions || questions.length === 0) {
+  if (!quiz) {
     return (
       <DashboardLayout>
         <ErrorMessage
           title="Quiz not found"
-          message="This quiz could not be found or has no questions."
+          message="This quiz could not be found. It may have been removed or you may not have access."
+        />
+        <Button onClick={() => router.push('/quiz')} className="mt-4">
+          Back to Quizzes
+        </Button>
+      </DashboardLayout>
+    );
+  }
+
+  if (!questions || questions.length === 0) {
+    return (
+      <DashboardLayout>
+        <ErrorMessage
+          title="No questions yet"
+          message="This quiz exists but has no questions. Please check back later or contact your facilitator."
         />
         <Button onClick={() => router.push('/quiz')} className="mt-4">
           Back to Quizzes

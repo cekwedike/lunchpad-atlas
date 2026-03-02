@@ -67,6 +67,9 @@ export function useSubmitQuiz(quizId: string) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['quiz-attempts', quizId] });
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-rank'] });
+      queryClient.invalidateQueries({ queryKey: ['my-quizzes'] });
       
       if (data.passed) {
         toast.success(

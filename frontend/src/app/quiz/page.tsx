@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  FileQuestion, Clock, Award, CheckCircle, Lock, Timer,
+  FileQuestion, Clock, Award, CheckCircle, XCircle, Lock, Timer,
   Zap, BookOpen, Trophy, ChevronRight, Loader2,
 } from "lucide-react";
 import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQuizzes";
@@ -269,7 +269,9 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
   if (isFinished) {
     return (
       <div className="mt-4 border-t border-amber-100 pt-4 flex flex-col items-center py-6 gap-3 text-center">
-        <div className="text-5xl">🎉</div>
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-purple-100">
+          <Trophy className="h-6 w-6 text-purple-600" />
+        </div>
         <p className="font-bold text-gray-900 text-lg">Quiz complete!</p>
         <p className="text-sm text-gray-500">Waiting for final results…</p>
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -368,7 +370,7 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
           {/* Feedback banner */}
           {isTimedOut ? (
             <div className="rounded-lg px-4 py-3 flex items-center gap-3 border-2 bg-orange-50 border-orange-200">
-              <span className="text-2xl">⏰</span>
+              <Clock className="h-6 w-6 text-orange-500 shrink-0" />
               <div>
                 <p className="text-sm font-bold text-orange-700">Time's up!</p>
                 <p className="text-xs text-gray-500">
@@ -382,9 +384,14 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
               answerResult?.isCorrect ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300",
             )}>
               <div className="flex items-center gap-2">
-                <span className="text-2xl">
-                  {answerResult == null ? "⏳" : answerResult.isCorrect ? "🎉" : "😬"}
-                </span>
+                <div className="shrink-0">
+                  {answerResult == null
+                    ? <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                    : answerResult.isCorrect
+                      ? <CheckCircle className="h-6 w-6 text-green-500" />
+                      : <XCircle className="h-6 w-6 text-red-400" />
+                  }
+                </div>
                 <div>
                   <p className={cn(
                     "text-sm font-bold",
@@ -395,7 +402,7 @@ function LiveQuizTaker({ quizId, participantId }: { quizId: string; participantI
                      answerResult.isCorrect ? "Correct!" : "Wrong answer"}
                   </p>
                   {answerResult?.newStreak > 1 && (
-                    <p className="text-xs text-amber-600">🔥 {answerResult.newStreak}× streak!</p>
+                    <p className="text-xs text-amber-600">{answerResult.newStreak}x streak!</p>
                   )}
                   {!answerResult?.isCorrect && answerResult != null && (
                     <p className="text-xs text-gray-500">
@@ -451,7 +458,6 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
   const myEntry = myIdx >= 0 ? sorted[myIdx] : null;
   const myRank = myIdx >= 0 ? myIdx + 1 : null;
 
-  const MEDALS = ["🥇", "🥈", "🥉"];
   const rankLabel =
     myRank === 1 ? "1st place!" :
     myRank === 2 ? "2nd place" :
@@ -470,7 +476,13 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
           "bg-blue-50 border-2 border-blue-200",
         )}>
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{MEDALS[myRank! - 1] ?? "🎯"}</span>
+            <span className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+              myRank === 1 ? "bg-amber-400 text-white" :
+              myRank === 2 ? "bg-gray-400 text-white" :
+              myRank === 3 ? "bg-orange-400 text-white" :
+              "bg-blue-400 text-white"
+            )}>#{myRank}</span>
             <div>
               <p className="text-sm font-bold text-gray-900">Your Result</p>
               <p className="text-xs text-gray-500">
@@ -509,15 +521,13 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
                     : "bg-gray-50 border border-gray-100",
                 )}
               >
-                <span className="w-6 text-center text-base shrink-0">
-                  {MEDALS[idx] ?? <span className="text-xs text-gray-400 font-mono">{idx + 1}</span>}
-                </span>
+                <span className="w-6 text-center text-xs font-bold text-gray-500 font-mono shrink-0">{idx + 1}</span>
                 <span className={cn("flex-1 truncate", isMe ? "font-bold text-blue-800" : "font-medium text-gray-800")}>
                   {entry.displayName}
                   {isMe && <span className="ml-1.5 text-xs text-blue-400 font-normal">(you)</span>}
                 </span>
                 <span className="font-mono font-bold text-gray-700 tabular-nums">{entry.totalScore}</span>
-                <span className="text-xs text-gray-400 w-12 text-right">{entry.correctCount}✓</span>
+                <span className="text-xs text-gray-400 w-14 text-right">{entry.correctCount} correct</span>
               </div>
             );
           })}
@@ -532,7 +542,7 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
                   <span className="ml-1.5 text-xs text-blue-400 font-normal">(you)</span>
                 </span>
                 <span className="font-mono font-bold text-gray-700 tabular-nums">{myEntry.totalScore}</span>
-                <span className="text-xs text-gray-400 w-12 text-right">{myEntry.correctCount}✓</span>
+                <span className="text-xs text-gray-400 w-14 text-right">{myEntry.correctCount} correct</span>
               </div>
             </>
           )}
