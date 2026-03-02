@@ -84,6 +84,10 @@
 }
 
 @theme inline {
+  --color-atlas-navy: var(--atlas-navy);
+  --color-atlas-blue: var(--atlas-blue);
+  --color-atlas-indigo: var(--atlas-indigo);
+  --color-atlas-purple: var(--atlas-purple);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
