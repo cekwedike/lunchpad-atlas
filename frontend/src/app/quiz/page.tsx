@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileQuestion, Clock, Award, CheckCircle, XCircle, Lock, Timer,
   Zap, BookOpen, Trophy, ChevronRight, Loader2, Crown, Medal, Flame, Star,
+  ChevronDown,
 } from "lucide-react";
 import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQuizzes";
 import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard, useLiveQuiz, useSubmitAnswer, useParticipantAnswers } from "@/hooks/api/useLiveQuiz";
@@ -48,7 +48,6 @@ const QUIZ_TYPE_CONFIG = {
   MEGA:    { label: "Mega",     icon: Zap,          bg: "bg-amber-50",   border: "border-amber-200",   accent: "from-amber-500 to-orange-500",  iconColor: "text-amber-600" },
 };
 
-// Tiered leaderboard points awarded by finish rank in a live/mega quiz
 function getLeaderboardPoints(rank: number): number {
   if (rank === 1) return 3000;
   if (rank === 2) return 2000;
@@ -57,7 +56,6 @@ function getLeaderboardPoints(rank: number): number {
   return 200;
 }
 
-// Rank icon: Crown for 1st, Medal for 2nd/3rd, number otherwise
 function RankBadge({ rank, size = "sm" }: { rank: number; size?: "sm" | "lg" }) {
   const cls = size === "lg" ? "h-6 w-6" : "h-4 w-4";
   if (rank === 1) return <Crown className={cn(cls, "text-amber-500")} />;
@@ -66,7 +64,6 @@ function RankBadge({ rank, size = "sm" }: { rank: number; size?: "sm" | "lg" }) 
   return <span className={cn("font-bold text-gray-500 font-mono", size === "lg" ? "text-sm" : "text-xs")}>#{rank}</span>;
 }
 
-// ─── Countdown hook ───────────────────────────────────────────────────────────
 function useCountdown(targetDate: string | null) {
   const getMs = useCallback(() =>
     targetDate ? new Date(targetDate).getTime() - Date.now() : -1,
@@ -83,107 +80,87 @@ function useCountdown(targetDate: string | null) {
   return ms;
 }
 
-// ─── Quiz Card ────────────────────────────────────────────────────────────────
+// ─── Compact Quiz Card ─────────────────────────────────────────────────────────
 function QuizCard({ quiz }: { quiz: FellowQuiz }) {
   const statusCfg = STATUS_CONFIG[quiz.status];
   const typeCfg = QUIZ_TYPE_CONFIG[quiz.quizType];
   const StatusIcon = statusCfg.icon;
   const TypeIcon = typeCfg.icon;
 
-  // Countdown: show time until opens (UPCOMING) or time until closes (OPEN with closeAt)
   const countdownTarget =
     quiz.status === "UPCOMING" ? quiz.openAt :
     quiz.status === "OPEN" && quiz.closeAt ? quiz.closeAt :
     null;
   const countdownMs = useCountdown(countdownTarget);
-  const isUrgent = quiz.status === "OPEN" && quiz.closeAt && countdownMs > 0 && countdownMs < 3600000; // < 1hr
+  const isUrgent = quiz.status === "OPEN" && quiz.closeAt && countdownMs > 0 && countdownMs < 3600000;
+
+  const pts = Math.round(quiz.pointValue * (quiz.multiplier || 1));
+  const sessions = quiz.sessions?.length
+    ? quiz.sessions.map((qs: any) => `S${qs.session.sessionNumber}`).join(', ')
+    : null;
 
   return (
     <div className={cn(
-      "group relative overflow-hidden rounded-xl border-2 bg-white transition-all duration-200",
-      typeCfg.border,
-      statusCfg.canTake
-        ? "hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
-        : "opacity-80",
+      "group relative overflow-hidden rounded-xl bg-white border border-gray-200 transition-all duration-200",
+      statusCfg.canTake ? "hover:shadow-md hover:border-blue-200 cursor-pointer" : "",
+      quiz.status === "COMPLETED" ? "opacity-70" : "",
     )}>
-      {/* Top gradient strip */}
-      <div className={`h-1 w-full bg-gradient-to-r ${typeCfg.accent}`} />
+      {/* Left accent strip */}
+      <div className={`absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${typeCfg.accent}`} />
 
-      <div className="p-5">
-        <div className="flex items-start gap-4">
-          {/* Icon */}
-          <div className={`p-3 rounded-xl ${typeCfg.bg} shrink-0`}>
-            <TypeIcon className={cn("h-5 w-5", typeCfg.iconColor)} />
-          </div>
+      <div className="pl-5 pr-3 py-3 flex items-center gap-3">
+        {/* Type icon */}
+        <div className={`p-2 rounded-lg ${typeCfg.bg} shrink-0`}>
+          <TypeIcon className={cn("h-4 w-4", typeCfg.iconColor)} />
+        </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 flex-wrap">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-gray-900 text-base leading-tight truncate">{quiz.title}</h3>
-                {quiz.sessions && quiz.sessions.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {quiz.sessions.map((qs: any) => `S${qs.session.sessionNumber}: ${qs.session.title}`).join(' · ')}
-                  </p>
-                )}
-                {quiz.description && (
-                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{quiz.description}</p>
-                )}
-              </div>
-
-              {/* Status badge */}
-              <Badge className={cn("text-xs shrink-0", statusCfg.bg, statusCfg.color)}>
-                <StatusIcon className="h-3 w-3 mr-1" />
-                {statusCfg.label}
-              </Badge>
-            </div>
-
-            {/* Stats row */}
-            <div className="flex items-center gap-4 mt-3 flex-wrap">
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <FileQuestion className="h-3.5 w-3.5" />
-                {quiz._count.questions} questions
-              </span>
-              {quiz.timeLimit > 0 && (
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <Clock className="h-3.5 w-3.5" />
-                  {quiz.timeLimit} min
-                </span>
-              )}
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <Award className="h-3.5 w-3.5" />
-                {Math.round(quiz.pointValue * (quiz.multiplier || 1))} pts
-              </span>
-              <span className="text-xs text-gray-400">Pass: {quiz.passingScore}%</span>
-              <Badge className={`text-xs px-2 ${QUIZ_TYPE_CONFIG[quiz.quizType].bg} border ${QUIZ_TYPE_CONFIG[quiz.quizType].border} text-gray-700`}>
-                {QUIZ_TYPE_CONFIG[quiz.quizType].label}
-              </Badge>
-            </div>
-
-            {/* Countdown timer */}
-            {countdownTarget && countdownMs > 0 && (
-              <div className={cn(
-                "mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
-                quiz.status === "UPCOMING"
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : isUrgent
-                    ? "bg-red-50 text-red-700 border border-red-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200",
-              )}>
-                <Timer className={cn("h-4 w-4 shrink-0", isUrgent && "animate-pulse")} />
-                <span>
-                  {quiz.status === "UPCOMING" ? "Opens in " : "Closes in "}
-                  <span className="font-mono font-bold">{formatCountdown(countdownMs)}</span>
-                </span>
-              </div>
+        {/* Title + stats */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <p className="font-semibold text-sm text-gray-900 truncate">{quiz.title}</p>
+            {sessions && (
+              <span className="text-xs text-gray-400 shrink-0">{sessions}</span>
             )}
           </div>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <span className="text-xs text-gray-500">{quiz._count.questions}Q</span>
+            {quiz.timeLimit > 0 && (
+              <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                <Clock className="h-3 w-3" />{quiz.timeLimit} min
+              </span>
+            )}
+            <span className="flex items-center gap-0.5 text-xs text-gray-500">
+              <Award className="h-3 w-3" />{pts} pts
+            </span>
+            <span className="text-xs text-gray-400">Pass {quiz.passingScore}%</span>
+            {/* Inline countdown pill */}
+            {countdownTarget && countdownMs > 0 && (
+              <span className={cn(
+                "flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full",
+                quiz.status === "UPCOMING" ? "bg-blue-50 text-blue-700" :
+                isUrgent ? "bg-red-50 text-red-700 animate-pulse" : "bg-amber-50 text-amber-700",
+              )}>
+                <Timer className="h-3 w-3 shrink-0" />
+                {quiz.status === "UPCOMING" ? "Opens " : "Closes "}
+                <span className="font-mono font-bold">{formatCountdown(countdownMs)}</span>
+              </span>
+            )}
+          </div>
+        </div>
 
-          {/* Arrow for takeable */}
+        {/* Right: badges + arrow */}
+        <div className="shrink-0 flex items-center gap-2">
+          <div className="flex flex-col items-end gap-1">
+            <Badge className={cn("text-xs border-0", statusCfg.bg, statusCfg.color)}>
+              <StatusIcon className="h-3 w-3 mr-1" />
+              {statusCfg.label}
+            </Badge>
+            <Badge className={cn("text-xs", typeCfg.bg, "border", typeCfg.border, "text-gray-600")}>
+              {typeCfg.label}
+            </Badge>
+          </div>
           {statusCfg.canTake && (
-            <div className="shrink-0 self-center">
-              <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-700 transition-colors" />
-            </div>
+            <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600 transition-colors" />
           )}
         </div>
       </div>
@@ -519,7 +496,6 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
             </div>
           </div>
 
-          {/* Leaderboard points earned */}
           {myLeaderboardPoints && (
             <div className="mt-3 pt-3 border-t border-black/5 flex items-center justify-between rounded-lg">
               <div className="flex items-center gap-2">
@@ -605,19 +581,14 @@ function LiveQuizResults({ quizId, currentUserId }: { quizId: string; currentUse
 
 // ─── Live Quiz Card ────────────────────────────────────────────────────────────
 function LiveQuizCard({ quiz }: { quiz: any }) {
-  const STATUS_CFG: Record<string, { label: string; bg: string; color: string; dot: string }> = {
-    PENDING:   { label: "Waiting to start", bg: "bg-yellow-50",  color: "text-yellow-700", dot: "bg-yellow-400" },
-    ACTIVE:    { label: "Live now!",        bg: "bg-green-50",   color: "text-green-700",  dot: "bg-green-500" },
-    COMPLETED: { label: "Completed",        bg: "bg-gray-50",    color: "text-gray-500",   dot: "bg-gray-400" },
-  };
-  const cfg = STATUS_CFG[quiz.status] ?? STATUS_CFG.PENDING;
-  const hasJoined = quiz.participants && quiz.participants.length > 0;
-  const sessionNames = quiz.sessions?.map((s: any) => `S${s.session.sessionNumber}: ${s.session.title}`).join(' · ');
+  const [showResults, setShowResults] = useState(false);
 
   const user = useAuthStore((s) => s.user);
   const joinMutation = useJoinLiveQuiz();
 
+  const hasJoined = quiz.participants && quiz.participants.length > 0;
   const canJoin = !hasJoined && (quiz.status === "PENDING" || quiz.status === "ACTIVE");
+  const sessionNames = quiz.sessions?.map((s: any) => `S${s.session.sessionNumber}: ${s.session.title}`).join(' · ');
 
   const handleJoin = () => {
     if (!user) return;
@@ -630,11 +601,60 @@ function LiveQuizCard({ quiz }: { quiz: any }) {
     });
   };
 
+  // ── Completed: compact collapsible row ────────────────────────────────────
+  if (quiz.status === "COMPLETED") {
+    return (
+      <div className="relative overflow-hidden rounded-xl bg-white border border-gray-200 opacity-75">
+        <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-500 to-orange-500" />
+        <div className="pl-5 pr-3 py-3 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-amber-50 shrink-0">
+            <Zap className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-700 truncate">{quiz.title}</p>
+            {sessionNames && (
+              <p className="text-xs text-gray-400 mt-0.5 truncate">{sessionNames}</p>
+            )}
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-xs text-gray-500">{quiz.totalQuestions}Q</span>
+              <span className="text-xs text-gray-500">{quiz.timePerQuestion}s/Q</span>
+              <Badge className="text-xs bg-amber-50 border border-amber-200 text-amber-700">Live</Badge>
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <span className="text-xs font-medium px-2 py-1 bg-violet-100 text-violet-700 rounded-full">
+              Completed
+            </span>
+            {hasJoined && user && (
+              <button
+                onClick={() => setShowResults((v) => !v)}
+                className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                {showResults ? "Hide" : "Results"}
+                <ChevronDown className={cn("h-3 w-3 transition-transform", showResults && "rotate-180")} />
+              </button>
+            )}
+          </div>
+        </div>
+        {showResults && user && (
+          <div className="px-5 pb-4">
+            <LiveQuizResults quizId={quiz.id} currentUserId={user.id} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Active / Pending: full interactive card ───────────────────────────────
+  const STATUS_CFG: Record<string, { label: string; bg: string; color: string; dot: string }> = {
+    PENDING:   { label: "Waiting to start", bg: "bg-yellow-50",  color: "text-yellow-700", dot: "bg-yellow-400" },
+    ACTIVE:    { label: "Live now!",        bg: "bg-green-50",   color: "text-green-700",  dot: "bg-green-500" },
+    COMPLETED: { label: "Completed",        bg: "bg-gray-50",    color: "text-gray-500",   dot: "bg-gray-400" },
+  };
+  const cfg = STATUS_CFG[quiz.status] ?? STATUS_CFG.PENDING;
+
   return (
-    <div className={cn(
-      "group relative overflow-hidden rounded-xl border-2 border-amber-200 bg-white transition-all duration-200",
-      quiz.status !== "COMPLETED" ? "hover:shadow-lg" : "opacity-80",
-    )}>
+    <div className="group relative overflow-hidden rounded-xl border-2 border-amber-200 bg-white transition-all duration-200 hover:shadow-lg">
       <div className="h-1 w-full bg-gradient-to-r from-amber-500 to-orange-500" />
       <div className="p-5">
         <div className="flex items-start gap-4">
@@ -664,7 +684,6 @@ function LiveQuizCard({ quiz }: { quiz: any }) {
               {hasJoined && <Badge className="text-xs px-2 bg-green-50 border border-green-200 text-green-700">Joined</Badge>}
             </div>
 
-            {/* Join button */}
             {canJoin && (
               <div className="mt-3">
                 <Button
@@ -689,14 +708,8 @@ function LiveQuizCard({ quiz }: { quiz: any }) {
               </div>
             )}
 
-            {/* Question answering interface (ACTIVE + joined) */}
             {quiz.status === "ACTIVE" && hasJoined && quiz.participants?.[0]?.id && (
               <LiveQuizTaker quizId={quiz.id} participantId={quiz.participants[0].id} />
-            )}
-
-            {/* Final leaderboard for completed quizzes */}
-            {quiz.status === "COMPLETED" && user && (
-              <LiveQuizResults quizId={quiz.id} currentUserId={user.id} />
             )}
           </div>
         </div>
@@ -723,6 +736,10 @@ export default function QuizzesPage() {
 
   const allQuizzes = quizzes ?? [];
 
+  // Split live quizzes into active (top) vs completed (bottom)
+  const activeLiveQuizzes = (liveQuizzes as any[]).filter((q) => q.status !== "COMPLETED");
+  const completedLiveQuizzes = (liveQuizzes as any[]).filter((q) => q.status === "COMPLETED");
+
   const counts: Record<QuizStatus | "ALL", number> = {
     ALL: allQuizzes.length,
     OPEN: allQuizzes.filter((q) => q.status === "OPEN").length,
@@ -731,122 +748,145 @@ export default function QuizzesPage() {
     CLOSED: allQuizzes.filter((q) => q.status === "CLOSED").length,
   };
 
-  const filtered = filter === "ALL" ? allQuizzes : allQuizzes.filter((q) => q.status === filter);
+  // Completed standard quizzes always go to the bottom section
+  const completedStandard = allQuizzes.filter((q) => q.status === "COMPLETED");
+  const totalCompleted = completedLiveQuizzes.length + completedStandard.length;
 
-  // Sort: OPEN first, then UPCOMING (by openAt), then MEGA/GENERAL, then CLOSED, COMPLETED last
-  const sorted = [...filtered].sort((a, b) => {
+  // Main list: only non-completed quizzes; empty when filter === "COMPLETED"
+  const activeFiltered =
+    filter === "COMPLETED" ? [] :
+    filter === "ALL" ? allQuizzes.filter((q) => q.status !== "COMPLETED") :
+    allQuizzes.filter((q) => q.status === filter);
+
+  // Sort: OPEN first, UPCOMING next, CLOSED last; MEGA before SESSION/GENERAL within status
+  const sorted = [...activeFiltered].sort((a, b) => {
     const order: Record<QuizStatus, number> = { OPEN: 0, UPCOMING: 1, CLOSED: 2, COMPLETED: 3 };
     const diff = order[a.status] - order[b.status];
     if (diff !== 0) return diff;
-    // Within same status, MEGA first then by date
     if (a.quizType === "MEGA" && b.quizType !== "MEGA") return -1;
     if (b.quizType === "MEGA" && a.quizType !== "MEGA") return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
+  const showActiveLive = activeLiveQuizzes.length > 0 && (filter === "ALL" || filter === "OPEN");
+  const showCompletedSection = totalCompleted > 0 && (filter === "ALL" || filter === "COMPLETED");
+  const isEmpty = !isLoading && !error && sorted.length === 0 && !showActiveLive && !showCompletedSection;
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Quizzes</h1>
-          <p className="text-gray-600 mt-1 text-sm">
-            Complete quizzes to earn points and climb the leaderboard
-          </p>
+      <div className="space-y-5">
+        {/* Compact header with inline status pills */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">My Quizzes</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Complete quizzes to earn points and climb the leaderboard
+            </p>
+          </div>
+          {!isLoading && allQuizzes.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {(["OPEN", "UPCOMING", "CLOSED", "COMPLETED"] as QuizStatus[]).map((s) => {
+                const n = s === "COMPLETED" ? totalCompleted : counts[s];
+                if (n === 0) return null;
+                const cfg = STATUS_CONFIG[s];
+                const Icon = cfg.icon;
+                return (
+                  <span
+                    key={s}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+                      cfg.bg, cfg.color,
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {n} {cfg.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Live Quizzes Section */}
-        {liveQuizzes.length > 0 && (
+        {/* Active live quizzes (shown on All + Open tabs) */}
+        {showActiveLive && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-amber-500" />
               <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Live Quizzes</h2>
-              {liveQuizzes.some((q: any) => q.status === "ACTIVE") && (
-                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full animate-pulse">Live now!</span>
+              {activeLiveQuizzes.some((q: any) => q.status === "ACTIVE") && (
+                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full animate-pulse">
+                  Live now!
+                </span>
               )}
             </div>
-            {liveQuizzes.map((quiz: any) => <LiveQuizCard key={quiz.id} quiz={quiz} />)}
-          </div>
-        )}
-
-        {/* Stats bar */}
-        {!isLoading && allQuizzes.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {(["OPEN", "UPCOMING", "COMPLETED", "CLOSED"] as QuizStatus[]).map((s) => {
-              const cfg = STATUS_CONFIG[s];
-              const Icon = cfg.icon;
-              return (
-                <Card key={s} className="border-gray-200">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${cfg.bg}`}>
-                      <Icon className={`h-4 w-4 ${cfg.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-gray-900">{counts[s]}</p>
-                      <p className="text-xs text-gray-500">{cfg.label}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {activeLiveQuizzes.map((quiz: any) => (
+              <LiveQuizCard key={quiz.id} quiz={quiz} />
+            ))}
           </div>
         )}
 
         {/* Filter tabs */}
         <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
-          {FILTER_TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={cn(
-                "shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                filter === key
-                  ? "border-blue-600 text-blue-700"
-                  : "border-transparent text-gray-500 hover:text-gray-700",
-              )}
-            >
-              {label}
-              {counts[key] > 0 && (
-                <span className={cn(
-                  "ml-1.5 px-1.5 py-0.5 rounded-full text-xs",
-                  filter === key ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500",
-                )}>
-                  {counts[key]}
-                </span>
-              )}
-            </button>
-          ))}
+          {FILTER_TABS.map(({ key, label }) => {
+            const count = key === "COMPLETED"
+              ? totalCompleted
+              : key === "ALL"
+                ? allQuizzes.filter((q) => q.status !== "COMPLETED").length + activeLiveQuizzes.length
+                : counts[key as QuizStatus];
+            return (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={cn(
+                  "shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  filter === key
+                    ? key === "COMPLETED"
+                      ? "border-violet-600 text-violet-700"
+                      : "border-blue-600 text-blue-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700",
+                )}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={cn(
+                    "ml-1.5 px-1.5 py-0.5 rounded-full text-xs",
+                    filter === key
+                      ? key === "COMPLETED" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-500",
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Content */}
+        {/* Main quiz list (active / non-completed) */}
         {isLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+              <Skeleton key={i} className="h-[72px] w-full rounded-xl" />
             ))}
           </div>
         ) : error ? (
-          <Card className="border-gray-200">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <FileQuestion className="h-12 w-12 mb-3 text-gray-200" />
-              <p className="font-medium text-gray-500">Failed to load quizzes</p>
-              <p className="text-sm mt-1">Make sure you're assigned to a cohort</p>
-            </CardContent>
-          </Card>
-        ) : sorted.length === 0 ? (
-          <Card className="border-gray-200">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <FileQuestion className="h-12 w-12 mb-3 text-gray-200" />
-              <p className="font-medium text-gray-500">
-                {filter === "ALL" ? "No quizzes available yet" : `No ${filter.toLowerCase()} quizzes`}
-              </p>
-              {filter === "ALL" && (
-                <p className="text-sm mt-1">Your facilitator will add quizzes to your cohort</p>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400 rounded-xl border border-gray-200 bg-white">
+            <FileQuestion className="h-10 w-10 mb-3 text-gray-200" />
+            <p className="font-medium text-gray-500">Failed to load quizzes</p>
+            <p className="text-sm mt-1">Make sure you're assigned to a cohort</p>
+          </div>
+        ) : isEmpty ? (
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400 rounded-xl border border-gray-200 bg-white">
+            <FileQuestion className="h-10 w-10 mb-3 text-gray-200" />
+            <p className="font-medium text-gray-500">
+              {filter === "ALL" ? "No quizzes available yet" : `No ${filter.toLowerCase()} quizzes`}
+            </p>
+            {filter === "ALL" && (
+              <p className="text-sm mt-1">Your facilitator will add quizzes to your cohort</p>
+            )}
+          </div>
+        ) : sorted.length > 0 ? (
+          <div className="space-y-2">
             {sorted.map((quiz) =>
               quiz.status === "OPEN" ? (
                 <Link key={quiz.id} href={`/quiz/${quiz.id}`} className="block">
@@ -856,6 +896,28 @@ export default function QuizzesPage() {
                 <QuizCard key={quiz.id} quiz={quiz} />
               )
             )}
+          </div>
+        ) : null}
+
+        {/* Completed section — always at the bottom */}
+        {showCompletedSection && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 pt-2">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                <Trophy className="h-3 w-3" />
+                Completed ({totalCompleted})
+              </span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            <div className="space-y-2">
+              {completedLiveQuizzes.map((quiz: any) => (
+                <LiveQuizCard key={quiz.id} quiz={quiz} />
+              ))}
+              {completedStandard.map((quiz) => (
+                <QuizCard key={quiz.id} quiz={quiz} />
+              ))}
+            </div>
           </div>
         )}
       </div>
