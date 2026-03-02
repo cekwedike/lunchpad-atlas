@@ -46,6 +46,61 @@ const QUIZ_TYPE_COLORS: Record<string, string> = {
   MEGA:     "bg-amber-100 text-amber-700",
 };
 
+// ─── 12H Time picker helpers ──────────────────────────────────────────────────
+
+/** Parse "YYYY-MM-DDTHH:MM" string into 12H display components */
+function parseLocalIso(s: string): { date: string; hour: number; min: number; ampm: 'AM' | 'PM' } | null {
+  if (!s || !s.includes('T')) return null;
+  const [date, time] = s.split('T');
+  const [hh, mm] = time.split(':').map(Number);
+  const ampm: 'AM' | 'PM' = hh >= 12 ? 'PM' : 'AM';
+  const hour12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+  return { date, hour: hour12, min: mm, ampm };
+}
+
+/** Build "YYYY-MM-DDTHH:MM" from 12H components */
+function buildLocalIso(date: string, hour: number, min: number, ampm: 'AM' | 'PM'): string {
+  const hour24 = ampm === 'AM' ? (hour === 12 ? 0 : hour) : (hour === 12 ? 12 : hour + 12);
+  return `${date}T${String(hour24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+
+const SELECT_CLS = "border border-gray-300 rounded-md text-sm py-1.5 px-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:opacity-50 disabled:cursor-not-allowed";
+
+/** Controlled 12H date+time picker (no internal state) */
+function TimePicker12H({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const p = value ? parseLocalIso(value) : null;
+  const date = p?.date ?? '';
+  const hour = p?.hour ?? 9;
+  const min  = p?.min  ?? 0;
+  const ampm = p?.ampm ?? 'AM';
+
+  const emit = (d: string, h: number, m: number, ap: 'AM' | 'PM') =>
+    onChange(d ? buildLocalIso(d, h, m, ap) : '');
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => emit(e.target.value, hour, min, ampm)}
+        className="flex-1 min-w-[130px] border border-gray-300 rounded-md text-sm px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-violet-400"
+      />
+      <select value={hour} onChange={(e) => emit(date, Number(e.target.value), min, ampm)} disabled={!date} className={`w-12 ${SELECT_CLS}`}>
+        {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
+      </select>
+      <span className="text-gray-400 font-bold text-sm select-none">:</span>
+      <select value={min} onChange={(e) => emit(date, hour, Number(e.target.value), ampm)} disabled={!date} className={`w-16 ${SELECT_CLS}`}>
+        {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => <option key={m} value={m}>{String(m).padStart(2, '0')}</option>)}
+      </select>
+      <select value={ampm} onChange={(e) => emit(date, hour, min, e.target.value as 'AM' | 'PM')} disabled={!date} className={`w-14 ${SELECT_CLS}`}>
+        <option>AM</option>
+        <option>PM</option>
+      </select>
+    </div>
+  );
+}
+
 // ─── Quiz Card ────────────────────────────────────────────────────────────────
 function StandardQuizCard({
   quiz, cohortId, onDelete, onEdit,
@@ -225,13 +280,26 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
               <Label className="text-xs">Point Value</Label>
               <Input type="number" min={0} value={pointValue} onChange={(e) => setPointValue(Number(e.target.value))} />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Opens At</Label>
-              <Input type="datetime-local" value={openAt} onChange={(e) => setOpenAt(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Closes At</Label>
-              <Input type="datetime-local" value={closeAt} onChange={(e) => setCloseAt(e.target.value)} />
+            {/* Schedule section */}
+            <div className="sm:col-span-2 border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50">
+              <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-gray-500" />
+                Quiz Window <span className="text-xs font-normal text-gray-400">(optional)</span>
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                  <LockOpen className="h-3 w-3 text-emerald-500" /> Opens At
+                </Label>
+                <TimePicker12H value={openAt} onChange={setOpenAt} />
+                <p className="text-xs text-gray-400">Leave blank to open immediately</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                  <Lock className="h-3 w-3 text-orange-500" /> Closes At
+                </Label>
+                <TimePicker12H value={closeAt} onChange={setCloseAt} />
+                <p className="text-xs text-gray-400">Leave blank to never close. Fellows can take the quiz any time while it is open.</p>
+              </div>
             </div>
           </div>
 
@@ -707,33 +775,21 @@ function CreateStandardQuizDialog({
           <div className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50">
             <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-gray-500" />
-              Quiz Schedule <span className="text-xs font-normal text-gray-400">(optional)</span>
+              Quiz Window <span className="text-xs font-normal text-gray-400">(optional)</span>
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                  <LockOpen className="h-3 w-3 text-emerald-500" /> Opens At
-                </Label>
-                <Input
-                  type="datetime-local"
-                  value={openAt}
-                  onChange={(e) => setOpenAt(e.target.value)}
-                  className="text-sm"
-                />
-                <p className="text-xs text-gray-400">Leave blank to open immediately</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                  <Lock className="h-3 w-3 text-orange-500" /> Closes At
-                </Label>
-                <Input
-                  type="datetime-local"
-                  value={closeAt}
-                  onChange={(e) => setCloseAt(e.target.value)}
-                  className="text-sm"
-                />
-                <p className="text-xs text-gray-400">Leave blank to never close</p>
-              </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                <LockOpen className="h-3 w-3 text-emerald-500" /> Opens At
+              </Label>
+              <TimePicker12H value={openAt} onChange={setOpenAt} />
+              <p className="text-xs text-gray-400">Leave blank to open immediately</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                <Lock className="h-3 w-3 text-orange-500" /> Closes At
+              </Label>
+              <TimePicker12H value={closeAt} onChange={setCloseAt} />
+              <p className="text-xs text-gray-400">Leave blank to never close. Fellows can take the quiz any time while it is open.</p>
             </div>
           </div>
 

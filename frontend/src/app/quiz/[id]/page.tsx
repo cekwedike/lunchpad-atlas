@@ -359,7 +359,9 @@ export default function QuizPage({ params }: { params: { id: string } }) {
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <Clock className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Time Limit</p>
-                <p className="text-lg font-bold text-gray-900">{quiz.timeLimit} min</p>
+                <p className="text-lg font-bold text-gray-900">
+                  {quiz.timeLimit ? `${quiz.timeLimit} min` : "No limit"}
+                </p>
               </div>
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <CheckCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
@@ -375,7 +377,11 @@ export default function QuizPage({ params }: { params: { id: string } }) {
 
             <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-900">
-                <span className="font-semibold">Instructions:</span> You have {quiz.timeLimit} minutes to complete {questions.length} questions. 
+                <span className="font-semibold">Instructions:</span>{" "}
+                {quiz.timeLimit
+                  ? `You have ${quiz.timeLimit} minutes to complete ${questions.length} questions.`
+                  : `Complete ${questions.length} questions at your own pace — no time limit.`
+                }{" "}
                 You need {quiz.passingScore}% or higher to pass. Good luck!
               </p>
             </div>
