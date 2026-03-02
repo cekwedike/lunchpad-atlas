@@ -357,7 +357,8 @@ export default function ResourcesPage() {
                     }`}
                   >
                     <TabIcon className="h-4 w-4 flex-shrink-0" />
-                    <span>{month.number}</span>
+                    <span className="hidden sm:inline">{month.number}</span>
+                    <span className="sm:hidden font-bold">{month.id}</span>
                   </button>
                 );
               })}
@@ -388,14 +389,14 @@ export default function ResourcesPage() {
                       </div>
                     </div>
                     <div className="hidden sm:flex flex-col items-end">
-                      <span className="text-4xl font-extrabold">{selectedMonthData.sessions.length}</span>
+                      <span className="text-4xl font-extrabold text-white">{selectedMonthData.sessions.length}</span>
                       <span className="text-sm text-white/60">Sessions</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Session Cards Grid */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {/* Session Cards — accordion, resources inline */}
+                <div className="space-y-3">
                   {selectedMonthData.sessions.map((session: any) => {
                     const sessionResources = getSessionResources(session.id);
                     const allSessionResources = (resources as any[] | undefined)?.filter(
@@ -407,47 +408,44 @@ export default function ResourcesPage() {
                     const completedInSession = allSessionResources.filter(
                       (r: any) => r.isCompleted || r.state === "COMPLETED"
                     ).length;
+                    const cfg = selectedMonthData.config;
 
                     return (
                       <div
                         key={session.id}
-                        className={`relative overflow-hidden rounded-2xl border transition-all duration-200 cursor-pointer ${
+                        className={`relative overflow-hidden rounded-2xl border transition-all duration-200 ${
                           isExpanded
-                            ? `border-transparent ring-2 ${selectedMonthData.config.ring} shadow-lg bg-white`
+                            ? `border-transparent ring-2 ${cfg.ring} shadow-lg bg-white`
                             : isUnlocked
-                            ? `border-gray-200 bg-white hover:shadow-md hover:${selectedMonthData.config.lightBorder}`
+                            ? "border-gray-200 bg-white"
                             : "border-gray-200 bg-gray-50/80 opacity-75"
                         }`}
-                        onClick={() => setSelectedSession(isExpanded ? null : session.id)}
                       >
                         {/* Color accent bar */}
                         <div
-                          className={`absolute left-0 top-0 h-full ${isExpanded ? "w-2" : "w-1.5"} bg-gradient-to-b ${selectedMonthData.config.gradient} transition-all duration-200`}
+                          className={`absolute left-0 top-0 h-full ${isExpanded ? "w-2" : "w-1.5"} bg-gradient-to-b ${cfg.gradient} transition-all duration-200`}
                         />
 
-                        <div className="p-5 pl-6">
+                        {/* Clickable session header */}
+                        <div
+                          className="p-5 pl-6 cursor-pointer select-none"
+                          onClick={() => setSelectedSession(isExpanded ? null : session.id)}
+                        >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              {/* Session number badge */}
                               <div
                                 className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-all ${
                                   isExpanded
-                                    ? `bg-gradient-to-br ${selectedMonthData.config.gradient} text-white shadow-sm`
+                                    ? `bg-gradient-to-br ${cfg.gradient} text-white shadow-sm`
                                     : isUnlocked
-                                    ? `${selectedMonthData.config.light} ${selectedMonthData.config.textColor}`
+                                    ? `${cfg.light} ${cfg.textColor}`
                                     : "bg-gray-100 text-gray-400"
                                 }`}
                               >
-                                {isUnlocked ? (
-                                  session.sessionNumber
-                                ) : (
-                                  <Lock className="h-4 w-4" />
-                                )}
+                                {isUnlocked ? session.sessionNumber : <Lock className="h-4 w-4" />}
                               </div>
                               <div>
-                                <p
-                                  className={`text-xs font-semibold uppercase tracking-wide mb-0.5 ${selectedMonthData.config.textColor}`}
-                                >
+                                <p className={`text-xs font-semibold uppercase tracking-wide mb-0.5 ${cfg.textColor}`}>
                                   Session {session.sessionNumber}
                                 </p>
                                 <h3 className="font-semibold text-blue-950 leading-snug">{session.title}</h3>
@@ -455,7 +453,7 @@ export default function ResourcesPage() {
                             </div>
                             <ChevronDown
                               className={`h-5 w-5 flex-shrink-0 transition-transform duration-200 ${
-                                isExpanded ? `rotate-180 ${selectedMonthData.config.textColor}` : "text-gray-300"
+                                isExpanded ? `rotate-180 ${cfg.textColor}` : "text-gray-300"
                               }`}
                             />
                           </div>
@@ -471,9 +469,7 @@ export default function ResourcesPage() {
                               {allSessionResources.length} resources
                             </span>
                             {isFellow && completedInSession > 0 && (
-                              <span
-                                className={`flex items-center gap-1 font-semibold ${selectedMonthData.config.textColor}`}
-                              >
+                              <span className={`flex items-center gap-1 font-semibold ${cfg.textColor}`}>
                                 <CheckCircle2 className="h-3 w-3" />
                                 {completedInSession}/{allSessionResources.length} done
                               </span>
@@ -490,10 +486,8 @@ export default function ResourcesPage() {
                           {isFellow && allSessionResources.length > 0 && (
                             <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
                               <div
-                                className={`h-full rounded-full bg-gradient-to-r ${selectedMonthData.config.gradient} transition-all duration-500`}
-                                style={{
-                                  width: `${(completedInSession / allSessionResources.length) * 100}%`,
-                                }}
+                                className={`h-full rounded-full bg-gradient-to-r ${cfg.gradient} transition-all duration-500`}
+                                style={{ width: `${(completedInSession / allSessionResources.length) * 100}%` }}
                               />
                             </div>
                           )}
@@ -507,7 +501,7 @@ export default function ResourcesPage() {
                                     ? `/dashboard/admin/resources?editSession=${session.sessionNumber}`
                                     : `/dashboard/facilitator/resources?editSession=${session.sessionNumber}`
                                 }
-                                className={`flex items-center gap-1.5 text-xs font-medium ${selectedMonthData.config.textColor} hover:underline`}
+                                className={`flex items-center gap-1.5 text-xs font-medium ${cfg.textColor} hover:underline`}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Edit className="h-3 w-3" />
@@ -516,202 +510,171 @@ export default function ResourcesPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* ── Inline Resources ─────────────────────────── */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                            {/* Search & Filter */}
+                            <div className="flex flex-col sm:flex-row gap-3 px-5 py-3 bg-gray-50 border-b border-gray-100">
+                              <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                  placeholder="Search resources..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="pl-9 rounded-xl border-gray-200"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                {(["all", "article", "video"] as const).map((f) => (
+                                  <button
+                                    key={f}
+                                    onClick={() => setFilterType(f)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
+                                      filterType === f
+                                        ? `bg-gradient-to-r ${cfg.gradient} text-white shadow-sm`
+                                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                    }`}
+                                  >
+                                    {f}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Resource list */}
+                            <div className="divide-y divide-gray-50 p-2">
+                              {sessionResources.map((resource: any) => {
+                                const unlocked = isResourceUnlocked(resource, session);
+                                const isCompleted = resource.isCompleted || resource.state === "COMPLETED";
+                                const isVideo = resource.type === ResourceType.VIDEO;
+
+                                return (
+                                  <div
+                                    key={resource.id}
+                                    onClick={() => handleResourceClick(resource, session)}
+                                    className={`flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all group ${
+                                      unlocked
+                                        ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100"
+                                        : "opacity-50 cursor-not-allowed"
+                                    }`}
+                                  >
+                                    {/* Icon */}
+                                    <div
+                                      className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-all ${
+                                        !unlocked
+                                          ? "bg-gray-100"
+                                          : isCompleted
+                                          ? "bg-green-100"
+                                          : isVideo
+                                          ? "bg-rose-100 group-hover:bg-rose-200"
+                                          : "bg-blue-100 group-hover:bg-blue-200"
+                                      }`}
+                                    >
+                                      {!unlocked ? (
+                                        <Lock className="h-5 w-5 text-gray-400" />
+                                      ) : isCompleted ? (
+                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                      ) : isVideo ? (
+                                        <PlayCircle className="h-5 w-5 text-rose-600" />
+                                      ) : (
+                                        <FileText className="h-5 w-5 text-blue-600" />
+                                      )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                        <span
+                                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                                            resource.isCore
+                                              ? `bg-gradient-to-r ${cfg.gradient} text-white`
+                                              : "bg-gray-100 text-gray-500"
+                                          }`}
+                                        >
+                                          {resource.isCore ? "Core" : "Optional"} · {isVideo ? "Video" : "Article"}
+                                        </span>
+                                        {isCompleted && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">
+                                            <Star className="h-2.5 w-2.5" /> Completed
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className={`font-semibold text-sm leading-snug ${unlocked ? "text-gray-900" : "text-gray-400"}`}>
+                                        {resource.title}
+                                      </p>
+                                      {resource.description && (
+                                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{resource.description}</p>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                                        {resource.estimatedMinutes && (
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {resource.estimatedMinutes} min
+                                          </span>
+                                        )}
+                                        {resource.pointValue && (
+                                          <span className={`flex items-center gap-1 font-bold ${cfg.textColor}`}>
+                                            <Zap className="h-3 w-3" />
+                                            {resource.pointValue} pts
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {(isAdmin || isFacilitator) && (
+                                        <>
+                                          {!unlocked && (
+                                            <button
+                                              className="flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUnlockDialog({ open: true, resource });
+                                              }}
+                                            >
+                                              <Unlock className="h-3 w-3" /> Unlock
+                                            </button>
+                                          )}
+                                          <Link
+                                            href={
+                                              isAdmin
+                                                ? `/dashboard/admin/resources?edit=${resource.id}`
+                                                : `/dashboard/facilitator/resources?edit=${resource.id}`
+                                            }
+                                            className={`flex items-center gap-1 rounded-lg border ${cfg.lightBorder} ${cfg.light} px-2.5 py-1.5 text-xs font-semibold ${cfg.textColor} hover:opacity-80 transition-colors`}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <Edit className="h-3 w-3" /> Edit
+                                          </Link>
+                                        </>
+                                      )}
+                                      {unlocked && !isAdmin && !isFacilitator && (
+                                        isVideo ? (
+                                          <PlayCircle className="h-5 w-5 text-gray-300 group-hover:text-rose-400 transition-colors" />
+                                        ) : (
+                                          <ExternalLink className="h-4 w-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {sessionResources.length === 0 && (
+                                <div className="flex flex-col items-center py-12 text-gray-400">
+                                  <FileText className="h-10 w-10 mb-2 text-gray-200" />
+                                  <p className="text-sm font-medium">No resources found</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-
-                {/* ── Expanded Resources Panel ───────────────────────── */}
-                {selectedSession && (
-                  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                    {(() => {
-                      const currentSession = sessions.find((s: any) => s.id === selectedSession);
-                      const sessionResources = getSessionResources(selectedSession);
-                      const cfg = selectedMonthData.config;
-
-                      return (
-                        <>
-                          {/* Panel header */}
-                          <div className={`bg-gradient-to-r ${cfg.gradient} px-6 py-5`}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-extrabold text-white text-lg">
-                                  Session {currentSession?.sessionNumber} Resources
-                                </h4>
-                                <p className="text-white/70 text-sm mt-0.5">{currentSession?.title}</p>
-                              </div>
-                              <span className="rounded-2xl bg-white/20 px-4 py-1.5 text-sm font-bold text-white">
-                                {sessionResources.length} items
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Search & Filter */}
-                          <div className="flex flex-col sm:flex-row gap-3 px-5 py-4 border-b border-gray-100">
-                            <div className="relative flex-1">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                              <Input
-                                placeholder="Search resources..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 rounded-xl border-gray-200"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              {(["all", "article", "video"] as const).map((f) => (
-                                <button
-                                  key={f}
-                                  onClick={() => setFilterType(f)}
-                                  className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
-                                    filterType === f
-                                      ? `bg-gradient-to-r ${cfg.gradient} text-white shadow-sm`
-                                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                  }`}
-                                >
-                                  {f}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Resource list */}
-                          <div className="divide-y divide-gray-50 p-2">
-                            {sessionResources.map((resource: any) => {
-                              const unlocked = currentSession && isResourceUnlocked(resource, currentSession);
-                              const isCompleted = resource.isCompleted || resource.state === "COMPLETED";
-                              const isVideo = resource.type === ResourceType.VIDEO;
-
-                              return (
-                                <div
-                                  key={resource.id}
-                                  onClick={() => currentSession && handleResourceClick(resource, currentSession)}
-                                  className={`flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all group ${
-                                    unlocked
-                                      ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100"
-                                      : "opacity-50 cursor-not-allowed"
-                                  }`}
-                                >
-                                  {/* Icon circle */}
-                                  <div
-                                    className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-all ${
-                                      !unlocked
-                                        ? "bg-gray-100"
-                                        : isCompleted
-                                        ? "bg-green-100"
-                                        : isVideo
-                                        ? "bg-rose-100 group-hover:bg-rose-200"
-                                        : "bg-blue-100 group-hover:bg-blue-200"
-                                    }`}
-                                  >
-                                    {!unlocked ? (
-                                      <Lock className="h-5 w-5 text-gray-400" />
-                                    ) : isCompleted ? (
-                                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                    ) : isVideo ? (
-                                      <PlayCircle className="h-5 w-5 text-rose-600" />
-                                    ) : (
-                                      <FileText className="h-5 w-5 text-blue-600" />
-                                    )}
-                                  </div>
-
-                                  {/* Content */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                      <span
-                                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                                          resource.isCore
-                                            ? `bg-gradient-to-r ${cfg.gradient} text-white`
-                                            : "bg-gray-100 text-gray-500"
-                                        }`}
-                                      >
-                                        {resource.isCore ? "Core" : "Optional"} · {isVideo ? "Video" : "Article"}
-                                      </span>
-                                      {isCompleted && (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">
-                                          <Star className="h-2.5 w-2.5" /> Completed
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p
-                                      className={`font-semibold text-sm leading-snug ${
-                                        unlocked ? "text-gray-900" : "text-gray-400"
-                                      }`}
-                                    >
-                                      {resource.title}
-                                    </p>
-                                    {resource.description && (
-                                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-                                        {resource.description}
-                                      </p>
-                                    )}
-                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                                      {resource.estimatedMinutes && (
-                                        <span className="flex items-center gap-1">
-                                          <Clock className="h-3 w-3" />
-                                          {resource.estimatedMinutes} min
-                                        </span>
-                                      )}
-                                      {resource.pointValue && (
-                                        <span className={`flex items-center gap-1 font-bold ${cfg.textColor}`}>
-                                          <Zap className="h-3 w-3" />
-                                          {resource.pointValue} pts
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Actions */}
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    {(isAdmin || isFacilitator) && (
-                                      <>
-                                        {!unlocked && (
-                                          <button
-                                            className="flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setUnlockDialog({ open: true, resource });
-                                            }}
-                                          >
-                                            <Unlock className="h-3 w-3" /> Unlock
-                                          </button>
-                                        )}
-                                        <Link
-                                          href={
-                                            isAdmin
-                                              ? `/dashboard/admin/resources?edit=${resource.id}`
-                                              : `/dashboard/facilitator/resources?edit=${resource.id}`
-                                          }
-                                          className={`flex items-center gap-1 rounded-lg border ${cfg.lightBorder} ${cfg.light} px-2.5 py-1.5 text-xs font-semibold ${cfg.textColor} hover:opacity-80 transition-colors`}
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <Edit className="h-3 w-3" /> Edit
-                                        </Link>
-                                      </>
-                                    )}
-                                    {unlocked && !isAdmin && !isFacilitator && (
-                                      isVideo ? (
-                                        <PlayCircle className="h-5 w-5 text-gray-300 group-hover:text-rose-400 transition-colors" />
-                                      ) : (
-                                        <ExternalLink className="h-4 w-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
-                                      )
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-
-                            {sessionResources.length === 0 && (
-                              <div className="flex flex-col items-center py-12 text-gray-400">
-                                <FileText className="h-10 w-10 mb-2 text-gray-200" />
-                                <p className="text-sm font-medium">No resources found</p>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
               </div>
             )}
           </div>
