@@ -127,7 +127,20 @@ export class AdminUserService {
       this.prisma.user.count({ where }),
     ]);
 
+    // Compute live points from pointsLog for current calendar month
     const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const userIds = users.map((u) => u.id);
+    const pointsSums = userIds.length > 0
+      ? await this.prisma.pointsLog.groupBy({
+          by: ['userId'],
+          where: { userId: { in: userIds }, createdAt: { gte: monthStart, lte: monthEnd } },
+          _sum: { points: true },
+        })
+      : [];
+    const pointsMap = new Map(pointsSums.map((p) => [p.userId, p._sum.points ?? 0]));
+
     const activeThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
 
     const usersWithStatus = users.map((user) => {
@@ -150,7 +163,7 @@ export class AdminUserService {
         lastActiveSeconds,
         isActive,
         statistics: {
-          totalPoints: user.currentMonthPoints,
+          totalPoints: pointsMap.get(user.id) ?? 0,
         },
       };
     });
