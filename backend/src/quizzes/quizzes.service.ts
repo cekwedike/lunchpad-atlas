@@ -24,6 +24,7 @@ export class QuizzesService {
     eventType: string,
     description: string,
     bypassCap = false,
+    quizId?: string,
   ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -70,6 +71,7 @@ export class QuizzesService {
         points,
         eventType: eventType as any,
         description,
+        ...(quizId ? { quizId } : {}),
       },
     });
 
@@ -297,6 +299,7 @@ export class QuizzesService {
           'QUIZ_SUBMIT',
           `Mega Quiz: ${quiz.title} - Rank #${megaQuizRank} (score: ${score}%)`,
           true,
+          quizId,
         );
 
         if (awarded) {
@@ -310,6 +313,8 @@ export class QuizzesService {
           totalPoints,
           'QUIZ_SUBMIT',
           `Passed quiz: ${quiz.title || 'Quiz'} (${score}%)${timeBonus > 0 ? ` +${timeBonus} time bonus` : ''}${retryNote}`,
+          false,
+          quizId,
         );
 
         if (awarded) {

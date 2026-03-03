@@ -1204,6 +1204,48 @@ export class AdminService {
   async deleteQuiz(quizId: string) {
     const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
     if (!quiz) throw new NotFoundException('Quiz not found');
+
+    // Find users who earned points from this quiz
+    const pointsEntries = await this.prisma.pointsLog.findMany({
+      where: { quizId },
+      select: { userId: true, points: true },
+    });
+
+    // Notify each affected user about point deduction
+    if (pointsEntries.length > 0) {
+      await Promise.allSettled(
+        pointsEntries.map((entry) =>
+          this.notificationsService.createBulkNotifications([{
+            userId: entry.userId,
+            type: 'SYSTEM_ALERT' as any,
+            title: 'Quiz Removed',
+            message: `"${quiz.title}" has been deleted. Your ${entry.points} leaderboard points from this quiz have been removed.`,
+            data: {},
+          }]),
+        ),
+      );
+    }
+
+    // Notify all cohort fellows about the deletion (even those with no points)
+    if (quiz.cohortId) {
+      const notifiedUserIds = new Set(pointsEntries.map((e) => e.userId));
+      const remainingFellows = await this.prisma.user.findMany({
+        where: { cohortId: quiz.cohortId, role: 'FELLOW', id: { notIn: [...notifiedUserIds] } },
+        select: { id: true },
+      });
+      if (remainingFellows.length > 0) {
+        await this.notificationsService.createBulkNotifications(
+          remainingFellows.map((f) => ({
+            userId: f.id,
+            type: 'SYSTEM_ALERT' as any,
+            title: 'Quiz Removed',
+            message: `"${quiz.title}" has been removed by your facilitator.`,
+            data: {},
+          })),
+        );
+      }
+    }
+
     return this.prisma.quiz.delete({ where: { id: quizId } });
   }
 

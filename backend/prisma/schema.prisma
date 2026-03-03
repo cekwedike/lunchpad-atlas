@@ -356,6 +356,8 @@ model DiscussionLike {
 model PointsLog {
   id          String    @id @default(uuid())
   userId      String
+  quizId      String? // Set for standard quiz submissions — enables cascade delete
+  liveQuizId  String? // Set for live quiz completions — enables cascade delete
   eventType   EventType
   points      Int
   description String // e.g., "Completed: Setting SMART Goals"
@@ -363,11 +365,15 @@ model PointsLog {
   createdAt   DateTime  @default(now())
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz     Quiz?     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  liveQuiz LiveQuiz? @relation(fields: [liveQuizId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([eventType])
   @@index([createdAt])
+  @@index([quizId])
+  @@index([liveQuizId])
   @@map("points_log")
 }
 
@@ -461,10 +467,11 @@ model Quiz {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  cohort    Cohort?        @relation(fields: [cohortId], references: [id], onDelete: SetNull)
-  sessions  QuizSession[]  // Many-to-many with sessions
-  questions QuizQuestion[]
-  responses QuizResponse[]
+  cohort     Cohort?        @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  sessions   QuizSession[]  // Many-to-many with sessions
+  questions  QuizQuestion[]
+  responses  QuizResponse[]
+  pointsLogs PointsLog[]
 
   @@index([cohortId])
   @@map("quizzes")
@@ -737,6 +744,7 @@ model LiveQuiz {
   sessions     LiveQuizSession[]
   questions    LiveQuizQuestion[]
   participants LiveQuizParticipant[]
+  pointsLogs   PointsLog[]
 
   @@index([status])
   @@map("live_quizzes")

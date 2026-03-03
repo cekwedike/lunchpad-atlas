@@ -43,10 +43,40 @@ export class LiveQuizService {
         },
       },
       include: {
-        sessions: { include: { session: { select: { id: true, title: true } } } },
+        sessions: { include: { session: { select: { id: true, title: true, cohortId: true } } } },
         questions: { orderBy: { orderIndex: 'asc' } },
       },
     });
+
+    // Notify all fellows in the linked cohort(s) about the new live quiz
+    try {
+      const cohortIds: string[] = [
+        ...new Set(
+          quiz.sessions
+            .map((s: any) => s.session?.cohortId)
+            .filter(Boolean),
+        ),
+      ];
+      for (const cohortId of cohortIds) {
+        const fellows = await this.prisma.user.findMany({
+          where: { cohortId, role: 'FELLOW' },
+          select: { id: true },
+        });
+        if (fellows.length > 0) {
+          await this.notificationsService.createBulkNotifications(
+            fellows.map((f) => ({
+              userId: f.id,
+              type: 'QUIZ_REMINDER' as any,
+              title: 'New Live Quiz Scheduled!',
+              message: `"${quiz.title}" has been scheduled. Watch for the go-live notification!`,
+              data: { liveQuizId: quiz.id },
+            })),
+          );
+        }
+      }
+    } catch {
+      // Notification failure must not block the create response
+    }
 
     return quiz;
   }
@@ -238,21 +268,48 @@ export class LiveQuizService {
     });
   }
 
-  // Complete quiz and calculate final rankings
+  // Tiered leaderboard points for live quiz (same scale as MEGA quiz)
+  private liveQuizPoints(rank: number): number {
+    if (rank === 1) return 3000;
+    if (rank === 2) return 2000;
+    if (rank === 3) return 1000;
+    if (rank <= 7)  return 500;
+    return 200;
+  }
+
+  // Complete quiz and calculate final rankings + award leaderboard points
   async completeQuiz(id: string) {
+    const quiz = await this.prisma.liveQuiz.findUnique({
+      where: { id },
+      select: { title: true },
+    });
+
     const participants = await this.prisma.liveQuizParticipant.findMany({
       where: { liveQuizId: id },
       orderBy: { totalScore: 'desc' },
     });
 
-    // Update ranks
+    // Assign ranks and award leaderboard points in parallel
     await Promise.all(
-      participants.map((participant, index) =>
-        this.prisma.liveQuizParticipant.update({
-          where: { id: participant.id },
-          data: { rank: index + 1 },
-        }),
-      ),
+      participants.map((participant, index) => {
+        const rank = index + 1;
+        const pts = this.liveQuizPoints(rank);
+        return Promise.all([
+          this.prisma.liveQuizParticipant.update({
+            where: { id: participant.id },
+            data: { rank },
+          }),
+          this.prisma.pointsLog.create({
+            data: {
+              userId: participant.userId,
+              liveQuizId: id,
+              eventType: 'QUIZ_SUBMIT',
+              points: pts,
+              description: `Live Quiz: ${quiz?.title ?? 'Unknown'} - Rank #${rank} (score: ${participant.totalScore} pts)`,
+            },
+          }),
+        ]);
+      }),
     );
 
     // Check achievements for all participants (e.g. Quiz Master — top 3 finish)
@@ -455,10 +512,35 @@ export class LiveQuizService {
     });
   }
 
-  // Delete quiz (facilitator only)
+  // Delete quiz (facilitator only) — notifies participants if points are deducted
   async delete(id: string) {
-    return this.prisma.liveQuiz.delete({
+    const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id },
+      select: { title: true },
     });
+    if (!quiz) throw new NotFoundException(`Live quiz with ID ${id} not found`);
+
+    // Find participants who earned points from this quiz
+    const pointsEntries = await this.prisma.pointsLog.findMany({
+      where: { liveQuizId: id },
+      select: { userId: true, points: true },
+    });
+
+    // Notify each affected participant
+    if (pointsEntries.length > 0) {
+      await Promise.allSettled(
+        pointsEntries.map((entry) =>
+          this.notificationsService.createBulkNotifications([{
+            userId: entry.userId,
+            type: 'SYSTEM_ALERT' as any,
+            title: 'Live Quiz Removed',
+            message: `"${quiz.title}" has been deleted. Your ${entry.points} leaderboard points from this quiz have been removed.`,
+            data: {},
+          }]),
+        ),
+      );
+    }
+
+    return this.prisma.liveQuiz.delete({ where: { id } });
   }
 }
