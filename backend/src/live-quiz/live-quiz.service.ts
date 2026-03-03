@@ -50,11 +50,11 @@ export class LiveQuizService {
 
     // Notify all fellows in the linked cohort(s) about the new live quiz
     try {
-      const cohortIds: string[] = [
-        ...new Set(
-          quiz.sessions
-            .map((s: any) => s.session?.cohortId)
-            .filter(Boolean),
+      const cohortIds = [
+        ...new Set<string>(
+          (quiz.sessions as any[])
+            .map((s) => s.session?.cohortId as string | undefined)
+            .filter((id): id is string => !!id),
         ),
       ];
       for (const cohortId of cohortIds) {
