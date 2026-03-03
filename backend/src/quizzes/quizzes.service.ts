@@ -111,14 +111,28 @@ export class QuizzesService {
     const quizIds = allQuizzes.map((q) => q.id);
     const passedResponses = await this.prisma.quizResponse.findMany({
       where: { userId, quizId: { in: quizIds }, passed: true },
-      select: { quizId: true, score: true, completedAt: true },
+      select: { quizId: true },
     });
     const passedSet = new Set(passedResponses.map((r) => r.quizId));
 
+    // Fetch attempt counts for all quizzes (for LOCKED status + display)
+    const attemptGroups = await this.prisma.quizResponse.groupBy({
+      by: ['quizId'],
+      where: { userId, quizId: { in: quizIds } },
+      _count: { id: true },
+    });
+    const attemptCountMap = new Map(attemptGroups.map((r) => [r.quizId, r._count.id]));
+
     return allQuizzes.map((quiz: any) => {
-      let status: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'COMPLETED';
+      const attemptCount = attemptCountMap.get(quiz.id) ?? 0;
+      const maxAttempts = quiz.maxAttempts as number;
+      const allAttemptsUsed = maxAttempts > 0 && attemptCount >= maxAttempts;
+
+      let status: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'COMPLETED' | 'LOCKED';
       if (passedSet.has(quiz.id)) {
         status = 'COMPLETED';
+      } else if (allAttemptsUsed) {
+        status = 'LOCKED';
       } else if (quiz.closeAt && quiz.closeAt < now) {
         status = 'CLOSED';
       } else if (quiz.openAt && quiz.openAt > now) {
@@ -130,6 +144,7 @@ export class QuizzesService {
       return {
         ...quiz,
         status,
+        attemptCount,
       };
     });
   }

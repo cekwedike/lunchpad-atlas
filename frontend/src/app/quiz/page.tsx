@@ -36,10 +36,11 @@ const STATUS_CONFIG: Record<QuizStatus, {
   icon: React.ComponentType<{ className?: string }>;
   canTake: boolean;
 }> = {
-  OPEN:      { label: "Open",      color: "text-emerald-700", bg: "bg-emerald-100",  icon: CheckCircle, canTake: true },
-  UPCOMING:  { label: "Upcoming",  color: "text-blue-700",    bg: "bg-blue-100",     icon: Timer,       canTake: false },
-  CLOSED:    { label: "Closed",    color: "text-gray-500",    bg: "bg-gray-100",     icon: Lock,        canTake: false },
-  COMPLETED: { label: "Completed", color: "text-violet-700",  bg: "bg-violet-100",   icon: Trophy,      canTake: false },
+  OPEN:      { label: "Open",         color: "text-emerald-700", bg: "bg-emerald-100", icon: CheckCircle, canTake: true },
+  UPCOMING:  { label: "Upcoming",     color: "text-blue-700",    bg: "bg-blue-100",    icon: Timer,       canTake: false },
+  LOCKED:    { label: "Max Attempts", color: "text-red-600",     bg: "bg-red-50",      icon: Lock,        canTake: false },
+  CLOSED:    { label: "Closed",       color: "text-gray-500",    bg: "bg-gray-100",    icon: Lock,        canTake: false },
+  COMPLETED: { label: "Completed",    color: "text-violet-700",  bg: "bg-violet-100",  icon: Trophy,      canTake: false },
 };
 
 const QUIZ_TYPE_CONFIG = {
@@ -103,7 +104,7 @@ function QuizCard({ quiz }: { quiz: FellowQuiz }) {
     <div className={cn(
       "group relative overflow-hidden rounded-xl bg-white border border-gray-200 transition-all duration-200",
       statusCfg.canTake ? "hover:shadow-md hover:border-blue-200 cursor-pointer" : "",
-      quiz.status === "COMPLETED" ? "opacity-70" : "",
+      (quiz.status === "COMPLETED" || quiz.status === "LOCKED") ? "opacity-70" : "",
     )}>
       {/* Left accent strip */}
       <div className={`absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${typeCfg.accent}`} />
@@ -133,6 +134,18 @@ function QuizCard({ quiz }: { quiz: FellowQuiz }) {
               <Award className="h-3 w-3" />{pts} pts
             </span>
             <span className="text-xs text-gray-400">Pass {quiz.passingScore}%</span>
+            {/* Attempt count — shown when the user has tried but not passed */}
+            {quiz.attemptCount > 0 && quiz.status !== "COMPLETED" && (
+              <span className={cn(
+                "text-xs font-medium",
+                quiz.status === "LOCKED" ? "text-red-500" : "text-gray-400",
+              )}>
+                {quiz.maxAttempts > 0
+                  ? `${quiz.attemptCount}/${quiz.maxAttempts} attempts`
+                  : `${quiz.attemptCount} attempt${quiz.attemptCount !== 1 ? "s" : ""}`
+                }
+              </span>
+            )}
             {/* Inline countdown pill */}
             {countdownTarget && countdownMs > 0 && (
               <span className={cn(
@@ -744,6 +757,7 @@ export default function QuizzesPage() {
     ALL: allQuizzes.length,
     OPEN: allQuizzes.filter((q) => q.status === "OPEN").length,
     UPCOMING: allQuizzes.filter((q) => q.status === "UPCOMING").length,
+    LOCKED: allQuizzes.filter((q) => q.status === "LOCKED").length,
     COMPLETED: allQuizzes.filter((q) => q.status === "COMPLETED").length,
     CLOSED: allQuizzes.filter((q) => q.status === "CLOSED").length,
   };
@@ -760,7 +774,7 @@ export default function QuizzesPage() {
 
   // Sort: OPEN first, UPCOMING next, CLOSED last; MEGA before SESSION/GENERAL within status
   const sorted = [...activeFiltered].sort((a, b) => {
-    const order: Record<QuizStatus, number> = { OPEN: 0, UPCOMING: 1, CLOSED: 2, COMPLETED: 3 };
+    const order: Record<QuizStatus, number> = { OPEN: 0, UPCOMING: 1, LOCKED: 2, CLOSED: 3, COMPLETED: 4 };
     const diff = order[a.status] - order[b.status];
     if (diff !== 0) return diff;
     if (a.quizType === "MEGA" && b.quizType !== "MEGA") return -1;
@@ -785,7 +799,7 @@ export default function QuizzesPage() {
           </div>
           {!isLoading && allQuizzes.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
-              {(["OPEN", "UPCOMING", "CLOSED", "COMPLETED"] as QuizStatus[]).map((s) => {
+              {(["OPEN", "UPCOMING", "LOCKED", "CLOSED", "COMPLETED"] as QuizStatus[]).map((s) => {
                 const n = s === "COMPLETED" ? totalCompleted : counts[s];
                 if (n === 0) return null;
                 const cfg = STATUS_CONFIG[s];

@@ -3,7 +3,7 @@ import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import type { Quiz, QuizQuestion, QuizResponse, SubmitQuizRequest } from '@/types/api';
 
-export type QuizStatus = 'UPCOMING' | 'OPEN' | 'CLOSED' | 'COMPLETED';
+export type QuizStatus = 'UPCOMING' | 'OPEN' | 'CLOSED' | 'COMPLETED' | 'LOCKED';
 
 export interface FellowQuiz {
   id: string;
@@ -14,10 +14,12 @@ export interface FellowQuiz {
   passingScore: number;
   pointValue: number;
   multiplier: number;
+  maxAttempts: number;
   openAt: string | null;
   closeAt: string | null;
   createdAt: string;
   status: QuizStatus;
+  attemptCount: number;
   sessions?: Array<{ session: { id: string; title: string; sessionNumber: number } }>;
   _count: { questions: number };
 }
