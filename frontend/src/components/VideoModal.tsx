@@ -149,7 +149,8 @@ export function VideoModal({
         width: "100%",
         height: "100%",
         playerVars: {
-          controls: 1,        // Show controls — UX is better; anti-skimming via wall-clock timer
+          controls: 0,    // Hide native controls — anti-skimming: click to play/pause only
+          disablekb: 1,   // Disable keyboard shortcuts (arrow-key seeking)
           rel: 0,
           modestbranding: 1,
           fs: 1,
