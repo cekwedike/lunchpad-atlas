@@ -31,7 +31,7 @@ import { useResources, useAdminUnlockResource, useResourceProgress } from "@/hoo
 import { useProfile } from "@/hooks/api/useProfile";
 import { useCohorts, useSessions, useAdminUsers } from "@/hooks/api/useAdmin";
 import { ResourceType, UserRole } from "@/types/api";
-import { getVideoEmbedUrl } from "@/lib/videoUtils";
+import { VideoModal } from "@/components/VideoModal";
 import { format } from "date-fns";
 
 const MONTH_CONFIG = [
@@ -680,46 +680,12 @@ export default function ResourcesPage() {
           </div>
         )}
 
-        {/* ── Video Dialog ───────────────────────────────────────── */}
-        <Dialog open={videoDialog.open} onOpenChange={(open) => setVideoDialog({ open })}>
-          <DialogContent className="max-w-5xl w-[95vw]">
-            <DialogHeader>
-              <DialogTitle>{videoDialog.resource?.title}</DialogTitle>
-            </DialogHeader>
-            {videoDialog.resource && (
-              <div className="space-y-4">
-                {videoDialog.resource.description && (
-                  <p className="text-sm text-gray-600">{videoDialog.resource.description}</p>
-                )}
-                <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                  <iframe
-                    src={getVideoEmbedUrl(videoDialog.resource.url) || ""}
-                    className="absolute top-0 left-0 w-full h-full rounded-xl"
-                    allowFullScreen
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  />
-                </div>
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <div className="flex items-center gap-4">
-                    {videoDialog.resource.estimatedMinutes && (
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="h-4 w-4" />
-                        {videoDialog.resource.estimatedMinutes} min
-                      </span>
-                    )}
-                    {videoDialog.resource.pointValue && (
-                      <span className="flex items-center gap-1.5 font-semibold text-amber-600">
-                        <Zap className="h-4 w-4" />
-                        {videoDialog.resource.pointValue} pts
-                      </span>
-                    )}
-                  </div>
-                  <Button onClick={() => setVideoDialog({ open: false })}>Close</Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* ── Video Modal ─────────────────────────────────────────── */}
+        <VideoModal
+          open={videoDialog.open}
+          resource={videoDialog.resource ?? null}
+          onClose={() => setVideoDialog({ open: false })}
+        />
 
         {/* ── Admin Unlock Dialog ────────────────────────────────── */}
         <Dialog open={unlockDialog.open} onOpenChange={(open) => setUnlockDialog({ open })}>
