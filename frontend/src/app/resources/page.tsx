@@ -705,7 +705,7 @@ export default function ResourcesPage() {
             <ArticleModal
               open={articleDialog.open}
               resource={r ?? null}
-              savedProgress={prog?.watchPercentage ?? 0}
+              savedProgress={(prog as any)?.scrollDepth ?? 0}
               alreadyCompleted={prog?.state === "COMPLETED"}
               onClose={() => setArticleDialog({ open: false })}
             />

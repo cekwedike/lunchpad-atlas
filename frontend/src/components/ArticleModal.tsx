@@ -29,7 +29,7 @@ export interface ArticleResource {
 interface ArticleModalProps {
   open: boolean;
   resource: ArticleResource | null;
-  savedProgress?: number; // 0–100 from backend
+  savedProgress?: number; // 0–100 from backend (maps to scrollDepth)
   alreadyCompleted?: boolean;
   onClose: () => void;
 }
@@ -66,15 +66,26 @@ export function ArticleModal({
     }
   }
 
+  // Track THEN complete — backend checks scrollDepth >= 80 AND minimumThresholdMet.
+  // Separate try/catch so a track failure doesn't block the complete call.
   async function finishResource() {
     if (completedRef.current) return;
     completedRef.current = true;
     setIsComplete(true);
+    const elapsedMs = Math.min(accumulatedMsRef.current, requiredMsRef.current);
     try {
-      await trackRef.current.mutateAsync({ watchPercentage: 100, eventType: "time_update" });
+      await trackRef.current.mutateAsync({
+        scrollDepth: 100,                               // backend checks scrollDepth >= 80 for articles
+        timeSpent: Math.round(elapsedMs / 1000),        // required for minimumThresholdMet
+        eventType: "time_update",
+      });
+    } catch {
+      // silent — error toast handled in hook; still attempt complete below
+    }
+    try {
       await markCompleteRef.current.mutateAsync({});
     } catch {
-      // error toast handled in hooks
+      // error toast handled in hook
     }
   }
 
@@ -110,7 +121,7 @@ export function ArticleModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resource?.id]);
 
-  // Update progress every 500ms (only while started)
+  // Update progress every 500ms (only while reading)
   useEffect(() => {
     if (!open) return;
     const id = setInterval(() => {
@@ -130,7 +141,11 @@ export function ArticleModal({
       const total = accumulatedMsRef.current + (performance.now() - timerStartRef.current);
       const pctInt = Math.round(Math.min(1, total / requiredMsRef.current) * 100);
       if (pctInt > 0) {
-        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "time_update" });
+        trackRef.current.mutate({
+          scrollDepth: pctInt,                               // backend field for articles
+          timeSpent: Math.round(Math.min(total, requiredMsRef.current) / 1000),
+          eventType: "time_update",
+        });
       }
     }, 15000);
     return () => clearInterval(id);
@@ -151,7 +166,11 @@ export function ArticleModal({
     if (!completedRef.current) {
       const pctInt = Math.round(Math.min(1, accumulatedMsRef.current / requiredMsRef.current) * 100);
       if (pctInt > 0) {
-        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "time_update" });
+        trackRef.current.mutate({
+          scrollDepth: pctInt,
+          timeSpent: Math.round(accumulatedMsRef.current / 1000),
+          eventType: "time_update",
+        });
       }
     }
     onClose();
@@ -270,7 +289,15 @@ export function ArticleModal({
                   </span>
                 )}
               </div>
-              <Button onClick={handleClose}>Close</Button>
+              <div className="flex items-center gap-2">
+                {/* Fallback button: visible at ≥80% in case auto-trigger fails */}
+                {pctDisplay >= 80 && !isComplete && (
+                  <Button variant="outline" size="sm" onClick={() => void finishResource()}>
+                    Mark as Complete
+                  </Button>
+                )}
+                <Button onClick={handleClose}>Close</Button>
+              </div>
             </div>
           </div>
         )}

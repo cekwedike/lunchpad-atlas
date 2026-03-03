@@ -10,8 +10,6 @@ import { cn } from "@/lib/utils";
 
 // Numeric constants — never reference window.YT.PlayerState (can be undefined, will silently break handler)
 const YT_PLAYING = 1;
-// const YT_PAUSED = 2; // not needed explicitly
-// const YT_ENDED  = 0; // caught by else branch
 
 // Must accumulate 80% of video duration via real wall-clock play time
 const WATCH_THRESHOLD = 0.8;
@@ -67,14 +65,12 @@ export function VideoModal({
   alreadyCompleted = false,
   onClose,
 }: VideoModalProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Wall-clock tracking
+  // Wall-clock tracking — all mutable, no re-render needed
   const watchedMsRef = useRef(0);
   const playStartRef = useRef<number | null>(null);
   const durationRef = useRef(0);
   const completedRef = useRef(false);
-  const initialProgressAppliedRef = useRef(false);
+  const playerRef = useRef<any>(null);
 
   const [actualDuration, setActualDuration] = useState<number | null>(null);
   const [watchedPct, setWatchedPct] = useState(0);
@@ -83,11 +79,14 @@ export function VideoModal({
   const markComplete = useMarkResourceComplete(resource?.id ?? "");
   const trackEngagement = useTrackEngagement(resource?.id ?? "");
 
-  // Always access latest mutation objects via refs to avoid stale closures
+  // Refs so async callbacks always see the latest mutation objects
   const markCompleteRef = useRef(markComplete);
   const trackRef = useRef(trackEngagement);
   markCompleteRef.current = markComplete;
   trackRef.current = trackEngagement;
+
+  // Stable element ID: YT.Player targets this div by ID string (more reliable than passing a DOM element)
+  const playerId = resource ? `yt-player-${resource.id}` : "yt-player";
 
   function flushPlaytime() {
     if (playStartRef.current !== null) {
@@ -96,7 +95,8 @@ export function VideoModal({
     }
   }
 
-  // Track on backend THEN complete — backend requires watchPercentage >= 85 before accepting /complete
+  // Track THEN complete — backend requires watchPercentage >= 85 AND minimumThresholdMet before accepting /complete.
+  // Separate try/catch so a track failure doesn't block the complete call.
   async function finishResource() {
     if (completedRef.current) return;
     completedRef.current = true;
@@ -104,11 +104,16 @@ export function VideoModal({
     try {
       await trackRef.current.mutateAsync({
         watchPercentage: 100,
+        timeSpent: Math.round(watchedMsRef.current / 1000), // required for minimumThresholdMet
         eventType: "video_progress",
       });
+    } catch {
+      // silent — error toast handled in hook; still attempt complete below
+    }
+    try {
       await markCompleteRef.current.mutateAsync({});
     } catch {
-      // error toast already handled inside the hooks
+      // error toast handled in hook
     }
   }
 
@@ -129,12 +134,11 @@ export function VideoModal({
     const videoId = getYouTubeVideoId(resource.url);
     if (!videoId) return;
 
-    // Reset tracking
+    // Reset tracking state
     watchedMsRef.current = 0;
     playStartRef.current = null;
     durationRef.current = 0;
     completedRef.current = alreadyCompleted;
-    initialProgressAppliedRef.current = false;
     setActualDuration(null);
     setWatchedPct(alreadyCompleted ? 1 : savedProgress / 100);
     setIsComplete(alreadyCompleted);
@@ -142,15 +146,15 @@ export function VideoModal({
     let destroyed = false;
 
     ensureYtApi().then(() => {
-      if (destroyed || !containerRef.current) return;
+      if (destroyed || !document.getElementById(playerId)) return;
 
-      const player = new window.YT.Player(containerRef.current, {
+      const player = new window.YT.Player(playerId, {
         videoId,
         width: "100%",
         height: "100%",
         playerVars: {
-          controls: 0,    // Hide native controls — anti-skimming: click to play/pause only
-          disablekb: 1,   // Disable keyboard shortcuts (arrow-key seeking)
+          controls: 0,       // No native controls — anti-skimming
+          disablekb: 1,      // Disable keyboard shortcuts (arrow-key seeking)
           rel: 0,
           modestbranding: 1,
           fs: 1,
@@ -162,14 +166,14 @@ export function VideoModal({
             durationRef.current = dur;
             setActualDuration(dur);
 
-            // Apply saved progress so wall-clock correctly continues from where they left off
-            if (!alreadyCompleted && savedProgress > 0 && !initialProgressAppliedRef.current) {
-              initialProgressAppliedRef.current = true;
+            // Restore wall-clock credit AND seek player to saved position
+            if (!alreadyCompleted && savedProgress > 0) {
               watchedMsRef.current = (savedProgress / 100) * dur * 1000;
+              e.target.seekTo((savedProgress / 100) * dur, true);
             }
           },
           onStateChange: (e: any) => {
-            // Use numeric constants — never reference window.YT.PlayerState here
+            // Use numeric constants — window.YT.PlayerState can be undefined, silently breaking this
             if (e.data === YT_PLAYING) {
               playStartRef.current = performance.now();
             } else {
@@ -180,14 +184,14 @@ export function VideoModal({
         },
       });
 
-      (containerRef as any)._ytPlayer = player;
+      playerRef.current = player;
     });
 
     return () => {
       destroyed = true;
       flushPlaytime();
-      try { (containerRef as any)._ytPlayer?.destroy(); } catch { /* ignore */ }
-      (containerRef as any)._ytPlayer = null;
+      try { playerRef.current?.destroy(); } catch { /* ignore */ }
+      playerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resource?.id]);
@@ -202,7 +206,6 @@ export function VideoModal({
       if (dur <= 0) return;
       const pct = Math.min(1, tentativeMs / (dur * 1000));
       setWatchedPct(pct);
-      // Check completion mid-playback (don't rely solely on onStateChange ENDED)
       if (pct >= WATCH_THRESHOLD && !completedRef.current) {
         flushPlaytime();
         evaluateCompletion();
@@ -220,10 +223,13 @@ export function VideoModal({
       const tentativeMs = watchedMsRef.current + (performance.now() - playStartRef.current);
       const dur = durationRef.current;
       if (dur <= 0) return;
-      const pct = Math.min(1, tentativeMs / (dur * 1000));
-      const pctInt = Math.round(pct * 100);
+      const pctInt = Math.round(Math.min(1, tentativeMs / (dur * 1000)) * 100);
       if (pctInt > 0) {
-        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "video_progress" });
+        trackRef.current.mutate({
+          watchPercentage: pctInt,
+          timeSpent: Math.round(tentativeMs / 1000),
+          eventType: "video_progress",
+        });
       }
     }, 10000);
     return () => clearInterval(id);
@@ -238,7 +244,11 @@ export function VideoModal({
     if (dur > 0 && !completedRef.current) {
       const pctInt = Math.round(Math.min(1, watchedMsRef.current / (dur * 1000)) * 100);
       if (pctInt > 0) {
-        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "video_progress" });
+        trackRef.current.mutate({
+          watchPercentage: pctInt,
+          timeSpent: Math.round(watchedMsRef.current / 1000),
+          eventType: "video_progress",
+        });
       }
     }
     onClose();
@@ -265,9 +275,9 @@ export function VideoModal({
               className="relative w-full rounded-xl overflow-hidden bg-black"
               style={{ paddingBottom: "56.25%" }}
             >
+              {/* YT.Player targets this div by ID — do NOT use ref, the player replaces the element */}
               <div
-                key={resource.id}
-                ref={containerRef}
+                id={playerId}
                 className="absolute inset-0 w-full h-full"
               />
             </div>
@@ -313,7 +323,15 @@ export function VideoModal({
                   </span>
                 )}
               </div>
-              <Button onClick={handleClose}>Close</Button>
+              <div className="flex items-center gap-2">
+                {/* Fallback button: visible at ≥80% in case auto-trigger fails */}
+                {pctDisplay >= 80 && !isComplete && (
+                  <Button variant="outline" size="sm" onClick={() => void finishResource()}>
+                    Mark as Complete
+                  </Button>
+                )}
+                <Button onClick={handleClose}>Close</Button>
+              </div>
             </div>
           </div>
         )}

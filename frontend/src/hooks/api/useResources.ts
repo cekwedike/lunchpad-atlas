@@ -104,6 +104,8 @@ export function useTrackEngagement(resourceId: string) {
         progress: response.progress,
         canComplete: response.canComplete,
       }));
+      // Invalidate so parent's resourceProgress has fresh watchPercentage on next modal open
+      queryClient.invalidateQueries({ queryKey: ['resource-progress'] });
     },
     onError: () => {
       // Silent fail for tracking - don't disrupt user experience

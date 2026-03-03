@@ -118,7 +118,8 @@ export interface ResourceProgress {
   pointsAwarded?: number;
   cappedMessage?: string | null;
   newAchievements?: any[];
-  watchPercentage?: number; // 0-100, persisted by /track endpoint
+  watchPercentage?: number; // 0-100, persisted by /track endpoint for videos
+  scrollDepth?: number;    // 0-100, persisted by /track endpoint for articles
   createdAt: Date;
   updatedAt: Date;
 }
