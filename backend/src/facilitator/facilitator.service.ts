@@ -134,7 +134,7 @@ export class FacilitatorService {
               },
               _count: { id: true },
             })
-          : Promise.resolve([]),
+          : Promise.resolve([] as Array<{ userId: string; _count: { id: number } }>),
         this.prisma.pointsLog.groupBy({
           by: ['userId'],
           where: { userId: { in: fellowIds } },
