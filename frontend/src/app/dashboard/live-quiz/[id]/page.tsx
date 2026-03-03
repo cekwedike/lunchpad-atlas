@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useProfile } from "@/hooks/api/useProfile";
 import { LiveQuizContainer } from "@/components/live-quiz";
 
-export default function LiveQuizPage({ params }: { params: { id: string } }) {
+export default function LiveQuizPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const { data: profile, isLoading } = useProfile();
   const quizId = params.id;
 

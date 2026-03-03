@@ -12,8 +12,9 @@ import { useResource, useMarkResourceComplete } from "@/hooks/api/useResources";
 import { ResourceType } from "@/types/api";
 import { getVideoEmbedUrl, isYouTubeUrl, isVimeoUrl } from "@/lib/videoUtils";
 
-export default function ResourceDetailPage({ params }: { params: { id: string } }) {
+export default function ResourceDetailPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const resourceId = params.id;
 
   const { data: resource, isLoading, error, refetch } = useResource(resourceId);
