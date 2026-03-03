@@ -128,7 +128,7 @@ export class QuizzesService {
       const maxAttempts = quiz.maxAttempts as number;
       const allAttemptsUsed = maxAttempts > 0 && attemptCount >= maxAttempts;
 
-      let status: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'COMPLETED' | 'LOCKED';
+      let status: 'UPCOMING' | 'OPEN' | 'ATTEMPTED' | 'CLOSED' | 'COMPLETED' | 'LOCKED';
       if (passedSet.has(quiz.id)) {
         status = 'COMPLETED';
       } else if (allAttemptsUsed) {
@@ -137,6 +137,8 @@ export class QuizzesService {
         status = 'CLOSED';
       } else if (quiz.openAt && quiz.openAt > now) {
         status = 'UPCOMING';
+      } else if (attemptCount > 0) {
+        status = 'ATTEMPTED'; // open window, has tries, not passed, not maxed out
       } else {
         status = 'OPEN';
       }

@@ -37,6 +37,7 @@ const STATUS_CONFIG: Record<QuizStatus, {
   canTake: boolean;
 }> = {
   OPEN:      { label: "Open",         color: "text-emerald-700", bg: "bg-emerald-100", icon: CheckCircle, canTake: true },
+  ATTEMPTED: { label: "Retry",        color: "text-amber-700",   bg: "bg-amber-100",   icon: Flame,       canTake: true },
   UPCOMING:  { label: "Upcoming",     color: "text-blue-700",    bg: "bg-blue-100",    icon: Timer,       canTake: false },
   LOCKED:    { label: "Max Attempts", color: "text-red-600",     bg: "bg-red-50",      icon: Lock,        canTake: false },
   CLOSED:    { label: "Closed",       color: "text-gray-500",    bg: "bg-gray-100",    icon: Lock,        canTake: false },
@@ -755,7 +756,9 @@ export default function QuizzesPage() {
 
   const counts: Record<QuizStatus | "ALL", number> = {
     ALL: allQuizzes.length,
-    OPEN: allQuizzes.filter((q) => q.status === "OPEN").length,
+    // "Open" tab shows both fresh-open and retry-available quizzes
+    OPEN: allQuizzes.filter((q) => q.status === "OPEN" || q.status === "ATTEMPTED").length,
+    ATTEMPTED: allQuizzes.filter((q) => q.status === "ATTEMPTED").length,
     UPCOMING: allQuizzes.filter((q) => q.status === "UPCOMING").length,
     LOCKED: allQuizzes.filter((q) => q.status === "LOCKED").length,
     COMPLETED: allQuizzes.filter((q) => q.status === "COMPLETED").length,
@@ -767,14 +770,16 @@ export default function QuizzesPage() {
   const totalCompleted = completedLiveQuizzes.length + completedStandard.length;
 
   // Main list: only non-completed quizzes; empty when filter === "COMPLETED"
+  // "OPEN" filter includes ATTEMPTED (both mean the quiz can still be taken)
   const activeFiltered =
     filter === "COMPLETED" ? [] :
     filter === "ALL" ? allQuizzes.filter((q) => q.status !== "COMPLETED") :
+    filter === "OPEN" ? allQuizzes.filter((q) => q.status === "OPEN" || q.status === "ATTEMPTED") :
     allQuizzes.filter((q) => q.status === filter);
 
-  // Sort: OPEN first, UPCOMING next, CLOSED last; MEGA before SESSION/GENERAL within status
+  // Sort: OPEN first, ATTEMPTED second, UPCOMING, LOCKED, CLOSED last
   const sorted = [...activeFiltered].sort((a, b) => {
-    const order: Record<QuizStatus, number> = { OPEN: 0, UPCOMING: 1, LOCKED: 2, CLOSED: 3, COMPLETED: 4 };
+    const order: Record<QuizStatus, number> = { OPEN: 0, ATTEMPTED: 1, UPCOMING: 2, LOCKED: 3, CLOSED: 4, COMPLETED: 5 };
     const diff = order[a.status] - order[b.status];
     if (diff !== 0) return diff;
     if (a.quizType === "MEGA" && b.quizType !== "MEGA") return -1;
@@ -799,7 +804,7 @@ export default function QuizzesPage() {
           </div>
           {!isLoading && allQuizzes.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
-              {(["OPEN", "UPCOMING", "LOCKED", "CLOSED", "COMPLETED"] as QuizStatus[]).map((s) => {
+              {(["OPEN", "ATTEMPTED", "UPCOMING", "LOCKED", "CLOSED", "COMPLETED"] as QuizStatus[]).map((s) => {
                 const n = s === "COMPLETED" ? totalCompleted : counts[s];
                 if (n === 0) return null;
                 const cfg = STATUS_CONFIG[s];
@@ -902,7 +907,7 @@ export default function QuizzesPage() {
         ) : sorted.length > 0 ? (
           <div className="space-y-2">
             {sorted.map((quiz) =>
-              quiz.status === "OPEN" ? (
+              (quiz.status === "OPEN" || quiz.status === "ATTEMPTED") ? (
                 <Link key={quiz.id} href={`/quiz/${quiz.id}`} className="block">
                   <QuizCard quiz={quiz} />
                 </Link>
