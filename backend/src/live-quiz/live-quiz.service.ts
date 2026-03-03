@@ -10,12 +10,14 @@ import {
   SubmitAnswerDto,
 } from './dto/live-quiz.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AchievementsService } from '../achievements/achievements.service';
 
 @Injectable()
 export class LiveQuizService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private achievementsService: AchievementsService,
   ) {}
 
   // Create a new live quiz
@@ -253,6 +255,13 @@ export class LiveQuizService {
       ),
     );
 
+    // Check achievements for all participants (e.g. Quiz Master — top 3 finish)
+    await Promise.allSettled(
+      participants.map((p) =>
+        this.achievementsService.checkAndAwardAchievements(p.userId),
+      ),
+    );
+
     return this.prisma.liveQuiz.update({
       where: { id },
       data: {
@@ -306,13 +315,22 @@ export class LiveQuizService {
       return existing;
     }
 
-    return this.prisma.liveQuizParticipant.create({
+    const participant = await this.prisma.liveQuizParticipant.create({
       data: {
         liveQuizId: quizId,
         userId: joinDto.userId,
         displayName: joinDto.displayName,
       },
     });
+
+    // Check achievements (e.g. Live Buzzer — first live quiz participation)
+    try {
+      await this.achievementsService.checkAndAwardAchievements(joinDto.userId);
+    } catch {
+      // Non-critical
+    }
+
+    return participant;
   }
 
   // Submit an answer
