@@ -556,22 +556,33 @@ export class ResourcesService {
       throw new NotFoundException('User not found');
     }
 
+    // Don't overwrite completed progress — user already finished the resource
+    const existingProgress = await this.prisma.resourceProgress.findUnique({
+      where: { userId_resourceId: { userId, resourceId } },
+    });
+
+    if (existingProgress?.state === 'COMPLETED') {
+      return {
+        message: `Resource "${resource.title}" is already completed by user — no unlock needed`,
+        progress: existingProgress,
+        resource: {
+          id: resource.id,
+          title: resource.title,
+          session: resource.session?.title,
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+        },
+      };
+    }
+
     // Create or update progress record to unlock
     const progress = await this.prisma.resourceProgress.upsert({
-      where: {
-        userId_resourceId: {
-          userId,
-          resourceId,
-        },
-      },
-      create: {
-        userId,
-        resourceId,
-        state: 'UNLOCKED',
-      },
-      update: {
-        state: 'UNLOCKED',
-      },
+      where: { userId_resourceId: { userId, resourceId } },
+      create: { userId, resourceId, state: 'UNLOCKED' },
+      update: { state: 'UNLOCKED' },
     });
 
     return {
