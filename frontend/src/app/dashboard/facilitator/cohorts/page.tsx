@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Calendar, Loader2 } from "lucide-react";
+import { Users, Calendar, Loader2, RefreshCw } from "lucide-react";
 import { useCohorts, useCohortMembers } from "@/hooks/api/useAdmin";
 import { useOpenDM } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
@@ -34,6 +35,7 @@ interface Cohort {
 
 export default function FacilitatorCohortsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   const { data: cohortsData, isLoading } = useCohorts();
   const openDM = useOpenDM();
@@ -137,9 +139,20 @@ export default function FacilitatorCohortsPage() {
               <DialogDescription>View fellows and co-facilitators in this cohort.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <p className="text-sm text-gray-600">
-                {cohortMembers.length} {cohortMembers.length === 1 ? "member" : "members"}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  {cohortMembers.length} {cohortMembers.length === 1 ? "member" : "members"}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['cohort-members', selectedCohort?.id] })}
+                  className="h-8 px-2 text-gray-500 hover:text-gray-700"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Refresh
+                </Button>
+              </div>
 
               {membersLoading ? (
                 <div className="flex items-center justify-center py-8">

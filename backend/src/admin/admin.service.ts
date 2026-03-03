@@ -97,7 +97,7 @@ export class AdminService {
       );
     }
 
-    return this.prisma.user.findMany({
+    const members = await this.prisma.user.findMany({
       where: { cohortId },
       select: {
         id: true,
@@ -105,10 +105,28 @@ export class AdminService {
         lastName: true,
         email: true,
         role: true,
-        currentMonthPoints: true,
       },
       orderBy: [{ role: 'asc' }, { firstName: 'asc' }],
     });
+
+    // Compute live points from pointsLog for the current calendar month
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const pointsSums = await this.prisma.pointsLog.groupBy({
+      by: ['userId'],
+      where: {
+        userId: { in: members.map((m) => m.id) },
+        createdAt: { gte: monthStart, lte: monthEnd },
+      },
+      _sum: { points: true },
+    });
+    const pointsMap = new Map(pointsSums.map((p) => [p.userId, p._sum.points ?? 0]));
+
+    return members.map((m) => ({
+      ...m,
+      currentMonthPoints: pointsMap.get(m.id) ?? 0,
+    }));
   }
 
   async createCohort(dto: CreateCohortDto, adminId: string) {
