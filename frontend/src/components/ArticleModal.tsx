@@ -72,11 +72,10 @@ export function ArticleModal({
     if (completedRef.current) return;
     completedRef.current = true;
     setIsComplete(true);
-    const elapsedMs = Math.min(accumulatedMsRef.current, requiredMsRef.current);
     try {
       await trackRef.current.mutateAsync({
-        scrollDepth: 100,                               // backend checks scrollDepth >= 80 for articles
-        timeSpent: Math.round(elapsedMs / 1000),        // required for minimumThresholdMet
+        scrollDepth: 100,                                    // backend checks scrollDepth >= 80 for articles
+        timeSpent: Math.round(requiredMsRef.current / 1000), // = estimatedMinutes * 60 * 0.8 > backend's 0.7 threshold
         eventType: "time_update",
       });
     } catch {
