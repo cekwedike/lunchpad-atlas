@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Zap, CheckCircle2, ExternalLink, BookOpen, Clock } from "lucide-react";
+import { Zap, CheckCircle2, ExternalLink, BookOpen, Clock, MessageSquare } from "lucide-react";
 import { useMarkResourceComplete, useTrackEngagement } from "@/hooks/api/useResources";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,8 @@ export function ArticleModal({
   alreadyCompleted = false,
   onClose,
 }: ArticleModalProps) {
+  const router = useRouter();
+
   const timerStartRef = useRef<number | null>(null); // performance.now() when reading started
   const accumulatedMsRef = useRef(0);
   const completedRef = useRef(false);
@@ -289,6 +292,17 @@ export function ArticleModal({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    handleClose();
+                    router.push(`/dashboard/discussions?resourceId=${resource.id}`);
+                  }}
+                >
+                  <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                  Discuss
+                </Button>
                 {/* Fallback button: visible at ≥80% in case auto-trigger fails */}
                 {pctDisplay >= 80 && !isComplete && (
                   <Button variant="outline" size="sm" onClick={() => void finishResource()}>

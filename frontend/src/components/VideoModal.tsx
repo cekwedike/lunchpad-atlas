@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Clock, Zap, CheckCircle2 } from "lucide-react";
+import { Clock, Zap, CheckCircle2, MessageSquare } from "lucide-react";
 import { useMarkResourceComplete, useTrackEngagement } from "@/hooks/api/useResources";
 import { getYouTubeVideoId } from "@/lib/videoUtils";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,8 @@ export function VideoModal({
   alreadyCompleted = false,
   onClose,
 }: VideoModalProps) {
+  const router = useRouter();
+
   // Wall-clock tracking — all mutable, no re-render needed
   const watchedMsRef = useRef(0);
   const playStartRef = useRef<number | null>(null);
@@ -324,6 +327,17 @@ export function VideoModal({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    handleClose();
+                    router.push(`/dashboard/discussions?resourceId=${resource.id}`);
+                  }}
+                >
+                  <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                  Discuss
+                </Button>
                 {/* Fallback button: visible at ≥80% in case auto-trigger fails */}
                 {pctDisplay >= 80 && !isComplete && (
                   <Button variant="outline" size="sm" onClick={() => void finishResource()}>

@@ -327,6 +327,21 @@ export class DiscussionsService {
 
       resourceId = resource.id;
       sessionId = resource.sessionId;
+
+      // Fellows are limited to 5 discussions per resource (admins/facilitators are exempt)
+      if (userRole === 'FELLOW') {
+        const fellowDiscussionCount = await this.prisma.discussion.count({
+          where: {
+            resourceId: resource.id,
+            user: { role: 'FELLOW' },
+          },
+        });
+        if (fellowDiscussionCount >= 5) {
+          throw new ForbiddenException(
+            'This resource has reached the maximum of 5 fellow discussions. A facilitator must delete an existing discussion to open a slot.',
+          );
+        }
+      }
     }
 
     if (topicType === 'SESSION') {
@@ -346,6 +361,22 @@ export class DiscussionsService {
       }
 
       sessionId = session.id;
+
+      // Fellows are limited to 5 discussions per session (admins/facilitators are exempt)
+      if (userRole === 'FELLOW') {
+        const fellowDiscussionCount = await this.prisma.discussion.count({
+          where: {
+            sessionId: session.id,
+            resourceId: null, // session-level only, not resource sub-discussions
+            user: { role: 'FELLOW' },
+          },
+        });
+        if (fellowDiscussionCount >= 5) {
+          throw new ForbiddenException(
+            'This session has reached the maximum of 5 fellow discussions. A facilitator must delete an existing discussion to open a slot.',
+          );
+        }
+      }
     }
 
     const isApproved = userRole !== 'FELLOW';
