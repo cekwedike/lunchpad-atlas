@@ -111,15 +111,6 @@ export class ResourcesService {
     userRole?: string,
     resourceState?: string,
   ): Promise<'LOCKED' | 'UNLOCKED' | 'IN_PROGRESS' | 'COMPLETED'> {
-    // Check user progress first
-    const progress = await this.prisma.resourceProgress.findUnique({
-      where: { userId_resourceId: { userId, resourceId } },
-    });
-
-    if (progress) {
-      return progress.state;
-    }
-
     // Facilitators and admins always have access
     if (userRole === 'FACILITATOR' || userRole === 'ADMIN') {
       return 'UNLOCKED';
@@ -135,19 +126,31 @@ export class ResourcesService {
       resourceState = resourceState ?? resource?.state;
     }
 
-    // Manual unlock by admin/facilitator overrides date logic
-    if (resourceState === 'UNLOCKED') {
-      return 'UNLOCKED';
+    // Determine whether the resource is currently accessible (unlocked)
+    const now = new Date();
+    const isDateUnlocked = session && now >= new Date(session.unlockDate);
+    const isAccessible = resourceState === 'UNLOCKED' || isDateUnlocked;
+
+    // Check user progress
+    const progress = await this.prisma.resourceProgress.findUnique({
+      where: { userId_resourceId: { userId, resourceId } },
+    });
+
+    if (progress) {
+      // COMPLETED is permanent — preserved regardless of lock state
+      if (progress.state === 'COMPLETED') return 'COMPLETED';
+      // For non-completed progress: only surface it if the resource is still accessible.
+      // If the resource was re-locked (not date-unlocked and resource.state = 'LOCKED'),
+      // the resource should show as LOCKED even though a stale progress record exists.
+      if (!isAccessible) return 'LOCKED';
+      return progress.state;
     }
 
-    if (!session) {
+    if (!isAccessible) {
       return 'LOCKED';
     }
 
-    const now = new Date();
-    const unlockDate = new Date(session.unlockDate);
-
-    return now >= unlockDate ? 'UNLOCKED' : 'LOCKED';
+    return 'UNLOCKED';
   }
 
   async getResources(userId: string, query: ResourceQueryDto) {

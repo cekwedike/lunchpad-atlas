@@ -646,6 +646,20 @@ export class AdminService {
       },
     });
 
+    // When locking: clear all non-COMPLETED per-user progress so the resource
+    // correctly shows as locked even for fellows who had started it.
+    // COMPLETED progress is preserved — completed work cannot be undone.
+    // Points are NOT revoked (in-progress fellows never earned any; completed
+    // fellows did the actual work and keep their points).
+    if (state === 'LOCKED') {
+      await this.prisma.resourceProgress.deleteMany({
+        where: {
+          resourceId,
+          state: { not: 'COMPLETED' },
+        },
+      });
+    }
+
     // Notify all fellows in the cohort when a resource is manually unlocked
     if (state === 'UNLOCKED' && resource.session?.cohortId) {
       try {
