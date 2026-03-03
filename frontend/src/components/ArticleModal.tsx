@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Clock, Zap, CheckCircle2, ExternalLink, BookOpen } from "lucide-react";
-import { useMarkResourceComplete } from "@/hooks/api/useResources";
+import { useMarkResourceComplete, useTrackEngagement } from "@/hooks/api/useResources";
 import { cn } from "@/lib/utils";
 
-// Must have the modal open for 80% of estimated reading time to earn points
 const READ_THRESHOLD = 0.8;
-// Default required time when no estimatedMinutes is set (seconds)
-const DEFAULT_REQUIRED_SECS = 120;
+const DEFAULT_REQUIRED_SECS = 120; // 2 min fallback when estimatedMinutes is not set
 
 export interface ArticleResource {
   id: string;
@@ -24,22 +22,34 @@ export interface ArticleResource {
 interface ArticleModalProps {
   open: boolean;
   resource: ArticleResource | null;
+  /** 0–100, loaded from backend ResourceProgress.watchPercentage (reused field for articles) */
+  savedProgress?: number;
+  alreadyCompleted?: boolean;
   onClose: () => void;
 }
 
-export function ArticleModal({ open, resource, onClose }: ArticleModalProps) {
-  // Wall-clock time the modal has been open (proxy for time spent reading)
+export function ArticleModal({
+  open,
+  resource,
+  savedProgress = 0,
+  alreadyCompleted = false,
+  onClose,
+}: ArticleModalProps) {
   const openedAtRef = useRef<number | null>(null);
   const accumulatedMsRef = useRef(0);
   const completedRef = useRef(false);
-  const requiredSecsRef = useRef(DEFAULT_REQUIRED_SECS);
+  const requiredMsRef = useRef(DEFAULT_REQUIRED_SECS * 1000);
 
   const [readPct, setReadPct] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
   const markComplete = useMarkResourceComplete(resource?.id ?? "");
+  const trackEngagement = useTrackEngagement(resource?.id ?? "");
+
   const markCompleteRef = useRef(markComplete);
+  const trackRef = useRef(trackEngagement);
   markCompleteRef.current = markComplete;
+  trackRef.current = trackEngagement;
 
   function flushTime() {
     if (openedAtRef.current !== null) {
@@ -48,38 +58,54 @@ export function ArticleModal({ open, resource, onClose }: ArticleModalProps) {
     }
   }
 
-  function evaluateCompletion(currentMs: number) {
+  // Track on backend THEN complete (no watchPercentage gate for articles, but consistent pattern)
+  async function finishResource() {
     if (completedRef.current) return;
-    const requiredMs = requiredSecsRef.current * 1000;
-    const pct = Math.min(1, currentMs / requiredMs);
-    setReadPct(pct);
-    if (pct >= READ_THRESHOLD) {
-      completedRef.current = true;
-      setIsComplete(true);
-      markCompleteRef.current.mutate({});
+    completedRef.current = true;
+    setIsComplete(true);
+    try {
+      await trackRef.current.mutateAsync({
+        watchPercentage: 100,
+        eventType: "time_update",
+      });
+      await markCompleteRef.current.mutateAsync({});
+    } catch {
+      // error toast handled inside hooks
     }
   }
 
-  // Reset and start timer when modal opens
+  function evaluateCompletion(currentMs: number) {
+    if (completedRef.current) return;
+    const pct = Math.min(1, currentMs / requiredMsRef.current);
+    setReadPct(pct);
+    if (pct >= READ_THRESHOLD) {
+      void finishResource();
+    }
+  }
+
   useEffect(() => {
     if (!open || !resource) return;
 
-    accumulatedMsRef.current = 0;
-    completedRef.current = false;
-    openedAtRef.current = performance.now();
-    requiredSecsRef.current = resource.estimatedMinutes
-      ? resource.estimatedMinutes * 60 * READ_THRESHOLD
-      : DEFAULT_REQUIRED_SECS;
-    setReadPct(0);
-    setIsComplete(false);
+    const required = resource.estimatedMinutes
+      ? resource.estimatedMinutes * 60 * 1000
+      : DEFAULT_REQUIRED_SECS * 1000;
+    requiredMsRef.current = required;
+
+    // Initialize from saved progress
+    const initialMs = (savedProgress / 100) * required;
+    accumulatedMsRef.current = alreadyCompleted ? required : initialMs;
+    completedRef.current = alreadyCompleted;
+    openedAtRef.current = alreadyCompleted ? null : performance.now();
+    setReadPct(alreadyCompleted ? 1 : savedProgress / 100);
+    setIsComplete(alreadyCompleted);
 
     return () => {
       flushTime();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resource?.id]);
 
-  // Update progress bar every 500ms
+  // Update display AND check completion every 500ms
   useEffect(() => {
     if (!open) return;
     const id = setInterval(() => {
@@ -88,13 +114,34 @@ export function ArticleModal({ open, resource, onClose }: ArticleModalProps) {
       evaluateCompletion(total);
     }, 500);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Save progress to backend every 15s
+  useEffect(() => {
+    if (!open) return;
+    const id = setInterval(() => {
+      if (completedRef.current || openedAtRef.current === null) return;
+      const total = accumulatedMsRef.current + (performance.now() - openedAtRef.current);
+      const pctInt = Math.round(Math.min(1, total / requiredMsRef.current) * 100);
+      if (pctInt > 0) {
+        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "time_update" });
+      }
+    }, 15000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function handleClose() {
     flushTime();
-    const total = accumulatedMsRef.current;
-    evaluateCompletion(total);
+    evaluateCompletion(accumulatedMsRef.current);
+    // Persist progress on close
+    if (!completedRef.current) {
+      const pctInt = Math.round(Math.min(1, accumulatedMsRef.current / requiredMsRef.current) * 100);
+      if (pctInt > 0) {
+        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "time_update" });
+      }
+    }
     onClose();
   }
 
@@ -130,9 +177,8 @@ export function ArticleModal({ open, resource, onClose }: ArticleModalProps) {
               <p className="text-sm text-gray-500 shrink-0">{resource.description}</p>
             )}
 
-            {/* Article embed — many sites block iframes; fallback message is shown */}
+            {/* Article embed — fallback shown behind the iframe for sites that block embedding */}
             <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-              {/* Fallback shown behind the iframe for sites that block embedding */}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-400 p-6">
                 <BookOpen className="h-10 w-10 text-gray-300" />
                 <p className="text-sm text-center text-gray-500 max-w-xs">
@@ -157,16 +203,11 @@ export function ArticleModal({ open, resource, onClose }: ArticleModalProps) {
               />
             </div>
 
-            {/* Read-time progress bar */}
+            {/* Read-time progress */}
             <div className="space-y-1 shrink-0">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-500">Read progress</span>
-                <span
-                  className={cn(
-                    "font-medium",
-                    isComplete ? "text-emerald-600" : "text-gray-600",
-                  )}
-                >
+                <span className={cn("font-medium", isComplete ? "text-emerald-600" : "text-gray-600")}>
                   {isComplete ? "Completed" : `${pctDisplay}% read`}
                 </span>
               </div>
@@ -196,17 +237,11 @@ export function ArticleModal({ open, resource, onClose }: ArticleModalProps) {
                   </span>
                 )}
                 {resource.pointValue && (
-                  <span
-                    className={cn(
-                      "flex items-center gap-1.5 font-semibold",
-                      isComplete ? "text-emerald-600" : "text-amber-600",
-                    )}
-                  >
-                    {isComplete ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Zap className="h-4 w-4" />
-                    )}
+                  <span className={cn(
+                    "flex items-center gap-1.5 font-semibold",
+                    isComplete ? "text-emerald-600" : "text-amber-600",
+                  )}>
+                    {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
                     {resource.pointValue} pts{isComplete ? " earned!" : ""}
                   </span>
                 )}

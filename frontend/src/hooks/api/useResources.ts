@@ -56,6 +56,7 @@ export function useMarkResourceComplete(resourceId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resource-progress'] });
       queryClient.invalidateQueries({ queryKey: ['resource', resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] }); // refresh list green checkmarks
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
       toast.success('Resource completed!', 'Points have been awarded');
     },

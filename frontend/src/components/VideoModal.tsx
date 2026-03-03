@@ -4,11 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Clock, Zap, CheckCircle2 } from "lucide-react";
-import { useMarkResourceComplete } from "@/hooks/api/useResources";
+import { useMarkResourceComplete, useTrackEngagement } from "@/hooks/api/useResources";
 import { getYouTubeVideoId } from "@/lib/videoUtils";
 import { cn } from "@/lib/utils";
 
-// Fellow must watch at least this fraction via real elapsed time (seeking doesn't help)
+// Numeric constants — never reference window.YT.PlayerState (can be undefined, will silently break handler)
+const YT_PLAYING = 1;
+// const YT_PAUSED = 2; // not needed explicitly
+// const YT_ENDED  = 0; // caught by else branch
+
+// Must accumulate 80% of video duration via real wall-clock play time
 const WATCH_THRESHOLD = 0.8;
 
 declare global {
@@ -49,28 +54,41 @@ export interface VideoResource {
 interface VideoModalProps {
   open: boolean;
   resource: VideoResource | null;
+  /** 0–100, loaded from backend ResourceProgress.watchPercentage */
+  savedProgress?: number;
+  alreadyCompleted?: boolean;
   onClose: () => void;
 }
 
-export function VideoModal({ open, resource, onClose }: VideoModalProps) {
+export function VideoModal({
+  open,
+  resource,
+  savedProgress = 0,
+  alreadyCompleted = false,
+  onClose,
+}: VideoModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // All tracking state lives in refs — no stale-closure risk in effects/callbacks
-  const watchedMsRef = useRef(0);         // Accumulated real milliseconds of play
-  const playStartRef = useRef<number | null>(null); // performance.now() when last PLAYING started
-  const durationRef = useRef(0);          // Video duration in seconds
+  // Wall-clock tracking
+  const watchedMsRef = useRef(0);
+  const playStartRef = useRef<number | null>(null);
+  const durationRef = useRef(0);
   const completedRef = useRef(false);
+  const initialProgressAppliedRef = useRef(false);
 
   const [actualDuration, setActualDuration] = useState<number | null>(null);
   const [watchedPct, setWatchedPct] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
   const markComplete = useMarkResourceComplete(resource?.id ?? "");
-  // Keep a ref so closures inside effects always reach the latest mutation object
-  const markCompleteRef = useRef(markComplete);
-  markCompleteRef.current = markComplete;
+  const trackEngagement = useTrackEngagement(resource?.id ?? "");
 
-  // Add elapsed play time to watchedMs and clear the start timestamp
+  // Always access latest mutation objects via refs to avoid stale closures
+  const markCompleteRef = useRef(markComplete);
+  const trackRef = useRef(trackEngagement);
+  markCompleteRef.current = markComplete;
+  trackRef.current = trackEngagement;
+
   function flushPlaytime() {
     if (playStartRef.current !== null) {
       watchedMsRef.current += performance.now() - playStartRef.current;
@@ -78,34 +96,48 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
     }
   }
 
-  // Check whether the fellow has crossed the completion threshold
+  // Track on backend THEN complete — backend requires watchPercentage >= 85 before accepting /complete
+  async function finishResource() {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    setIsComplete(true);
+    try {
+      await trackRef.current.mutateAsync({
+        watchPercentage: 100,
+        eventType: "video_progress",
+      });
+      await markCompleteRef.current.mutateAsync({});
+    } catch {
+      // error toast already handled inside the hooks
+    }
+  }
+
   function evaluateCompletion() {
     const dur = durationRef.current;
     if (dur <= 0 || completedRef.current) return;
     const pct = Math.min(1, watchedMsRef.current / (dur * 1000));
     setWatchedPct(pct);
     if (pct >= WATCH_THRESHOLD) {
-      completedRef.current = true;
-      setIsComplete(true);
-      markCompleteRef.current.mutate({});
+      void finishResource();
     }
   }
 
-  // Mount / destroy the YouTube IFrame player whenever the modal opens with a new resource
+  // Mount / destroy YouTube IFrame player
   useEffect(() => {
     if (!open || !resource) return;
 
     const videoId = getYouTubeVideoId(resource.url);
     if (!videoId) return;
 
-    // Reset tracking for a fresh video session
+    // Reset tracking
     watchedMsRef.current = 0;
     playStartRef.current = null;
     durationRef.current = 0;
-    completedRef.current = false;
+    completedRef.current = alreadyCompleted;
+    initialProgressAppliedRef.current = false;
     setActualDuration(null);
-    setWatchedPct(0);
-    setIsComplete(false);
+    setWatchedPct(alreadyCompleted ? 1 : savedProgress / 100);
+    setIsComplete(alreadyCompleted);
 
     let destroyed = false;
 
@@ -117,11 +149,10 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
         width: "100%",
         height: "100%",
         playerVars: {
-          controls: 0,        // Hide all native YouTube controls
-          disablekb: 1,       // Prevent keyboard shortcuts (arrow-key seeking)
+          controls: 1,        // Show controls — UX is better; anti-skimming via wall-clock timer
           rel: 0,
           modestbranding: 1,
-          fs: 1,              // Allow fullscreen
+          fs: 1,
           origin: window.location.origin,
         },
         events: {
@@ -129,14 +160,18 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
             const dur = e.target.getDuration();
             durationRef.current = dur;
             setActualDuration(dur);
+
+            // Apply saved progress so wall-clock correctly continues from where they left off
+            if (!alreadyCompleted && savedProgress > 0 && !initialProgressAppliedRef.current) {
+              initialProgressAppliedRef.current = true;
+              watchedMsRef.current = (savedProgress / 100) * dur * 1000;
+            }
           },
           onStateChange: (e: any) => {
-            const { PlayerState } = window.YT;
-            if (e.data === PlayerState.PLAYING) {
-              // Mark the real-time start of this play segment
+            // Use numeric constants — never reference window.YT.PlayerState here
+            if (e.data === YT_PLAYING) {
               playStartRef.current = performance.now();
             } else {
-              // Pause / end / buffer — accumulate what was watched
               flushPlaytime();
               evaluateCompletion();
             }
@@ -144,7 +179,6 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
         },
       });
 
-      // Store so we can destroy on cleanup
       (containerRef as any)._ytPlayer = player;
     });
 
@@ -157,32 +191,60 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resource?.id]);
 
-  // Update the progress bar while the video is actively playing (every 500 ms)
+  // Update display AND check completion every 500ms while playing
   useEffect(() => {
     if (!open) return;
     const id = setInterval(() => {
       if (playStartRef.current === null) return;
       const tentativeMs = watchedMsRef.current + (performance.now() - playStartRef.current);
       const dur = durationRef.current;
-      if (dur > 0) setWatchedPct(Math.min(1, tentativeMs / (dur * 1000)));
+      if (dur <= 0) return;
+      const pct = Math.min(1, tentativeMs / (dur * 1000));
+      setWatchedPct(pct);
+      // Check completion mid-playback (don't rely solely on onStateChange ENDED)
+      if (pct >= WATCH_THRESHOLD && !completedRef.current) {
+        flushPlaytime();
+        evaluateCompletion();
+      }
     }, 500);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Save progress to backend every 10s while playing
+  useEffect(() => {
+    if (!open) return;
+    const id = setInterval(() => {
+      if (playStartRef.current === null || completedRef.current) return;
+      const tentativeMs = watchedMsRef.current + (performance.now() - playStartRef.current);
+      const dur = durationRef.current;
+      if (dur <= 0) return;
+      const pct = Math.min(1, tentativeMs / (dur * 1000));
+      const pctInt = Math.round(pct * 100);
+      if (pctInt > 0) {
+        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "video_progress" });
+      }
+    }, 10000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function handleClose() {
     flushPlaytime();
     evaluateCompletion();
+    // Persist current progress on close
+    const dur = durationRef.current;
+    if (dur > 0 && !completedRef.current) {
+      const pctInt = Math.round(Math.min(1, watchedMsRef.current / (dur * 1000)) * 100);
+      if (pctInt > 0) {
+        trackRef.current.mutate({ watchPercentage: pctInt, eventType: "video_progress" });
+      }
+    }
     onClose();
   }
 
   const displayMinutes =
-    actualDuration != null
-      ? Math.ceil(actualDuration / 60)
-      : (resource?.estimatedMinutes ?? null);
-
-  const isDurationEstimated =
-    actualDuration == null && resource?.estimatedMinutes != null;
-
+    actualDuration != null ? Math.ceil(actualDuration / 60) : (resource?.estimatedMinutes ?? null);
   const pctDisplay = Math.round(watchedPct * 100);
 
   return (
@@ -198,12 +260,10 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
               <p className="text-sm text-gray-500">{resource.description}</p>
             )}
 
-            {/* Player — YouTube IFrame API replaces this div with an iframe */}
             <div
               className="relative w-full rounded-xl overflow-hidden bg-black"
               style={{ paddingBottom: "56.25%" }}
             >
-              {/* key forces div remount when a different resource is opened */}
               <div
                 key={resource.id}
                 ref={containerRef}
@@ -211,16 +271,11 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
               />
             </div>
 
-            {/* Watch-time progress bar */}
+            {/* Watch progress */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-500">Watch progress</span>
-                <span
-                  className={cn(
-                    "font-medium",
-                    isComplete ? "text-emerald-600" : "text-gray-600",
-                  )}
-                >
+                <span className={cn("font-medium", isComplete ? "text-emerald-600" : "text-gray-600")}>
                   {isComplete ? "Completed" : `${pctDisplay}% watched`}
                 </span>
               </div>
@@ -234,36 +289,25 @@ export function VideoModal({ open, resource, onClose }: VideoModalProps) {
                 />
               </div>
               {!isComplete && (
-                <p className="text-xs text-gray-400">
-                  Watch at least 80% of the video to earn points
-                </p>
+                <p className="text-xs text-gray-400">Watch at least 80% of the video to earn points</p>
               )}
             </div>
 
-            {/* Footer row */}
+            {/* Footer */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 {displayMinutes != null && (
                   <span className="flex items-center gap-1.5">
                     <Clock className="h-4 w-4" />
                     {displayMinutes} min
-                    {isDurationEstimated && (
-                      <span className="text-xs text-gray-400">est.</span>
-                    )}
                   </span>
                 )}
                 {resource.pointValue && (
-                  <span
-                    className={cn(
-                      "flex items-center gap-1.5 font-semibold",
-                      isComplete ? "text-emerald-600" : "text-amber-600",
-                    )}
-                  >
-                    {isComplete ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Zap className="h-4 w-4" />
-                    )}
+                  <span className={cn(
+                    "flex items-center gap-1.5 font-semibold",
+                    isComplete ? "text-emerald-600" : "text-amber-600",
+                  )}>
+                    {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
                     {resource.pointValue} pts{isComplete ? " earned!" : ""}
                   </span>
                 )}

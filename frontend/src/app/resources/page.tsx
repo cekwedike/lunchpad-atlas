@@ -683,18 +683,34 @@ export default function ResourcesPage() {
         )}
 
         {/* ── Video Modal ─────────────────────────────────────────── */}
-        <VideoModal
-          open={videoDialog.open}
-          resource={videoDialog.resource ?? null}
-          onClose={() => setVideoDialog({ open: false })}
-        />
+        {(() => {
+          const r = videoDialog.resource;
+          const prog = r ? (resourceProgress as any[])?.find((p: any) => p.resourceId === r.id) : null;
+          return (
+            <VideoModal
+              open={videoDialog.open}
+              resource={r ?? null}
+              savedProgress={prog?.watchPercentage ?? 0}
+              alreadyCompleted={prog?.state === "COMPLETED"}
+              onClose={() => setVideoDialog({ open: false })}
+            />
+          );
+        })()}
 
         {/* ── Article Modal ────────────────────────────────────────── */}
-        <ArticleModal
-          open={articleDialog.open}
-          resource={articleDialog.resource ?? null}
-          onClose={() => setArticleDialog({ open: false })}
-        />
+        {(() => {
+          const r = articleDialog.resource;
+          const prog = r ? (resourceProgress as any[])?.find((p: any) => p.resourceId === r.id) : null;
+          return (
+            <ArticleModal
+              open={articleDialog.open}
+              resource={r ?? null}
+              savedProgress={prog?.watchPercentage ?? 0}
+              alreadyCompleted={prog?.state === "COMPLETED"}
+              onClose={() => setArticleDialog({ open: false })}
+            />
+          );
+        })()}
 
         {/* ── Admin Unlock Dialog ────────────────────────────────── */}
         <Dialog open={unlockDialog.open} onOpenChange={(open) => setUnlockDialog({ open })}>
