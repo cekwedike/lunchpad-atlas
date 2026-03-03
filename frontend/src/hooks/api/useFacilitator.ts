@@ -19,6 +19,7 @@ export interface FellowEngagement {
   name: string;
   email: string;
   progress: number;
+  monthlyProgress: number | null;
   lastActive: Date;
   resourcesCompleted: number;
   totalPoints: number;

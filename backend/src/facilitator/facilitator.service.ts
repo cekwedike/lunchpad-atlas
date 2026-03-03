@@ -96,66 +96,111 @@ export class FacilitatorService {
       orderBy: { lastName: 'asc' },
     });
 
+    const fellowIds = fellows.map((f) => f.id);
+
     const totalResources = await this.prisma.resource.count({
       where: { session: { cohortId } },
     });
 
+    // Monthly resource IDs — resources from sessions scheduled this calendar month
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const monthlyResourceIds = await this.prisma.resource
+      .findMany({
+        where: { session: { cohortId, scheduledDate: { gte: monthStart, lte: monthEnd } } },
+        select: { id: true },
+      })
+      .then((r) => r.map((x) => x.id));
+
     const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
 
-    const fellowData = await Promise.all(
-      fellows.map(async (fellow) => {
-        const [resourcesCompleted, pointsAgg, discussionCount, quizAvgAgg] =
-          await Promise.all([
-            this.prisma.resourceProgress.count({
-              where: { userId: fellow.id, state: 'COMPLETED' },
-            }),
-            this.prisma.pointsLog.aggregate({
-              where: { userId: fellow.id },
-              _sum: { points: true },
-            }),
-            this.prisma.discussion.count({
-              where: { userId: fellow.id, cohortId },
-            }),
-            this.prisma.quizResponse.aggregate({
-              where: { userId: fellow.id },
-              _avg: { score: true },
-            }),
-          ]);
+    // Batch queries to avoid N+1 — one query per metric for all fellows at once
+    const [completionCounts, monthlyCompletionCounts, pointsSums, discussionCounts, quizAvgs] =
+      await Promise.all([
+        this.prisma.resourceProgress.groupBy({
+          by: ['userId'],
+          where: { userId: { in: fellowIds }, state: 'COMPLETED' },
+          _count: { id: true },
+        }),
+        monthlyResourceIds.length > 0
+          ? this.prisma.resourceProgress.groupBy({
+              by: ['userId'],
+              where: {
+                userId: { in: fellowIds },
+                resourceId: { in: monthlyResourceIds },
+                state: 'COMPLETED',
+              },
+              _count: { id: true },
+            })
+          : Promise.resolve([]),
+        this.prisma.pointsLog.groupBy({
+          by: ['userId'],
+          where: { userId: { in: fellowIds } },
+          _sum: { points: true },
+        }),
+        this.prisma.discussion.groupBy({
+          by: ['userId'],
+          where: { userId: { in: fellowIds }, cohortId },
+          _count: { id: true },
+        }),
+        this.prisma.quizResponse.groupBy({
+          by: ['userId'],
+          where: { userId: { in: fellowIds } },
+          _avg: { score: true },
+        }),
+      ]);
 
-        const totalPoints = pointsAgg._sum.points ?? 0;
-        const quizAvg = Math.round(quizAvgAgg._avg.score ?? 0);
-        const progress =
-          totalResources > 0
-            ? Math.round((resourcesCompleted / totalResources) * 100)
-            : 0;
+    const completionMap = new Map(completionCounts.map((c) => [c.userId, c._count.id]));
+    const monthlyCompletionMap = new Map(monthlyCompletionCounts.map((c) => [c.userId, c._count.id]));
+    const pointsMap = new Map(pointsSums.map((p) => [p.userId, p._sum.points ?? 0]));
+    const discussionMap = new Map(discussionCounts.map((d) => [d.userId, d._count.id]));
+    const quizMap = new Map(quizAvgs.map((q) => [q.userId, Math.round(q._avg.score ?? 0)]));
 
-        const lastActive = fellow.lastLoginAt ?? fellow.createdAt;
-        const isInactive = lastActive < fiveDaysAgo;
-        const needsAttention = isInactive || progress < 50;
-        const attentionReason = isInactive
-          ? 'No activity in 5 days'
-          : progress < 50
-          ? 'Below 50% progress'
-          : undefined;
+    return fellows.map((fellow) => {
+      const resourcesCompleted = completionMap.get(fellow.id) ?? 0;
+      const totalPoints = pointsMap.get(fellow.id) ?? 0;
+      const discussionCount = discussionMap.get(fellow.id) ?? 0;
+      const quizAvg = quizMap.get(fellow.id) ?? 0;
 
-        return {
-          userId: fellow.id,
-          name: `${fellow.firstName} ${fellow.lastName}`.trim(),
-          email: fellow.email,
-          progress,
-          lastActive,
-          resourcesCompleted,
-          totalPoints,
-          currentStreak: 0,
-          discussionCount,
-          quizAvg,
-          needsAttention,
-          attentionReason,
-        };
-      }),
-    );
+      const progress =
+        totalResources > 0
+          ? Math.round((resourcesCompleted / totalResources) * 100)
+          : 0;
 
-    return fellowData;
+      const monthlyCompleted = monthlyCompletionMap.get(fellow.id) ?? 0;
+      const monthlyProgress =
+        monthlyResourceIds.length > 0
+          ? Math.round((monthlyCompleted / monthlyResourceIds.length) * 100)
+          : null; // null = no sessions scheduled this month yet
+
+      const lastActive = fellow.lastLoginAt ?? fellow.createdAt;
+      const isInactive = lastActive < fiveDaysAgo;
+      const isBehindSchedule = monthlyProgress !== null && monthlyProgress < 50;
+      const needsAttention = isInactive || isBehindSchedule;
+      const attentionReason = isInactive
+        ? 'No activity in 5 days'
+        : isBehindSchedule
+        ? `Behind on this month's resources (${monthlyProgress}% done)`
+        : undefined;
+
+      return {
+        userId: fellow.id,
+        name: `${fellow.firstName} ${fellow.lastName}`.trim(),
+        email: fellow.email,
+        progress,
+        monthlyProgress,
+        lastActive,
+        resourcesCompleted,
+        totalPoints,
+        currentStreak: 0,
+        discussionCount,
+        quizAvg,
+        needsAttention,
+        attentionReason,
+      };
+    });
   }
 
   async getResourceCompletions(cohortId: string, requesterId: string) {

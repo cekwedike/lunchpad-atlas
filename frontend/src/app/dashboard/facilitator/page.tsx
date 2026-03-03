@@ -3,18 +3,28 @@
 import {
   RefreshCw, Users, MessageSquare, TrendingUp, Clock, AlertCircle, CheckCircle,
   Calendar, BarChart3, Target, Award, UserCheck, Bell, ChevronRight,
-  BookOpen, ClipboardList
+  BookOpen, ClipboardList, Send, Loader2
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useCohortStats, useFellowEngagement } from "@/hooks/api/useFacilitator";
 import { useSessions } from "@/hooks/api/useAdmin";
+import { useOpenDM, useSendMessage } from "@/hooks/api/useChat";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 function formatRelativeTime(date: Date | string): string {
   const d = new Date(date);
@@ -31,6 +41,12 @@ function formatRelativeTime(date: Date | string): string {
 
 export default function FacilitatorDashboard() {
   const queryClient = useQueryClient();
+  const openDM = useOpenDM();
+  const sendMessage = useSendMessage();
+  const [msgDialog, setMsgDialog] = useState<{ open: boolean; fellow: any; message: string }>({
+    open: false, fellow: null, message: "",
+  });
+
   const { data: profile, isLoading: profileLoading } = useProfile();
 
   // Facilitators are linked to cohorts via facilitatedCohorts (many-to-many)
@@ -69,6 +85,26 @@ export default function FacilitatorDashboard() {
     queryClient.invalidateQueries({ queryKey: ["sessions", cohortId] });
     queryClient.invalidateQueries({ queryKey: ["profile"] });
   };
+
+  function buildTemplate(fellow: any): string {
+    if (fellow.attentionReason?.startsWith("No activity")) {
+      return `Hi ${fellow.name},\n\nI noticed you haven't been active on LaunchPad recently. Just checking in — if there's anything I can help with or any questions you have, feel free to reach out!\n\nLooking forward to seeing you back.`;
+    }
+    const pct = fellow.monthlyProgress ?? fellow.progress;
+    return `Hi ${fellow.name},\n\nI wanted to check in on your progress this month. You're currently at ${pct}% of this month's resources — keep going, you're making progress! Feel free to reach out if you have any questions or need support.`;
+  }
+
+  async function handleSendMessage() {
+    if (!msgDialog.fellow || !msgDialog.message.trim()) return;
+    try {
+      const channel = await openDM.mutateAsync(msgDialog.fellow.userId);
+      await sendMessage.mutateAsync({ channelId: channel.id, content: msgDialog.message.trim() });
+      toast.success(`Message sent to ${msgDialog.fellow.name}`);
+      setMsgDialog({ open: false, fellow: null, message: "" });
+    } catch {
+      toast.error("Failed to send message");
+    }
+  }
 
   const cohortName = activeCohort?.name ?? "No cohort assigned";
 
@@ -254,9 +290,9 @@ export default function FacilitatorDashboard() {
                   <p className="text-sm">All fellows are on track!</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {attentionFellows.slice(0, 5).map((fellow) => {
-                    const isHighSeverity = fellow.attentionReason?.includes("No activity");
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                  {attentionFellows.map((fellow) => {
+                    const isHighSeverity = fellow.attentionReason?.startsWith("No activity");
                     return (
                       <div
                         key={fellow.userId}
@@ -267,19 +303,22 @@ export default function FacilitatorDashboard() {
                         } transition-all`}
                       >
                         <AlertCircle
-                          className={`h-5 w-5 mt-0.5 ${
+                          className={`h-5 w-5 mt-0.5 shrink-0 ${
                             isHighSeverity ? "text-red-600" : "text-yellow-600"
                           }`}
                         />
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900">{fellow.name}</p>
                           <p className="text-xs text-gray-600">{fellow.attentionReason}</p>
-                          <Link href="/dashboard/facilitator/cohorts">
-                            <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs">
-                              View Fellow
-                              <ChevronRight className="h-3 w-3 ml-1" />
-                            </Button>
-                          </Link>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-2 h-7 text-xs gap-1 pl-0"
+                            onClick={() => setMsgDialog({ open: true, fellow, message: buildTemplate(fellow) })}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            Message Fellow
+                          </Button>
                         </div>
                       </div>
                     );
@@ -376,6 +415,50 @@ export default function FacilitatorDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Message Fellow Dialog */}
+      <Dialog open={msgDialog.open} onOpenChange={(v) => { if (!v) setMsgDialog((s) => ({ ...s, open: false })); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Message {msgDialog.fellow?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {msgDialog.fellow?.attentionReason && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                Reason: {msgDialog.fellow.attentionReason}
+              </p>
+            )}
+            <Textarea
+              value={msgDialog.message}
+              onChange={(e) => setMsgDialog((s) => ({ ...s, message: e.target.value }))}
+              rows={8}
+              className="resize-none text-sm"
+              placeholder="Write your message..."
+            />
+            <p className="text-xs text-gray-400">You can edit the template before sending.</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setMsgDialog((s) => ({ ...s, open: false }))}
+              disabled={openDM.isPending || sendMessage.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleSendMessage()}
+              disabled={openDM.isPending || sendMessage.isPending || !msgDialog.message.trim()}
+              className="gap-2"
+            >
+              {(openDM.isPending || sendMessage.isPending) && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+              <Send className="h-3.5 w-3.5" />
+              Send Message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
