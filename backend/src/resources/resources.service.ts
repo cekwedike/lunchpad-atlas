@@ -302,16 +302,6 @@ export class ResourcesService {
         );
       }
 
-      // For all types: check if minimum time threshold is met
-      // minimumThresholdMet is calculated by engagement tracking endpoint
-      // based on timeSpent >= 70% of estimatedMinutes
-      if (!existingProgress.minimumThresholdMet) {
-        const requiredMinutes = Math.ceil(resource.estimatedMinutes * 0.7);
-        validationErrors.push(
-          `Must spend at least ${requiredMinutes} minutes (70% of ${resource.estimatedMinutes} min estimated time)`,
-        );
-      }
-
       // If validation fails, throw error with specific feedback
       if (validationErrors.length > 0) {
         throw new ForbiddenException({
@@ -531,12 +521,11 @@ export class ResourcesService {
       message: 'Engagement tracked successfully',
       progress: updatedProgress,
       canComplete:
-        updatedProgress.minimumThresholdMet &&
-        (resource.type === 'ARTICLE'
+        resource.type === 'ARTICLE'
           ? updatedProgress.scrollDepth >= 80
           : resource.type === 'VIDEO'
             ? updatedProgress.watchPercentage >= 85
-            : true),
+            : true,
     };
   }
 
