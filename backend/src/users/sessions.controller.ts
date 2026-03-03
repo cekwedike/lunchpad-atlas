@@ -14,8 +14,11 @@ export class SessionsController {
       where: { cohortId },
       orderBy: { sessionNumber: 'asc' },
       include: {
-        _count: {
-          select: { resources: true },
+        _count: { select: { resources: true } },
+        quizSessions: {
+          include: {
+            quiz: { select: { id: true, title: true, openAt: true, closeAt: true } },
+          },
         },
       },
     });

@@ -17,6 +17,7 @@ import {
   Trash2,
   RotateCcw,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -654,6 +655,7 @@ function SessionRow({ session, onAttendance }: { session: any; onAttendance: (id
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>({});
   const [isExpanded, setIsExpanded] = useState(false);
+  const [cascadeNotice, setCascadeNotice] = useState<Array<{ id: string; title: string; openAt: string | null; closeAt: string | null }> | null>(null);
   const updateSession = useUpdateSession();
 
   const now = new Date();
@@ -672,6 +674,10 @@ function SessionRow({ session, onAttendance }: { session: any; onAttendance: (id
   };
 
   const handleSave = async () => {
+    const origScheduled = session.scheduledDate ? format(new Date(session.scheduledDate), "yyyy-MM-dd") : "";
+    const origUnlock = session.unlockDate ? format(new Date(session.unlockDate), "yyyy-MM-dd") : "";
+    const datesChanged = editData.scheduledDate !== origScheduled || editData.unlockDate !== origUnlock;
+
     await updateSession.mutateAsync({
       sessionId: session.id,
       data: {
@@ -681,6 +687,17 @@ function SessionRow({ session, onAttendance }: { session: any; onAttendance: (id
       },
     });
     setIsEditing(false);
+
+    if (datesChanged) {
+      const quizzesWithDates = (session.quizSessions ?? [])
+        .map((qs: any) => qs.quiz)
+        .filter((q: any) => q.openAt || q.closeAt);
+      if (quizzesWithDates.length > 0) {
+        setCascadeNotice(quizzesWithDates);
+      } else {
+        toast.success("Session updated. Resources will use the new unlock date automatically.");
+      }
+    }
   };
 
   return (
@@ -793,6 +810,35 @@ function SessionRow({ session, onAttendance }: { session: any; onAttendance: (id
           )}
         </div>
       </div>
+
+      {/* Cascade notice: shown after a date change when linked quizzes have their own dates */}
+      {cascadeNotice && (
+        <div className="border-t bg-amber-50 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-sm">
+                <p className="font-medium text-amber-800">
+                  Resources updated automatically. The following linked {cascadeNotice.length === 1 ? "quiz has" : "quizzes have"} custom open/close dates that may need updating:
+                </p>
+                <ul className="space-y-0.5 text-amber-700">
+                  {cascadeNotice.map((q) => (
+                    <li key={q.id} className="text-xs">
+                      <span className="font-medium">{q.title}</span>
+                      {q.openAt && <span> · opens {format(new Date(q.openAt), "MMM d, yyyy")}</span>}
+                      {q.closeAt && <span> · closes {format(new Date(q.closeAt), "MMM d, yyyy")}</span>}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-amber-600">Go to Quizzes to update their open/close dates.</p>
+              </div>
+            </div>
+            <button onClick={() => setCascadeNotice(null)} className="text-amber-500 hover:text-amber-700 shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Expandable: AI Review */}
       {isExpanded && !isEditing && (
