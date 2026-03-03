@@ -11,7 +11,6 @@ import {
   Lock,
   Search,
   Calendar,
-  ExternalLink,
   BookOpen,
   Target,
   Globe,
@@ -32,6 +31,7 @@ import { useProfile } from "@/hooks/api/useProfile";
 import { useCohorts, useSessions, useAdminUsers } from "@/hooks/api/useAdmin";
 import { ResourceType, UserRole } from "@/types/api";
 import { VideoModal } from "@/components/VideoModal";
+import { ArticleModal } from "@/components/ArticleModal";
 import { format } from "date-fns";
 
 const MONTH_CONFIG = [
@@ -73,6 +73,7 @@ export default function ResourcesPage() {
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [videoDialog, setVideoDialog] = useState<{ open: boolean; resource?: any }>({ open: false });
+  const [articleDialog, setArticleDialog] = useState<{ open: boolean; resource?: any }>({ open: false });
   const [unlockDialog, setUnlockDialog] = useState<{ open: boolean; resource?: any }>({ open: false });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "article" | "video">("all");
@@ -173,7 +174,7 @@ export default function ResourcesPage() {
     if (resource.type === ResourceType.VIDEO) {
       setVideoDialog({ open: true, resource });
     } else if (resource.type === ResourceType.ARTICLE) {
-      window.open(resource.url, "_blank", "noopener,noreferrer");
+      setArticleDialog({ open: true, resource });
     }
   };
 
@@ -607,7 +608,8 @@ export default function ResourcesPage() {
                                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{resource.description}</p>
                                       )}
                                       <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                                        {resource.estimatedMinutes && (
+                                        {/* Videos show actual duration in the modal; articles show estimated read time here */}
+                                        {!isVideo && resource.estimatedMinutes && (
                                           <span className="flex items-center gap-1">
                                             <Clock className="h-3 w-3" />
                                             {resource.estimatedMinutes} min
@@ -654,7 +656,7 @@ export default function ResourcesPage() {
                                         isVideo ? (
                                           <PlayCircle className="h-5 w-5 text-gray-300 group-hover:text-rose-400 transition-colors" />
                                         ) : (
-                                          <ExternalLink className="h-4 w-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                                          <BookOpen className="h-4 w-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
                                         )
                                       )}
                                     </div>
@@ -685,6 +687,13 @@ export default function ResourcesPage() {
           open={videoDialog.open}
           resource={videoDialog.resource ?? null}
           onClose={() => setVideoDialog({ open: false })}
+        />
+
+        {/* ── Article Modal ────────────────────────────────────────── */}
+        <ArticleModal
+          open={articleDialog.open}
+          resource={articleDialog.resource ?? null}
+          onClose={() => setArticleDialog({ open: false })}
         />
 
         {/* ── Admin Unlock Dialog ────────────────────────────────── */}
