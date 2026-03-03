@@ -349,7 +349,7 @@ export class ResourcesService {
         const daysSinceUnlock = (now.getTime() - unlockDate.getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceUnlock >= 0 && daysSinceUnlock <= 3) {
           timelinessBonus = Math.floor(resource.pointValue * 0.10);
-        } else if (daysSinceUnlock <= 4) {
+        } else if (daysSinceUnlock >= 0 && daysSinceUnlock <= 4) {
           timelinessBonus = Math.floor(resource.pointValue * 0.05);
         }
       }
