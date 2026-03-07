@@ -6,7 +6,7 @@ import {
   User, Settings, FileText, MessageSquare,
   ClipboardCheck, Trophy, Edit2, Save, X, Lock, Loader2,
   Calendar, Users, Eye, EyeOff, CheckCircle2, Shield,
-  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff, Mail, MailOff,
+  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff, Mail, MailX,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -143,7 +143,7 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
             {emailNotifications ? (
               <Mail className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
             ) : (
-              <MailOff className="h-5 w-5 mt-0.5 shrink-0 text-gray-400" />
+              <MailX className="h-5 w-5 mt-0.5 shrink-0 text-gray-400" />
             )}
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900">Email notifications</p>
