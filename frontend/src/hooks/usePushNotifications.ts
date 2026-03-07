@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { env } from '@/lib/env';
 
 type PushState = 'unsupported' | 'denied' | 'granted' | 'default';
 
@@ -48,8 +47,8 @@ export function usePushNotifications() {
 
   const subscribe = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
     setSubscribeError(null);
-    if (!isSupported || !env.vapidPublicKey) {
-      const err = 'Push notifications are not configured for this app.';
+    if (!isSupported) {
+      const err = 'Push notifications are not supported in this browser.';
       setSubscribeError(err);
       return { ok: false, error: err };
     }
@@ -67,23 +66,42 @@ export function usePushNotifications() {
         return { ok: false, error: err };
       }
 
+      // Fetch the VAPID public key from the server — guarantees the key matches the backend
+      let vapidKey: string;
+      try {
+        const res = await apiClient.get<{ publicKey: string }>('/push/vapid-public-key');
+        vapidKey = (res.data.publicKey ?? '').trim();
+        if (!vapidKey) throw new Error('Server returned an empty VAPID key.');
+      } catch (e: any) {
+        const err = `Could not fetch push configuration from server: ${e?.message ?? String(e)}`;
+        setSubscribeError(err);
+        return { ok: false, error: err };
+      }
+
       // If a stale subscription exists (e.g. from a previous VAPID key), clear it first
       const existingSub = await reg.pushManager.getSubscription();
       if (existingSub) {
         try { await existingSub.unsubscribe(); } catch { /* ignore */ }
       }
 
-      // Subscribe to push — trim key to guard against copy-paste whitespace
+      // Subscribe to push using the server-provided key
       let subscription: PushSubscription;
       try {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(env.vapidPublicKey.trim()),
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
       } catch (e: any) {
         const msg = e?.message ?? String(e);
         console.error('pushManager.subscribe failed:', msg);
-        const err = `Browser push subscription failed: ${msg}`;
+        const isPushServiceError =
+          msg.includes('push service error') ||
+          msg.includes('Registration failed') ||
+          msg.includes('AbortError');
+        const hint = isPushServiceError
+          ? ' This is often caused by a VPN, firewall, ad-blocker, or browser extension blocking the push service. Try disabling extensions or switching networks.'
+          : '';
+        const err = `Browser push subscription failed: ${msg}${hint}`;
         setSubscribeError(err);
         return { ok: false, error: err };
       }
@@ -127,9 +145,15 @@ export function usePushNotifications() {
         return true;
       }
 
-      await apiClient.delete(
-        `/push/unsubscribe?endpoint=${encodeURIComponent(sub.endpoint)}`,
-      );
+      // Notify server — ignore errors (subscription may not exist server-side)
+      try {
+        await apiClient.delete(
+          `/push/unsubscribe?endpoint=${encodeURIComponent(sub.endpoint)}`,
+        );
+      } catch (apiErr) {
+        console.warn('Push unsubscribe server call failed (continuing):', apiErr);
+      }
+      // Always unsubscribe from the browser regardless of server response
       await sub.unsubscribe();
       setIsSubscribed(false);
       return true;
