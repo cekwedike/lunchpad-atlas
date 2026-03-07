@@ -6,7 +6,7 @@ import {
   User, Settings, FileText, MessageSquare,
   ClipboardCheck, Trophy, Edit2, Save, X, Lock, Loader2,
   Calendar, Users, Eye, EyeOff, CheckCircle2, Shield,
-  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff,
+  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff, Mail, MailOff,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -80,9 +80,10 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
 }
 
 // ─── Notification Preferences ─────────────────────────────────────────────────
-function NotificationPreferencesSection() {
+function NotificationPreferencesSection({ emailNotifications }: { emailNotifications: boolean }) {
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
   const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribe, unsubscribe } = usePushNotifications();
+  const updateProfile = useUpdateProfile();
 
   const pushDenied = pushState === 'denied';
   const pushUnsupported = !isSupported;
@@ -93,6 +94,10 @@ function NotificationPreferencesSection() {
     } else {
       await unsubscribe();
     }
+  };
+
+  const handleEmailToggle = (checked: boolean) => {
+    updateProfile.mutate({ emailNotifications: checked } as any);
   };
 
   return (
@@ -129,6 +134,27 @@ function NotificationPreferencesSection() {
             onCheckedChange={handlePushToggle}
             disabled={pushUnsupported || pushDenied || pushLoading}
             aria-label="Push notifications"
+          />
+        </div>
+
+        {/* Email notifications row */}
+        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {emailNotifications ? (
+              <Mail className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
+            ) : (
+              <MailOff className="h-5 w-5 mt-0.5 shrink-0 text-gray-400" />
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Email notifications</p>
+              <p className="text-xs text-gray-500 mt-0.5">Receive email alerts for important events like new resources and session reminders.</p>
+            </div>
+          </div>
+          <Switch
+            checked={emailNotifications}
+            onCheckedChange={handleEmailToggle}
+            disabled={updateProfile.isPending}
+            aria-label="Email notifications"
           />
         </div>
 
@@ -471,7 +497,7 @@ function ProfilePageInner() {
             {/* ── SETTINGS ──────────────────────────────────────────────── */}
             {activeTab === "settings" && (
               <div className="space-y-8">
-                <NotificationPreferencesSection />
+                <NotificationPreferencesSection emailNotifications={(profile as any).emailNotifications !== false} />
                 <div className="border-t border-gray-100 pt-6">
                   <ChangePasswordSection />
                 </div>

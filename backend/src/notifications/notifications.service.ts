@@ -145,10 +145,11 @@ export class NotificationsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: dto.userId },
-      select: { email: true, firstName: true },
+      select: { email: true, firstName: true, emailNotifications: true },
     });
 
     if (!user?.email) return;
+    if (user.emailNotifications === false) return;
 
     const actionUrl = this.buildActionUrl(dto.data);
 
@@ -173,7 +174,7 @@ export class NotificationsService {
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, email: true, firstName: true },
+      select: { id: true, email: true, firstName: true, emailNotifications: true },
     });
 
     const userMap = new Map(users.map((user) => [user.id, user]));
@@ -182,6 +183,7 @@ export class NotificationsService {
       notifications.map((notification) => {
         const user = userMap.get(notification.userId);
         if (!user?.email) return Promise.resolve();
+        if (user.emailNotifications === false) return Promise.resolve();
 
         const actionUrl = this.buildActionUrl(notification.data);
 

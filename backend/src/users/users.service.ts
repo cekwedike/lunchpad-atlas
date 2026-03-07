@@ -26,6 +26,7 @@ export class UsersService {
         role: true,
         cohortId: true,
         createdAt: true,
+        emailNotifications: true,
         cohort: {
           select: { id: true, name: true },
         },
@@ -54,6 +55,9 @@ export class UsersService {
       updateData.firstName = parts[0] || dto.name;
       updateData.lastName = parts.slice(1).join(' ') || '';
     }
+    if (dto.emailNotifications !== undefined) {
+      updateData.emailNotifications = dto.emailNotifications;
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -64,6 +68,7 @@ export class UsersService {
         firstName: true,
         lastName: true,
         role: true,
+        emailNotifications: true,
       },
     });
 
