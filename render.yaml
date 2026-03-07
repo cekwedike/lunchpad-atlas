@@ -28,13 +28,21 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: "gemini-2.5-flash"
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        value: "true"
       - key: EMAIL_HOST
         value: "smtp.gmail.com"
       - key: EMAIL_PORT
         value: "587"
       - key: EMAIL_USER
-        sync: false
+        sync: false  # Your Gmail address (requires App Password, not regular password)
       - key: EMAIL_PASSWORD
-        sync: false
+        sync: false  # Gmail App Password (myaccount.google.com/apppasswords)
       - key: EMAIL_FROM
         value: "ATLAS Platform <noreply@atlas.com>"
+      - key: VAPID_PUBLIC_KEY
+        sync: false  # Generate with: npx web-push generate-vapid-keys
+      - key: VAPID_PRIVATE_KEY
+        sync: false  # Same command as above
+      - key: VAPID_SUBJECT
+        value: "mailto:admin@thrivehubafrica.com"

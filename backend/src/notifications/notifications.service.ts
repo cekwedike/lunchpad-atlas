@@ -106,6 +106,10 @@ export class NotificationsService {
       console.error('Failed to send bulk notification emails:', error);
     });
 
+    this.sendBulkPushNotifications(notifications).catch((error) => {
+      console.error('Failed to send bulk push notifications:', error);
+    });
+
     return result;
   }
 
@@ -189,6 +193,18 @@ export class NotificationsService {
           actionText: actionUrl ? 'View details' : undefined,
         });
       }),
+    );
+  }
+
+  private async sendBulkPushNotifications(notifications: CreateNotificationDto[]) {
+    await Promise.allSettled(
+      notifications.map((n) =>
+        this.pushService.sendPushToUser(n.userId, {
+          title: n.title,
+          body: n.message,
+          data: n.data,
+        }),
+      ),
     );
   }
 
