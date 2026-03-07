@@ -181,7 +181,12 @@ self.addEventListener('push', (event) => {
         requireInteraction: false,
       };
 
-      return self.registration.showNotification(data.title, options);
+      await self.registration.showNotification(data.title, options);
+
+      // Update app icon badge when a push arrives
+      if ('setAppBadge' in navigator) {
+        navigator.setAppBadge().catch(() => {});
+      }
     })(),
   );
 });
@@ -190,6 +195,11 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Clear the app icon badge when the user interacts with a notification
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
 
   const notifData = event.notification.data ?? {};
   let targetUrl = '/dashboard';

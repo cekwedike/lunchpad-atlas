@@ -73,6 +73,7 @@ export class PushService implements OnModuleInit {
     });
 
     const stale: string[] = [];
+    let sent = 0;
 
     await Promise.allSettled(
       subscriptions.map(async (sub) => {
@@ -81,18 +82,29 @@ export class PushService implements OnModuleInit {
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             pushPayload,
           );
+          sent++;
         } catch (err: any) {
-          if (err.statusCode === 410 || err.statusCode === 404) {
+          const status: number = err.statusCode ?? err.status ?? 0;
+          if (status === 410 || status === 404) {
             // Subscription expired or unregistered — clean it up
             stale.push(sub.endpoint);
+          } else if (status === 401 || status === 403) {
+            // VAPID key mismatch — subscription is invalid for our key set
+            this.logger.warn(`Push VAPID error for user ${userId} (status ${status}): ${err.message}. Removing stale subscription.`);
+            stale.push(sub.endpoint);
           } else {
-            this.logger.warn(`Push failed for user ${userId}: ${err.message}`);
+            this.logger.warn(`Push failed for user ${userId} (status ${status}): ${err.message}`);
           }
         }
       }),
     );
 
+    if (sent > 0) {
+      this.logger.log(`Push sent to user ${userId}: ${sent}/${subscriptions.length} subscription(s) delivered`);
+    }
+
     if (stale.length > 0) {
+      this.logger.log(`Cleaning up ${stale.length} stale push subscription(s) for user ${userId}`);
       await this.prisma.pushSubscription.deleteMany({
         where: { endpoint: { in: stale } },
       });
