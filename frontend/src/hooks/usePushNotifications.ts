@@ -82,26 +82,32 @@ export function usePushNotifications() {
     }
   }, [isSupported]);
 
-  const unsubscribe = useCallback(async (): Promise<void> => {
-    if (!isSupported) return;
+  const unsubscribe = useCallback(async (): Promise<boolean> => {
+    if (!isSupported) return false;
 
     setIsLoading(true);
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
-      if (!sub) return;
+      if (!sub) {
+        // No active subscription — correct local state and exit cleanly
+        setIsSubscribed(false);
+        return true;
+      }
 
       await apiClient.delete(
         `/push/unsubscribe?endpoint=${encodeURIComponent(sub.endpoint)}`,
       );
       await sub.unsubscribe();
       setIsSubscribed(false);
+      return true;
     } catch (err) {
       console.error('Push unsubscribe failed:', err);
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, [isSupported]);
 
-  return { state, isSubscribed, isLoading, isSupported, subscribe, unsubscribe };
+  return { state, isSubscribed, isLoading, isSupported, subscribe, unsubscribe } as const;
 }

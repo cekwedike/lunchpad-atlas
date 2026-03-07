@@ -24,6 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -96,9 +97,19 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
 
   const handlePushToggle = async (checked: boolean) => {
     if (checked) {
-      await subscribe();
+      const ok = await subscribe();
+      if (ok) {
+        toast.success('Push notifications enabled.');
+      } else {
+        toast.error('Could not enable push notifications. Check your browser settings.');
+      }
     } else {
-      await unsubscribe();
+      const ok = await unsubscribe();
+      if (ok) {
+        toast.success('Push notifications disabled.');
+      } else {
+        toast.error('Could not disable push notifications. Try again.');
+      }
     }
   };
 
@@ -130,9 +141,9 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
                 {!env.vapidPublicKey
                   ? 'Not configured — contact your administrator.'
                   : pushUnsupported
-                  ? 'Not supported in this browser.'
+                  ? 'Not supported in this browser or blocked by a browser extension (e.g. Malwarebytes). Whitelist this site to enable.'
                   : pushDenied
-                  ? 'Blocked by browser. Allow notifications in site settings.'
+                  ? 'Blocked by browser. Tap the lock icon in the address bar and allow notifications.'
                   : 'Receive notifications even when the app is in the background.'}
               </p>
             </div>

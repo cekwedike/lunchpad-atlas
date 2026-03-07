@@ -58,8 +58,11 @@ export function Navbar() {
           </Button>
           <Link href="/dashboard/fellow" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-atlas-navy">
-              {/* Only show trophy in logo for fellows */}
-              {showTrophy ? <Trophy className="h-5 w-5 text-white" /> : null}
+              {showTrophy ? (
+                <Trophy className="h-5 w-5 text-white" />
+              ) : (
+                <span className="text-white font-bold text-sm leading-none">A</span>
+              )}
             </div>
             <span className="hidden text-xl font-bold text-atlas-navy sm:block">
               ATLAS
