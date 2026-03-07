@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { playNotificationTone } from '@/lib/notification-tone';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import {
   Bell,
   BookOpen,
@@ -113,15 +115,22 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
   const markAsReadMutation = useMarkAsRead();
   const markAllAsReadMutation = useMarkAllAsRead();
   const deleteNotificationMutation = useDeleteNotification();
+  const { sound, vibration } = useNotificationPreferences();
 
   const isAdmin = userRole === 'ADMIN';
+
+  const handleIncomingNotification = useCallback(() => {
+    refetch();
+    if (sound) playNotificationTone();
+    if (vibration && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([80, 40, 80]);
+    }
+  }, [refetch, sound, vibration]);
 
   // WebSocket integration
   useNotificationsSocket({
     userId,
-    onNotification: (notification) => {
-      refetch();
-    },
+    onNotification: handleIncomingNotification,
     onUnreadCountUpdate: () => {
       refetch();
     },

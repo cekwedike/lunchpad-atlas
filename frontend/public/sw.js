@@ -149,16 +149,36 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const options = {
-    body: data.body,
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
-    data: data.data ?? {},
-    vibrate: [100, 50, 100],
-    requireInteraction: false,
-  };
+  event.waitUntil(
+    (async () => {
+      // Read user notification preferences written by the page
+      let silent = false;
+      let vibrate = [100, 50, 100];
+      try {
+        const cache = await caches.open('atlas-prefs-v1');
+        const resp = await cache.match('notification-prefs');
+        if (resp) {
+          const prefs = await resp.json();
+          silent = prefs.sound === false;
+          vibrate = prefs.vibration === false ? [] : [100, 50, 100];
+        }
+      } catch {
+        // Prefs unavailable — use defaults
+      }
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+      const options = {
+        body: data.body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-192x192.png',
+        data: data.data ?? {},
+        vibrate,
+        silent,
+        requireInteraction: false,
+      };
+
+      return self.registration.showNotification(data.title, options);
+    })(),
+  );
 });
 
 // ─── Notification Click ───────────────────────────────────────────────────────
