@@ -215,10 +215,10 @@ function DiscussionsContent() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-4rem)] bg-gray-50">
-        <div className="grid grid-cols-1 lg:grid-cols-5 h-full gap-4 p-6">
+      <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 p-2 sm:p-4 lg:p-6">
           {/* LEFT: Discussions Panel (60%) */}
-          <div className="lg:col-span-3 flex flex-col space-y-4 overflow-hidden">
+          <div className="lg:col-span-3 flex flex-col space-y-4">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 flex-shrink-0">
               <div>
@@ -353,8 +353,8 @@ function DiscussionsContent() {
             </div>
 
             {/* Discussions List */}
-            <ScrollArea className="flex-1">
-              <div className="space-y-4 pr-4">
+            <div>
+              <div className="space-y-4">
                 {filteredDiscussions.length === 0 ? (
                   <Card className="bg-white border-gray-200 shadow-sm">
                     <CardContent className="py-12">
@@ -471,7 +471,7 @@ function DiscussionsContent() {
                   })
                 )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
 
           {/* RIGHT: Chat Panel (40%) */}

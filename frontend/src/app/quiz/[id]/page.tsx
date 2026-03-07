@@ -107,10 +107,10 @@ export default function QuizPage() {
     return (
       <DashboardLayout>
         <div className="space-y-6">
-          <Card className="p-8 animate-pulse">
+          <Card className="p-4 sm:p-8 animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-6"></div>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-3 gap-3 sm:gap-6">
               <div className="h-24 bg-gray-200 rounded"></div>
               <div className="h-24 bg-gray-200 rounded"></div>
               <div className="h-24 bg-gray-200 rounded"></div>
@@ -181,7 +181,7 @@ export default function QuizPage() {
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto">
-          <Card className="p-8 text-center">
+          <Card className="p-4 sm:p-8 text-center">
             <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${
               passed ? "bg-green-100" : "bg-red-100"
             }`}>
@@ -192,7 +192,7 @@ export default function QuizPage() {
               )}
             </div>
 
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               {passed ? "Congratulations!" : "Keep Learning!"}
             </h1>
             <p className="text-lg text-gray-600 mb-8">
@@ -201,7 +201,7 @@ export default function QuizPage() {
                 : "You didn't pass this time, but you can try again."}
             </p>
 
-            <div className="grid grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 mb-8">
               <div className="p-6 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-2">Your Score</p>
                 <p className={`text-4xl font-bold ${passed ? "text-green-600" : "text-red-600"}`}>
@@ -419,11 +419,11 @@ export default function QuizPage() {
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto">
-          <Card className="p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">{quiz.title}</h1>
+          <Card className="p-4 sm:p-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">{quiz.title}</h1>
             <p className="text-lg text-gray-600 mb-6">{quiz.description}</p>
 
-            <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-8">
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <Clock className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Time Limit</p>
@@ -542,8 +542,8 @@ export default function QuizPage() {
         </div>
 
         {/* Question */}
-        <Card className="p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">{currentQ.question || currentQ.questionText}</h2>
+        <Card className="p-4 sm:p-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">{currentQ.question || currentQ.questionText}</h2>
           
           <div className="space-y-3">
             {(Array.isArray(currentQ.options) ? currentQ.options : []).map((option: string, index: number) => (

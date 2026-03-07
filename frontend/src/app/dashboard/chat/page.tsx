@@ -167,7 +167,7 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-4rem)] bg-gray-50 p-6">
+      <div className="h-[calc(100vh-4rem)] bg-gray-50 p-2 sm:p-4 lg:p-6">
         <div className="max-w-4xl mx-auto h-full flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">

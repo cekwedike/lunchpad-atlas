@@ -180,10 +180,10 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container max-w-4xl mx-auto p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">All Notifications</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">All Notifications</h1>
           {notifications.length > 0 && (
             <p className="text-sm text-muted-foreground mt-1">
               {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
