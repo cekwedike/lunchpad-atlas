@@ -408,7 +408,7 @@ export function TourGuide() {
             <div className="absolute inset-0 bg-black/10" />
             <div className="relative flex flex-col items-center gap-2">
               <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
-                <Icon className="h-7 w-7 text-white" strokeWidth={1.8} />
+                <Icon className="h-7 w-7 text-white" />
               </div>
             </div>
             {/* Close button */}
