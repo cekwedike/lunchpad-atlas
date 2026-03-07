@@ -26,7 +26,7 @@ export function Navbar() {
   const showTrophy = isAuthenticated && user && user.role === 'FELLOW';
   // Get leaderboard score for fellow
   const { data: leaderboardRank } = useLeaderboardRank(user?.cohortId ?? undefined);
-  const { toggleSidebar, setTourOpen } = useUIStore();
+  const { toggleSidebar, startTour } = useUIStore();
   const { logout } = useAuth();
 
   const handleLogout = async () => {
@@ -118,7 +118,7 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setTourOpen(true)}
+                  onClick={() => startTour()}
                   className="cursor-pointer"
                 >
                   <Compass className="mr-2 h-4 w-4" />

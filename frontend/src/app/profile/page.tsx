@@ -291,7 +291,7 @@ function ChangePasswordSection() {
 
 // ─── Platform Tour card ───────────────────────────────────────────────────────
 function PlatformTourCard() {
-  const { setTourOpen } = useUIStore();
+  const { startTour } = useUIStore();
   return (
     <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start justify-between gap-4">
       <div className="flex items-start gap-3 min-w-0">
@@ -305,7 +305,7 @@ function PlatformTourCard() {
       </div>
       <Button
         size="sm"
-        onClick={() => setTourOpen(true)}
+        onClick={() => startTour()}
         className="shrink-0 bg-blue-950 hover:bg-blue-900 text-white"
       >
         Start Tour

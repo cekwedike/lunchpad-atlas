@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { IsString, IsEnum, IsOptional } from 'class-validator';
 import { FeedbackService } from './feedback.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -18,13 +19,22 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole, FeedbackType, FeedbackStatus } from '@prisma/client';
 
 class CreateFeedbackBody {
+  @IsEnum(FeedbackType)
   type: FeedbackType;
+
+  @IsString()
   subject: string;
+
+  @IsString()
   message: string;
 }
 
 class RespondFeedbackBody {
+  @IsEnum(FeedbackStatus)
   status: FeedbackStatus;
+
+  @IsString()
+  @IsOptional()
   adminNote?: string;
 }
 

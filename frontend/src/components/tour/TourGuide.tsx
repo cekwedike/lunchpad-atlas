@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { UserRole } from '@/types/api';
@@ -23,9 +22,12 @@ import {
   Calendar,
   BarChart3,
   GraduationCap,
-  Lock,
   Compass,
   CheckCircle,
+  User,
+  Bell,
+  QrCode,
+  Sparkles,
 } from 'lucide-react';
 
 // ─── Tour step definitions ────────────────────────────────────────────────────
@@ -36,7 +38,6 @@ interface TourStep {
   icon: React.ComponentType<{ className?: string }>;
   href?: string;
   cta?: string;
-  color: string;
   bg: string;
 }
 
@@ -46,47 +47,51 @@ const FELLOW_STEPS: TourStep[] = [
     description:
       'ATLAS is your home for the LaunchPad Fellowship. Everything you need — learning resources, quizzes, discussions, and your progress — lives here. Let us take you on a quick tour.',
     icon: Compass,
-    color: 'text-blue-700',
     bg: 'from-blue-950 via-blue-900 to-indigo-700',
   },
   {
-    title: 'Your Dashboard',
+    title: 'Dashboard',
     description:
-      'Your dashboard shows your current points, streak, recent activity, and any announcements from your facilitator. It is your starting point every day.',
+      'Your daily hub. See your current points, streak, recent activity, upcoming sessions, and announcements from your facilitator all in one place.',
     icon: LayoutDashboard,
     href: '/dashboard/fellow',
     cta: 'Go to Dashboard',
-    color: 'text-indigo-700',
     bg: 'from-indigo-700 to-blue-700',
+  },
+  {
+    title: 'My Cohort',
+    description:
+      'View your fellow cohort members, see their progress, and stay connected. Your cohort is your community — learn together and grow together.',
+    icon: Users,
+    href: '/dashboard/fellow/cohorts',
+    cta: 'View My Cohort',
+    bg: 'from-blue-700 to-cyan-700',
   },
   {
     title: 'Resources',
     description:
-      'All your learning materials are organised by session here. Watch videos, read articles, and complete exercises to earn points and unlock achievements.',
+      'All your learning materials organised by session. Watch videos, read articles, and complete exercises to earn points and unlock achievements.',
     icon: BookOpen,
     href: '/resources',
     cta: 'Browse Resources',
-    color: 'text-cyan-700',
     bg: 'from-cyan-700 to-blue-700',
   },
   {
     title: 'Quizzes',
     description:
-      'Test your knowledge with standard and live quizzes. Every quiz you complete earns you points toward the leaderboard. Live quizzes happen in real time — do not miss them.',
+      'Test your knowledge with standard and live quizzes. Every completed quiz earns you points toward the leaderboard. Live quizzes run in real time — do not miss them.',
     icon: FileQuestion,
     href: '/quiz',
     cta: 'View Quizzes',
-    color: 'text-violet-700',
     bg: 'from-violet-700 to-indigo-700',
   },
   {
     title: 'Discussions',
     description:
-      'Share ideas, ask questions, and engage with your fellow fellows. Active participation earns you discussion points and keeps the community alive.',
+      'Share ideas, ask questions, and engage with your fellow fellows. Active participation earns discussion points and builds the community.',
     icon: MessageSquare,
     href: '/dashboard/discussions',
     cta: 'Join Discussions',
-    color: 'text-emerald-700',
     bg: 'from-emerald-700 to-teal-700',
   },
   {
@@ -96,38 +101,61 @@ const FELLOW_STEPS: TourStep[] = [
     icon: Trophy,
     href: '/leaderboard',
     cta: 'See Rankings',
-    color: 'text-amber-700',
     bg: 'from-amber-600 to-orange-600',
   },
   {
     title: 'Achievements',
     description:
-      'ATLAS rewards milestones. Complete resources, maintain streaks, top the leaderboard — each unlocks a unique achievement badge. Check what you have earned and what is next.',
+      'ATLAS rewards milestones. Complete resources, maintain streaks, top the leaderboard — each unlocks a unique achievement badge visible on your profile.',
     icon: Award,
     href: '/achievements',
     cta: 'View Achievements',
-    color: 'text-rose-700',
     bg: 'from-rose-600 to-pink-600',
   },
   {
     title: 'Chat',
     description:
-      'Message your facilitator or cohort members directly. Direct messages are private; group channels are visible to your cohort.',
+      'Message your facilitator or cohort members directly. Direct messages are private. Group channels are shared with your cohort.',
     icon: MessageCircle,
     href: '/dashboard/chat',
     cta: 'Open Chat',
-    color: 'text-teal-700',
     bg: 'from-teal-700 to-cyan-700',
+  },
+  {
+    title: 'Notifications',
+    description:
+      'Stay on top of everything — quiz releases, new resources, leaderboard changes, and messages from your facilitator all arrive as notifications. View your full notification history here.',
+    icon: Bell,
+    href: '/notifications',
+    cta: 'View Notifications',
+    bg: 'from-blue-600 to-indigo-600',
+  },
+  {
+    title: 'Attendance',
+    description:
+      'Check in to your sessions by scanning the QR code your facilitator displays. Your attendance is tracked automatically and contributes to your engagement record.',
+    icon: QrCode,
+    href: '/dashboard/attendance',
+    cta: 'View Attendance',
+    bg: 'from-emerald-700 to-green-700',
   },
   {
     title: 'Feedback',
     description:
-      'Have a suggestion, found a bug, or need to raise a concern? Submit feedback here and the admin team will review and respond to it.',
+      'Have a suggestion, found a bug, or need to raise a concern? Submit it here. The admin team reviews all feedback and will respond with notes.',
     icon: Inbox,
     href: '/dashboard/feedback',
     cta: 'Submit Feedback',
-    color: 'text-slate-700',
     bg: 'from-slate-700 to-slate-600',
+  },
+  {
+    title: 'Profile & Settings',
+    description:
+      'Update your name, change your password, manage notification preferences, and re-take this tour anytime — all from your profile settings.',
+    icon: User,
+    href: '/profile',
+    cta: 'Open Settings',
+    bg: 'from-blue-950 to-slate-800',
   },
 ];
 
@@ -137,38 +165,52 @@ const FACILITATOR_STEPS: TourStep[] = [
     description:
       'As a facilitator, ATLAS gives you the tools to manage your cohort, track fellow progress, deliver sessions, and keep everything running smoothly.',
     icon: Compass,
-    color: 'text-cyan-700',
     bg: 'from-blue-950 via-blue-900 to-indigo-700',
   },
   {
-    title: 'Your Dashboard',
+    title: 'Dashboard',
     description:
-      'Your dashboard surfaces cohort health at a glance — fellow engagement, upcoming sessions, and any attention-needed alerts so you always know where to focus.',
+      'Your dashboard surfaces cohort health at a glance — fellow engagement, upcoming sessions, and attention-needed alerts so you always know where to focus.',
     icon: LayoutDashboard,
     href: '/dashboard/facilitator',
     cta: 'Go to Dashboard',
-    color: 'text-indigo-700',
     bg: 'from-indigo-700 to-blue-700',
   },
   {
     title: 'Cohort Management',
     description:
-      'View all fellows in your cohort, their points and attendance, and manage their status. You can suspend a fellow\'s access if needed.',
+      'View all fellows in your cohort, their points and attendance, and manage their status. You can suspend access for a fellow if needed.',
     icon: Users,
     href: '/dashboard/facilitator/cohorts',
     cta: 'Manage Cohort',
-    color: 'text-blue-700',
     bg: 'from-blue-700 to-cyan-700',
   },
   {
     title: 'Sessions',
     description:
-      'Log attendance for each session, see who attended, and track participation rates across your cohort. Session data feeds directly into the analytics.',
+      'Log attendance for each session, see who attended, and track participation rates across your cohort. Session data feeds directly into analytics.',
     icon: Calendar,
     href: '/dashboard/facilitator/sessions',
     cta: 'View Sessions',
-    color: 'text-violet-700',
     bg: 'from-violet-700 to-indigo-700',
+  },
+  {
+    title: 'Session Analytics',
+    description:
+      'AI-powered session insights. Upload a session transcript to get an automatic summary, key takeaways, and engagement analysis — saving you hours of manual review.',
+    icon: Sparkles,
+    href: '/session-analytics',
+    cta: 'Open Analytics',
+    bg: 'from-purple-700 to-violet-700',
+  },
+  {
+    title: 'Attendance Tracking',
+    description:
+      'Generate QR codes for session check-ins. Fellows scan the code on arrival, recording their attendance instantly. View attendance reports per session and cohort.',
+    icon: QrCode,
+    href: '/dashboard/attendance',
+    cta: 'Manage Attendance',
+    bg: 'from-emerald-700 to-green-700',
   },
   {
     title: 'Resource Management',
@@ -177,7 +219,6 @@ const FACILITATOR_STEPS: TourStep[] = [
     icon: BookOpen,
     href: '/dashboard/facilitator/resources',
     cta: 'Manage Resources',
-    color: 'text-emerald-700',
     bg: 'from-emerald-700 to-teal-700',
   },
   {
@@ -187,18 +228,43 @@ const FACILITATOR_STEPS: TourStep[] = [
     icon: FileQuestion,
     href: '/dashboard/facilitator/quizzes',
     cta: 'Manage Quizzes',
-    color: 'text-amber-700',
     bg: 'from-amber-600 to-orange-600',
   },
   {
     title: 'Discussions',
     description:
-      'Participate in and moderate cohort discussions. Encourage fellows to engage and respond to questions to keep the community active.',
+      'Participate in and moderate cohort discussions. Encourage fellows to engage and stay active in the community.',
     icon: MessageSquare,
     href: '/dashboard/discussions',
     cta: 'View Discussions',
-    color: 'text-rose-700',
     bg: 'from-rose-600 to-pink-600',
+  },
+  {
+    title: 'Leaderboard',
+    description:
+      'Monitor cohort performance on the leaderboard. See who is excelling and identify fellows who may need extra encouragement.',
+    icon: Trophy,
+    href: '/leaderboard',
+    cta: 'See Rankings',
+    bg: 'from-amber-600 to-yellow-600',
+  },
+  {
+    title: 'Chat',
+    description:
+      'Message fellows directly or use group channels to broadcast announcements to your whole cohort.',
+    icon: MessageCircle,
+    href: '/dashboard/chat',
+    cta: 'Open Chat',
+    bg: 'from-teal-700 to-cyan-700',
+  },
+  {
+    title: 'Notifications',
+    description:
+      'Receive alerts for fellow activity, session reminders, and feedback responses. Your full notification history is always accessible from the notifications page.',
+    icon: Bell,
+    href: '/notifications',
+    cta: 'View Notifications',
+    bg: 'from-blue-600 to-indigo-600',
   },
   {
     title: 'Feedback',
@@ -207,8 +273,16 @@ const FACILITATOR_STEPS: TourStep[] = [
     icon: Inbox,
     href: '/dashboard/feedback',
     cta: 'Submit Feedback',
-    color: 'text-slate-700',
     bg: 'from-slate-700 to-slate-600',
+  },
+  {
+    title: 'Profile & Settings',
+    description:
+      'Manage your account, change your password, set notification preferences, and re-take this tour anytime from your profile.',
+    icon: User,
+    href: '/profile',
+    cta: 'Open Settings',
+    bg: 'from-blue-950 to-slate-800',
   },
 ];
 
@@ -216,29 +290,26 @@ const ADMIN_STEPS: TourStep[] = [
   {
     title: 'Welcome to ATLAS',
     description:
-      'As an admin, you have full control of the platform. Manage users, cohorts, content, and monitor platform health from one place.',
+      'As an admin, you have full control of the platform. Manage users, cohorts, content, and monitor platform health all from one place.',
     icon: Compass,
-    color: 'text-emerald-700',
     bg: 'from-blue-950 via-blue-900 to-indigo-700',
   },
   {
     title: 'Admin Dashboard',
     description:
-      'Your dashboard shows platform-wide metrics — active fellows, session attendance rates, and any attention-needed flags that need your action.',
+      'Platform-wide metrics at a glance — active fellows, session attendance rates, engagement health, and attention-needed flags that require your action.',
     icon: LayoutDashboard,
     href: '/dashboard/admin',
     cta: 'Go to Dashboard',
-    color: 'text-indigo-700',
     bg: 'from-indigo-700 to-blue-700',
   },
   {
     title: 'User Management',
     description:
-      'View and manage every user on the platform. Assign roles, change cohort assignments, suspend accounts, and monitor last activity.',
+      'View and manage every user. Assign roles, change cohort assignments, suspend accounts, reset passwords, and monitor last activity.',
     icon: Users,
     href: '/dashboard/admin/users',
     cta: 'Manage Users',
-    color: 'text-blue-700',
     bg: 'from-blue-700 to-cyan-700',
   },
   {
@@ -248,37 +319,33 @@ const ADMIN_STEPS: TourStep[] = [
     icon: GraduationCap,
     href: '/dashboard/admin/cohorts',
     cta: 'Manage Cohorts',
-    color: 'text-cyan-700',
     bg: 'from-cyan-700 to-teal-700',
   },
   {
     title: 'Sessions & Attendance',
     description:
-      'Track session-level attendance across all cohorts, mark sessions complete, and generate attendance reports for accountability.',
+      'Track session-level attendance across all cohorts, mark sessions complete, and review attendance records for any cohort.',
     icon: Calendar,
     href: '/dashboard/admin/sessions',
     cta: 'View Sessions',
-    color: 'text-violet-700',
     bg: 'from-violet-700 to-indigo-700',
   },
   {
     title: 'Resource Management',
     description:
-      'Add, edit, and organise all learning content on the platform. Assign resources to sessions and control access per cohort.',
+      'Add, edit, and organise all learning content. Assign resources to sessions and control availability per cohort.',
     icon: BookOpen,
     href: '/dashboard/admin/resources',
     cta: 'Manage Resources',
-    color: 'text-emerald-700',
     bg: 'from-emerald-700 to-teal-700',
   },
   {
     title: 'Quizzes',
     description:
-      'Manage all quizzes across the platform, including live quiz creation. Set point values, passing thresholds, and scheduling.',
+      'Manage all quizzes across the platform, including live quiz creation. Set point values, passing thresholds, and scheduling windows.',
     icon: FileQuestion,
     href: '/dashboard/admin/quizzes',
     cta: 'Manage Quizzes',
-    color: 'text-amber-700',
     bg: 'from-amber-600 to-orange-600',
   },
   {
@@ -288,8 +355,43 @@ const ADMIN_STEPS: TourStep[] = [
     icon: BarChart3,
     href: '/dashboard/admin/analytics',
     cta: 'View Analytics',
-    color: 'text-rose-700',
     bg: 'from-rose-600 to-pink-600',
+  },
+  {
+    title: 'Session Analytics',
+    description:
+      'AI-powered session insights. Upload session transcripts to automatically generate summaries, key takeaways, and engagement analysis across any cohort.',
+    icon: Sparkles,
+    href: '/session-analytics',
+    cta: 'Open Session Analytics',
+    bg: 'from-purple-700 to-violet-700',
+  },
+  {
+    title: 'Discussions',
+    description:
+      'View and moderate discussions across all cohorts. Keep conversations constructive and on-topic.',
+    icon: MessageSquare,
+    href: '/dashboard/discussions',
+    cta: 'View Discussions',
+    bg: 'from-emerald-700 to-green-700',
+  },
+  {
+    title: 'Leaderboard',
+    description:
+      'View rankings across cohorts. Monitor top performers and identify cohorts with low engagement.',
+    icon: Trophy,
+    href: '/leaderboard',
+    cta: 'See Rankings',
+    bg: 'from-amber-600 to-yellow-600',
+  },
+  {
+    title: 'Achievements',
+    description:
+      'Create and manage achievement definitions. Control what milestones are rewarded and what badges fellows can unlock.',
+    icon: Award,
+    href: '/dashboard/admin/achievements',
+    cta: 'Manage Achievements',
+    bg: 'from-pink-600 to-rose-600',
   },
   {
     title: 'Feedback Inbox',
@@ -298,8 +400,25 @@ const ADMIN_STEPS: TourStep[] = [
     icon: Inbox,
     href: '/dashboard/admin/feedback',
     cta: 'Open Inbox',
-    color: 'text-slate-700',
     bg: 'from-slate-700 to-slate-600',
+  },
+  {
+    title: 'Notifications',
+    description:
+      'Monitor platform notifications. Admin actions such as suspensions, quiz releases, and feedback responses generate notifications that keep all users informed.',
+    icon: Bell,
+    href: '/notifications',
+    cta: 'View Notifications',
+    bg: 'from-blue-600 to-indigo-600',
+  },
+  {
+    title: 'Profile & Settings',
+    description:
+      'Manage your admin account, update your password, and set notification preferences.',
+    icon: User,
+    href: '/profile',
+    cta: 'Open Settings',
+    bg: 'from-blue-950 to-slate-800',
   },
 ];
 
@@ -317,13 +436,12 @@ function tourStorageKey(userId: string) {
 
 export function TourGuide() {
   const { user } = useAuthStore();
-  const { tourOpen, setTourOpen } = useUIStore();
-  const router = useRouter();
-
-  const [step, setStep] = useState(0);
+  const { tourOpen, tourStep, setTourOpen, setTourStep, startTour } = useUIStore();
   const [closing, setClosing] = useState(false);
 
   const steps = getSteps(user?.role);
+  // Clamp step in case role changed or steps array shrank
+  const step = Math.min(tourStep, steps.length - 1);
   const current = steps[step];
   const Icon = current.icon;
   const isFirst = step === 0;
@@ -334,19 +452,10 @@ export function TourGuide() {
     if (!user?.id) return;
     const key = tourStorageKey(user.id);
     if (!localStorage.getItem(key)) {
-      // Slight delay so layout is fully mounted
-      const t = setTimeout(() => setTourOpen(true), 800);
+      const t = setTimeout(() => startTour(), 800);
       return () => clearTimeout(t);
     }
-  }, [user?.id, setTourOpen]);
-
-  // Reset step when opened
-  useEffect(() => {
-    if (tourOpen) {
-      setStep(0);
-      setClosing(false);
-    }
-  }, [tourOpen]);
+  }, [user?.id, startTour]);
 
   const close = () => {
     setClosing(true);
@@ -363,40 +472,29 @@ export function TourGuide() {
     if (isLast) {
       close();
     } else {
-      setStep((s) => s + 1);
+      setTourStep(step + 1);
     }
   };
 
-  const prev = () => setStep((s) => Math.max(0, s - 1));
+  const prev = () => setTourStep(Math.max(0, step - 1));
 
-  const goTo = (i: number) => setStep(i);
-
-  const handleCta = () => {
-    if (current.href) {
-      router.push(current.href);
-    }
-    next();
-  };
+  const goTo = (i: number) => setTourStep(i);
 
   if (!tourOpen) return null;
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — no blur so the page remains readable behind the modal */}
       <div
         className={cn(
-          'fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200',
+          'fixed inset-0 z-[9999] bg-slate-950/60 transition-opacity duration-200',
           closing ? 'opacity-0' : 'opacity-100'
         )}
         onClick={close}
       />
 
       {/* Modal */}
-      <div
-        className={cn(
-          'fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-none',
-        )}
-      >
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-none">
         <div
           className={cn(
             'pointer-events-auto w-full max-w-lg rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200 transition-all duration-200 overflow-hidden',
@@ -407,7 +505,7 @@ export function TourGuide() {
           <div className={`relative h-32 bg-gradient-to-br ${current.bg} flex items-center justify-center`}>
             <div className="absolute inset-0 bg-black/10" />
             <div className="relative flex flex-col items-center gap-2">
-              <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30">
+              <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center ring-2 ring-white/30">
                 <Icon className="h-7 w-7 text-white" />
               </div>
             </div>
@@ -432,7 +530,7 @@ export function TourGuide() {
             </div>
 
             {/* Step dots */}
-            <div className="flex items-center justify-center gap-1.5 py-1">
+            <div className="flex items-center justify-center gap-1.5 py-1 flex-wrap">
               {steps.map((_, i) => (
                 <button
                   key={i}
@@ -446,6 +544,13 @@ export function TourGuide() {
                 />
               ))}
             </div>
+
+            {/* Restart hint on last step */}
+            {isLast && (
+              <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-center leading-relaxed">
+                You can restart this tour anytime from the <strong className="text-slate-700">avatar menu (top right) → Start Platform Tour</strong>, or from <strong className="text-slate-700">Profile → Settings</strong>.
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex items-center gap-2 pt-1">
@@ -464,7 +569,10 @@ export function TourGuide() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push(current.href!)}
+                    onClick={() => {
+                      // Navigate without closing — step is preserved in store
+                      window.location.href = current.href!;
+                    }}
                     className="text-blue-700 border-blue-200 hover:bg-blue-50"
                   >
                     {current.cta}
@@ -476,13 +584,9 @@ export function TourGuide() {
                   className="bg-blue-950 hover:bg-blue-900 text-white gap-1"
                 >
                   {isLast ? (
-                    <>
-                      <CheckCircle className="h-4 w-4" /> Done
-                    </>
+                    <><CheckCircle className="h-4 w-4" /> Done</>
                   ) : (
-                    <>
-                      Next <ChevronRight className="h-4 w-4" />
-                    </>
+                    <>Next <ChevronRight className="h-4 w-4" /></>
                   )}
                 </Button>
               </div>

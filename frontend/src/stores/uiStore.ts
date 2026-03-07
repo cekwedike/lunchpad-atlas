@@ -20,12 +20,15 @@ interface UIState {
   theme: 'light' | 'dark';
   sidebarOpen: boolean;
   tourOpen: boolean;
+  tourStep: number;
   notifications: Notification[];
   modals: Modal[];
   setTheme: (theme: 'light' | 'dark') => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setTourOpen: (open: boolean) => void;
+  setTourStep: (step: number) => void;
+  startTour: () => void;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -41,6 +44,7 @@ export const useUIStore = create<UIState>()(
       theme: 'light',
       sidebarOpen: true,
       tourOpen: false,
+      tourStep: 0,
       notifications: [],
       modals: [],
 
@@ -51,6 +55,10 @@ export const useUIStore = create<UIState>()(
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
       setTourOpen: (open) => set({ tourOpen: open }),
+
+      setTourStep: (step) => set({ tourStep: step }),
+
+      startTour: () => set({ tourOpen: true, tourStep: 0 }),
       
       addNotification: (notification) =>
         set((state) => ({
