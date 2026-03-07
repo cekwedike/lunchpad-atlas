@@ -6,7 +6,7 @@ import {
   User, Settings, FileText, MessageSquare,
   ClipboardCheck, Trophy, Edit2, Save, X, Lock, Loader2,
   Calendar, Users, Eye, EyeOff, CheckCircle2, Shield,
-  GraduationCap, Volume2, VolumeX, Vibrate,
+  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
@@ -81,27 +82,18 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
 // ─── Notification Preferences ─────────────────────────────────────────────────
 function NotificationPreferencesSection() {
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
+  const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribe, unsubscribe } = usePushNotifications();
 
-  const rows = [
-    {
-      id: 'sound',
-      label: 'Notification sound',
-      description: 'Play a chime when a new notification arrives (in-app and push).',
-      icon: sound ? Volume2 : VolumeX,
-      iconColor: sound ? 'text-blue-600' : 'text-gray-400',
-      checked: sound,
-      onChange: updateSound,
-    },
-    {
-      id: 'vibration',
-      label: 'Vibration',
-      description: 'Vibrate the device on new notifications (mobile browsers only).',
-      icon: Vibrate,
-      iconColor: vibration ? 'text-blue-600' : 'text-gray-400',
-      checked: vibration,
-      onChange: updateVibration,
-    },
-  ];
+  const pushDenied = pushState === 'denied';
+  const pushUnsupported = !isSupported;
+
+  const handlePushToggle = async (checked: boolean) => {
+    if (checked) {
+      await subscribe();
+    } else {
+      await unsubscribe();
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -112,22 +104,70 @@ function NotificationPreferencesSection() {
         </p>
       </div>
       <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100 overflow-hidden">
-        {rows.map(({ id, label, description, icon: Icon, iconColor, checked, onChange }) => (
-          <div key={id} className="flex items-center justify-between px-4 py-3.5 gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', iconColor)} />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900">{label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{description}</p>
-              </div>
+
+        {/* Push notifications row */}
+        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {isSubscribed ? (
+              <Bell className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
+            ) : (
+              <BellOff className="h-5 w-5 mt-0.5 shrink-0 text-gray-400" />
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Push notifications</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {pushUnsupported
+                  ? 'Not supported in this browser.'
+                  : pushDenied
+                  ? 'Blocked by browser. Allow notifications in site settings.'
+                  : 'Receive notifications even when the app is in the background.'}
+              </p>
             </div>
-            <Switch
-              checked={checked}
-              onCheckedChange={onChange}
-              aria-label={label}
-            />
           </div>
-        ))}
+          <Switch
+            checked={isSubscribed}
+            onCheckedChange={handlePushToggle}
+            disabled={pushUnsupported || pushDenied || pushLoading}
+            aria-label="Push notifications"
+          />
+        </div>
+
+        {/* Sound row */}
+        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {sound ? (
+              <Volume2 className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
+            ) : (
+              <VolumeX className="h-5 w-5 mt-0.5 shrink-0 text-gray-400" />
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Notification sound</p>
+              <p className="text-xs text-gray-500 mt-0.5">Play a chime when a new notification arrives (in-app and push).</p>
+            </div>
+          </div>
+          <Switch
+            checked={sound}
+            onCheckedChange={updateSound}
+            aria-label="Notification sound"
+          />
+        </div>
+
+        {/* Vibration row */}
+        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <Vibrate className={cn('h-5 w-5 mt-0.5 shrink-0', vibration ? 'text-blue-600' : 'text-gray-400')} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Vibration</p>
+              <p className="text-xs text-gray-500 mt-0.5">Vibrate the device on new notifications (mobile browsers only).</p>
+            </div>
+          </div>
+          <Switch
+            checked={vibration}
+            onCheckedChange={updateVibration}
+            aria-label="Vibration"
+          />
+        </div>
+
       </div>
     </div>
   );
