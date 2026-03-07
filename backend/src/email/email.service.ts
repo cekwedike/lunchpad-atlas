@@ -54,30 +54,47 @@ export class EmailService {
   }
 
   private initializeTransporter() {
-    const emailConfig = {
-      host: this.configService.get('EMAIL_HOST', 'smtp.gmail.com'),
-      port: this.configService.get('EMAIL_PORT', 587),
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: this.configService.get('EMAIL_USER'),
-        pass: this.configService.get('EMAIL_PASSWORD'),
-      },
-    };
+    const user = this.configService.get<string>('EMAIL_USER');
+    const pass = this.configService.get<string>('EMAIL_PASSWORD');
+    const enabled = this.configService.get<string>('EMAIL_NOTIFICATIONS_ENABLED');
 
-    this.transporter = nodemailer.createTransport(emailConfig);
+    if (enabled !== 'true') {
+      console.log('[EmailService] Email notifications disabled (EMAIL_NOTIFICATIONS_ENABLED != "true")');
+    } else if (!user || !pass) {
+      console.warn('[EmailService] EMAIL_USER or EMAIL_PASSWORD is not set — emails will not be sent');
+    } else {
+      console.log(`[EmailService] Initialized with user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`);
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: this.configService.get('EMAIL_HOST', 'smtp.gmail.com'),
+      port: Number(this.configService.get('EMAIL_PORT', 587)),
+      secure: false,
+      auth: { user, pass },
+    });
   }
 
   /**
    * Send a generic email
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
+    const enabled = this.configService.get<string>('EMAIL_NOTIFICATIONS_ENABLED');
+    if (enabled !== 'true') {
+      console.log(`[EmailService] Skipping email to ${options.to} — notifications disabled`);
+      return false;
+    }
+
+    const user = this.configService.get<string>('EMAIL_USER');
+    const pass = this.configService.get<string>('EMAIL_PASSWORD');
+    if (!user || !pass) {
+      console.warn(`[EmailService] Cannot send email to ${options.to} — EMAIL_USER or EMAIL_PASSWORD not configured`);
+      return false;
+    }
+
     try {
       const from =
         options.from ||
-        this.configService.get(
-          'EMAIL_FROM',
-          'ATLAS Platform <noreply@atlas.com>',
-        );
+        this.configService.get('EMAIL_FROM', 'ATLAS Platform <noreply@atlas.com>');
 
       await this.transporter.sendMail({
         from,
@@ -86,9 +103,10 @@ export class EmailService {
         html: options.html,
       });
 
+      console.log(`[EmailService] Sent "${options.subject}" to ${options.to}`);
       return true;
-    } catch (error) {
-      console.error('Failed to send email:', error);
+    } catch (error: any) {
+      console.error(`[EmailService] Failed to send "${options.subject}" to ${options.to}:`, error?.message ?? error);
       return false;
     }
   }
