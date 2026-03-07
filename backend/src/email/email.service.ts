@@ -96,7 +96,7 @@ export class EmailService {
       return false;
     }
 
-    const from = options.from ?? this.configService.get('EMAIL_FROM', 'ATLAS Platform <onboarding@resend.dev>');
+    const from = options.from ?? this.configService.get('EMAIL_FROM') ?? 'ATLAS Platform <onboarding@resend.dev>';
 
     try {
       if (this.resend) {
