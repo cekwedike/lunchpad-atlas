@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { redirect } from 'next/navigation';
 import {
   Bell,
   BookOpen,
@@ -22,6 +21,7 @@ import {
   Clock,
   KeyRound,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -120,7 +120,10 @@ export default function NotificationsPage() {
   const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
 
   if (!isAuthenticated || !user) {
-    redirect('/login');
+    if (typeof window !== 'undefined') {
+      router.replace('/login');
+    }
+    return null;
   }
 
   const { data, refetch } = useNotifications(user.id);
@@ -183,6 +186,13 @@ export default function NotificationsPage() {
     <div className="container max-w-4xl mx-auto p-3 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
           <h1 className="text-2xl sm:text-3xl font-bold">All Notifications</h1>
           {notifications.length > 0 && (
             <p className="text-sm text-muted-foreground mt-1">
