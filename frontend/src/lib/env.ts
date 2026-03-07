@@ -15,7 +15,7 @@ export const env = {
   posthogHost: process.env.NEXT_PUBLIC_POSTHOG_HOST,
   
   // Push notifications
-  vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
+  vapidPublicKey: (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '').trim(),
 
   // Environment
   isDevelopment: process.env.NODE_ENV === 'development',

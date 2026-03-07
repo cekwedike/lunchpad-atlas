@@ -67,12 +67,18 @@ export function usePushNotifications() {
         return { ok: false, error: err };
       }
 
-      // Subscribe to push
+      // If a stale subscription exists (e.g. from a previous VAPID key), clear it first
+      const existingSub = await reg.pushManager.getSubscription();
+      if (existingSub) {
+        try { await existingSub.unsubscribe(); } catch { /* ignore */ }
+      }
+
+      // Subscribe to push — trim key to guard against copy-paste whitespace
       let subscription: PushSubscription;
       try {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(env.vapidPublicKey),
+          applicationServerKey: urlBase64ToUint8Array(env.vapidPublicKey.trim()),
         });
       } catch (e: any) {
         const msg = e?.message ?? String(e);
