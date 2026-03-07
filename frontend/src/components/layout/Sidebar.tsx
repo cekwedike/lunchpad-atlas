@@ -17,6 +17,7 @@ import {
   Shield,
   GraduationCap,
   FileQuestion,
+  Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,11 @@ export function Sidebar() {
       href: '/achievements',
       icon: Award,
     },
+    {
+      title: 'Feedback',
+      href: '/dashboard/feedback',
+      icon: Inbox,
+    },
   ];
 
   const getFacilitatorItems = (): NavItem[] => [
@@ -112,6 +118,11 @@ export function Sidebar() {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
+    },
+    {
+      title: 'Feedback',
+      href: '/dashboard/feedback',
+      icon: Inbox,
     },
   ];
 
@@ -165,6 +176,11 @@ export function Sidebar() {
       title: 'Achievements',
       href: '/dashboard/admin/achievements',
       icon: Award,
+    },
+    {
+      title: 'Feedback Inbox',
+      href: '/dashboard/admin/feedback',
+      icon: Inbox,
     },
   ];
 

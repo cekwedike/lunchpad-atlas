@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { toast } from 'sonner';
 
 // Types
 export interface CohortStats {
@@ -63,5 +64,37 @@ export function useResourceCompletions(cohortId?: string) {
     queryKey: ['resource-completions', cohortId],
     queryFn: () => apiClient.get<ResourceCompletion[]>(`/facilitator/cohorts/${cohortId}/resources`),
     enabled: !!cohortId,
+  });
+}
+
+// Suspend a fellow (facilitator-scoped)
+export function useFacilitatorSuspendFellow(cohortId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fellowId, reason }: { fellowId: string; reason?: string }) =>
+      apiClient.patch(`/facilitator/cohorts/${cohortId}/fellows/${fellowId}/suspend`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fellow-engagement', cohortId] });
+      toast.success('Fellow suspended');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to suspend fellow', { description: error.message });
+    },
+  });
+}
+
+// Unsuspend a fellow (facilitator-scoped)
+export function useFacilitatorUnsuspendFellow(cohortId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fellowId: string) =>
+      apiClient.patch(`/facilitator/cohorts/${cohortId}/fellows/${fellowId}/unsuspend`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fellow-engagement', cohortId] });
+      toast.success('Fellow unsuspended');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to unsuspend fellow', { description: error.message });
+    },
   });
 }

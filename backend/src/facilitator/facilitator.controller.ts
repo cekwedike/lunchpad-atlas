@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FacilitatorService } from './facilitator.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -30,5 +30,26 @@ export class FacilitatorController {
   @ApiOperation({ summary: 'Get resource completion rates for a cohort' })
   getResourceCompletions(@Param('cohortId') cohortId: string, @Request() req) {
     return this.facilitatorService.getResourceCompletions(cohortId, req.user.id);
+  }
+
+  @Patch('cohorts/:cohortId/fellows/:fellowId/suspend')
+  @ApiOperation({ summary: 'Suspend a fellow in facilitator\'s cohort' })
+  suspendFellow(
+    @Param('cohortId') cohortId: string,
+    @Param('fellowId') fellowId: string,
+    @Body() body: { reason?: string },
+    @Request() req,
+  ) {
+    return this.facilitatorService.suspendFellow(cohortId, fellowId, req.user.id, body.reason);
+  }
+
+  @Patch('cohorts/:cohortId/fellows/:fellowId/unsuspend')
+  @ApiOperation({ summary: 'Unsuspend a fellow in facilitator\'s cohort' })
+  unsuspendFellow(
+    @Param('cohortId') cohortId: string,
+    @Param('fellowId') fellowId: string,
+    @Request() req,
+  ) {
+    return this.facilitatorService.unsuspendFellow(cohortId, fellowId, req.user.id);
   }
 }

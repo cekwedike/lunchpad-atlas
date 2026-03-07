@@ -458,6 +458,44 @@ export function useDeleteUser() {
   });
 }
 
+// Suspend user
+export function useSuspendUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      apiClient.patch(`/admin/users/${userId}/suspend`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User suspended successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to suspend user', {
+        description: error.message || 'Could not suspend user',
+      });
+    },
+  });
+}
+
+// Unsuspend user
+export function useUnsuspendUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiClient.patch(`/admin/users/${userId}/unsuspend`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User unsuspended successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to unsuspend user', {
+        description: error.message || 'Could not unsuspend user',
+      });
+    },
+  });
+}
+
 // ============ Resource Management Hooks ============
 
 // Get all resources with filters

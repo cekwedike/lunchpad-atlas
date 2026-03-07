@@ -6,6 +6,25 @@ import { EmailService } from '../email/email.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { PushService } from '../push/push.service';
 
+/**
+ * Only these notification types trigger an immediate email.
+ * Everything else stays in-app only (or arrives via the weekly digest).
+ */
+const EMAIL_WORTHY_TYPES = new Set<NotificationType>([
+  NotificationType.USER_SUSPENDED,       // Account suspended — user needs to know immediately
+  NotificationType.USER_UNSUSPENDED,     // Account restored
+  NotificationType.QUIZ_STARTED,         // Live quiz is starting now — time-sensitive
+  NotificationType.ANTI_SKIMMING_WARNING,// Academic integrity warning
+  NotificationType.SYSTEM_ALERT,         // Platform-level alert
+  NotificationType.PASSWORD_CHANGED,     // Security event
+  NotificationType.USER_PROMOTED,        // Role promotion
+  NotificationType.ACHIEVEMENT_EARNED,   // Positive milestone worth celebrating
+  NotificationType.RESOURCE_UNLOCK,      // New resource available to complete
+  NotificationType.LEADERBOARD_UPDATE,   // Ranking change
+  NotificationType.ATTENDANCE_MARKED,    // Attendance recorded for a session
+  NotificationType.POINTS_ADJUSTED,      // Points manually adjusted by admin
+]);
+
 export interface CreateNotificationDto {
   userId: string;
   type: NotificationType;
@@ -142,6 +161,7 @@ export class NotificationsService {
 
   private async sendNotificationEmail(dto: CreateNotificationDto) {
     if (!this.isEmailEnabled()) return;
+    if (!EMAIL_WORTHY_TYPES.has(dto.type)) return;
 
     const user = await this.prisma.user.findUnique({
       where: { id: dto.userId },
@@ -166,6 +186,9 @@ export class NotificationsService {
     notifications: CreateNotificationDto[],
   ) {
     if (!this.isEmailEnabled()) return;
+
+    // Filter to only email-worthy types before doing any DB lookups
+    notifications = notifications.filter((n) => EMAIL_WORTHY_TYPES.has(n.type));
 
     const userIds = Array.from(
       new Set(notifications.map((notification) => notification.userId)),

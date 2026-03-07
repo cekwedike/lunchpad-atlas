@@ -1,9 +1,14 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class FacilitatorService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   private async verifyAccess(cohortId: string, requesterId: string) {
     const requester = await this.prisma.user.findUnique({
@@ -249,5 +254,72 @@ export class FacilitatorService {
         totalAttempts: completed,
       };
     });
+  }
+
+  async suspendFellow(cohortId: string, fellowId: string, requesterId: string, reason?: string) {
+    await this.verifyAccess(cohortId, requesterId);
+
+    const fellow = await this.prisma.user.findUnique({
+      where: { id: fellowId },
+      select: { id: true, cohortId: true, role: true, firstName: true, lastName: true },
+    });
+
+    if (!fellow) throw new NotFoundException('User not found');
+    if (fellow.role !== 'FELLOW') throw new ForbiddenException('Can only suspend fellows');
+    if (fellow.cohortId !== cohortId) throw new ForbiddenException('Fellow is not in your cohort');
+
+    await this.prisma.user.update({
+      where: { id: fellowId },
+      data: {
+        isSuspended: true,
+        suspendedAt: new Date(),
+        suspensionReason: reason,
+      },
+    });
+
+    // Notify the suspended fellow
+    await this.notificationsService.createNotification({
+      userId: fellowId,
+      type: NotificationType.USER_SUSPENDED,
+      title: 'Your account has been suspended',
+      message: reason
+        ? `Your account has been suspended. Reason: ${reason}`
+        : 'Your account has been suspended. Please contact your facilitator for more information.',
+      data: {},
+    });
+
+    return { message: 'Fellow suspended', fellowId };
+  }
+
+  async unsuspendFellow(cohortId: string, fellowId: string, requesterId: string) {
+    await this.verifyAccess(cohortId, requesterId);
+
+    const fellow = await this.prisma.user.findUnique({
+      where: { id: fellowId },
+      select: { id: true, cohortId: true, role: true },
+    });
+
+    if (!fellow) throw new NotFoundException('User not found');
+    if (fellow.role !== 'FELLOW') throw new ForbiddenException('Can only unsuspend fellows');
+    if (fellow.cohortId !== cohortId) throw new ForbiddenException('Fellow is not in your cohort');
+
+    await this.prisma.user.update({
+      where: { id: fellowId },
+      data: {
+        isSuspended: false,
+        suspendedAt: null,
+        suspensionReason: null,
+      },
+    });
+
+    await this.notificationsService.createNotification({
+      userId: fellowId,
+      type: NotificationType.USER_UNSUSPENDED,
+      title: 'Your account has been restored',
+      message: 'Your account suspension has been lifted. You can now log in.',
+      data: {},
+    });
+
+    return { message: 'Fellow unsuspended', fellowId };
   }
 }

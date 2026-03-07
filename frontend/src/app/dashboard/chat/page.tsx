@@ -15,7 +15,7 @@ import {
   Users,
   MessageCircle,
 } from "lucide-react";
-import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,6 +59,7 @@ function ChatRoomContent() {
   const { data: messages, refetch: refetchMessages } = useChannelMessages(mainChannel?.id);
   const sendMessage = useSendMessage();
   const toggleChannelLock = useToggleChannelLock();
+  const markChannelRead = useMarkChannelRead();
 
   const handleSocketNewMessage = useCallback((message: ChatMessage) => {
     if (!mainChannel?.id || message.channelId !== mainChannel.id) return;
@@ -125,6 +126,14 @@ function ChatRoomContent() {
     onChannelDeleted: handleChannelDeleted,
     onChannelLockUpdated: handleChannelLockUpdated,
   });
+
+  // Mark DM channel as read when opened
+  useEffect(() => {
+    if (mainChannel?.id && isDmChannel) {
+      markChannelRead.mutate(mainChannel.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainChannel?.id, isDmChannel]);
 
   // Auto-scroll to bottom
   useEffect(() => {

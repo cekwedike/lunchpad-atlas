@@ -122,7 +122,9 @@ model User {
   liveQuizParticipants LiveQuizParticipant[]
   attendance         Attendance[]
   chatMessages       ChatMessage[]
+  channelMemberships ChannelMember[]
   pushSubscriptions  PushSubscription[]
+  feedback           Feedback[]
 
   @@index([email])
   @@index([cohortId])
@@ -612,8 +614,9 @@ model Channel {
   updatedAt   DateTime    @updatedAt
 
   // Relations
-  cohort   Cohort        @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  cohort   Cohort          @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   messages ChatMessage[]
+  members  ChannelMember[]
 
   @@index([cohortId])
   @@index([type])
@@ -854,4 +857,60 @@ model Attendance {
   @@index([sessionId])
   @@index([checkInTime])
   @@map("attendance")
+}
+
+// ==================== CHANNEL MEMBERSHIP ====================
+
+model ChannelMember {
+  id         String   @id @default(uuid())
+  channelId  String
+  userId     String
+  lastReadAt DateTime @default(now())
+  joinedAt   DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([channelId])
+  @@index([userId])
+  @@map("channel_members")
+}
+
+// ==================== FEEDBACK ====================
+
+enum FeedbackType {
+  SUGGESTION
+  BUG_REPORT
+  CONCERN
+  GENERAL
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWED
+  ACCEPTED
+  DECLINED
+  CLOSED
+}
+
+model Feedback {
+  id          String         @id @default(uuid())
+  userId      String
+  type        FeedbackType   @default(GENERAL)
+  subject     String
+  message     String
+  status      FeedbackStatus @default(PENDING)
+  adminNote   String?        // Admin's response/note
+  respondedAt DateTime?      // When admin responded
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("feedback")
 }

@@ -15,8 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Calendar, Loader2, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, Calendar, Loader2, RefreshCw, Ban, ShieldCheck } from "lucide-react";
 import { useCohorts, useCohortMembers } from "@/hooks/api/useAdmin";
+import { useFacilitatorSuspendFellow, useFacilitatorUnsuspendFellow } from "@/hooks/api/useFacilitator";
 import { useOpenDM } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { toast } from "sonner";
@@ -42,6 +46,14 @@ export default function FacilitatorCohortsPage() {
 
   const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
+  const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
+  const [isUnsuspendDialogOpen, setIsUnsuspendDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any | null>(null);
+  const [suspendPreset, setSuspendPreset] = useState("");
+  const [suspendReason, setSuspendReason] = useState("");
+
+  const suspendFellow = useFacilitatorSuspendFellow(selectedCohort?.id ?? "");
+  const unsuspendFellow = useFacilitatorUnsuspendFellow(selectedCohort?.id ?? "");
 
   const cohorts: Cohort[] = Array.isArray(cohortsData) ? cohortsData : [];
 
@@ -131,6 +143,90 @@ export default function FacilitatorCohortsPage() {
           </div>
         )}
 
+        {/* Suspend Fellow Dialog */}
+        <Dialog open={isSuspendDialogOpen} onOpenChange={setIsSuspendDialogOpen}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle>Suspend Fellow</DialogTitle>
+              <DialogDescription>
+                Suspend <strong>{selectedMember?.firstName} {selectedMember?.lastName}</strong>. They will lose access until unsuspended.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Reason (select or type)</Label>
+                <select
+                  value={suspendPreset}
+                  onChange={(e) => { setSuspendPreset(e.target.value); setSuspendReason(""); }}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <option value="">Select a preset reason...</option>
+                  <option value="Violation of community guidelines">Violation of community guidelines</option>
+                  <option value="Academic dishonesty">Academic dishonesty</option>
+                  <option value="Inappropriate behavior">Inappropriate behavior</option>
+                  <option value="Repeated policy violations">Repeated policy violations</option>
+                  <option value="Other">Other (specify below)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Custom reason (optional)</Label>
+                <Textarea
+                  placeholder="Additional details..."
+                  value={suspendReason}
+                  onChange={(e) => { setSuspendReason(e.target.value); setSuspendPreset(""); }}
+                  className="resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsSuspendDialogOpen(false)} disabled={suspendFellow.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!selectedMember) return;
+                  const reason = suspendReason.trim() || suspendPreset || undefined;
+                  await suspendFellow.mutateAsync({ fellowId: selectedMember.id, reason });
+                  setIsSuspendDialogOpen(false);
+                }}
+                disabled={suspendFellow.isPending}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {suspendFellow.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Suspending...</> : <><Ban className="h-4 w-4 mr-2" />Suspend</>}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Unsuspend Fellow Dialog */}
+        <Dialog open={isUnsuspendDialogOpen} onOpenChange={setIsUnsuspendDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Unsuspend Fellow</DialogTitle>
+              <DialogDescription>
+                Restore access for <strong>{selectedMember?.firstName} {selectedMember?.lastName}</strong>. They will be able to log in immediately.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsUnsuspendDialogOpen(false)} disabled={unsuspendFellow.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!selectedMember) return;
+                  await unsuspendFellow.mutateAsync(selectedMember.id);
+                  setIsUnsuspendDialogOpen(false);
+                }}
+                disabled={unsuspendFellow.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {unsuspendFellow.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Unsuspending...</> : <><ShieldCheck className="h-4 w-4 mr-2" />Unsuspend</>}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* View Members Dialog */}
         <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
           <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
@@ -196,6 +292,29 @@ export default function FacilitatorCohortsPage() {
                           >
                             Private Message
                           </Button>
+                        )}
+                        {member.role === "FELLOW" && member.id !== profile?.id && (
+                          member.isSuspended ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setSelectedMember(member); setIsUnsuspendDialogOpen(true); }}
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-xs px-2 h-8"
+                              title="Unsuspend fellow"
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setSelectedMember(member); setSuspendPreset(""); setSuspendReason(""); setIsSuspendDialogOpen(true); }}
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 text-xs px-2 h-8"
+                              title="Suspend fellow"
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          )
                         )}
                       </div>
                     </div>

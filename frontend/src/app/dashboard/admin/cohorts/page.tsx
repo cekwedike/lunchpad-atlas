@@ -533,6 +533,9 @@ export default function AdminCohortsPage() {
                             <p className="text-xs text-gray-500">{f.user.email}{f.user.role === "ADMIN" ? " · Admin/Facilitator" : ""}</p>
                           </div>
                         </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleMessage(f.userId)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-2 h-7">
+                          Private Message
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleRemoveFacilitator(f.userId)} className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0" title="Remove facilitator">
                           <X className="h-3 w-3" />
                         </Button>

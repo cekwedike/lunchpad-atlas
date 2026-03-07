@@ -178,7 +178,7 @@ export class EmailService {
 
     return this.sendEmail({
       to: email,
-      subject: `Welcome to ATLAS - ${data.cohortName}`,
+      subject: `Welcome to LaunchPad ATLAS - ${data.cohortName}`,
       html,
     });
   }
@@ -194,7 +194,7 @@ export class EmailService {
     const roleLabel = data.role === 'FACILITATOR' ? 'Facilitator' : 'Fellow';
     return this.sendEmail({
       to: email,
-      subject: `Welcome to ATLAS - Your ${roleLabel} account is ready`,
+      subject: `Welcome to LaunchPad ATLAS - Your ${roleLabel} account is ready`,
       html,
     });
   }
@@ -226,7 +226,7 @@ export class EmailService {
 
     return this.sendEmail({
       to: email,
-      subject: `Your Week ${data.weekNumber} Summary - ATLAS`,
+      subject: `Your Week ${data.weekNumber} Summary - LaunchPad ATLAS`,
       html,
     });
   }
@@ -377,7 +377,7 @@ export class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🚀 Welcome to ATLAS</h1>
+      <h1>Welcome to LaunchPad ATLAS</h1>
       <p style="margin: 10px 0 0 0; font-size: 18px;">Your Career Transformation Journey Begins!</p>
     </div>
     <div class="content">
@@ -413,10 +413,10 @@ export class EmailService {
 
       <p>Let's make this journey exceptional!</p>
 
-      <p><strong>The ATLAS Team</strong></p>
+      <p><strong>The LaunchPad ATLAS Team</strong></p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} ATLAS Platform. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} LaunchPad ATLAS. All rights reserved.</p>
       <p><a href="${this.configService.get('FRONTEND_URL')}/unsubscribe" style="color: #667eea;">Unsubscribe</a></p>
     </div>
   </div>
@@ -527,13 +527,15 @@ export class EmailService {
     }
     .button {
       display: inline-block;
-      padding: 13px 32px;
-      background: #1e3a8a;
-      color: white;
+      padding: 14px 40px;
+      background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+      color: #ffffff !important;
       text-decoration: none;
-      border-radius: 6px;
-      font-weight: 600;
+      border-radius: 8px;
+      font-weight: 700;
       font-size: 15px;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 14px rgba(30, 58, 138, 0.35);
     }
     .footer {
       background: #f8f9fa;
@@ -547,12 +549,12 @@ export class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>ATLAS</h1>
+      <h1>LaunchPad ATLAS</h1>
       <p>Your ${roleLabel} account has been created</p>
     </div>
     <div class="content">
       <p>Hi ${data.firstName},</p>
-      <p>Welcome to the ATLAS platform. An administrator has created an account for you as a <strong>${roleLabel}</strong>. Use the credentials below to log in and get started.</p>
+      <p>Welcome to the LaunchPad ATLAS platform. An administrator has created an account for you as a <strong>${roleLabel}</strong>. Use the credentials below to log in and get started.</p>
 
       <div class="credentials-box">
         <h3>Your Login Details</h3>
@@ -575,14 +577,14 @@ export class EmailService {
       </div>
 
       <div class="button-wrap">
-        <a href="${loginUrl}" class="button">Log In to ATLAS</a>
+        <a href="${loginUrl}" class="button">Log In to LaunchPad ATLAS</a>
       </div>
 
       <p>If you have any questions, please reach out to your administrator.</p>
-      <p><strong>The ATLAS Team</strong></p>
+      <p><strong>The LaunchPad ATLAS Team</strong></p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} ATLAS Platform. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} LaunchPad ATLAS. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -675,10 +677,10 @@ export class EmailService {
       }
 
       <p>Keep up the great work!</p>
-      <p><strong>The ATLAS Team</strong></p>
+      <p><strong>The LaunchPad ATLAS Team</strong></p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} ATLAS Platform. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} LaunchPad ATLAS. All rights reserved.</p>
       <p><a href="${this.configService.get('FRONTEND_URL')}/unsubscribe" style="color: #667eea;">Unsubscribe</a></p>
     </div>
   </div>
@@ -822,10 +824,10 @@ export class EmailService {
 
       <p>Keep pushing forward! Every resource completed and every discussion posted brings you closer to your goals.</p>
 
-      <p><strong>The ATLAS Team</strong></p>
+      <p><strong>The LaunchPad ATLAS Team</strong></p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} ATLAS Platform. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} LaunchPad ATLAS. All rights reserved.</p>
       <p><a href="${this.configService.get('FRONTEND_URL')}/email-preferences" style="color: #667eea;">Email Preferences</a> | <a href="${this.configService.get('FRONTEND_URL')}/unsubscribe" style="color: #667eea;">Unsubscribe</a></p>
     </div>
   </div>

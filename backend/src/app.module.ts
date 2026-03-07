@@ -24,6 +24,7 @@ import { CurriculaModule } from './curricula/curricula.module';
 import { FacilitatorModule } from './facilitator/facilitator.module';
 import { CronModule } from './cron/cron.module';
 import { PushModule } from './push/push.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { PushModule } from './push/push.module';
     FacilitatorModule,
     CronModule,
     PushModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [

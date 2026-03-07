@@ -617,7 +617,7 @@ export class ChatService {
     });
     if (existing) return existing;
 
-    return this.prisma.channel.create({
+    const channel = await this.prisma.channel.create({
       data: {
         cohortId,
         type: ChannelType.DIRECT_MESSAGE,
@@ -625,6 +625,26 @@ export class ChatService {
         description: `${requester.firstName} & ${target.firstName}`,
       },
     });
+
+    // Create ChannelMember records for both participants
+    await this.prisma.channelMember.createMany({
+      data: [
+        { channelId: channel.id, userId: requesterId },
+        { channelId: channel.id, userId: targetUserId },
+      ],
+      skipDuplicates: true,
+    });
+
+    return channel;
+  }
+
+  async markChannelRead(channelId: string, userId: string) {
+    await this.prisma.channelMember.upsert({
+      where: { channelId_userId: { channelId, userId } },
+      create: { channelId, userId, lastReadAt: new Date() },
+      update: { lastReadAt: new Date() },
+    });
+    return { ok: true };
   }
 
   private async getChatNotificationRecipients(

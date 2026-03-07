@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -12,6 +13,7 @@ export class CronService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private notificationsService: NotificationsService,
+    private configService: ConfigService,
   ) {}
 
   /**
@@ -128,13 +130,13 @@ export class CronService {
     this.logger.log('Sending weekly digest emails...');
 
     const users = await this.prisma.user.findMany({
-      where: { weeklyDigest: true, isSuspended: false, role: 'FELLOW' },
+      where: { weeklyDigest: true, isSuspended: false },
       select: {
         id: true,
         email: true,
         firstName: true,
+        role: true,
         cohortId: true,
-        currentMonthPoints: true,
       },
     });
 
@@ -148,39 +150,72 @@ export class CronService {
     let sent = 0;
     for (const user of users) {
       try {
-        const [resourcesCompleted, pointsThisWeek, cohortFellowCount, rankEntry] = await Promise.all([
-          this.prisma.resourceProgress.count({
-            where: { userId: user.id, state: 'COMPLETED', completedAt: { gte: oneWeekAgo } },
-          }),
-          this.prisma.pointsLog.aggregate({
-            where: { userId: user.id, createdAt: { gte: oneWeekAgo } },
-            _sum: { points: true },
-          }),
-          user.cohortId
-            ? this.prisma.user.count({ where: { cohortId: user.cohortId, role: 'FELLOW' } })
-            : Promise.resolve(1),
-          user.cohortId
-            ? this.prisma.pointsLog.groupBy({
-                by: ['userId'],
-                where: { user: { cohortId: user.cohortId }, createdAt: { gte: oneWeekAgo } },
-                _sum: { points: true },
-                orderBy: { _sum: { points: 'desc' } },
-              })
-            : Promise.resolve([]),
-        ]);
+        if (user.role === 'FELLOW') {
+          // Fellows: personal progress + leaderboard rank
+          const [resourcesCompleted, pointsThisWeek, cohortFellowCount, rankEntry] = await Promise.all([
+            this.prisma.resourceProgress.count({
+              where: { userId: user.id, state: 'COMPLETED', completedAt: { gte: oneWeekAgo } },
+            }),
+            this.prisma.pointsLog.aggregate({
+              where: { userId: user.id, createdAt: { gte: oneWeekAgo } },
+              _sum: { points: true },
+            }),
+            user.cohortId
+              ? this.prisma.user.count({ where: { cohortId: user.cohortId, role: 'FELLOW' } })
+              : Promise.resolve(1),
+            user.cohortId
+              ? this.prisma.pointsLog.groupBy({
+                  by: ['userId'],
+                  where: { user: { cohortId: user.cohortId }, createdAt: { gte: oneWeekAgo } },
+                  _sum: { points: true },
+                  orderBy: { _sum: { points: 'desc' } },
+                })
+              : Promise.resolve([]),
+          ]);
 
-        const weeklyPoints = pointsThisWeek._sum.points ?? 0;
-        const rankList = rankEntry as Array<{ userId: string; _sum: { points: number | null } }>;
-        const rank = rankList.findIndex((r) => r.userId === user.id) + 1 || 1;
+          const weeklyPoints = pointsThisWeek._sum.points ?? 0;
+          const rankList = rankEntry as Array<{ userId: string; _sum: { points: number | null } }>;
+          const rank = rankList.findIndex((r) => r.userId === user.id) + 1 || 1;
 
-        await this.emailService.sendWeeklySummaryEmail(user.email, {
-          firstName: user.firstName,
-          weekNumber,
-          resourcesCompleted,
-          pointsEarned: weeklyPoints,
-          rank,
-          totalParticipants: cohortFellowCount,
-        });
+          await this.emailService.sendWeeklySummaryEmail(user.email, {
+            firstName: user.firstName,
+            weekNumber,
+            resourcesCompleted,
+            pointsEarned: weeklyPoints,
+            rank,
+            totalParticipants: cohortFellowCount,
+          });
+        } else {
+          // Facilitators & Admins: cohort-wide engagement summary
+          const cohortFilter = user.cohortId ? { cohortId: user.cohortId } : {};
+          const [activeFellows, resourcesThisWeek, pointsThisWeek, totalFellows] = await Promise.all([
+            this.prisma.resourceProgress.groupBy({
+              by: ['userId'],
+              where: { completedAt: { gte: oneWeekAgo }, user: cohortFilter },
+              _count: { userId: true },
+            }).then((r) => r.length),
+            this.prisma.resourceProgress.count({
+              where: { state: 'COMPLETED', completedAt: { gte: oneWeekAgo }, user: cohortFilter },
+            }),
+            this.prisma.pointsLog.aggregate({
+              where: { createdAt: { gte: oneWeekAgo }, user: cohortFilter },
+              _sum: { points: true },
+            }),
+            this.prisma.user.count({ where: { role: 'FELLOW', isSuspended: false, ...cohortFilter } }),
+          ]);
+
+          const totalPoints = pointsThisWeek._sum.points ?? 0;
+          await this.emailService.sendNotificationEmail(user.email, {
+            firstName: user.firstName,
+            title: `Week ${weekNumber} Cohort Summary`,
+            message: `Here's how your cohort performed this week:\n\n` +
+              `• ${activeFellows} of ${totalFellows} fellows were active\n` +
+              `• ${resourcesThisWeek} resources completed across the cohort\n` +
+              `• ${totalPoints} total points earned by fellows`,
+            actionUrl: `${this.configService.get('FRONTEND_URL')}/dashboard`,
+            actionText: 'View Dashboard',
+          });
+        }
 
         sent++;
       } catch (err) {
@@ -341,6 +376,91 @@ export class CronService {
 
     if (alerted > 0) {
       this.logger.log(`Alerted staff about ${alerted} fellows with consecutive missed sessions`);
+    }
+  }
+
+  /**
+   * Send email reminders for unread DMs older than 2 hours.
+   * Runs every hour.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async remindUnreadDMs() {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+    // Find DM channels with messages sent 2–48 hours ago
+    const dmChannels = await this.prisma.channel.findMany({
+      where: {
+        type: 'DIRECT_MESSAGE',
+        isArchived: false,
+        messages: {
+          some: {
+            createdAt: { gte: twoDaysAgo, lte: twoHoursAgo },
+            isDeleted: false,
+          },
+        },
+      },
+      include: {
+        messages: {
+          where: { isDeleted: false },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { userId: true, createdAt: true, content: true },
+        },
+      },
+    });
+
+    let reminded = 0;
+    for (const channel of dmChannels) {
+      const lastMessage = channel.messages[0];
+      if (!lastMessage) continue;
+      if (lastMessage.createdAt > twoHoursAgo) continue;
+
+      // Extract participants from dm::userId1::userId2
+      const parts = channel.name.split('::');
+      if (parts.length !== 3 || parts[0] !== 'dm') continue;
+      const participantIds = [parts[1], parts[2]];
+
+      // Recipient is the other participant (not the sender)
+      const recipientId = participantIds.find((id) => id !== lastMessage.userId);
+      if (!recipientId) continue;
+
+      // Check if recipient has read since last message via ChannelMember
+      const membership = await this.prisma.channelMember.findUnique({
+        where: { channelId_userId: { channelId: channel.id, userId: recipientId } },
+      });
+
+      if (membership && membership.lastReadAt >= lastMessage.createdAt) continue;
+
+      // Check user preferences
+      const recipient = await this.prisma.user.findUnique({
+        where: { id: recipientId },
+        select: { email: true, firstName: true, emailNotifications: true, isSuspended: true },
+      });
+
+      if (!recipient || !recipient.emailNotifications || recipient.isSuspended) continue;
+
+      const sender = await this.prisma.user.findUnique({
+        where: { id: lastMessage.userId },
+        select: { firstName: true, lastName: true },
+      });
+
+      try {
+        await this.emailService.sendNotificationEmail(recipient.email, {
+          firstName: recipient.firstName,
+          title: `Unread message from ${sender?.firstName ?? 'Someone'}`,
+          message: `You have an unread direct message from ${sender?.firstName ?? 'a colleague'} ${sender?.lastName ?? ''} that is waiting for your reply.`,
+          actionUrl: `${this.configService.get('FRONTEND_URL')}/dashboard/chat?channelId=${channel.id}`,
+          actionText: 'Read Message',
+        });
+        reminded++;
+      } catch {
+        // Non-critical
+      }
+    }
+
+    if (reminded > 0) {
+      this.logger.log(`Sent ${reminded} unread DM reminder emails`);
     }
   }
 

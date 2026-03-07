@@ -167,4 +167,9 @@ export class ChatController {
   initializeCohortChannels(@Param('cohortId') cohortId: string) {
     return this.chatService.initializeCohortChannels(cohortId);
   }
+
+  @Patch('channels/:id/read')
+  markChannelRead(@Param('id') channelId: string, @Request() req) {
+    return this.chatService.markChannelRead(channelId, req.user.id);
+  }
 }

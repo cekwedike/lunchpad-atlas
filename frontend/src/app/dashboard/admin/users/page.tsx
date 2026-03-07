@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   Users, Search, Plus, Edit, Trash2,
-  Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen
+  Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen, Ban, ShieldCheck
 } from "lucide-react";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort, useUpdateUserFacilitator } from "@/hooks/api/useAdmin";
+import { Textarea } from "@/components/ui/textarea";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort, useUpdateUserFacilitator, useSuspendUser, useUnsuspendUser } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -32,10 +33,16 @@ export default function AdminUsersPage() {
   const updateUserCohort = useUpdateUserCohort();
   const updateUserFacilitator = useUpdateUserFacilitator();
   const deleteUser = useDeleteUser();
+  const suspendUser = useSuspendUser();
+  const unsuspendUser = useUnsuspendUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
+  const [isUnsuspendDialogOpen, setIsUnsuspendDialogOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendPreset, setSuspendPreset] = useState("");
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -199,6 +206,33 @@ export default function AdminUsersPage() {
     setIsDeleteDialogOpen(true);
   };
 
+  const openSuspendDialog = (user: any) => {
+    setSelectedUser(user);
+    setSuspendReason("");
+    setSuspendPreset("");
+    setIsSuspendDialogOpen(true);
+  };
+
+  const openUnsuspendDialog = (user: any) => {
+    setSelectedUser(user);
+    setIsUnsuspendDialogOpen(true);
+  };
+
+  const handleSuspend = async () => {
+    if (!selectedUser) return;
+    const reason = suspendReason.trim() || suspendPreset || undefined;
+    await suspendUser.mutateAsync({ userId: selectedUser.id, reason });
+    setIsSuspendDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleUnsuspend = async () => {
+    if (!selectedUser) return;
+    await unsuspendUser.mutateAsync(selectedUser.id);
+    setIsUnsuspendDialogOpen(false);
+    setSelectedUser(null);
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -241,13 +275,19 @@ export default function AdminUsersPage() {
     if (seconds < 60) return `${seconds}s ago`;
 
     const minutes = Math.floor(seconds / 60);
-    const minuteRemainder = seconds % 60;
-    if (minutes < 60) return `${minutes}m ${minuteRemainder}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
 
     const hours = Math.floor(minutes / 60);
-    const hourRemainderMinutes = minutes % 60;
-    if (hourRemainderMinutes === 0) return `${hours}h ago`;
-    return `${hours}h ${hourRemainderMinutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks}w ago`;
+
+    const months = Math.floor(days / 30);
+    return `${months}mo ago`;
   };
 
   const stats = {
@@ -438,14 +478,22 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          {user.isActive ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          {user.isSuspended ? (
+                            <>
+                              <Ban className="h-4 w-4 text-red-600" />
+                              <span className="text-sm font-medium text-red-600">Suspended</span>
+                            </>
+                          ) : user.isActive ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-600">Active</span>
+                            </>
                           ) : (
-                            <XCircle className="h-4 w-4 text-red-600" />
+                            <>
+                              <XCircle className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm font-medium text-gray-400">Inactive</span>
+                            </>
                           )}
-                          <span className={`text-sm font-medium capitalize ${user.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                            {user.isActive ? 'active' : 'inactive'}
-                          </span>
                         </div>
                       </td>
                       <td className="py-4 px-6">
@@ -464,20 +512,43 @@ export default function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => openEditDialog(user)}
                             className="h-8 w-8 p-0 text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                            title="Edit user"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          {user.isSuspended ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openUnsuspendDialog(user)}
+                              className="h-8 w-8 p-0 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50"
+                              title="Unsuspend user"
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openSuspendDialog(user)}
+                              className="h-8 w-8 p-0 text-gray-600 hover:text-amber-600 hover:bg-amber-50"
+                              title="Suspend user"
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => openDeleteDialog(user)}
                             className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:bg-red-50"
+                            title="Delete user"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -790,6 +861,73 @@ export default function AdminUsersPage() {
                 ) : (
                   'Save Changes'
                 )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Suspend User Dialog */}
+        <Dialog open={isSuspendDialogOpen} onOpenChange={setIsSuspendDialogOpen}>
+          <DialogContent className="sm:max-w-[450px] bg-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-gray-900">Suspend User</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Suspend <strong className="text-gray-900">{selectedUser?.firstName} {selectedUser?.lastName}</strong>. They will not be able to log in until unsuspended.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-900">Reason (select or type)</Label>
+                <select
+                  value={suspendPreset}
+                  onChange={(e) => { setSuspendPreset(e.target.value); setSuspendReason(""); }}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <option value="">Select a preset reason...</option>
+                  <option value="Violation of community guidelines">Violation of community guidelines</option>
+                  <option value="Academic dishonesty">Academic dishonesty</option>
+                  <option value="Inappropriate behavior">Inappropriate behavior</option>
+                  <option value="Repeated policy violations">Repeated policy violations</option>
+                  <option value="Other">Other (specify below)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-900">Custom reason (optional)</Label>
+                <Textarea
+                  placeholder="Provide additional details..."
+                  value={suspendReason}
+                  onChange={(e) => { setSuspendReason(e.target.value); setSuspendPreset(""); }}
+                  className="bg-gray-50 border-gray-300 text-gray-900 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsSuspendDialogOpen(false)} disabled={suspendUser.isPending} className="border-gray-300">
+                Cancel
+              </Button>
+              <Button onClick={handleSuspend} disabled={suspendUser.isPending} className="bg-amber-600 hover:bg-amber-700 text-white">
+                {suspendUser.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Suspending...</> : <><Ban className="h-4 w-4 mr-2" />Suspend User</>}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Unsuspend Confirmation Dialog */}
+        <Dialog open={isUnsuspendDialogOpen} onOpenChange={setIsUnsuspendDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] bg-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-gray-900">Unsuspend User</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Restore access for <strong className="text-gray-900">{selectedUser?.firstName} {selectedUser?.lastName}</strong>. They will be able to log in immediately.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsUnsuspendDialogOpen(false)} disabled={unsuspendUser.isPending} className="border-gray-300">
+                Cancel
+              </Button>
+              <Button onClick={handleUnsuspend} disabled={unsuspendUser.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {unsuspendUser.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Unsuspending...</> : <><ShieldCheck className="h-4 w-4 mr-2" />Unsuspend User</>}
               </Button>
             </DialogFooter>
           </DialogContent>

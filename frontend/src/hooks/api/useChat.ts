@@ -207,3 +207,10 @@ export function useAdminDirectChannels(enabled: boolean) {
     refetchInterval: enabled ? 15000 : false,
   });
 }
+
+export function useMarkChannelRead() {
+  return useMutation({
+    mutationFn: (channelId: string) =>
+      apiClient.patch(`/chat/channels/${channelId}/read`),
+  });
+}
