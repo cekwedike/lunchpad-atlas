@@ -173,12 +173,21 @@ export class NotificationsService {
 
     const actionUrl = this.buildActionUrl(dto.data);
 
+    const isSuspensionEmail = dto.type === 'USER_SUSPENDED';
+    const isUnsuspendEmail = dto.type === 'USER_UNSUSPENDED';
+    const footer = isSuspensionEmail
+      ? 'If you believe this is a mistake or would like to appeal, please contact your facilitator or the ATLAS support team.'
+      : isUnsuspendEmail
+      ? 'You can now log in and access all platform features as normal.'
+      : undefined;
+
     await this.emailService.sendNotificationEmail(user.email, {
       firstName: user.firstName || 'there',
       title: dto.title,
       message: dto.message,
       actionUrl,
       actionText: actionUrl ? 'View details' : undefined,
+      footer,
     });
   }
 

@@ -156,11 +156,11 @@ export class AuthService {
         role: true,
         lastLoginAt: true,
         isSuspended: true,
+        suspensionReason: true,
       },
     });
 
     if (!user) return null;
-    if (user.isSuspended) throw new UnauthorizedException('Your account has been suspended. Contact an administrator.');
 
     // Touch lastLoginAt at most once per 15 minutes so "active" status stays current
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
@@ -221,6 +221,8 @@ export class AuthService {
         email: user.email,
         name,
         role: user.role,
+        isSuspended: user.isSuspended ?? false,
+        suspensionReason: user.suspensionReason ?? null,
       },
     };
   }

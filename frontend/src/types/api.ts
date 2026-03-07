@@ -62,6 +62,8 @@ export interface User {
   lastActive: Date;
   createdAt: Date;
   updatedAt: Date;
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
 }
 
 export interface Cohort {

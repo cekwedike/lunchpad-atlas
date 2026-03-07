@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, Trophy, User, LogOut } from 'lucide-react';
+import { Menu, Trophy, User, LogOut, Compass } from 'lucide-react';
 import { useLeaderboardRank } from '@/hooks/api/useLeaderboard';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,7 +26,7 @@ export function Navbar() {
   const showTrophy = isAuthenticated && user && user.role === 'FELLOW';
   // Get leaderboard score for fellow
   const { data: leaderboardRank } = useLeaderboardRank(user?.cohortId ?? undefined);
-  const { toggleSidebar } = useUIStore();
+  const { toggleSidebar, setTourOpen } = useUIStore();
   const { logout } = useAuth();
 
   const handleLogout = async () => {
@@ -116,6 +116,13 @@ export function Navbar() {
                     <User className="mr-2 h-4 w-4" />
                     Profile &amp; Settings
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTourOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <Compass className="mr-2 h-4 w-4" />
+                  Start Platform Tour
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 

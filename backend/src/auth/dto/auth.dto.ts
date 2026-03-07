@@ -75,6 +75,8 @@ export class AuthResponseDto {
     email: string;
     name: string;
     role: string;
+    isSuspended: boolean;
+    suspensionReason: string | null;
   };
 }
 

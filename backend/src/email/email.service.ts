@@ -31,6 +31,7 @@ export interface NotificationEmailData {
   message: string;
   actionUrl?: string;
   actionText?: string;
+  footer?: string;
 }
 
 export interface WeeklySummaryData {
@@ -676,7 +677,7 @@ export class EmailService {
           : ''
       }
 
-      <p>Keep up the great work!</p>
+      <p>${data.footer ?? 'Keep up the great work!'}</p>
       <p><strong>The LaunchPad ATLAS Team</strong></p>
     </div>
     <div class="footer">

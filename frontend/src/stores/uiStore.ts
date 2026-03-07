@@ -19,11 +19,13 @@ interface Modal {
 interface UIState {
   theme: 'light' | 'dark';
   sidebarOpen: boolean;
+  tourOpen: boolean;
   notifications: Notification[];
   modals: Modal[];
   setTheme: (theme: 'light' | 'dark') => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  setTourOpen: (open: boolean) => void;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -38,14 +40,17 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       theme: 'light',
       sidebarOpen: true,
+      tourOpen: false,
       notifications: [],
       modals: [],
-      
+
       setTheme: (theme) => set({ theme }),
-      
+
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-      
+
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+      setTourOpen: (open) => set({ tourOpen: open }),
       
       addNotification: (notification) =>
         set((state) => ({

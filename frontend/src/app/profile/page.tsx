@@ -6,7 +6,7 @@ import {
   User, Settings, FileText, MessageSquare,
   ClipboardCheck, Trophy, Edit2, Save, X, Lock, Loader2,
   Calendar, Users, Eye, EyeOff, CheckCircle2, Shield,
-  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff, Mail, MailX,
+  GraduationCap, Volume2, VolumeX, Vibrate, Bell, BellOff, Mail, MailX, Compass,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useUIStore } from "@/stores/uiStore";
 import { env } from "@/lib/env";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
@@ -288,6 +289,31 @@ function ChangePasswordSection() {
   );
 }
 
+// ─── Platform Tour card ───────────────────────────────────────────────────────
+function PlatformTourCard() {
+  const { setTourOpen } = useUIStore();
+  return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start justify-between gap-4">
+      <div className="flex items-start gap-3 min-w-0">
+        <Compass className="h-5 w-5 mt-0.5 shrink-0 text-blue-700" />
+        <div>
+          <p className="text-sm font-semibold text-blue-950">Platform Tour</p>
+          <p className="text-xs text-blue-700 mt-0.5">
+            Take a guided walkthrough of every section of ATLAS, tailored to your role.
+          </p>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        onClick={() => setTourOpen(true)}
+        className="shrink-0 bg-blue-950 hover:bg-blue-900 text-white"
+      >
+        Start Tour
+      </Button>
+    </div>
+  );
+}
+
 // ─── Inner page ───────────────────────────────────────────────────────────────
 function ProfilePageInner() {
   const searchParams = useSearchParams();
@@ -518,7 +544,10 @@ function ProfilePageInner() {
             {/* ── SETTINGS ──────────────────────────────────────────────── */}
             {activeTab === "settings" && (
               <div className="space-y-8">
-                <NotificationPreferencesSection emailNotifications={(profile as any).emailNotifications !== false} />
+                <PlatformTourCard />
+                <div className="border-t border-gray-100 pt-6">
+                  <NotificationPreferencesSection emailNotifications={(profile as any).emailNotifications !== false} />
+                </div>
                 <div className="border-t border-gray-100 pt-6">
                   <ChangePasswordSection />
                 </div>

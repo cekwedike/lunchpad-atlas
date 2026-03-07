@@ -27,6 +27,8 @@ export class UsersService {
         cohortId: true,
         createdAt: true,
         emailNotifications: true,
+        isSuspended: true,
+        suspensionReason: true,
         cohort: {
           select: { id: true, name: true },
         },

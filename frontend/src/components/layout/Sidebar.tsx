@@ -81,6 +81,11 @@ export function Sidebar() {
       href: '/dashboard/feedback',
       icon: Inbox,
     },
+    {
+      title: 'Settings',
+      href: '/profile',
+      icon: User,
+    },
   ];
 
   const getFacilitatorItems = (): NavItem[] => [
@@ -123,6 +128,11 @@ export function Sidebar() {
       title: 'Feedback',
       href: '/dashboard/feedback',
       icon: Inbox,
+    },
+    {
+      title: 'Settings',
+      href: '/profile',
+      icon: User,
     },
   ];
 
@@ -181,6 +191,11 @@ export function Sidebar() {
       title: 'Feedback Inbox',
       href: '/dashboard/admin/feedback',
       icon: Inbox,
+    },
+    {
+      title: 'Settings',
+      href: '/profile',
+      icon: User,
     },
   ];
 

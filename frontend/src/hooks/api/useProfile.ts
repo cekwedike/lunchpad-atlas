@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
+import { toast } from 'sonner';
 import type { User, UserAchievement } from '@/types/api';
 
 export function useProfile(userId?: string) {
@@ -68,5 +69,35 @@ export function useUserStats(userId?: string) {
     },
     enabled: userId ? !!userId : (isAuthenticated && !!currentUser),
     retry: false,
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+      apiClient.post('/users/me/change-password', data),
+    onSuccess: () => {
+      toast.success('Password changed successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to change password', {
+        description: error.message || 'Current password may be incorrect',
+      });
+    },
+  });
+}
+
+export function useUpdateEmailPrefs() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { emailNotifications?: boolean; weeklyDigest?: boolean }) =>
+      apiClient.patch('/users/me', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      toast.success('Preferences saved');
+    },
+    onError: () => {
+      toast.error('Failed to save preferences');
+    },
   });
 }
