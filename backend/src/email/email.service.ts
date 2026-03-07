@@ -574,7 +574,44 @@ export class EmailService {
       </div>
 
       <div class="warning-box">
-        For security, please change your password immediately after your first login.
+        <strong>Password security:</strong> You may keep the temporary password above if you choose, but we recommend changing it to something only you know.
+        Once you change it, keep it safe — there is no self-service password reset on this platform.
+        If you ever forget your password, you will need to contact an admin to reset it.
+      </div>
+
+      <div style="margin: 24px 0; background: #f8faff; border: 1px solid #e0e7ff; border-radius: 8px; padding: 20px 24px;">
+        <h3 style="margin: 0 0 14px 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #4338ca;">
+          Your first steps after logging in
+        </h3>
+        <table cellpadding="0" cellspacing="0" style="width: 100%;">
+          <tr>
+            <td style="vertical-align: top; padding: 6px 0; width: 28px;">
+              <span style="display: inline-block; width: 20px; height: 20px; background: #e0e7ff; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: 700; color: #4338ca;">1</span>
+            </td>
+            <td style="vertical-align: top; padding: 6px 0 6px 8px;">
+              <span style="font-size: 14px; font-weight: 600; color: #1e1b4b;">Change your password</span><br>
+              <span style="font-size: 13px; color: #6b7280;">Go to Profile &amp; Settings (avatar menu, top right) and update your password.</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="vertical-align: top; padding: 6px 0; width: 28px;">
+              <span style="display: inline-block; width: 20px; height: 20px; background: #e0e7ff; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: 700; color: #4338ca;">2</span>
+            </td>
+            <td style="vertical-align: top; padding: 6px 0 6px 8px;">
+              <span style="font-size: 14px; font-weight: 600; color: #1e1b4b;">Take the platform tour</span><br>
+              <span style="font-size: 13px; color: #6b7280;">A quick 2-minute walkthrough will show you where everything is. Find it in the avatar menu under "Start Platform Tour".</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="vertical-align: top; padding: 6px 0; width: 28px;">
+              <span style="display: inline-block; width: 20px; height: 20px; background: #e0e7ff; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: 700; color: #4338ca;">3</span>
+            </td>
+            <td style="vertical-align: top; padding: 6px 0 6px 8px;">
+              <span style="font-size: 14px; font-weight: 600; color: #1e1b4b;">Review your notification preferences</span><br>
+              <span style="font-size: 13px; color: #6b7280;">Choose how you want to be notified about quizzes, resources, and updates in Profile &amp; Settings.</span>
+            </td>
+          </tr>
+        </table>
       </div>
 
       <div class="button-wrap">

@@ -20,6 +20,8 @@ import { env } from "@/lib/env";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
+import { useAuthStore } from "@/stores/authStore";
+import { markPasswordChanged } from "@/components/SetupChecklist";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -224,6 +226,7 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
 // ─── Change Password form (shared across roles) ───────────────────────────────
 function ChangePasswordSection() {
   const changePassword = useChangePassword();
+  const { user } = useAuthStore();
   const [succeeded, setSucceeded] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<PasswordData>({
@@ -239,6 +242,7 @@ function ChangePasswordSection() {
       reset();
       setSucceeded(true);
       setTimeout(() => setSucceeded(false), 4000);
+      if (user?.id) markPasswordChanged(user.id);
     } catch {
       // toast shown by hook
     }

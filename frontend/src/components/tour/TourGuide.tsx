@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { UserRole } from '@/types/api';
@@ -435,6 +436,7 @@ function tourStorageKey(userId: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function TourGuide() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const { tourOpen, tourStep, setTourOpen, setTourStep, startTour } = useUIStore();
   const [closing, setClosing] = useState(false);
@@ -447,15 +449,16 @@ export function TourGuide() {
   const isFirst = step === 0;
   const isLast = step === steps.length - 1;
 
-  // Auto-trigger for first-time users
+  // Auto-trigger for first-time users — skip if tour is already open (e.g. after
+  // a router.push CTA navigation where the component remounts but tourOpen is still true)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || tourOpen) return;
     const key = tourStorageKey(user.id);
     if (!localStorage.getItem(key)) {
       const t = setTimeout(() => startTour(), 800);
       return () => clearTimeout(t);
     }
-  }, [user?.id, startTour]);
+  }, [user?.id, tourOpen, startTour]);
 
   const close = () => {
     setClosing(true);
@@ -570,8 +573,9 @@ export function TourGuide() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      // Navigate without closing — step is preserved in store
-                      window.location.href = current.href!;
+                      // Client-side navigation keeps zustand in-memory state alive.
+                      // tourOpen stays true; the remounted TourGuide reads it from the store.
+                      router.push(current.href!);
                     }}
                     className="text-blue-700 border-blue-200 hover:bg-blue-50"
                   >

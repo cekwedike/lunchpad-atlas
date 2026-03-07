@@ -3,6 +3,7 @@
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { TourGuide } from '@/components/tour/TourGuide';
+import { SetupChecklist } from '@/components/SetupChecklist';
 import { useAuthStore } from '@/stores/authStore';
 import { ShieldOff } from 'lucide-react';
 
@@ -50,7 +51,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex">
         <Sidebar />
         <main className={`flex-1 min-w-0 min-h-[calc(100vh-4rem)] ${isSuspended ? 'pointer-events-none select-none' : ''}`}>
-          <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 space-y-4">
+            {!isSuspended && <SetupChecklist />}
             {children}
           </div>
         </main>
