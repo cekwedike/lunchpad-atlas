@@ -22,6 +22,7 @@ export function usePushNotifications() {
   const [state, setState] = useState<PushState>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
 
   const isSupported =
     typeof window !== 'undefined' &&
@@ -45,8 +46,13 @@ export function usePushNotifications() {
     });
   }, [isSupported]);
 
-  const subscribe = useCallback(async (): Promise<boolean> => {
-    if (!isSupported || !env.vapidPublicKey) return false;
+  const subscribe = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    setSubscribeError(null);
+    if (!isSupported || !env.vapidPublicKey) {
+      const err = 'Push notifications are not configured for this app.';
+      setSubscribeError(err);
+      return { ok: false, error: err };
+    }
 
     setIsLoading(true);
     try {
@@ -55,28 +61,48 @@ export function usePushNotifications() {
       // Request permission
       const permission = await Notification.requestPermission();
       setState(permission as PushState);
-      if (permission !== 'granted') return false;
+      if (permission !== 'granted') {
+        const err = 'Notification permission was not granted. Allow notifications for this site in browser settings.';
+        setSubscribeError(err);
+        return { ok: false, error: err };
+      }
 
       // Subscribe to push
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(env.vapidPublicKey),
-      });
+      let subscription: PushSubscription;
+      try {
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(env.vapidPublicKey),
+        });
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        console.error('pushManager.subscribe failed:', msg);
+        const err = `Browser push subscription failed: ${msg}`;
+        setSubscribeError(err);
+        return { ok: false, error: err };
+      }
 
       const json = subscription.toJSON();
-      await apiClient.post('/push/subscribe', {
-        endpoint: json.endpoint,
-        keys: {
-          p256dh: json.keys?.p256dh,
-          auth: json.keys?.auth,
-        },
-      });
+      try {
+        await apiClient.post('/push/subscribe', {
+          endpoint: json.endpoint,
+          keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth },
+        });
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        console.error('Push subscribe API failed:', msg);
+        const err = `Failed to register with server: ${msg}`;
+        setSubscribeError(err);
+        return { ok: false, error: err };
+      }
 
       setIsSubscribed(true);
-      return true;
-    } catch (err) {
-      console.error('Push subscription failed:', err);
-      return false;
+      return { ok: true };
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      console.error('Push subscription failed:', msg);
+      setSubscribeError(msg);
+      return { ok: false, error: msg };
     } finally {
       setIsLoading(false);
     }
@@ -109,5 +135,5 @@ export function usePushNotifications() {
     }
   }, [isSupported]);
 
-  return { state, isSubscribed, isLoading, isSupported, subscribe, unsubscribe } as const;
+  return { state, isSubscribed, isLoading, isSupported, subscribeError, subscribe, unsubscribe } as const;
 }

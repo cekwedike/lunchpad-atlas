@@ -9,6 +9,7 @@ import { idbStorage } from '@/lib/idb-store';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { OfflineBanner } from './OfflineBanner';
+import { UpdateBanner } from './UpdateBanner';
 import { useAuthStore } from '@/stores/authStore';
 
 const persister = createAsyncStoragePersister({
@@ -38,6 +39,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         {children}
         {mounted && <OfflineBanner />}
+        {mounted && <UpdateBanner />}
         {mounted && <ReactQueryDevtools initialIsOpen={false} />}
         {mounted && <PushPromptGate />}
       </AuthProvider>

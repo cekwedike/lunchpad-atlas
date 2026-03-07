@@ -33,8 +33,8 @@ export function PushNotificationPrompt() {
   if (!shouldShow) return null;
 
   const handleEnable = async () => {
-    const success = await subscribe();
-    if (success || Notification.permission !== 'default') {
+    const { ok } = await subscribe();
+    if (ok || Notification.permission !== 'default') {
       setDismissed(true);
     }
   };

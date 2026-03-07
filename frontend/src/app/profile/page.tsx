@@ -84,7 +84,7 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
 // ─── Notification Preferences ─────────────────────────────────────────────────
 function NotificationPreferencesSection({ emailNotifications }: { emailNotifications: boolean }) {
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
-  const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribe, unsubscribe } = usePushNotifications();
+  const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribeError, subscribe, unsubscribe } = usePushNotifications();
   const updateProfile = useUpdateProfile();
   const [supportsVibration, setSupportsVibration] = useState(false);
 
@@ -97,11 +97,11 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
 
   const handlePushToggle = async (checked: boolean) => {
     if (checked) {
-      const ok = await subscribe();
+      const { ok, error } = await subscribe();
       if (ok) {
         toast.success('Push notifications enabled.');
       } else {
-        toast.error('Could not enable push notifications. Check your browser settings.');
+        toast.error(error ?? 'Could not enable push notifications.');
       }
     } else {
       const ok = await unsubscribe();
