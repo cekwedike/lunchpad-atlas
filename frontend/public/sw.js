@@ -9,7 +9,7 @@
  *  - everything else  → Network First → cache fallback
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `atlas-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline';
 

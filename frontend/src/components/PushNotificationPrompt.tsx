@@ -17,8 +17,8 @@ export function PushNotificationPrompt() {
   const [dismissed, setDismissed] = useState(true); // start hidden, show after mount check
 
   useEffect(() => {
-    // Don't show if already dismissed in this session
-    const wasDismissed = sessionStorage.getItem('push-prompt-dismissed') === '1';
+    // Don't show if already dismissed (persisted across sessions)
+    const wasDismissed = localStorage.getItem('push-prompt-dismissed') === '1';
     if (!wasDismissed) setDismissed(false);
   }, []);
 
@@ -40,7 +40,7 @@ export function PushNotificationPrompt() {
   };
 
   const handleDismiss = () => {
-    sessionStorage.setItem('push-prompt-dismissed', '1');
+    localStorage.setItem('push-prompt-dismissed', '1');
     setDismissed(true);
   };
 

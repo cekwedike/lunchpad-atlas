@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { env } from "@/lib/env";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
@@ -84,9 +85,14 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
   const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribe, unsubscribe } = usePushNotifications();
   const updateProfile = useUpdateProfile();
+  const [supportsVibration, setSupportsVibration] = useState(false);
+
+  useEffect(() => {
+    setSupportsVibration(typeof navigator !== 'undefined' && 'vibrate' in navigator);
+  }, []);
 
   const pushDenied = pushState === 'denied';
-  const pushUnsupported = !isSupported;
+  const pushUnsupported = !isSupported || !env.vapidPublicKey;
 
   const handlePushToggle = async (checked: boolean) => {
     if (checked) {
@@ -121,7 +127,9 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900">Push notifications</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {pushUnsupported
+                {!env.vapidPublicKey
+                  ? 'Not configured — contact your administrator.'
+                  : pushUnsupported
                   ? 'Not supported in this browser.'
                   : pushDenied
                   ? 'Blocked by browser. Allow notifications in site settings.'
@@ -178,21 +186,23 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
           />
         </div>
 
-        {/* Vibration row */}
-        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <Vibrate className={cn('h-5 w-5 mt-0.5 shrink-0', vibration ? 'text-blue-600' : 'text-gray-400')} />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900">Vibration</p>
-              <p className="text-xs text-gray-500 mt-0.5">Vibrate the device on new notifications (mobile browsers only).</p>
+        {/* Vibration row — only on devices that support it */}
+        {supportsVibration && (
+          <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <Vibrate className={cn('h-5 w-5 mt-0.5 shrink-0', vibration ? 'text-blue-600' : 'text-gray-400')} />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">Vibration</p>
+                <p className="text-xs text-gray-500 mt-0.5">Vibrate the device on new notifications.</p>
+              </div>
             </div>
+            <Switch
+              checked={vibration}
+              onCheckedChange={updateVibration}
+              aria-label="Vibration"
+            />
           </div>
-          <Switch
-            checked={vibration}
-            onCheckedChange={updateVibration}
-            aria-label="Vibration"
-          />
-        </div>
+        )}
 
       </div>
     </div>

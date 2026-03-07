@@ -1,44 +1,43 @@
-import type { Metadata } from 'next';
-import { RetryButton } from './RetryButton';
-
-export const metadata: Metadata = {
-  title: 'You are offline — ATLAS',
-};
-
+/**
+ * Offline fallback page — served by the service worker when a navigation
+ * request fails due to no network connection.
+ */
 export default function OfflinePage() {
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6 px-4 text-center">
-      <div className="flex flex-col items-center gap-4">
-        {/* Wifi-off icon (inline SVG — no external dependency) */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="64"
-          height="64"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-slate-400"
-          aria-hidden="true"
-        >
-          <line x1="2" y1="2" x2="22" y2="22" />
-          <path d="M8.5 16.5a5 5 0 0 1 7 0" />
-          <path d="M2 8.82a15 15 0 0 1 4.17-2.65" />
-          <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76" />
-          <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68" />
-          <path d="M5 12.97A10 10 0 0 1 8 9" />
-          <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
-        </svg>
-
-        <h1 className="text-2xl font-semibold text-white">You are offline</h1>
-        <p className="text-slate-400 max-w-sm">
-          Check your internet connection and try again. Your progress is safe.
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
+      <div className="max-w-sm space-y-4">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-amber-600"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="1" y1="1" x2="23" y2="23" />
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+            <path d="M10.71 5.05A16 16 0 0 1 22.56 9" />
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+            <line x1="12" y1="20" x2="12.01" y2="20" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">You are offline</h1>
+        <p className="text-sm text-gray-500">
+          ATLAS could not load this page because there is no network connection.
+          Please check your connection and try again.
         </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+        >
+          Try again
+        </button>
       </div>
-
-      <RetryButton />
     </div>
   );
 }

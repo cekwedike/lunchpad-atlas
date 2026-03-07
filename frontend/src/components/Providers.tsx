@@ -1,12 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from '@/lib/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { queryClient, PERSIST_MAX_AGE } from '@/lib/react-query';
+import { idbStorage } from '@/lib/idb-store';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
+import { OfflineBanner } from './OfflineBanner';
 import { useAuthStore } from '@/stores/authStore';
+
+const persister = createAsyncStoragePersister({
+  storage: idbStorage,
+  key: 'atlas-query-cache',
+  throttleTime: 3000, // debounce writes to IndexedDB by 3s
+});
 
 function PushPromptGate() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -22,12 +31,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister, maxAge: PERSIST_MAX_AGE }}
+    >
       <AuthProvider>
         {children}
+        {mounted && <OfflineBanner />}
         {mounted && <ReactQueryDevtools initialIsOpen={false} />}
         {mounted && <PushPromptGate />}
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
