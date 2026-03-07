@@ -6,11 +6,13 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaService } from '../prisma.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     PassportModule,
     NotificationsModule,
+    EmailModule,
     JwtModule.register({
       secret: (() => {
         if (!process.env.JWT_SECRET) {

@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma.service';
 import { LoginDto, RegisterDto, SetupAdminDto, AuthResponseDto } from './dto/auth.dto';
 import { Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 import {
   getCohortDurationMonths,
   getMonthlyCapForDuration,
@@ -22,6 +23,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
+    private emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -78,6 +80,15 @@ export class AuthService {
       });
 
       await this.notificationsService.notifyAdminsUserRegistered(user.id);
+
+      // Send welcome email with login credentials (fire-and-forget)
+      this.emailService.sendAccountCreatedEmail(user.email, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        password: dto.password,
+        role: user.role,
+      }).catch((err) => console.error('Failed to send account-created email:', err));
 
       return this.generateTokens(user);
     } catch (error) {

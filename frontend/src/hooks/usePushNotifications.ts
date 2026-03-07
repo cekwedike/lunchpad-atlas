@@ -70,7 +70,7 @@ export function usePushNotifications() {
       let vapidKey: string;
       try {
         const res = await apiClient.get<{ publicKey: string }>('/push/vapid-public-key');
-        vapidKey = (res.data.publicKey ?? '').trim();
+        vapidKey = (res.publicKey ?? '').trim();
         if (!vapidKey) throw new Error('Server returned an empty VAPID key.');
       } catch (e: any) {
         const err = `Could not fetch push configuration from server: ${e?.message ?? String(e)}`;

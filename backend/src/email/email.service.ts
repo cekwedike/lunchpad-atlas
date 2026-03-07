@@ -16,6 +16,14 @@ export interface WelcomeEmailData {
   startDate: Date;
 }
 
+export interface AccountCreatedEmailData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  role: string;
+}
+
 export interface NotificationEmailData {
   firstName: string;
   title: string;
@@ -97,6 +105,22 @@ export class EmailService {
     return this.sendEmail({
       to: email,
       subject: `Welcome to ATLAS - ${data.cohortName}`,
+      html,
+    });
+  }
+
+  /**
+   * Send account-created email to a newly registered user (admin-initiated)
+   */
+  async sendAccountCreatedEmail(
+    email: string,
+    data: AccountCreatedEmailData,
+  ): Promise<boolean> {
+    const html = this.getAccountCreatedTemplate(data);
+    const roleLabel = data.role === 'FACILITATOR' ? 'Facilitator' : 'Fellow';
+    return this.sendEmail({
+      to: email,
+      subject: `Welcome to ATLAS - Your ${roleLabel} account is ready`,
       html,
     });
   }
@@ -320,6 +344,171 @@ export class EmailService {
     <div class="footer">
       <p>© ${new Date().getFullYear()} ATLAS Platform. All rights reserved.</p>
       <p><a href="${this.configService.get('FRONTEND_URL')}/unsubscribe" style="color: #667eea;">Unsubscribe</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+  }
+
+  /**
+   * Account Created Email Template (admin-initiated user creation)
+   */
+  private getAccountCreatedTemplate(data: AccountCreatedEmailData): string {
+    const roleLabel = data.role === 'FACILITATOR' ? 'Facilitator' : 'Fellow';
+    const loginUrl = `${this.configService.get('FRONTEND_URL')}/login`;
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to ATLAS</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0 0 8px 0;
+      font-size: 28px;
+      font-weight: bold;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      margin: 0;
+      font-size: 15px;
+      opacity: 0.85;
+    }
+    .content {
+      padding: 36px 30px;
+    }
+    .content p {
+      margin: 0 0 16px 0;
+    }
+    .credentials-box {
+      background: #f0f4ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+    .credentials-box h3 {
+      margin: 0 0 16px 0;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #4338ca;
+    }
+    .credential-row {
+      display: flex;
+      margin-bottom: 10px;
+    }
+    .credential-label {
+      font-weight: 600;
+      color: #374151;
+      min-width: 90px;
+      font-size: 14px;
+    }
+    .credential-value {
+      color: #111827;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 2px 8px;
+      word-break: break-all;
+    }
+    .warning-box {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 12px 16px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #92400e;
+    }
+    .button-wrap {
+      text-align: center;
+      margin: 28px 0 8px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 13px 32px;
+      background: #1e3a8a;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .footer {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #6c757d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>ATLAS</h1>
+      <p>Your ${roleLabel} account has been created</p>
+    </div>
+    <div class="content">
+      <p>Hi ${data.firstName},</p>
+      <p>Welcome to the ATLAS platform. An administrator has created an account for you as a <strong>${roleLabel}</strong>. Use the credentials below to log in and get started.</p>
+
+      <div class="credentials-box">
+        <h3>Your Login Details</h3>
+        <div class="credential-row">
+          <span class="credential-label">Email</span>
+          <span class="credential-value">${data.email}</span>
+        </div>
+        <div class="credential-row">
+          <span class="credential-label">Password</span>
+          <span class="credential-value">${data.password}</span>
+        </div>
+        <div class="credential-row">
+          <span class="credential-label">Login URL</span>
+          <span class="credential-value">${loginUrl}</span>
+        </div>
+      </div>
+
+      <div class="warning-box">
+        For security, please change your password immediately after your first login.
+      </div>
+
+      <div class="button-wrap">
+        <a href="${loginUrl}" class="button">Log In to ATLAS</a>
+      </div>
+
+      <p>If you have any questions, please reach out to your administrator.</p>
+      <p><strong>The ATLAS Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} ATLAS Platform. All rights reserved.</p>
     </div>
   </div>
 </body>
