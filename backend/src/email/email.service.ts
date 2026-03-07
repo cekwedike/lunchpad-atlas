@@ -50,6 +50,7 @@ export interface WeeklySummaryData {
 export class EmailService {
   private transporter: nodemailer.Transporter;
   private resend: Resend | null = null;
+  private brevoApiKey: string | null = null;
 
   constructor(private configService: ConfigService) {
     this.initializeTransporter();
@@ -61,7 +62,15 @@ export class EmailService {
       console.log('[EmailService] Email notifications disabled (EMAIL_NOTIFICATIONS_ENABLED != "true")');
     }
 
-    // Prefer Resend (HTTP API — works on Render/cloud hosts that block SMTP)
+    // 1. Brevo HTTP API (works on Render — no SMTP port needed)
+    const brevoKey = this.configService.get<string>('BREVO_API_KEY');
+    if (brevoKey) {
+      this.brevoApiKey = brevoKey;
+      console.log('[EmailService] Initialized with Brevo HTTP API');
+      return;
+    }
+
+    // 2. Resend HTTP API
     const resendKey = this.configService.get<string>('RESEND_API_KEY');
     if (resendKey) {
       this.resend = new Resend(resendKey);
@@ -69,11 +78,11 @@ export class EmailService {
       return;
     }
 
-    // Fallback: SMTP via nodemailer
+    // 3. SMTP fallback (likely blocked on Render)
     const user = this.configService.get<string>('EMAIL_USER');
     const pass = this.configService.get<string>('EMAIL_PASSWORD');
     if (!user || !pass) {
-      console.warn('[EmailService] No RESEND_API_KEY and no EMAIL_USER/EMAIL_PASSWORD — emails will not be sent');
+      console.warn('[EmailService] No BREVO_API_KEY, RESEND_API_KEY, or EMAIL_USER/PASSWORD — emails will not be sent');
     } else {
       console.log(`[EmailService] Initialized with SMTP user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`);
     }
@@ -84,6 +93,15 @@ export class EmailService {
       secure: false,
       auth: { user, pass },
     });
+  }
+
+  /** Parse "Display Name <email@example.com>" into { name, email } for Brevo */
+  private parseFrom(from: string): { name: string; email: string } {
+    const match = from.match(/^"?([^"<]+?)"?\s*<([^>]+)>$/);
+    if (match) {
+      return { name: match[1].trim(), email: match[2].trim() };
+    }
+    return { name: 'ATLAS Platform', email: from.trim() };
   }
 
   /**
@@ -97,11 +115,32 @@ export class EmailService {
     }
 
     const from = options.from ?? this.configService.get('EMAIL_FROM') ?? 'ATLAS Platform <onboarding@resend.dev>';
+    const toArray = Array.isArray(options.to) ? options.to : [options.to];
 
     try {
-      if (this.resend) {
+      if (this.brevoApiKey) {
+        // Brevo HTTP API
+        const sender = this.parseFrom(from);
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': this.brevoApiKey,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender,
+            to: toArray.map((email) => ({ email })),
+            subject: options.subject,
+            htmlContent: options.html,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`Brevo API ${res.status}: ${body}`);
+        }
+      } else if (this.resend) {
         // Resend HTTP API
-        const toArray = Array.isArray(options.to) ? options.to : [options.to];
         const { error } = await this.resend.emails.send({
           from,
           to: toArray,
