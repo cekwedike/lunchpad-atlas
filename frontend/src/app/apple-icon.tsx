@@ -24,20 +24,18 @@ export default function AppleIcon() {
           position: 'relative',
         }}
       >
-        {/* Gold star — upper right */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 18,
-            right: 22,
-            fontSize: 30,
-            lineHeight: 1,
-            fontFamily: 'Arial, sans-serif',
-            color: '#f59e0b',
-          }}
+        {/* Gold star — upper right (SVG polygon, no font needed) */}
+        <svg
+          width="26"
+          height="26"
+          viewBox="0 0 24 24"
+          style={{ position: 'absolute', top: 16, right: 18 }}
         >
-          ★
-        </div>
+          <polygon
+            points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+            fill="#f59e0b"
+          />
+        </svg>
 
         {/* Bold "A" */}
         <span
@@ -65,6 +63,6 @@ export default function AppleIcon() {
         />
       </div>
     ),
-    { ...size, fonts: [] },
+    size,
   );
 }
