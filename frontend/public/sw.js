@@ -9,7 +9,7 @@
  *  - everything else  → Network First → cache fallback
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `atlas-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline';
 
@@ -36,7 +36,12 @@ self.addEventListener('activate', (event) => {
         ),
       ),
       // Take control of all open clients immediately
-      self.clients.claim(),
+      self.clients.claim().then(() => {
+        // Notify all open tabs that the SW has updated so they can prompt a reload
+        return self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED' }));
+        });
+      }),
     ]),
   );
 });

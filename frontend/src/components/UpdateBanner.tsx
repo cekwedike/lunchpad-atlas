@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 /**
- * Shows a slim banner when the service worker is updated.
- * The SW calls skipWaiting() immediately on install, so when a new SW activates
- * and claims the page, `controllerchange` fires — that's our signal to prompt.
- * We ignore the first controllerchange if there was no prior controller (first load).
+ * Shows a banner when the service worker is updated so users can reload
+ * and get the latest version without a manual refresh.
+ *
+ * Two detection mechanisms:
+ * 1. SW posts 'SW_UPDATED' message on activate (primary — fires for all open tabs)
+ * 2. `controllerchange` event (fallback — fires when SW takes control of the page)
+ *    Ignored on first load when there was no previous controller.
  */
 export function UpdateBanner() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -15,23 +18,30 @@ export function UpdateBanner() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
-    // Track whether there was already a controlling SW when the page loaded.
-    // If not, the first controllerchange is just the SW claiming the page
-    // for the first time — not an update.
+    // ── Primary: message from the SW ────────────────────────────────────────
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SW_UPDATED') {
+        setUpdateAvailable(true);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+
+    // ── Fallback: controllerchange ──────────────────────────────────────────
+    // Ignore the first controllerchange if the page loaded with no controller
+    // (that's just the SW claiming the page for the first time).
     let hadController = !!navigator.serviceWorker.controller;
 
     const handleControllerChange = () => {
       if (!hadController) {
-        // First time SW takes control — not an update, just record it.
         hadController = true;
         return;
       }
-      // SW changed while page was running — a new version deployed.
       setUpdateAvailable(true);
     };
-
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
     return () => {
+      navigator.serviceWorker.removeEventListener('message', handleMessage);
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
     };
   }, []);
