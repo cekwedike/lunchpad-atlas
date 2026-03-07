@@ -11,11 +11,22 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { FeedbackService, CreateFeedbackDto, RespondFeedbackDto } from './feedback.service';
+import { FeedbackService } from './feedback.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole, FeedbackType, FeedbackStatus } from '@prisma/client';
+
+class CreateFeedbackBody {
+  type: FeedbackType;
+  subject: string;
+  message: string;
+}
+
+class RespondFeedbackBody {
+  status: FeedbackStatus;
+  adminNote?: string;
+}
 
 @ApiTags('feedback')
 @Controller('feedback')
@@ -26,7 +37,7 @@ export class FeedbackController {
 
   @Post()
   @ApiOperation({ summary: 'Submit feedback' })
-  create(@Request() req, @Body() dto: CreateFeedbackDto) {
+  create(@Request() req, @Body() dto: CreateFeedbackBody) {
     return this.feedbackService.create(req.user.id, dto);
   }
 
@@ -54,7 +65,7 @@ export class FeedbackController {
   respond(
     @Request() req,
     @Param('id') feedbackId: string,
-    @Body() dto: RespondFeedbackDto,
+    @Body() dto: RespondFeedbackBody,
   ) {
     return this.feedbackService.respond(req.user.id, feedbackId, dto);
   }
