@@ -32,6 +32,8 @@ export default function AppleIcon() {
             right: 22,
             fontSize: 30,
             lineHeight: 1,
+            fontFamily: 'Arial, sans-serif',
+            color: '#f59e0b',
           }}
         >
           ★
