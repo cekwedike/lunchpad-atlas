@@ -40,6 +40,8 @@ services:
         sync: false  # Gmail App Password (myaccount.google.com/apppasswords)
       - key: EMAIL_FROM
         value: "ATLAS Platform <noreply@atlas.com>"
+      - key: RESEND_API_KEY
+        sync: false  # Get from resend.com dashboard — required for email delivery on Render
       - key: VAPID_PUBLIC_KEY
         sync: false  # Generate with: npx web-push generate-vapid-keys
       - key: VAPID_PRIVATE_KEY

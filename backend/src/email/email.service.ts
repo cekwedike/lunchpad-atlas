@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { ConfigService } from '@nestjs/config';
 
 export interface EmailOptions {
@@ -48,22 +49,33 @@ export interface WeeklySummaryData {
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private resend: Resend | null = null;
 
   constructor(private configService: ConfigService) {
     this.initializeTransporter();
   }
 
   private initializeTransporter() {
-    const user = this.configService.get<string>('EMAIL_USER');
-    const pass = this.configService.get<string>('EMAIL_PASSWORD');
     const enabled = this.configService.get<string>('EMAIL_NOTIFICATIONS_ENABLED');
-
     if (enabled !== 'true') {
       console.log('[EmailService] Email notifications disabled (EMAIL_NOTIFICATIONS_ENABLED != "true")');
-    } else if (!user || !pass) {
-      console.warn('[EmailService] EMAIL_USER or EMAIL_PASSWORD is not set — emails will not be sent');
+    }
+
+    // Prefer Resend (HTTP API — works on Render/cloud hosts that block SMTP)
+    const resendKey = this.configService.get<string>('RESEND_API_KEY');
+    if (resendKey) {
+      this.resend = new Resend(resendKey);
+      console.log('[EmailService] Initialized with Resend (HTTP API)');
+      return;
+    }
+
+    // Fallback: SMTP via nodemailer
+    const user = this.configService.get<string>('EMAIL_USER');
+    const pass = this.configService.get<string>('EMAIL_PASSWORD');
+    if (!user || !pass) {
+      console.warn('[EmailService] No RESEND_API_KEY and no EMAIL_USER/EMAIL_PASSWORD — emails will not be sent');
     } else {
-      console.log(`[EmailService] Initialized with user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`);
+      console.log(`[EmailService] Initialized with SMTP user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`);
     }
 
     this.transporter = nodemailer.createTransport({
@@ -84,31 +96,29 @@ export class EmailService {
       return false;
     }
 
-    const user = this.configService.get<string>('EMAIL_USER');
-    const pass = this.configService.get<string>('EMAIL_PASSWORD');
-    if (!user || !pass) {
-      console.warn(`[EmailService] Cannot send email to ${options.to} — EMAIL_USER or EMAIL_PASSWORD not configured`);
-      return false;
-    }
+    const from = options.from ?? this.configService.get('EMAIL_FROM', 'ATLAS Platform <onboarding@resend.dev>');
 
     try {
-      // Gmail SMTP rejects a `from` address that doesn't match the authenticated account.
-      // Always use EMAIL_USER as the actual sending address; preserve any display name
-      // from EMAIL_FROM config (e.g. "ATLAS Platform <noreply@atlas.com>" → "ATLAS Platform").
-      let from = options.from;
-      if (!from) {
-        const configuredFrom = this.configService.get('EMAIL_FROM', '');
-        const nameMatch = configuredFrom.match(/^([^<]+)<[^>]+>$/);
-        const displayName = nameMatch ? nameMatch[1].trim() : 'ATLAS Platform';
-        from = `${displayName} <${user}>`;
+      if (this.resend) {
+        // Resend HTTP API
+        const toArray = Array.isArray(options.to) ? options.to : [options.to];
+        const { error } = await this.resend.emails.send({
+          from,
+          to: toArray,
+          subject: options.subject,
+          html: options.html,
+        });
+        if (error) throw new Error(error.message);
+      } else {
+        // SMTP fallback
+        const user = this.configService.get<string>('EMAIL_USER');
+        const pass = this.configService.get<string>('EMAIL_PASSWORD');
+        if (!user || !pass) {
+          console.warn(`[EmailService] Cannot send email to ${options.to} — no email provider configured`);
+          return false;
+        }
+        await this.transporter.sendMail({ from, to: options.to, subject: options.subject, html: options.html });
       }
-
-      await this.transporter.sendMail({
-        from,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-      });
 
       console.log(`[EmailService] Sent "${options.subject}" to ${options.to}`);
       return true;
