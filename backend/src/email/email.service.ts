@@ -92,9 +92,16 @@ export class EmailService {
     }
 
     try {
-      const from =
-        options.from ||
-        this.configService.get('EMAIL_FROM', 'ATLAS Platform <noreply@atlas.com>');
+      // Gmail SMTP rejects a `from` address that doesn't match the authenticated account.
+      // Always use EMAIL_USER as the actual sending address; preserve any display name
+      // from EMAIL_FROM config (e.g. "ATLAS Platform <noreply@atlas.com>" → "ATLAS Platform").
+      let from = options.from;
+      if (!from) {
+        const configuredFrom = this.configService.get('EMAIL_FROM', '');
+        const nameMatch = configuredFrom.match(/^([^<]+)<[^>]+>$/);
+        const displayName = nameMatch ? nameMatch[1].trim() : 'ATLAS Platform';
+        from = `${displayName} <${user}>`;
+      }
 
       await this.transporter.sendMail({
         from,
