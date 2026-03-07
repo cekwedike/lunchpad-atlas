@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Offline fallback page — served by the service worker when a navigation
  * request fails due to no network connection.
