@@ -35,7 +35,6 @@ function readState(uid: string): ChecklistState {
   }
   return {
     pwdChanged: !!localStorage.getItem(`atlas_setup_pwd_${uid}`),
-    // TourGuide writes atlas_tour_completed_{uid} when tour is finished
     tourTaken: !!localStorage.getItem(`atlas_tour_completed_${uid}`),
     notifSet: !!localStorage.getItem(`atlas_setup_notif_${uid}`),
     dismissed: !!localStorage.getItem(`atlas_setup_dismissed_${uid}`),
@@ -54,15 +53,45 @@ export function SetupChecklist() {
   );
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Re-read from localStorage when the window regains focus (e.g. user opened
-  // /profile in same tab, changed password, then navigated back)
+  // Derived value — computed before hooks so the auto-dismiss effect can use it
+  const allDone = state.pwdChanged && state.tourTaken && state.notifSet;
+
+  // Re-read from localStorage when the window regains focus
   useEffect(() => {
     const refresh = () => { if (uid) setState(readState(uid)); };
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
   }, [uid]);
 
+  // Auto-dismiss when all items are done.
+  // IMPORTANT: this useEffect MUST stay before any early returns to satisfy Rules of Hooks.
+  // Moving it after an early return causes React error #310 on re-renders after dismissal.
+  useEffect(() => {
+    if (!uid || !allDone || state.dismissed) return;
+    setShowSuccess(true);
+    const t = setTimeout(() => {
+      localStorage.setItem(`atlas_setup_dismissed_${uid}`, '1');
+      setState(prev => ({ ...prev, dismissed: true }));
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [allDone, state.dismissed, uid]);
+
+  // ── Early returns (after all hooks) ──────────────────────────────────────────
+
   if (!uid || state.dismissed) return null;
+
+  if (showSuccess) {
+    return (
+      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3">
+        <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+        <p className="text-sm font-semibold text-green-800">
+          You're all set — your account is ready to go.
+        </p>
+      </div>
+    );
+  }
+
+  // ── Helpers (safe to define after early returns since they're not hooks) ──────
 
   const mark = (key: string) => {
     localStorage.setItem(key, '1');
@@ -83,7 +112,7 @@ export function SetupChecklist() {
       description:
         'Your account was created with a temporary password. Change it to something only you know.',
       warning:
-        'If you change your password and forget the new one, an admin will need to reset it for you — there is no self-service password reset. Keep it somewhere safe.',
+        'If you forget your password, an admin can reset it for you via User Management. You can also keep the default password if you prefer.',
       action: (
         <Link href="/profile">
           <Button size="sm" variant="outline" className="gap-1 text-xs h-7 shrink-0 whitespace-nowrap">
@@ -129,28 +158,6 @@ export function SetupChecklist() {
   ];
 
   const doneCount = items.filter(i => i.done).length;
-  const allDone = doneCount === items.length;
-
-  // When all items are done: flash a success banner then auto-dismiss
-  useEffect(() => {
-    if (allDone && !state.dismissed) {
-      setShowSuccess(true);
-      const t = setTimeout(() => dismiss(), 2500);
-      return () => clearTimeout(t);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allDone]);
-
-  if (showSuccess) {
-    return (
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3">
-        <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-        <p className="text-sm font-semibold text-green-800">
-          You're all set — your account is ready to go.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="rounded-xl border border-blue-200 overflow-hidden bg-white">
@@ -191,7 +198,6 @@ export function SetupChecklist() {
                 item.done && 'opacity-50'
               )}
             >
-              {/* Toggle checkbox */}
               <button
                 onClick={item.onToggle}
                 className="mt-0.5 shrink-0 hover:opacity-70 transition-opacity"
@@ -203,7 +209,6 @@ export function SetupChecklist() {
                 }
               </button>
 
-              {/* Text */}
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   'text-sm font-semibold leading-snug',
@@ -225,7 +230,6 @@ export function SetupChecklist() {
                 )}
               </div>
 
-              {/* Action */}
               {!item.done && (
                 <div className="shrink-0 mt-0.5">{item.action}</div>
               )}

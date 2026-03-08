@@ -132,15 +132,6 @@ const FELLOW_STEPS: TourStep[] = [
     bg: 'from-blue-600 to-indigo-600',
   },
   {
-    title: 'Attendance',
-    description:
-      'Check in to your sessions by scanning the QR code your facilitator displays. Your attendance is tracked automatically and contributes to your engagement record.',
-    icon: QrCode,
-    href: '/dashboard/attendance',
-    cta: 'View Attendance',
-    bg: 'from-emerald-700 to-green-700',
-  },
-  {
     title: 'Feedback',
     description:
       'Have a suggestion, found a bug, or need to raise a concern? Submit it here. The admin team reviews all feedback and will respond with notes.',

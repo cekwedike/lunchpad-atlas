@@ -574,9 +574,8 @@ export class EmailService {
       </div>
 
       <div class="warning-box">
-        <strong>Password security:</strong> You may keep the temporary password above if you choose, but we recommend changing it to something only you know.
-        Once you change it, keep it safe — there is no self-service password reset on this platform.
-        If you ever forget your password, you will need to contact an admin to reset it.
+        <strong>Password security:</strong> You may keep the temporary password above if you prefer, or change it to something personal.
+        If you forget your password, an admin can reset it for you via User Management — just reach out to them.
       </div>
 
       <div style="margin: 24px 0; background: #f8faff; border: 1px solid #e0e7ff; border-radius: 8px; padding: 20px 24px;">
