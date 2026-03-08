@@ -680,6 +680,8 @@ enum NotificationType {
   FELLOW_MISSED_SESSIONS // Fellow missed consecutive sessions (to staff)
   FELLOW_LOW_ENGAGEMENT // Fellow consistently low resource engagement (to staff)
   PASSWORD_CHANGED // User changed their password (to admins)
+  FEEDBACK_SUBMITTED // New feedback submitted (to admins)
+  FEEDBACK_RESPONDED // Admin responded to feedback (to submitter)
 }
 
 model Notification {

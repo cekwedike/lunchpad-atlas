@@ -6,7 +6,8 @@ import {
 import { PrismaService } from '../prisma.service';
 import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
-import { FeedbackType, FeedbackStatus, UserRole } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { FeedbackType, FeedbackStatus, UserRole, NotificationType } from '@prisma/client';
 
 export interface CreateFeedbackDto {
   type: FeedbackType;
@@ -25,6 +26,7 @@ export class FeedbackService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, dto: CreateFeedbackDto) {
@@ -38,21 +40,34 @@ export class FeedbackService {
       include: { user: true },
     });
 
-    // Notify all admins by email
+    // Notify all admins — in-app notification + email
     const admins = await this.prisma.user.findMany({
       where: { role: UserRole.ADMIN },
-      select: { email: true, firstName: true },
+      select: { id: true, email: true, firstName: true },
     });
 
     const frontendUrl = this.configService.get('FRONTEND_URL');
     const typeLabel = this.formatType(dto.type);
+    const submitterName = `${feedback.user.firstName} ${feedback.user.lastName}`;
 
     for (const admin of admins) {
+      // In-app notification
+      this.notificationsService
+        .createNotification({
+          userId: admin.id,
+          type: NotificationType.FEEDBACK_SUBMITTED,
+          title: `New ${typeLabel} from ${submitterName}`,
+          message: `"${dto.subject}" — ${dto.message.substring(0, 120)}${dto.message.length > 120 ? '…' : ''}`,
+          data: { feedbackId: feedback.id },
+        })
+        .catch(() => null);
+
+      // Email
       this.emailService
         .sendNotificationEmail(admin.email, {
           firstName: admin.firstName,
           title: `New Feedback Submitted: ${typeLabel}`,
-          message: `${feedback.user.firstName} ${feedback.user.lastName} submitted a new ${typeLabel.toLowerCase()}: "${dto.subject}"\n\n${dto.message}`,
+          message: `${submitterName} submitted a new ${typeLabel.toLowerCase()}: "${dto.subject}"\n\n${dto.message}`,
           actionUrl: `${frontendUrl}/dashboard/admin/feedback`,
           actionText: 'View Feedback',
         })
@@ -108,17 +123,32 @@ export class FeedbackService {
       include: { user: true },
     });
 
-    // Email the submitter
+    // Notify submitter — in-app notification + email
     const frontendUrl = this.configService.get('FRONTEND_URL');
     const statusLabel = this.formatStatus(dto.status);
+    const responseMessage = dto.adminNote
+      ? `Your submission "${feedback.subject}" has been reviewed.\n\nAdmin note: ${dto.adminNote}`
+      : `Your submission "${feedback.subject}" has been marked as ${statusLabel}.`;
 
+    // In-app notification
+    this.notificationsService
+      .createNotification({
+        userId: feedback.userId,
+        type: NotificationType.FEEDBACK_RESPONDED,
+        title: `Your feedback has been ${statusLabel}`,
+        message: dto.adminNote
+          ? `"${feedback.subject}" — Admin note: ${dto.adminNote.substring(0, 100)}${dto.adminNote.length > 100 ? '…' : ''}`
+          : `"${feedback.subject}" has been marked as ${statusLabel}.`,
+        data: { feedbackId: feedbackId },
+      })
+      .catch(() => null);
+
+    // Email
     this.emailService
       .sendNotificationEmail(feedback.user.email, {
         firstName: feedback.user.firstName,
         title: `Your feedback has been ${statusLabel}`,
-        message: dto.adminNote
-          ? `Your submission "${feedback.subject}" has been reviewed.\n\nAdmin note: ${dto.adminNote}`
-          : `Your submission "${feedback.subject}" has been marked as ${statusLabel}.`,
+        message: responseMessage,
         actionUrl: `${frontendUrl}/dashboard/feedback`,
         actionText: 'View My Feedback',
       })
