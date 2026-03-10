@@ -1,16 +1,10 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
-import { Response } from 'express';
-import { SentryExceptionCaptured } from '@sentry/nestjs';
+import { Catch, HttpException, HttpStatus } from '@nestjs/common';
+import type { ExceptionFilter, ArgumentsHost } from '@nestjs/common';
+import type { Response } from 'express';
+import * as Sentry from '@sentry/nestjs';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  @SentryExceptionCaptured()
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -28,6 +22,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else {
         message = res || exception.message;
       }
+    } else {
+      Sentry.captureException(exception);
     }
 
     response.status(status).json({
