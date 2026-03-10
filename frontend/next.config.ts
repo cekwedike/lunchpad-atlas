@@ -11,7 +11,7 @@ export default withSentryConfig(nextConfig, {
   project: process.env.SENTRY_PROJECT,
   silent: true,
   widenClientFileUpload: true,
-  sourcemaps: { deleteFilesAfterUpload: ['**/*.js.map'] },
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
   disableLogger: true,
   automaticVercelMonitors: false,
 });
