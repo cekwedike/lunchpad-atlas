@@ -56,6 +56,11 @@ export function SetupChecklist() {
   // Derived value — computed before hooks so the auto-dismiss effect can use it
   const allDone = state.pwdChanged && state.tourTaken && state.notifSet;
 
+  // Re-read from localStorage when uid becomes available (auth store hydration)
+  useEffect(() => {
+    if (uid) setState(readState(uid));
+  }, [uid]);
+
   // Re-read from localStorage when the window regains focus
   useEffect(() => {
     const refresh = () => { if (uid) setState(readState(uid)); };
