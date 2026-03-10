@@ -21,7 +21,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
 import { useAuthStore } from "@/stores/authStore";
-import { markPasswordChanged } from "@/components/SetupChecklist";
+import { markPasswordChanged, markNotifPrefsSet } from "@/components/SetupChecklist";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -85,15 +85,21 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
 }
 
 // ─── Notification Preferences ─────────────────────────────────────────────────
-function NotificationPreferencesSection({ emailNotifications }: { emailNotifications: boolean }) {
+function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { emailNotifications: boolean; weeklyDigest: boolean }) {
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
   const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribeError, subscribe, unsubscribe } = usePushNotifications();
   const updateProfile = useUpdateProfile();
+  const { user } = useAuthStore();
   const [supportsVibration, setSupportsVibration] = useState(false);
 
   useEffect(() => {
     setSupportsVibration(typeof navigator !== 'undefined' && 'vibrate' in navigator);
   }, []);
+
+  // Mark checklist item as done when user views this section
+  useEffect(() => {
+    if (user?.id) markNotifPrefsSet(user.id);
+  }, [user?.id]);
 
   const pushDenied = pushState === 'denied';
   const pushUnsupported = !isSupported || !env.vapidPublicKey;
@@ -177,6 +183,23 @@ function NotificationPreferencesSection({ emailNotifications }: { emailNotificat
             onCheckedChange={handleEmailToggle}
             disabled={updateProfile.isPending}
             aria-label="Email notifications"
+          />
+        </div>
+
+        {/* Weekly digest row */}
+        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <Mail className={cn('h-5 w-5 mt-0.5 shrink-0', weeklyDigest ? 'text-blue-600' : 'text-gray-400')} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Weekly digest</p>
+              <p className="text-xs text-gray-500 mt-0.5">Receive a weekly summary of your progress, points, and upcoming sessions every Monday.</p>
+            </div>
+          </div>
+          <Switch
+            checked={weeklyDigest}
+            onCheckedChange={(checked) => updateProfile.mutate({ weeklyDigest: checked } as any)}
+            disabled={updateProfile.isPending}
+            aria-label="Weekly digest"
           />
         </div>
 
@@ -550,7 +573,10 @@ function ProfilePageInner() {
               <div className="space-y-8">
                 <PlatformTourCard />
                 <div className="border-t border-gray-100 pt-6">
-                  <NotificationPreferencesSection emailNotifications={(profile as any).emailNotifications !== false} />
+                  <NotificationPreferencesSection
+                    emailNotifications={(profile as any).emailNotifications !== false}
+                    weeklyDigest={(profile as any).weeklyDigest !== false}
+                  />
                 </div>
                 <div className="border-t border-gray-100 pt-6">
                   <ChangePasswordSection />
