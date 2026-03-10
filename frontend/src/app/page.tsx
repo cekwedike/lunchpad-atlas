@@ -177,7 +177,7 @@ export default function Home() {
           suppressHydrationWarning
           style={{
             backgroundImage:
-              "url(https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070)",
+              "url(/photo/landing-page.jpg)",
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundAttachment: "fixed",
