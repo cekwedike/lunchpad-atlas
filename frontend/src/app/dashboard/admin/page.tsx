@@ -255,29 +255,29 @@ export default function AdminDashboard() {
                       return (
                         <div
                           key={session.id}
-                          className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer group"
+                          className="flex items-center gap-3 px-3 sm:px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer group"
                           onClick={() => router.push("/dashboard/admin/sessions")}
                         >
                           {/* Session number badge */}
-                          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
                             <span className="text-xs font-bold text-indigo-600">{session.sessionNumber ?? "–"}</span>
                           </div>
                           {/* Title + date */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{session.title}</p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                              {format(scheduledDate, "EEE, MMM d, yyyy")}
+                              {format(scheduledDate, "EEE, MMM d")}
                             </p>
                           </div>
                           {/* Unlock status */}
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             {unlockPast ? (
-                              <span className="flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                <LockOpen className="h-3 w-3" /> Unlocked
+                              <span className="flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                <LockOpen className="h-3 w-3" /><span className="hidden sm:inline"> Unlocked</span>
                               </span>
                             ) : (
-                              <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                                <Lock className="h-3 w-3" /> Locked
+                              <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                <Lock className="h-3 w-3" /><span className="hidden sm:inline"> Locked</span>
                               </span>
                             )}
                             <span className="text-xs text-gray-400 hidden sm:block">
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
                 {recentChats.length > 0 ? (
                   <div className="divide-y divide-gray-50">
                     {recentChats.map((msg: any) => (
-                      <div key={msg.id} className="flex items-start gap-2.5 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <div key={msg.id} className="flex items-start gap-2.5 px-3 py-3 hover:bg-gray-50 transition-colors">
                         <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0 text-xs font-semibold text-blue-700">
                           {msg.user?.firstName?.[0]?.toUpperCase() || "?"}
                         </div>

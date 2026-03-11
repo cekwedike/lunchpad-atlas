@@ -196,13 +196,10 @@ export default function Home() {
         <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-slate-950/70 border-b border-white/5">
           <div className="max-w-7xl mx-auto px-4 sm:px-8 py-5 flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <div className="w-11 h-11 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <div className="hidden sm:flex w-11 h-11 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-xl items-center justify-center shadow-lg shadow-blue-500/20">
                 <span className="text-white font-bold text-xl">A</span>
               </div>
-              <div>
-                <div className="text-white font-semibold text-lg tracking-tight">ATLAS</div>
-                <div className="text-slate-400 text-xs tracking-wide">THRiVE Hub LaunchPad</div>
-              </div>
+              <div className="text-white font-semibold text-lg tracking-tight">ATLAS</div>
             </div>
             <button
               onClick={scrollToFeatures}
@@ -215,18 +212,18 @@ export default function Home() {
         </header>
 
         {/* ═══════════ HERO SECTION ═══════════ */}
-        <section className="min-h-screen flex items-center justify-center px-4 sm:px-8 pt-32 pb-20">
-          <div className="max-w-6xl w-full grid lg:grid-cols-2 gap-16 items-center">
+        <section className="min-h-screen flex items-center justify-center px-4 sm:px-8 pt-24 sm:pt-32 pb-12 sm:pb-20">
+          <div className="max-w-6xl w-full grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             {/* Left: Hero Text */}
-            <div className="space-y-8">
+            <div className="space-y-8 order-last lg:order-first">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2">
                   <Zap className="w-4 h-4 text-blue-400" />
-                  <span className="text-blue-300 text-sm font-medium">
+                  <span className="text-blue-300 text-xs sm:text-sm font-medium">
                     Gamified Learning Platform
                   </span>
                 </div>
-                <h1 className="text-6xl md:text-8xl font-black tracking-tight">
+                <h1 className="text-5xl sm:text-6xl md:text-8xl font-black tracking-tight">
                   <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
                     ATLAS
                   </span>
@@ -244,7 +241,7 @@ export default function Home() {
               <div className="flex flex-wrap gap-6">
                 {stats.map((stat, i) => (
                   <div key={i} className="text-center">
-                    <div className="text-2xl font-bold text-white">{stat.value}</div>
+                    <div className="text-xl sm:text-2xl font-bold text-white">{stat.value}</div>
                     <div className="text-xs text-slate-400 mt-1">{stat.label}</div>
                   </div>
                 ))}
@@ -260,7 +257,7 @@ export default function Home() {
             </div>
 
             {/* Right: Sign In Card */}
-            <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
+            <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto order-first lg:order-last">
               <div
                 className="bg-white/[0.06] backdrop-blur-2xl border border-white/10 rounded-3xl p-8 space-y-6 shadow-2xl shadow-black/20"
                 suppressHydrationWarning
@@ -395,7 +392,7 @@ export default function Home() {
                       className={`h-1 bg-gradient-to-r ${category.color} opacity-60 group-hover:opacity-100 transition-opacity`}
                     />
 
-                    <div className="p-7">
+                    <div className="p-5 sm:p-7">
                       {/* Category Header */}
                       <div className="flex items-center gap-4 mb-5">
                         <div
@@ -431,6 +428,11 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Divider */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-8">
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        </div>
+
         {/* ═══════════ HOW IT WORKS ═══════════ */}
         <section className="py-32 px-4 sm:px-8">
           <div className="max-w-5xl mx-auto">
@@ -444,7 +446,7 @@ export default function Home() {
               <p className="text-lg" style={{ color: "#e2e8f0" }}>Your journey from onboarding to mastery</p>
             </div>
 
-            <div className="grid md:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               {[
                 {
                   step: "01",
@@ -500,12 +502,10 @@ export default function Home() {
         <footer className="py-16 px-4 sm:px-8 border-t border-white/5">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-lg flex items-center justify-center">
+              <div className="hidden sm:flex w-9 h-9 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-lg items-center justify-center">
                 <span className="text-white font-bold text-sm">A</span>
               </div>
-              <span className="text-slate-500 text-sm">
-                ATLAS - THRiVE Hub LaunchPad Fellowship
-              </span>
+              <span className="text-slate-500 text-sm">ATLAS</span>
             </div>
             <p className="text-slate-600 text-sm">
               &copy; {new Date().getFullYear()} All rights reserved.
