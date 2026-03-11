@@ -19,14 +19,11 @@ test.describe('Resources', () => {
   });
 
   test('resources page loads', async ({ page }) => {
-    await page.goto('/resources');
+    await page.goto('/dashboard/resources');
     await page.waitForLoadState('networkidle');
 
     // Should be on resources page (or redirected to login if session expired)
     const onResources = page.url().includes('/resources');
-    const redirectedToLogin = page.url().includes('/login');
-
-    // If redirected to login, the auth failed — the test setup skips if no creds
     expect(onResources).toBe(true);
   });
 
@@ -56,7 +53,7 @@ test.describe('Resources', () => {
   });
 
   test('clicking a tab changes the displayed content', async ({ page }) => {
-    await page.goto('/resources');
+    await page.goto('/dashboard/resources');
     await page.waitForLoadState('networkidle');
 
     // Get all tabs
@@ -78,7 +75,7 @@ test.describe('Resources', () => {
   });
 
   test('resource cards are displayed', async ({ page }) => {
-    await page.goto('/resources');
+    await page.goto('/dashboard/resources');
     await page.waitForLoadState('networkidle');
 
     // Look for resource cards or items

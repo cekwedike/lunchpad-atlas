@@ -23,13 +23,11 @@ test.describe('Dashboard', () => {
 
     await expect(page).not.toHaveURL(/\/login/);
     // Should be on some form of dashboard
-    expect(
-      page.url().includes('/dashboard') || page.url().includes('/fellow') || page.url() === 'https://launchpadatlas.vercel.app/',
-    ).toBe(true);
+    expect(page.url().includes('/dashboard')).toBe(true);
   });
 
   test('dashboard displays page heading', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard/fellow');
     await page.waitForLoadState('networkidle');
 
     const dashboard = new DashboardPage(page);
@@ -41,7 +39,7 @@ test.describe('Dashboard', () => {
   });
 
   test('dashboard shows points or score information', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard/fellow');
     await page.waitForLoadState('networkidle');
 
     // Look for any numeric stats or points text
@@ -52,7 +50,7 @@ test.describe('Dashboard', () => {
   });
 
   test('getting started checklist is visible', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard/fellow');
     await page.waitForLoadState('networkidle');
 
     // The checklist might be called "Getting Started", "Checklist", "Quick Start", etc.
@@ -69,7 +67,7 @@ test.describe('Dashboard', () => {
   });
 
   test('dashboard navigation links are accessible', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard/fellow');
     await page.waitForLoadState('networkidle');
 
     // Navigation should be present

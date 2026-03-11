@@ -14,7 +14,7 @@ export class ResourcesPage {
   }
 
   async goto() {
-    await this.page.goto('/resources');
+    await this.page.goto('/dashboard/resources');
   }
 
   async clickTab(tabName: string) {

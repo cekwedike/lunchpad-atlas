@@ -19,7 +19,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard page loads', async ({ page }) => {
-    await page.goto('/leaderboard');
+    await page.goto('/dashboard/leaderboard');
     await page.waitForLoadState('networkidle');
 
     expect(page.url()).toContain('/leaderboard');
@@ -37,7 +37,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard displays ranked entries', async ({ page }) => {
-    await page.goto('/leaderboard');
+    await page.goto('/dashboard/leaderboard');
     await page.waitForLoadState('networkidle');
 
     // Look for rank numbers or position indicators
@@ -58,7 +58,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard shows at least one fellow entry or empty state', async ({ page }) => {
-    await page.goto('/leaderboard');
+    await page.goto('/dashboard/leaderboard');
     await page.waitForLoadState('networkidle');
 
     // Could show entries or an empty state message
@@ -80,7 +80,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard shows month selector or period info', async ({ page }) => {
-    await page.goto('/leaderboard');
+    await page.goto('/dashboard/leaderboard');
     await page.waitForLoadState('networkidle');
 
     // Check for month/period selection
