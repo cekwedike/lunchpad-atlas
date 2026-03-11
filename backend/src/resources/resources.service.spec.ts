@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ResourcesService } from './resources.service';
 import { PrismaService } from '../prisma.service';
 import { AchievementsService } from '../achievements/achievements.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('ResourcesService', () => {
   let service: ResourcesService;
@@ -16,6 +17,7 @@ describe('ResourcesService', () => {
     },
     resourceProgress: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
     pointsLog: {
@@ -32,12 +34,17 @@ describe('ResourcesService', () => {
     checkAndAwardAchievements: jest.fn(),
   };
 
+  const mockNotificationsService = {
+    createNotification: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResourcesService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AchievementsService, useValue: mockAchievementsService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -136,6 +143,7 @@ describe('ResourcesService', () => {
       };
 
       mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
+      mockPrismaService.resourceProgress.findMany.mockResolvedValue([]);
       mockPrismaService.resourceProgress.findUnique.mockResolvedValue(existingProgress);
       mockPrismaService.resourceProgress.update.mockResolvedValue({
         id: 'progress-1',

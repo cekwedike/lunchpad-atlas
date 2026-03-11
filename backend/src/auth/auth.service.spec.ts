@@ -4,6 +4,8 @@ import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -16,10 +18,24 @@ describe('AuthService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    cohort: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   };
 
   const mockJwtService = {
     sign: jest.fn(),
+  };
+
+  const mockNotificationsService = {
+    createNotification: jest.fn(),
+    notifyAdminsUserRegistered: jest.fn(),
+  };
+
+  const mockEmailService = {
+    sendNotificationEmail: jest.fn().mockResolvedValue(undefined),
+    sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+    sendAccountCreatedEmail: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -28,6 +44,8 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: EmailService, useValue: mockEmailService },
       ],
     }).compile();
 

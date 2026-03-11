@@ -21,6 +21,7 @@ describe('DiscussionsService', () => {
     discussionComment: {
       create: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
     },
     discussionLike: {
       findUnique: jest.fn(),
@@ -39,6 +40,7 @@ describe('DiscussionsService', () => {
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -80,7 +82,7 @@ describe('DiscussionsService', () => {
       const userId = '123';
       const createDto = {
         title: 'Test Discussion',
-        content: 'This is a test discussion post',
+        content: 'This is a test discussion post that has been extended to meet the minimum word count requirement of one hundred words for the platform. Adding more content here to ensure the validation passes correctly during the unit test run. The discussion should be detailed enough to provide meaningful engagement for the cohort members reading and responding to it. This additional text brings the total word count well above the required threshold so the service validation does not throw a BadRequestException. We are now adding even more words here to push past the one hundred word minimum count required by the discussion service implementation.',
         cohortId: 'cohort-1',
         resourceId: 'resource-1',
       };
@@ -180,9 +182,13 @@ describe('DiscussionsService', () => {
       expect(mockPrismaService.discussion.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              { title: { contains: 'career', mode: 'insensitive' } },
-              { content: { contains: 'career', mode: 'insensitive' } },
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { title: { contains: 'career', mode: 'insensitive' } },
+                  { content: { contains: 'career', mode: 'insensitive' } },
+                ]),
+              }),
             ]),
           }),
         }),
@@ -253,6 +259,7 @@ describe('DiscussionsService', () => {
       mockPrismaService.discussion.findUnique.mockResolvedValue({
         ...mockDiscussion,
         isLocked: false,
+        isApproved: true,
         userId,
       });
       mockPrismaService.user.findUnique.mockResolvedValue({ id: userId });
@@ -264,7 +271,7 @@ describe('DiscussionsService', () => {
         createDto,
       );
 
-      expect(result).toEqual(mockComment);
+      expect(result).toEqual(expect.objectContaining(mockComment));
     });
 
     it('should throw NotFoundException if discussion does not exist', async () => {
