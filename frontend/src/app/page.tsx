@@ -1,29 +1,10 @@
 "use client";
 
 import {
-  Target,
-  MessageCircle,
-  BarChart3,
-  Users,
-  Shield,
-  BookOpen,
-  ChevronDown,
-  Trophy,
-  Zap,
-  Brain,
-  Gamepad2,
-  Bell,
-  CalendarDays,
-  FileText,
-  Video,
-  Award,
-  TrendingUp,
-  Star,
-  ArrowRight,
-  CheckCircle2,
-  Flame,
-  Layout,
-  Lock,
+  Target, MessageCircle, BarChart3, Users, Shield, BookOpen,
+  ChevronDown, Trophy, Zap, Brain, Gamepad2, Bell, CalendarDays,
+  FileText, Video, Award, TrendingUp, Star, ArrowRight, CheckCircle2,
+  Flame, Layout, Lock,
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -36,12 +17,11 @@ export default function Home() {
   const featuresRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest(".role-selector")) setIsDropdownOpen(false);
+    const close = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".role-selector")) setIsDropdownOpen(false);
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
   }, []);
 
   useEffect(() => {
@@ -51,346 +31,244 @@ export default function Home() {
   }, []);
 
   const roles = [
-    { id: "fellow" as const, name: "Fellow", icon: BookOpen, description: "Access learning resources and track your progress", color: "blue" },
-    { id: "facilitator" as const, name: "Facilitator", icon: Users, description: "Manage cohorts and guide fellow development", color: "cyan" },
-    { id: "admin" as const, name: "Admin", icon: Shield, description: "Platform administration and oversight", color: "emerald" },
+    { id: "fellow" as const, name: "Fellow", icon: BookOpen, description: "Access learning resources and track your progress", accent: "from-blue-400 to-indigo-500", glow: "shadow-blue-500/40" },
+    { id: "facilitator" as const, name: "Facilitator", icon: Users, description: "Manage cohorts and guide fellow development", accent: "from-cyan-400 to-teal-500", glow: "shadow-cyan-500/40" },
+    { id: "admin" as const, name: "Admin", icon: Shield, description: "Platform administration and oversight", accent: "from-emerald-400 to-green-600", glow: "shadow-emerald-500/40" },
   ];
-
   const currentRole = roles.find((r) => r.id === selectedRole)!;
   const CurrentIcon = currentRole.icon;
 
   const handleSignIn = () => router.push(`/login/${selectedRole}`);
   const scrollToFeatures = () => featuresRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  const featureCategories = [
-    {
-      title: "Gamified Learning",
-      subtitle: "Earn points, unlock achievements, climb the leaderboard",
-      icon: Gamepad2,
-      color: "from-violet-500 to-purple-600",
-      glow: "group-hover:shadow-violet-500/20",
-      features: [
-        { icon: Trophy, text: "20+ Achievements across 4 categories" },
-        { icon: TrendingUp, text: "Real-time leaderboard with monthly rankings" },
-        { icon: Flame, text: "Daily streaks with bonus multipliers" },
-        { icon: Star, text: "Points for every resource, quiz, and discussion" },
-        { icon: Award, text: "Gold, Silver, Bronze medals for top performers" },
-      ],
-    },
-    {
-      title: "Structured Curriculum",
-      subtitle: "Month-by-month learning paths with curated resources",
-      icon: BookOpen,
-      color: "from-blue-500 to-cyan-500",
-      glow: "group-hover:shadow-blue-500/20",
-      features: [
-        { icon: CalendarDays, text: "4-month cohort programs with scheduled sessions" },
-        { icon: FileText, text: "Curated articles with completion tracking" },
-        { icon: Video, text: "Video resources with embedded player" },
-        { icon: Lock, text: "Timed resource unlocks tied to session dates" },
-        { icon: CheckCircle2, text: "Core and optional resource designations" },
-      ],
-    },
-    {
-      title: "Interactive Quizzes",
-      subtitle: "Test knowledge with self-paced and live quiz formats",
-      icon: Brain,
-      color: "from-amber-500 to-orange-500",
-      glow: "group-hover:shadow-amber-500/20",
-      features: [
-        { icon: Zap, text: "Live quizzes with real-time participation" },
-        { icon: Target, text: "Self-paced quizzes with time limits" },
-        { icon: TrendingUp, text: "Session, General, and Mega quiz types" },
-        { icon: Flame, text: "Answer streaks with bonus point multipliers" },
-        { icon: Trophy, text: "Live leaderboard during quiz sessions" },
-      ],
-    },
-    {
-      title: "Community & Collaboration",
-      subtitle: "Connect, discuss, and grow together",
-      icon: MessageCircle,
-      color: "from-emerald-500 to-teal-500",
-      glow: "group-hover:shadow-emerald-500/20",
-      features: [
-        { icon: MessageCircle, text: "Real-time cohort chat rooms" },
-        { icon: Users, text: "Discussion forums with topic threading" },
-        { icon: Bell, text: "Instant notifications for all activity" },
-        { icon: BookOpen, text: "Resource-linked discussion threads" },
-        { icon: Star, text: "Earn points for community participation" },
-      ],
-    },
-    {
-      title: "Facilitator Tools",
-      subtitle: "Monitor, guide, and support fellow growth",
-      icon: Users,
-      color: "from-cyan-500 to-blue-500",
-      glow: "group-hover:shadow-cyan-500/20",
-      features: [
-        { icon: BarChart3, text: "Fellow engagement monitoring dashboard" },
-        { icon: Bell, text: "Low-engagement alerts with severity flags" },
-        { icon: CalendarDays, text: "Session attendance tracking" },
-        { icon: Award, text: "Manual point awards and adjustments" },
-        { icon: Lock, text: "Resource unlock management" },
-      ],
-    },
-    {
-      title: "Admin Control Center",
-      subtitle: "Full platform management and analytics",
-      icon: Shield,
-      color: "from-rose-500 to-pink-500",
-      glow: "group-hover:shadow-rose-500/20",
-      features: [
-        { icon: Users, text: "User management with role assignment" },
-        { icon: Layout, text: "Cohort creation and duplication" },
-        { icon: BarChart3, text: "Comprehensive platform analytics" },
-        { icon: Brain, text: "Quiz and achievement management" },
-        { icon: TrendingUp, text: "Leaderboard and point system controls" },
-      ],
-    },
-  ];
-
-  const stats = [
-    { value: "20+", label: "Achievements" },
-    { value: "3", label: "Quiz Types" },
-    { value: "4", label: "Categories" },
-    { value: "Live", label: "Leaderboard" },
+  const features = [
+    { title: "Gamified Learning", subtitle: "Earn points, unlock achievements, climb the leaderboard", icon: Gamepad2, color: "from-violet-500 to-purple-600", items: [{ icon: Trophy, text: "20+ Achievements across 4 categories" }, { icon: TrendingUp, text: "Real-time leaderboard with monthly rankings" }, { icon: Flame, text: "Daily streaks with bonus multipliers" }, { icon: Star, text: "Points for every resource, quiz, and discussion" }, { icon: Award, text: "Gold, Silver, Bronze medals for top performers" }] },
+    { title: "Structured Curriculum", subtitle: "Month-by-month learning paths with curated resources", icon: BookOpen, color: "from-blue-500 to-cyan-500", items: [{ icon: CalendarDays, text: "4-month cohort programs with scheduled sessions" }, { icon: FileText, text: "Curated articles with completion tracking" }, { icon: Video, text: "Video resources with embedded player" }, { icon: Lock, text: "Timed resource unlocks tied to session dates" }, { icon: CheckCircle2, text: "Core and optional resource designations" }] },
+    { title: "Interactive Quizzes", subtitle: "Test knowledge with self-paced and live quiz formats", icon: Brain, color: "from-amber-500 to-orange-500", items: [{ icon: Zap, text: "Live quizzes with real-time participation" }, { icon: Target, text: "Self-paced quizzes with time limits" }, { icon: TrendingUp, text: "Session, General, and Mega quiz types" }, { icon: Flame, text: "Answer streaks with bonus point multipliers" }, { icon: Trophy, text: "Live leaderboard during quiz sessions" }] },
+    { title: "Community & Collaboration", subtitle: "Connect, discuss, and grow together", icon: MessageCircle, color: "from-emerald-500 to-teal-500", items: [{ icon: MessageCircle, text: "Real-time cohort chat rooms" }, { icon: Users, text: "Discussion forums with topic threading" }, { icon: Bell, text: "Instant notifications for all activity" }, { icon: BookOpen, text: "Resource-linked discussion threads" }, { icon: Star, text: "Earn points for community participation" }] },
+    { title: "Facilitator Tools", subtitle: "Monitor, guide, and support fellow growth", icon: Users, color: "from-cyan-500 to-blue-500", items: [{ icon: BarChart3, text: "Fellow engagement monitoring dashboard" }, { icon: Bell, text: "Low-engagement alerts with severity flags" }, { icon: CalendarDays, text: "Session attendance tracking" }, { icon: Award, text: "Manual point awards and adjustments" }, { icon: Lock, text: "Resource unlock management" }] },
+    { title: "Admin Control Center", subtitle: "Full platform management and analytics", icon: Shield, color: "from-rose-500 to-pink-500", items: [{ icon: Users, text: "User management with role assignment" }, { icon: Layout, text: "Cohort creation and duplication" }, { icon: BarChart3, text: "Comprehensive platform analytics" }, { icon: Brain, text: "Quiz and achievement management" }, { icon: TrendingUp, text: "Leaderboard and point system controls" }] },
   ];
 
   const steps = [
-    { step: "01", title: "Join a Cohort", desc: "Get assigned to a cohort with a structured 4-month curriculum", icon: Users, color: "text-blue-400", bg: "from-blue-500/20 to-blue-600/20", border: "border-blue-500/30" },
-    { step: "02", title: "Learn & Earn", desc: "Complete resources and quizzes to earn points and unlock achievements", icon: BookOpen, color: "text-cyan-400", bg: "from-cyan-500/20 to-cyan-600/20", border: "border-cyan-500/30" },
-    { step: "03", title: "Engage & Discuss", desc: "Participate in chats, forums, and live quiz sessions", icon: MessageCircle, color: "text-teal-400", bg: "from-teal-500/20 to-teal-600/20", border: "border-teal-500/30" },
-    { step: "04", title: "Rise to the Top", desc: "Climb the leaderboard, maintain streaks, and become The GOAT", icon: Trophy, color: "text-amber-400", bg: "from-amber-500/20 to-amber-600/20", border: "border-amber-500/30" },
+    { n: "01", title: "Join a Cohort", desc: "Get assigned to a cohort with a structured 4-month curriculum", icon: Users, grad: "from-blue-500 to-indigo-600" },
+    { n: "02", title: "Learn & Earn", desc: "Complete resources and quizzes to earn points and unlock achievements", icon: BookOpen, grad: "from-cyan-500 to-blue-600" },
+    { n: "03", title: "Engage & Discuss", desc: "Participate in chats, forums, and live quiz sessions", icon: MessageCircle, grad: "from-teal-500 to-cyan-600" },
+    { n: "04", title: "Rise to the Top", desc: "Climb the leaderboard, maintain streaks, and become The GOAT", icon: Trophy, grad: "from-amber-500 to-orange-600" },
   ];
 
-  const roleGradient =
-    currentRole.color === "blue" ? "from-blue-500 to-blue-600 shadow-blue-500/30"
-    : currentRole.color === "cyan" ? "from-cyan-500 to-cyan-600 shadow-cyan-500/30"
-    : "from-emerald-500 to-emerald-600 shadow-emerald-500/30";
-
-  const roleIconGradient =
-    currentRole.color === "blue" ? "from-blue-400 to-blue-600"
-    : currentRole.color === "cyan" ? "from-cyan-400 to-cyan-600"
-    : "from-emerald-400 to-emerald-600";
-
   return (
-    <div className="min-h-screen bg-slate-950 overflow-x-hidden" suppressHydrationWarning>
+    <div className="relative min-h-screen bg-slate-950 overflow-x-hidden" suppressHydrationWarning>
 
-      {/* ── Parallax background ── */}
+      {/* ─── Parallax background ─── */}
       <div className="fixed inset-0 z-0" suppressHydrationWarning>
         <div
-          className="absolute inset-0"
           style={{
+            position: "absolute", inset: "-20%",
             backgroundImage: "url(/photo/landing-page.jpg)",
             backgroundSize: "cover",
-            backgroundPosition: "center",
-            transform: `translateY(${scrollY * 0.3}px)`,
-            filter: "brightness(0.25)",
+            backgroundPosition: "center 30%",
+            transform: `translateY(${scrollY * 0.25}px)`,
+            filter: "brightness(0.45) saturate(1.1)",
             willChange: "transform",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-slate-950/60 to-slate-950" />
+        {/* layered gradients for depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/20 via-transparent to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 via-transparent to-slate-950/20" />
       </div>
 
-      {/* ── Ambient orbs ── */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" suppressHydrationWarning>
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/3 -right-32 w-80 h-80 bg-cyan-500/8 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1.5s" }} />
-        <div className="absolute bottom-1/4 -left-16 w-64 h-64 bg-indigo-600/8 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "3s" }} />
-      </div>
+      {/* ─── Header ─── */}
+      <header className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.07] backdrop-blur-2xl bg-black/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 items-center justify-center shadow-lg shadow-blue-600/40">
+              <span className="text-white font-black text-sm leading-none">A</span>
+            </div>
+            <span className="text-white font-black text-xl tracking-tight">ATLAS</span>
+          </div>
+          <button onClick={scrollToFeatures} className="hidden sm:flex items-center gap-1.5 text-white/60 hover:text-white text-sm transition-colors group">
+            Features <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      </header>
 
       <div className="relative z-10">
 
-        {/* ── Header ── */}
-        <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-white/[0.06]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex w-9 h-9 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-lg items-center justify-center shadow-lg shadow-blue-500/30">
-                <span className="text-white font-bold text-sm">A</span>
+        {/* ════════════════ HERO ════════════════ */}
+        <section className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-8 pt-16">
+          <div className="w-full max-w-6xl mx-auto py-16 sm:py-24 grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-20 items-center">
+
+            {/* ── Left: copy ── */}
+            <div className="space-y-8 text-center lg:text-left order-last lg:order-first">
+
+              {/* eyebrow */}
+              <div className="inline-flex items-center gap-2 border border-white/15 bg-white/[0.06] backdrop-blur-sm rounded-full px-4 py-1.5 text-xs font-semibold text-blue-300 tracking-wide uppercase">
+                <Zap className="w-3 h-3" /> Gamified Learning Platform
               </div>
-              <span className="text-white font-bold text-lg tracking-tight">ATLAS</span>
-            </div>
-            <button
-              onClick={scrollToFeatures}
-              className="hidden sm:flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm group"
-            >
-              Explore Features
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-        </header>
 
-        {/* ══════════════ HERO ══════════════ */}
-        <section className="min-h-screen flex items-center justify-center px-4 sm:px-8 pt-24 sm:pt-28 pb-16">
-          <div className="max-w-6xl w-full">
-
-            {/* Sign-in card — full width on mobile, right col on desktop */}
-            <div className="lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
-
-              {/* Right col: Sign-in card (shows first on mobile) */}
-              <div className="order-first lg:order-last w-full max-w-md mx-auto lg:mx-0 lg:ml-auto mb-10 lg:mb-0">
-                {/* Outer glow ring */}
-                <div className="relative">
-                  <div className={`absolute -inset-0.5 bg-gradient-to-br ${roleGradient} rounded-3xl blur opacity-30 transition-all duration-500`} />
-                  <div
-                    className="relative bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl"
-                    suppressHydrationWarning
+              {/* headline */}
+              <div>
+                <h1 className="text-[clamp(3.5rem,12vw,7rem)] font-black tracking-[-0.03em] leading-none">
+                  <span
+                    className="inline-block bg-clip-text text-transparent"
+                    style={{ backgroundImage: "linear-gradient(135deg, #93c5fd 0%, #67e8f9 40%, #5eead4 100%)" }}
                   >
-                    <div className="text-center space-y-1">
-                      <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
-                      <p className="text-slate-400 text-sm">Select your role to continue</p>
-                    </div>
+                    ATLAS
+                  </span>
+                </h1>
+                <p className="mt-4 text-base sm:text-lg text-white/70 leading-relaxed max-w-xl mx-auto lg:mx-0">
+                  Accelerating Talent for Leadership &amp; Success. The gamified LMS built for the{" "}
+                  <span className="text-cyan-300 font-semibold">THRiVE Hub LaunchPad Fellowship</span>.
+                </p>
+              </div>
 
-                    {/* Role Selector */}
-                    <div className="relative role-selector" suppressHydrationWarning>
-                      <button
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 flex items-center justify-between hover:bg-white/8 hover:border-white/20 transition-all cursor-pointer"
-                        suppressHydrationWarning
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${roleIconGradient} flex items-center justify-center shadow-lg shrink-0`}>
-                            <CurrentIcon className="w-5 h-5 text-white" strokeWidth={2} />
-                          </div>
-                          <div className="text-left min-w-0">
-                            <div className="text-white font-semibold text-sm">{currentRole.name}</div>
-                            <div className="text-slate-400 text-xs truncate">{currentRole.description}</div>
-                          </div>
-                        </div>
-                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ml-2 ${isDropdownOpen ? "rotate-180" : ""}`} />
-                      </button>
+              {/* stat pills */}
+              <div className="flex flex-wrap justify-center lg:justify-start gap-3">
+                {[
+                  { v: "20+", l: "Achievements" },
+                  { v: "3", l: "Quiz Types" },
+                  { v: "4", l: "Categories" },
+                  { v: "Live", l: "Leaderboard" },
+                ].map((s) => (
+                  <div key={s.l} className="border border-white/10 bg-white/[0.05] backdrop-blur-sm rounded-2xl px-4 py-2.5 text-center">
+                    <div className="text-lg sm:text-xl font-black text-white leading-none">{s.v}</div>
+                    <div className="text-[10px] text-white/40 mt-0.5 uppercase tracking-wide">{s.l}</div>
+                  </div>
+                ))}
+              </div>
 
-                      {isDropdownOpen && (
-                        <div
-                          className="absolute top-full left-0 right-0 mt-2 bg-slate-900/98 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl shadow-black/40"
-                          suppressHydrationWarning
-                        >
-                          {roles.map((role) => {
-                            const RoleIcon = role.icon;
-                            const iconG = role.color === "blue" ? "from-blue-400 to-blue-600" : role.color === "cyan" ? "from-cyan-400 to-cyan-600" : "from-emerald-400 to-emerald-600";
-                            return (
-                              <button
-                                key={role.id}
-                                onClick={() => { setSelectedRole(role.id); setIsDropdownOpen(false); }}
-                                className={`w-full p-3.5 flex items-center gap-3 hover:bg-white/8 transition-all text-left ${selectedRole === role.id ? "bg-white/5" : ""}`}
-                                suppressHydrationWarning
-                              >
-                                <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${iconG} flex items-center justify-center flex-shrink-0`}>
-                                  <RoleIcon className="w-4 h-4 text-white" strokeWidth={2} />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-white font-medium text-sm">{role.name}</div>
-                                  <div className="text-slate-400 text-xs truncate">{role.description}</div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+              <button onClick={scrollToFeatures} className="inline-flex items-center gap-2 text-white/40 hover:text-white/80 transition-colors group text-sm">
+                Explore all features <ChevronDown className="w-4 h-4 animate-bounce" />
+              </button>
+            </div>
 
+            {/* ── Right: sign-in card ── */}
+            <div className="order-first lg:order-last w-full">
+              <div className="relative">
+                {/* glow halo */}
+                <div
+                  className="absolute -inset-3 rounded-[2rem] blur-2xl opacity-30 transition-all duration-700"
+                  style={{ backgroundImage: `linear-gradient(135deg, var(--glow-a), var(--glow-b))`,
+                    ['--glow-a' as string]: currentRole.id === 'fellow' ? '#3b82f6' : currentRole.id === 'facilitator' ? '#06b6d4' : '#10b981',
+                    ['--glow-b' as string]: currentRole.id === 'fellow' ? '#6366f1' : currentRole.id === 'facilitator' ? '#14b8a6' : '#059669',
+                  }}
+                />
+                {/* card */}
+                <div className="relative rounded-3xl border border-white/10 bg-white/[0.07] backdrop-blur-3xl p-6 sm:p-8 shadow-2xl shadow-black/40" suppressHydrationWarning>
+                  <div className="mb-6 text-center">
+                    <h2 className="text-xl font-bold text-white">Welcome to ATLAS</h2>
+                    <p className="text-sm text-white/50 mt-1">Sign in to your dashboard</p>
+                  </div>
+
+                  {/* role selector */}
+                  <div className="relative role-selector mb-4" suppressHydrationWarning>
                     <button
-                      onClick={handleSignIn}
-                      className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all shadow-lg bg-gradient-to-r ${roleGradient} hover:scale-[1.01] active:scale-[0.99]`}
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="w-full border border-white/10 bg-white/[0.05] hover:bg-white/10 rounded-xl p-3.5 flex items-center gap-3 transition-all"
                       suppressHydrationWarning
                     >
-                      Continue as {currentRole.name}
+                      <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${currentRole.accent} shadow-lg shrink-0 flex items-center justify-center`}>
+                        <CurrentIcon className="w-4.5 h-4.5 text-white" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="text-sm font-semibold text-white">{currentRole.name}</div>
+                        <div className="text-xs text-white/40 truncate">{currentRole.description}</div>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-white/30 transition-transform shrink-0 ${isDropdownOpen ? "rotate-180" : ""}`} />
                     </button>
+
+                    {isDropdownOpen && (
+                      <div className="absolute inset-x-0 top-full mt-2 rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur-2xl shadow-2xl overflow-hidden z-50" suppressHydrationWarning>
+                        {roles.map((r) => {
+                          const Ic = r.icon;
+                          return (
+                            <button key={r.id}
+                              onClick={() => { setSelectedRole(r.id); setIsDropdownOpen(false); }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-white/8 transition-all text-left ${selectedRole === r.id ? "bg-white/5" : ""}`}
+                              suppressHydrationWarning
+                            >
+                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${r.accent} flex items-center justify-center shrink-0`}>
+                                <Ic className="w-4 h-4 text-white" strokeWidth={2} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-white">{r.name}</div>
+                                <div className="text-xs text-white/40 truncate">{r.description}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+
+                  {/* CTA */}
+                  <button
+                    onClick={handleSignIn}
+                    className={`w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r ${currentRole.accent} shadow-lg ${currentRole.glow} hover:opacity-90 active:scale-[0.98] transition-all`}
+                    suppressHydrationWarning
+                  >
+                    Continue as {currentRole.name} &rarr;
+                  </button>
+
+                  <p className="mt-4 text-center text-xs text-white/25">Authorised personnel only</p>
                 </div>
               </div>
-
-              {/* Left col: Hero text */}
-              <div className="order-last lg:order-first space-y-6 sm:space-y-8 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/25 rounded-full px-3 py-1.5 sm:px-4 sm:py-2">
-                  <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" />
-                  <span className="text-blue-300 text-xs sm:text-sm font-medium">Gamified Learning Platform</span>
-                </div>
-
-                <div className="space-y-3">
-                  <h1 className="text-6xl sm:text-7xl md:text-8xl font-black tracking-tight leading-none">
-                    <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-teal-400 bg-clip-text text-transparent drop-shadow-lg">
-                      ATLAS
-                    </span>
-                  </h1>
-                  <p className="text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed max-w-lg mx-auto lg:mx-0">
-                    Accelerating Talent for Leadership &amp; Success. A gamified learning management
-                    system built for the{" "}
-                    <span className="text-cyan-400 font-semibold">THRiVE Hub LaunchPad Fellowship</span>.
-                  </p>
-                </div>
-
-                {/* Stats */}
-                <div className="flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-6">
-                  {stats.map((stat, i) => (
-                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 text-center min-w-[70px]">
-                      <div className="text-lg sm:text-2xl font-bold text-white leading-none">{stat.value}</div>
-                      <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{stat.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  onClick={scrollToFeatures}
-                  className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-all group"
-                >
-                  <span className="text-sm">Discover all features</span>
-                  <ChevronDown className="w-4 h-4 animate-bounce" />
-                </button>
-              </div>
-
             </div>
+          </div>
+
+          {/* scroll cue */}
+          <div className="pb-12 flex flex-col items-center gap-2 text-white/30">
+            <span className="text-xs uppercase tracking-widest">Scroll to explore</span>
+            <div className="w-px h-10 bg-gradient-to-b from-white/30 to-transparent" />
           </div>
         </section>
 
-        {/* ══════════════ FEATURES ══════════════ */}
-        <section ref={featuresRef} className="py-20 sm:py-32 px-4 sm:px-8">
-          {/* Section backdrop */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/30 to-transparent pointer-events-none" />
+        {/* ════════════════ FEATURES ════════════════ */}
+        <section ref={featuresRef} className="relative py-24 sm:py-32 px-4 sm:px-8">
+          {/* section tint */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950/95 to-slate-950 pointer-events-none" />
 
           <div className="relative max-w-7xl mx-auto">
-            <div className="text-center mb-12 sm:mb-20 space-y-4">
-              <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-full px-4 py-2">
-                <Target className="w-4 h-4 text-purple-400" />
-                <span className="text-purple-300 text-sm font-medium">Platform Features</span>
+            {/* heading */}
+            <div className="max-w-2xl mx-auto text-center mb-16 space-y-4">
+              <div className="inline-flex items-center gap-2 border border-purple-500/30 bg-purple-500/10 rounded-full px-4 py-1.5 text-xs font-semibold text-purple-300 uppercase tracking-wide">
+                <Target className="w-3 h-3" /> Platform Features
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">
-                Everything You Need to{" "}
-                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Succeed
-                </span>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight">
+                Everything you need to{" "}
+                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">succeed</span>
               </h2>
-              <p className="text-base sm:text-lg max-w-2xl mx-auto text-slate-300">
-                A complete learning ecosystem with gamification, real-time collaboration, and powerful management tools.
+              <p className="text-base sm:text-lg text-white/60">
+                A complete learning ecosystem — gamification, real-time collaboration, and powerful management tools.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {featureCategories.map((category, i) => {
-                const CategoryIcon = category.icon;
+            {/* cards */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {features.map((f, i) => {
+                const FIcon = f.icon;
                 return (
-                  <div
-                    key={i}
-                    className={`group relative rounded-2xl bg-slate-900/60 border border-white/[0.08] hover:border-white/20 transition-all duration-500 overflow-hidden shadow-lg hover:shadow-2xl ${category.glow}`}
-                  >
-                    <div className={`h-0.5 bg-gradient-to-r ${category.color} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                  <div key={i} className="group relative rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:border-white/15 hover:bg-white/[0.06] transition-all duration-400 overflow-hidden">
+                    {/* top accent */}
+                    <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r ${f.color} opacity-50 group-hover:opacity-100 transition-opacity`} />
                     <div className="p-5 sm:p-6">
-                      <div className="flex items-start gap-4 mb-5">
-                        <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${category.color} flex items-center justify-center shadow-lg shrink-0`}>
-                          <CategoryIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={1.5} />
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center shadow-lg shrink-0`}>
+                          <FIcon className="w-5 h-5 text-white" strokeWidth={1.5} />
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="text-base sm:text-lg font-semibold text-white leading-snug">{category.title}</h3>
-                          <p className="text-xs text-slate-400 mt-0.5 leading-snug">{category.subtitle}</p>
+                        <div>
+                          <h3 className="text-sm sm:text-base font-bold text-white">{f.title}</h3>
+                          <p className="text-[11px] text-white/40 leading-snug mt-0.5">{f.subtitle}</p>
                         </div>
                       </div>
-                      <ul className="space-y-2.5">
-                        {category.features.map((feature, j) => {
-                          const FeatureIcon = feature.icon;
+                      <ul className="space-y-2">
+                        {f.items.map((item, j) => {
+                          const IIcon = item.icon;
                           return (
-                            <li key={j} className="flex items-start gap-2.5">
-                              <FeatureIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-slate-500" />
-                              <span className="text-sm leading-snug text-slate-300">{feature.text}</span>
+                            <li key={j} className="flex items-start gap-2">
+                              <IIcon className="w-3.5 h-3.5 mt-0.5 shrink-0 text-white/30" />
+                              <span className="text-xs sm:text-sm text-white/60 leading-snug">{item.text}</span>
                             </li>
                           );
                         })}
@@ -403,33 +281,40 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ══════════════ HOW IT WORKS ══════════════ */}
-        <section className="py-20 sm:py-32 px-4 sm:px-8">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12 sm:mb-16 space-y-4">
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">
-                How It{" "}
-                <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Works</span>
+        {/* ════════════════ HOW IT WORKS ════════════════ */}
+        <section className="relative py-24 sm:py-32 px-4 sm:px-8 overflow-hidden">
+          {/* subtle bg tint */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-blue-950/10 to-slate-950 pointer-events-none" />
+
+          <div className="relative max-w-5xl mx-auto">
+            <div className="text-center mb-14 sm:mb-20 space-y-3">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white">
+                How it{" "}
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">works</span>
               </h2>
-              <p className="text-base sm:text-lg text-slate-300">Your journey from onboarding to mastery</p>
+              <p className="text-base sm:text-lg text-white/50">Your journey from onboarding to mastery</p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
-              {steps.map((item, i) => {
-                const StepIcon = item.icon;
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-10">
+              {steps.map((s, i) => {
+                const SIcon = s.icon;
                 return (
-                  <div key={i} className="relative flex flex-col items-center text-center space-y-3">
-                    {/* Connector line — desktop only */}
+                  <div key={i} className="relative flex flex-col items-center text-center gap-4">
+                    {/* connector */}
                     {i < steps.length - 1 && (
-                      <div className="hidden md:block absolute top-8 left-[calc(50%+2rem)] right-[calc(-50%+2rem)] h-px bg-gradient-to-r from-white/20 to-white/5" />
+                      <div className="hidden md:block absolute top-8 left-[calc(50%+2.5rem)] right-[calc(-50%+2.5rem)] h-px bg-gradient-to-r from-white/15 to-transparent" />
                     )}
-                    {/* Icon circle */}
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${item.bg} border ${item.border} flex items-center justify-center relative z-10`}>
-                      <StepIcon className={`w-7 h-7 ${item.color}`} strokeWidth={1.5} />
+                    {/* step circle */}
+                    <div className={`relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br ${s.grad} flex items-center justify-center shadow-xl`}>
+                      <SIcon className="w-7 h-7 text-white" strokeWidth={1.5} />
+                      <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center">
+                        <span className="text-[9px] font-black text-white/60">{s.n}</span>
+                      </div>
                     </div>
-                    <div className="text-[10px] sm:text-xs font-bold text-slate-500 tracking-widest">STEP {item.step}</div>
-                    <h3 className="text-sm sm:text-base font-semibold text-white leading-snug">{item.title}</h3>
-                    <p className="text-xs sm:text-sm leading-relaxed text-slate-400 hidden sm:block">{item.desc}</p>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-white leading-snug">{s.title}</h3>
+                      <p className="text-xs text-white/40 leading-relaxed mt-1 hidden sm:block">{s.desc}</p>
+                    </div>
                   </div>
                 );
               })}
@@ -437,20 +322,19 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ══════════════ FOOTER ══════════════ */}
-        <footer className="py-10 px-4 sm:px-8 border-t border-white/[0.06]">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="hidden sm:flex w-8 h-8 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 rounded-lg items-center justify-center shadow-md shadow-blue-500/20">
-                <span className="text-white font-bold text-xs">A</span>
+        {/* ════════════════ FOOTER ════════════════ */}
+        <footer className="border-t border-white/[0.06] py-8 px-4 sm:px-8">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 items-center justify-center">
+                <span className="text-white font-black text-xs">A</span>
               </div>
-              <span className="text-slate-500 text-sm font-medium">ATLAS</span>
+              <span className="text-white/30 text-sm font-semibold">ATLAS</span>
             </div>
-            <p className="text-slate-600 text-xs sm:text-sm">
-              &copy; {new Date().getFullYear()} All rights reserved.
-            </p>
+            <p className="text-white/20 text-xs">&copy; {new Date().getFullYear()} All rights reserved.</p>
           </div>
         </footer>
+
       </div>
     </div>
   );
