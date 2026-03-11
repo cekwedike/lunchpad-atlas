@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 export default function Home() {
   const [role, setRole] = useState<"fellow" | "facilitator" | "admin">("fellow");
   const [open, setOpen] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
   const router = useRouter();
   const featuresRef = useRef<HTMLDivElement>(null);
 
@@ -21,12 +20,6 @@ export default function Home() {
     };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  }, []);
-
-  useEffect(() => {
-    const fn = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
   }, []);
 
   const roles = [
@@ -49,18 +42,15 @@ export default function Home() {
   return (
     <div className="bg-slate-950 text-white overflow-x-hidden">
 
-      {/* ── Parallax bg ── */}
+      {/* ── Fixed background ── */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div style={{
-          position: "absolute", top: "-25%", left: 0, right: 0, bottom: "-25%",
+          position: "absolute", inset: 0,
           backgroundImage: "url(/photo/landing-page.jpg)",
           backgroundSize: "cover", backgroundPosition: "center 40%",
-          transform: `translateY(${scrollY * 0.2}px)`,
-          filter: "brightness(0.5) saturate(1.2)",
-          willChange: "transform",
+          filter: "brightness(0.45) saturate(1.1) blur(3px)",
         }} />
-        {/* bottom fade only — keep image visible at top */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-slate-950" />
       </div>
 
       {/* ── Sticky nav ── */}
