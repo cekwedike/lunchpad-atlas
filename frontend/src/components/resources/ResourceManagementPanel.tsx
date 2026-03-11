@@ -628,7 +628,7 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
               </div>
 
               {/* Metrics row */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs font-medium text-gray-700 mb-1.5 block">Est. Minutes</Label>
                   <Input

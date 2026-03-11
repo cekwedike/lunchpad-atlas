@@ -263,7 +263,7 @@ export function VideoModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="w-[90vw] max-w-4xl">
+      <DialogContent className="w-full max-w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{resource?.title}</DialogTitle>
         </DialogHeader>
@@ -308,7 +308,7 @@ export function VideoModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 {displayMinutes != null && (
                   <span className="flex items-center gap-1.5">

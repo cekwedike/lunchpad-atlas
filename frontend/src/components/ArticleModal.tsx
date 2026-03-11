@@ -184,7 +184,7 @@ export function ArticleModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="w-[90vw] max-w-lg">
+      <DialogContent className="w-full max-w-[calc(100vw-2rem)] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="leading-snug pr-8">{resource?.title}</DialogTitle>
         </DialogHeader>

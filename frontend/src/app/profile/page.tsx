@@ -373,7 +373,7 @@ function ProfilePageInner() {
       <DashboardLayout>
         <div className="max-w-3xl mx-auto space-y-5">
           <div className="h-40 rounded-2xl bg-gray-100 animate-pulse" />
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[0,1,2,3].map((i) => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
           </div>
           <div className="h-64 rounded-2xl bg-gray-100 animate-pulse" />

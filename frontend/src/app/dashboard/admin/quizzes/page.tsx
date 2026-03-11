@@ -471,7 +471,7 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
             )}
 
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-xl font-bold text-amber-700">{quiz.totalQuestions}</p>
                 <p className="text-xs text-amber-600">Questions</p>
@@ -790,7 +790,7 @@ function CreateStandardQuizDialog({
           </div>
 
           {/* Settings */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label className="text-sm font-medium">Time Limit (min)</Label>
               <Input type="number" min={0} value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))} />

@@ -494,7 +494,7 @@ function AiReviewPanel({ sessionId }: { sessionId: string }) {
 
               {/* Metric cards */}
               <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 space-y-3">
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                   {[
                     { label: "Engagement", value: displayData?.engagementScore },
                     { label: "Participation", value: displayData?.participationRate },

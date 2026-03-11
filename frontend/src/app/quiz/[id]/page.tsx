@@ -110,7 +110,7 @@ export default function QuizPage() {
           <Card className="p-4 sm:p-8 animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-6"></div>
-            <div className="grid grid-cols-3 gap-3 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
               <div className="h-24 bg-gray-200 rounded"></div>
               <div className="h-24 bg-gray-200 rounded"></div>
               <div className="h-24 bg-gray-200 rounded"></div>
@@ -423,7 +423,7 @@ export default function QuizPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">{quiz.title}</h1>
             <p className="text-lg text-gray-600 mb-6">{quiz.description}</p>
 
-            <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-6 mb-8">
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <Clock className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Time Limit</p>
