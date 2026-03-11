@@ -25,7 +25,7 @@ test.describe('Dashboard', () => {
   });
 
   test('dashboard displays page heading', async ({ page }) => {
-    await page.goto('/dashboard/fellow');
+    await page.goto('/dashboard/admin');
     await page.waitForLoadState('domcontentloaded');
 
     const dashboard = new DashboardPage(page);
@@ -36,7 +36,7 @@ test.describe('Dashboard', () => {
   });
 
   test('dashboard shows points or score information', async ({ page }) => {
-    await page.goto('/dashboard/fellow');
+    await page.goto('/dashboard/admin');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
@@ -48,7 +48,7 @@ test.describe('Dashboard', () => {
   });
 
   test('getting started checklist is visible', async ({ page }) => {
-    await page.goto('/dashboard/fellow');
+    await page.goto('/dashboard/admin');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
@@ -70,7 +70,7 @@ test.describe('Dashboard', () => {
   });
 
   test('dashboard navigation links are accessible', async ({ page }) => {
-    await page.goto('/dashboard/fellow');
+    await page.goto('/dashboard/admin');
     await page.waitForLoadState('domcontentloaded');
 
     const nav = await page.locator('nav, [role="navigation"], aside').first().isVisible().catch(() => false);

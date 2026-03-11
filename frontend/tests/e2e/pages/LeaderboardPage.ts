@@ -14,7 +14,7 @@ export class LeaderboardPage {
   }
 
   async goto() {
-    await this.page.goto('/dashboard/leaderboard');
+    await this.page.goto('/leaderboard');
   }
 
   async isLoaded() {

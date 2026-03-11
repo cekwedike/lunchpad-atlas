@@ -19,7 +19,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard page loads', async ({ page }) => {
-    await page.goto('/dashboard/leaderboard');
+    await page.goto('/leaderboard');
     await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/leaderboard');
@@ -37,7 +37,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard displays ranked entries', async ({ page }) => {
-    await page.goto('/dashboard/leaderboard');
+    await page.goto('/leaderboard');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
@@ -54,7 +54,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard shows at least one fellow entry or empty state', async ({ page }) => {
-    await page.goto('/dashboard/leaderboard');
+    await page.goto('/leaderboard');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
@@ -76,7 +76,7 @@ test.describe('Leaderboard', () => {
   });
 
   test('leaderboard shows month selector or period info', async ({ page }) => {
-    await page.goto('/dashboard/leaderboard');
+    await page.goto('/leaderboard');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 

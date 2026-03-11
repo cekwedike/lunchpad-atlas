@@ -1,10 +1,10 @@
 import { Page } from '@playwright/test';
 
-export async function loginAs(page: Page, email?: string, password?: string) {
+export async function loginAs(page: Page, email?: string, password?: string, loginUrl = '/login/admin') {
   const testEmail = email ?? process.env.TEST_EMAIL ?? 'test@example.com';
   const testPassword = password ?? process.env.TEST_PASSWORD ?? 'password';
 
-  await page.goto('/login');
+  await page.goto(loginUrl);
   await page.waitForLoadState('domcontentloaded');
 
   const emailField = page.locator('input[type="email"]').or(page.getByLabel(/email/i));

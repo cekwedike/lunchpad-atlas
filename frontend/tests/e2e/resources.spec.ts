@@ -19,7 +19,7 @@ test.describe('Resources', () => {
   });
 
   test('resources page loads', async ({ page }) => {
-    await page.goto('/dashboard/resources');
+    await page.goto('/resources');
     await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/resources');
@@ -55,7 +55,7 @@ test.describe('Resources', () => {
   });
 
   test('clicking a tab changes the displayed content', async ({ page }) => {
-    await page.goto('/dashboard/resources');
+    await page.goto('/resources');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
@@ -72,7 +72,7 @@ test.describe('Resources', () => {
   });
 
   test('resource cards are displayed', async ({ page }) => {
-    await page.goto('/dashboard/resources');
+    await page.goto('/resources');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 

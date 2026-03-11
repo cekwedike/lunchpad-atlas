@@ -18,7 +18,7 @@ export class DashboardPage {
   }
 
   async goto() {
-    await this.page.goto('/dashboard/fellow');
+    await this.page.goto('/dashboard/admin');
   }
 
   async isLoaded() {

@@ -15,8 +15,8 @@ export class LoginPage {
     this.errorMessage = page.getByText(/invalid|incorrect|error/i);
   }
 
-  async goto() {
-    await this.page.goto('/login');
+  async goto(url = '/login/admin') {
+    await this.page.goto(url);
   }
 
   async login(email: string, password: string) {

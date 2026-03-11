@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "Back to Home" [ref=e3]:
+      - img [ref=e4]
+      - generic [ref=e6]: Back to Home
+    - generic [ref=e7]:
+      - generic [ref=e9]:
+        - generic [ref=e11]: A
+        - generic [ref=e12]: ATLAS
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - heading "Welcome Back" [level=1] [ref=e15]
+          - paragraph [ref=e16]: Sign in to continue your learning journey
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]: Email Address
+            - textbox "Email Address" [ref=e20]:
+              - /placeholder: you@example.com
+              - text: chekwedike@gmail.com
+          - generic [ref=e21]:
+            - generic [ref=e22]: Password
+            - generic [ref=e23]:
+              - textbox "Password" [ref=e24]:
+                - /placeholder: Enter your password
+                - text: Cheedii_1206
+              - button [ref=e25]:
+                - img [ref=e26]
+          - paragraph [ref=e29]: Invalid email or password. Please try again.
+          - button "Sign In" [ref=e30]:
+            - img [ref=e31]
+            - generic [ref=e34]: Sign In
+      - paragraph [ref=e35]: Need an account? Contact your program administrator.
+  - region "Notifications alt+T"
+  - alert [ref=e36]
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - paragraph [ref=e39]: Update available
+      - paragraph [ref=e40]: Reload to get the latest version of ATLAS.
+    - button "Reload" [ref=e41]:
+      - img [ref=e42]
+      - text: Reload
+```
