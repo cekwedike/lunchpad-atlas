@@ -95,7 +95,10 @@ describe('AchievementsService', () => {
       expect(mockPrismaService.achievement.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'ach-1' },
-          data: expect.objectContaining({ name: undefined }),
+          data: expect.objectContaining({
+            description: 'Complete your first resource',
+            type: 'MILESTONE',
+          }),
         }),
       );
     });
