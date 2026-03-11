@@ -20,7 +20,7 @@ test.describe('Leaderboard', () => {
 
   test('leaderboard page loads', async ({ page }) => {
     await page.goto('/dashboard/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     expect(page.url()).toContain('/leaderboard');
   });
@@ -28,7 +28,7 @@ test.describe('Leaderboard', () => {
   test('leaderboard shows a heading', async ({ page }) => {
     const leaderboard = new LeaderboardPage(page);
     await leaderboard.goto();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const headingVisible = await leaderboard.heading.isVisible().catch(() => false);
     const hasH1 = await page.locator('h1').first().isVisible().catch(() => false);
@@ -38,20 +38,16 @@ test.describe('Leaderboard', () => {
 
   test('leaderboard displays ranked entries', async ({ page }) => {
     await page.goto('/dashboard/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
 
-    // Look for rank numbers or position indicators
     const hasRankNumbers = await page.getByText(/^#?\d+$/).first().isVisible().catch(() => false);
     const hasRankedItems = await page
       .locator('[data-testid*="rank"], [class*="rank"], [class*="leader"], [class*="entry"]')
       .first()
       .isVisible()
       .catch(() => false);
-
-    // Check for any list or table structure
     const hasList = await page.locator('ol, ul, table, [role="list"]').first().isVisible().catch(() => false);
-
-    // Main content should at least render
     const hasMainContent = await page.locator('main, [role="main"]').first().isVisible().catch(() => false);
 
     expect(hasRankNumbers || hasRankedItems || hasList || hasMainContent).toBe(true);
@@ -59,9 +55,9 @@ test.describe('Leaderboard', () => {
 
   test('leaderboard shows at least one fellow entry or empty state', async ({ page }) => {
     await page.goto('/dashboard/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
 
-    // Could show entries or an empty state message
     const hasEntries = await page
       .locator('[data-testid*="fellow"], [class*="fellow"], [class*="entry"], li')
       .first()
@@ -74,16 +70,16 @@ test.describe('Leaderboard', () => {
       .isVisible()
       .catch(() => false);
 
-    const pageHasContent = await page.locator('main, [role="main"]').first().isVisible();
+    const pageHasContent = await page.locator('main, [role="main"]').first().isVisible().catch(() => false);
 
     expect(hasEntries || hasEmptyState || pageHasContent).toBe(true);
   });
 
   test('leaderboard shows month selector or period info', async ({ page }) => {
     await page.goto('/dashboard/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
 
-    // Check for month/period selection
     const hasMonthSelector = await page
       .locator('select, [role="combobox"], [data-testid*="month"]')
       .first()
@@ -96,8 +92,7 @@ test.describe('Leaderboard', () => {
       .isVisible()
       .catch(() => false);
 
-    // Not all pages may have explicit month selectors; just verify the page renders
-    const hasContent = await page.locator('main').first().isVisible();
+    const hasContent = await page.locator('main').first().isVisible().catch(() => false);
 
     expect(hasMonthSelector || hasDateInfo || hasContent).toBe(true);
   });

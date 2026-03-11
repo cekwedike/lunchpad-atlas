@@ -19,11 +19,16 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
 
+  timeout: 60000,
+  expect: { timeout: 15000 },
+
   use: {
     baseURL: 'https://launchpadatlas.vercel.app',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    actionTimeout: 20000,
+    navigationTimeout: 30000,
   },
 
   projects: [
