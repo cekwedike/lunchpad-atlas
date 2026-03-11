@@ -344,7 +344,7 @@ export default function QuizPage() {
               </div>
             )}
 
-            <div className="flex gap-4 justify-center mb-6">
+            <div className="flex flex-wrap gap-3 justify-center mb-6">
               <Button
                 onClick={() => router.push("/quiz")}
                 className="bg-atlas-navy hover:bg-atlas-navy/90"
@@ -501,10 +501,10 @@ export default function QuizPage() {
     <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Timer and Progress */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Award className="w-6 h-6 text-atlas-navy" />
-            <span className="font-bold text-xl text-gray-900">{quiz.title}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <Award className="w-6 h-6 text-atlas-navy shrink-0" />
+            <span className="font-bold text-xl text-gray-900 truncate">{quiz.title}</span>
           </div>
           {timeRemaining !== null ? (
             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${

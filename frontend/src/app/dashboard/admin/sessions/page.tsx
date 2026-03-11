@@ -921,7 +921,7 @@ export default function SessionManagementPage() {
                 ))}
               </select>
               {selectedCohort && (
-                <div className="mt-3 flex items-center gap-4 text-sm text-gray-600">
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
                     {format(new Date(selectedCohort.startDate), "MMM d, yyyy")} – {format(new Date(selectedCohort.endDate), "MMM d, yyyy")}

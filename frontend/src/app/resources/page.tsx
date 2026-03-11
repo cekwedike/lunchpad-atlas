@@ -340,7 +340,7 @@ export default function ResourcesPage() {
         {userCohortId && months.length > 0 && (
           <div className="space-y-6">
             {/* Month Tabs — segmented control */}
-            <div className="flex rounded-2xl bg-gray-100 p-1">
+            <div className="flex rounded-2xl bg-gray-100 p-1 overflow-x-auto">
               {months.map((month) => {
                 const isActive = selectedMonth === month.id;
                 const TabIcon = month.config.icon;
@@ -374,7 +374,7 @@ export default function ResourcesPage() {
                 >
                   <div className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10" />
                   <div className="pointer-events-none absolute -bottom-4 right-24 h-24 w-24 rounded-full bg-white/5" />
-                  <div className="relative flex items-center justify-between">
+                  <div className="relative flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-4">
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
                         {(() => {
@@ -554,7 +554,7 @@ export default function ResourcesPage() {
                                   <div
                                     key={resource.id}
                                     onClick={() => handleResourceClick(resource, session)}
-                                    className={`flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all group ${
+                                    className={`flex items-start gap-3 rounded-xl px-3 sm:px-4 py-3.5 transition-all group ${
                                       unlocked
                                         ? "cursor-pointer hover:bg-gray-50 active:bg-gray-100"
                                         : "opacity-50 cursor-not-allowed"

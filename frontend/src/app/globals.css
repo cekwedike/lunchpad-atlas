@@ -140,6 +140,12 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Prevent layout shift when Radix locks body scroll */
+body[data-scroll-locked] {
+  padding-right: var(--removed-body-scroll-bar-size, 0px) !important;
+  overflow: visible !important;
+}
+
 body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   overflow-x: hidden;

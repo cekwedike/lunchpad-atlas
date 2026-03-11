@@ -46,11 +46,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isSuspended = user?.isSuspended === true;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className={`flex-1 min-w-0 min-h-[calc(100vh-4rem)] ${isSuspended ? 'pointer-events-none select-none' : ''}`}>
+        <main className={`flex-1 min-w-0 overflow-x-hidden min-h-[calc(100vh-4rem)] ${isSuspended ? 'pointer-events-none select-none' : ''}`}>
           <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 space-y-4">
             {!isSuspended && <SetupChecklist />}
             {children}
