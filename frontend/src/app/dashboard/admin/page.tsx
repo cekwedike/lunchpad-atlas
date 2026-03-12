@@ -104,7 +104,7 @@ export default function AdminDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 max-w-full overflow-x-hidden">
         {/* Top bar */}
         <div className="bg-white border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between">
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Engagement Rate */}
             <Card className="bg-white border-gray-200 shadow-sm">
-              <CardContent className="p-5">
+              <CardContent className="p-3 sm:p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Engagement Rate</p>
@@ -376,7 +376,7 @@ export default function AdminDashboard() {
               <CardHeader className="border-b border-gray-100 pb-3">
                 <CardTitle className="text-sm font-semibold text-gray-900">User Distribution</CardTitle>
               </CardHeader>
-              <CardContent className="p-5 space-y-4">
+              <CardContent className="p-3 sm:p-5 space-y-4">
                 {[
                   { label: "Fellows", count: fellowCount, total: fellowCount + facilitatorCount + (metrics?.roleCounts?.adminCount || 0), color: "bg-blue-500" },
                   { label: "Facilitators", count: facilitatorCount, total: fellowCount + facilitatorCount + (metrics?.roleCounts?.adminCount || 0), color: "bg-emerald-500" },
