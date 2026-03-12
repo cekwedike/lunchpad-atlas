@@ -228,9 +228,9 @@ export default function AdminDashboard() {
           </div>
 
           {/* Main Grid */}
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
             {/* Upcoming Sessions — 2/3 width */}
-            <Card className="lg:col-span-2 bg-white border-gray-200 shadow-sm">
+            <Card className="col-span-1 lg:col-span-2 bg-white border-gray-200 shadow-sm">
               <CardHeader className="border-b border-gray-100 pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-gray-900">Upcoming Sessions</CardTitle>
@@ -349,9 +349,9 @@ export default function AdminDashboard() {
           </div>
 
           {/* Bottom Row */}
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
             {/* Quick Actions — 2/3 width */}
-            <Card className="lg:col-span-2 bg-white border-gray-200 shadow-sm">
+            <Card className="col-span-1 lg:col-span-2 bg-white border-gray-200 shadow-sm">
               <CardHeader className="border-b border-gray-100 pb-3">
                 <CardTitle className="text-sm font-semibold text-gray-900">Quick Actions</CardTitle>
               </CardHeader>
