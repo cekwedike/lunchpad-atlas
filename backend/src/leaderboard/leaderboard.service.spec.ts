@@ -215,7 +215,7 @@ describe('LeaderboardService', () => {
   describe('adjustPoints', () => {
     it('should successfully adjust points for a fellow', async () => {
       const adjustedById = 'admin-1';
-      const dto = { userId: 'user-1', points: 50, description: 'Bonus for participation' };
+      const dto = { userId: 'user-1', points: 50, description: "Manual adjustment" };
 
       mockPrismaService.user.findUnique
         .mockResolvedValueOnce({
@@ -250,7 +250,7 @@ describe('LeaderboardService', () => {
 
     it('should throw BadRequestException when points is zero', async () => {
       await expect(
-        service.adjustPoints('admin-1', 'ADMIN', { userId: 'user-1', points: 0 }),
+        service.adjustPoints('admin-1', 'ADMIN', { userId: 'user-1', points: 0 , description: "Manual adjustment" }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -258,7 +258,7 @@ describe('LeaderboardService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.adjustPoints('admin-1', 'ADMIN', { userId: 'nonexistent', points: 50 }),
+        service.adjustPoints('admin-1', 'ADMIN', { userId: 'nonexistent', points: 50 , description: "Manual adjustment" }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -270,7 +270,7 @@ describe('LeaderboardService', () => {
       });
 
       await expect(
-        service.adjustPoints('admin-1', 'ADMIN', { userId: 'admin-2', points: 50 }),
+        service.adjustPoints('admin-1', 'ADMIN', { userId: 'admin-2', points: 50 , description: "Manual adjustment" }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -288,7 +288,7 @@ describe('LeaderboardService', () => {
         });
 
       await expect(
-        service.adjustPoints('facilitator-1', 'FACILITATOR', { userId: 'user-1', points: 10 }),
+        service.adjustPoints('facilitator-1', 'FACILITATOR', { userId: 'user-1', points: 10 , description: "Manual adjustment" }),
       ).rejects.toThrow(BadRequestException);
     });
   });

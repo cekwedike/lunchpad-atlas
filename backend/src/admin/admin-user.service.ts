@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma.service';
 import { UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 import {
   getCohortDurationMonths,
   getMonthlyCapForDuration,
@@ -41,6 +42,7 @@ export class AdminUserService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private emailService: EmailService,
   ) {}
 
   /**
@@ -294,7 +296,7 @@ export class AdminUserService {
   async updateUserCohort(userId: string, cohortId: string | null) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, cohortId: true },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, cohortId: true },
     });
 
     if (!user) {
@@ -302,11 +304,12 @@ export class AdminUserService {
     }
 
     let newMonthlyPointsCap: number | undefined;
+    let cohort: { id: string; name: string; startDate: Date; endDate: Date } | null = null;
 
     if (cohortId) {
-      const cohort = await this.prisma.cohort.findUnique({
+      cohort = await this.prisma.cohort.findUnique({
         where: { id: cohortId },
-        select: { id: true, startDate: true, endDate: true },
+        select: { id: true, name: true, startDate: true, endDate: true },
       });
 
       if (!cohort) {
@@ -324,7 +327,7 @@ export class AdminUserService {
       await this.prisma.userAchievement.deleteMany({ where: { userId } });
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         cohortId,
@@ -337,6 +340,18 @@ export class AdminUserService {
       },
       include: { cohort: true },
     });
+
+    // Send welcome email when a fellow is assigned to a cohort for the first time or moved to a new one
+    if (cohortId && cohort && isChangingCohort && user.role === UserRole.FELLOW) {
+      this.emailService.sendWelcomeEmail(user.email, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        cohortName: cohort.name,
+        startDate: cohort.startDate,
+      }).catch(() => null);
+    }
+
+    return updated;
   }
 
   /**
