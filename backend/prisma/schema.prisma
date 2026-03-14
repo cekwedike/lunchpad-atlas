@@ -87,6 +87,7 @@ model User {
   isFacilitator      Boolean   @default(false) // Grants facilitator access (used for ADMIN users)
   isSuspended        Boolean   @default(false) // Account suspended by admin
   isFlagged          Boolean   @default(false) // Flagged for suspicious activity review
+  mustChangePassword Boolean   @default(false) // Force password change on next login (set by admin)
   suspendedAt        DateTime? // When the account was suspended
   suspensionReason   String?   // Admin note for suspension reason
   cohortId           String?

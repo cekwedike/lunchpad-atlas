@@ -29,6 +29,7 @@ export class UsersService {
         emailNotifications: true,
         isSuspended: true,
         suspensionReason: true,
+        mustChangePassword: true,
         cohort: {
           select: { id: true, name: true },
         },
@@ -100,7 +101,11 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash: hashedPassword, passwordChangedAt: new Date() },
+      data: {
+        passwordHash: hashedPassword,
+        passwordChangedAt: new Date(),
+        mustChangePassword: false,
+      },
     });
 
     // Notify admins about the password change

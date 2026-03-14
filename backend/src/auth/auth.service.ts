@@ -157,6 +157,7 @@ export class AuthService {
         lastLoginAt: true,
         isSuspended: true,
         suspensionReason: true,
+        mustChangePassword: true,
       },
     });
 
@@ -223,6 +224,7 @@ export class AuthService {
         role: user.role,
         isSuspended: user.isSuspended ?? false,
         suspensionReason: user.suspensionReason ?? null,
+        mustChangePassword: user.mustChangePassword ?? false,
       },
     };
   }

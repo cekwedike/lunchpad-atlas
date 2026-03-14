@@ -262,6 +262,7 @@ export class AdminUserService {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.password) {
       updateData.passwordHash = await bcrypt.hash(data.password, 10);
+      updateData.mustChangePassword = true;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -839,7 +840,7 @@ export class AdminUserService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash: hashedPassword },
+      data: { passwordHash: hashedPassword, mustChangePassword: true },
     });
 
     await this.prisma.adminAuditLog.create({

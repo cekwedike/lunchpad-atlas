@@ -64,6 +64,7 @@ export interface User {
   updatedAt: Date;
   isSuspended?: boolean;
   suspensionReason?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export interface Cohort {

@@ -77,6 +77,7 @@ export class AuthResponseDto {
     role: string;
     isSuspended: boolean;
     suspensionReason: string | null;
+    mustChangePassword: boolean;
   };
 }
 
