@@ -438,6 +438,34 @@ export function useUpdateUserCohort() {
   });
 }
 
+// Update user details (name, email, password)
+export function useUpdateUserDetails() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      userId,
+      ...data
+    }: {
+      userId: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      password?: string;
+    }) => apiClient.patch(`/admin/users/${userId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      toast.success('User details updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update user details', {
+        description: error.message,
+      });
+    },
+  });
+}
+
 // Delete user
 export function useDeleteUser() {
   const queryClient = useQueryClient();

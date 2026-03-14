@@ -20,7 +20,7 @@ import {
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen, Ban, ShieldCheck
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort, useUpdateUserFacilitator, useSuspendUser, useUnsuspendUser } from "@/hooks/api/useAdmin";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -33,6 +33,7 @@ export default function AdminUsersPage() {
   const updateUserCohort = useUpdateUserCohort();
   const updateUserFacilitator = useUpdateUserFacilitator();
   const deleteUser = useDeleteUser();
+  const updateUserDetails = useUpdateUserDetails();
   const suspendUser = useSuspendUser();
   const unsuspendUser = useUnsuspendUser();
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,6 +122,26 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
+      // Parse name into first/last
+      const nameParts = formData.name.trim().split(/\s+/);
+      const firstName = nameParts[0] ?? '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const currentFullName = `${selectedUser.firstName} ${selectedUser.lastName}`.trim();
+      const nameChanged = formData.name.trim() !== currentFullName;
+      const emailChanged = formData.email !== selectedUser.email;
+      const passwordChanged = !!formData.password;
+
+      // Update name, email, or password if any changed
+      if (nameChanged || emailChanged || passwordChanged) {
+        await updateUserDetails.mutateAsync({
+          userId: selectedUser.id,
+          ...(nameChanged ? { firstName, lastName } : {}),
+          ...(emailChanged ? { email: formData.email } : {}),
+          ...(passwordChanged ? { password: formData.password } : {}),
+        });
+      }
+
       const roleChanged = formData.role !== selectedUser.role;
       const facilitatorCohortUpdated = roleChanged && formData.role === 'FACILITATOR' && !!formData.cohortId;
 

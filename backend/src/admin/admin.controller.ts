@@ -333,6 +333,17 @@ export class AdminController {
     return this.adminUserService.getUserActivity(userId, limit ? +limit : 50);
   }
 
+  @Patch('users/:id')
+  @ApiOperation({ summary: 'Update user name, email, or password' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  updateUserDetails(
+    @Param('id') userId: string,
+    @Body() body: { firstName?: string; lastName?: string; email?: string; password?: string },
+    @Request() req,
+  ) {
+    return this.adminUserService.updateUserDetails(userId, req.user.id, body);
+  }
+
   @Put('users/:id/role')
   @ApiOperation({ summary: 'Update user role' })
   @ApiParam({ name: 'id', description: 'User ID' })

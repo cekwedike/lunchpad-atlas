@@ -246,6 +246,60 @@ export class AdminUserService {
   }
 
   /**
+   * Update user name, email, and/or password
+   */
+  async updateUserDetails(
+    userId: string,
+    adminId: string,
+    data: { firstName?: string; lastName?: string; email?: string; password?: string },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const updateData: Record<string, any> = {};
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.password) {
+      updateData.passwordHash = await bcrypt.hash(data.password, 10);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return sanitizeUser(user);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'USER_UPDATED',
+        entityType: 'User',
+        entityId: userId,
+        changes: {
+          fields: Object.keys(updateData).filter((k) => k !== 'passwordHash'),
+          ...(data.password ? { passwordChanged: true } : {}),
+        },
+      },
+    });
+
+    // Email user their new password if one was set
+    if (data.password) {
+      this.emailService
+        .sendPasswordResetEmail(updated.email, {
+          firstName: updated.firstName,
+          temporaryPassword: data.password,
+        })
+        .catch(() => null);
+    }
+
+    return sanitizeUser(updated);
+  }
+
+  /**
    * Update user role
    */
   async updateUserRole(userId: string, role: UserRole, adminId: string) {
@@ -798,11 +852,19 @@ export class AdminUserService {
       },
     });
 
+    // Email the user their new temporary password
+    this.emailService
+      .sendPasswordResetEmail(user.email, {
+        firstName: user.firstName,
+        temporaryPassword: tempPassword,
+      })
+      .catch(() => null);
+
     return {
       message: 'Password reset successfully',
       userId,
       temporaryPassword: tempPassword,
-      note: 'Share this temporary password securely with the user. They should change it after logging in.',
+      note: 'A temporary password has been emailed to the user.',
     };
   }
 }
