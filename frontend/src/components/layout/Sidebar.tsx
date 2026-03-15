@@ -154,11 +154,6 @@ export function Sidebar() {
       icon: MessageSquare,
     },
     {
-      title: 'Chat',
-      href: '/dashboard/chat',
-      icon: MessageSquare,
-    },
-    {
       title: 'Settings',
       href: '/profile',
       icon: User,

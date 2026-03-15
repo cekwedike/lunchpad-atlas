@@ -17,6 +17,13 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
+function getDashboardForRole(role: string): string {
+  if (role === 'ADMIN') return '/dashboard/admin';
+  if (role === 'FACILITATOR') return '/dashboard/facilitator';
+  if (role === 'GUEST_FACILITATOR') return '/dashboard/guest-facilitator';
+  return '/dashboard/fellow';
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -86,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user);
 
       toast.success('Welcome back!', `Logged in as ${response.user.name}`);
-      router.push(`/dashboard/${response.user.role.toLowerCase()}`);
+      router.push(getDashboardForRole(response.user.role));
     } catch (error: any) {
       toast.error('Login failed', error.message || 'Invalid credentials');
       throw error;
@@ -114,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user);
 
       toast.success('Account created!', 'Welcome to ATLAS');
-      router.push(`/dashboard/${response.user.role.toLowerCase()}`);
+      router.push(getDashboardForRole(response.user.role));
     } catch (error: any) {
       toast.error('Registration failed', error.message || 'Could not create account');
       throw error;

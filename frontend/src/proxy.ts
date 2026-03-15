@@ -23,6 +23,7 @@ function decodeJwtPayload(token: string): Record<string, any> | null {
 function getDashboardForRole(role: string): string {
   if (role === 'ADMIN') return '/dashboard/admin';
   if (role === 'FACILITATOR') return '/dashboard/facilitator';
+  if (role === 'GUEST_FACILITATOR') return '/dashboard/guest-facilitator';
   return '/dashboard/fellow';
 }
 

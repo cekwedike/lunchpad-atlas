@@ -92,7 +92,7 @@ export default function GuestFacilitatorDashboard() {
               </span>
             </div>
           )}
-          {!expiresAt && (
+          {sessionsData && Array.isArray(sessionsData) && sessionsData.length === 0 && (
             <p className="mt-3 text-sm text-blue-200">No sessions assigned yet. Your access window will be set once sessions are assigned by an administrator.</p>
           )}
         </div>
