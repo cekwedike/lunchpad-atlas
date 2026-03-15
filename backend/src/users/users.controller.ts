@@ -59,4 +59,10 @@ export class UsersController {
   getMyPoints(@Request() req) {
     return this.usersService.getMyPoints(req.user.id);
   }
+
+  @Get('me/guest-sessions')
+  @ApiOperation({ summary: 'Get assigned sessions for a guest facilitator' })
+  getMyGuestSessions(@Request() req) {
+    return this.usersService.getGuestSessions(req.user.id);
+  }
 }

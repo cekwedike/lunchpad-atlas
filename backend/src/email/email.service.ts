@@ -25,6 +25,22 @@ export interface AccountCreatedEmailData {
   role: string;
 }
 
+export interface GuestFacilitatorWelcomeEmailData {
+  firstName: string;
+  email: string;
+  password: string;
+  cohortName: string;
+  sessions: { id: string; title: string; scheduledDate: Date }[];
+  daysUntilSession: number;
+  guestAccessExpiresAt: Date;
+  daysUntilLock: number;
+}
+
+export interface GuestAccessExpiryReminderEmailData {
+  firstName: string;
+  guestAccessExpiresAt: Date;
+}
+
 export interface NotificationEmailData {
   firstName: string;
   title: string;
@@ -889,5 +905,213 @@ export class EmailService {
   </table>
 </body>
 </html>`;
+  }
+
+  async sendGuestFacilitatorWelcomeEmail(
+    to: string,
+    data: GuestFacilitatorWelcomeEmailData,
+  ): Promise<void> {
+    const loginUrl = process.env.FRONTEND_URL
+      ? `${process.env.FRONTEND_URL}/login`
+      : 'https://launchpadatlas.vercel.app/login';
+    const year = new Date().getFullYear();
+
+    const sessionRows = data.sessions
+      .sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime())
+      .map(
+        (s) =>
+          `<tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#334155;">${s.title}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#64748b;white-space:nowrap;">${s.scheduledDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+          </tr>`,
+      )
+      .join('');
+
+    const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to ATLAS</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- HEADER -->
+        <tr><td style="background:linear-gradient(135deg,#0f2a6b 0%,#1e3a8a 60%,#3730a3 100%);padding:48px 48px 36px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">LaunchPad ATLAS</p>
+          <h1 style="margin:0 0 10px;font-size:28px;font-weight:800;color:#ffffff;">Welcome to ATLAS, ${data.firstName}</h1>
+          <p style="margin:0;font-size:15px;color:#bfdbfe;line-height:1.6;">You have been invited as a Guest Facilitator</p>
+        </td></tr>
+
+        <!-- WHY YOU'RE HERE -->
+        <tr><td style="padding:40px 48px 0;">
+          <h2 style="margin:0 0 12px;font-size:16px;font-weight:700;color:#0f172a;">Why you have been invited</h2>
+          <p style="margin:0;font-size:15px;color:#334155;line-height:1.7;">You have been invited as a Guest Facilitator for the <strong>${data.cohortName}</strong> cohort on the LaunchPad Fellowship ATLAS platform. We believe that fellows benefit greatly from interacting with experienced practitioners beyond formal sessions — your presence creates real-world connection and meaningful mentorship that extends the impact of each session.</p>
+        </td></tr>
+
+        <!-- YOUR SESSION(S) -->
+        <tr><td style="padding:32px 48px 0;">
+          <h2 style="margin:0 0 16px;font-size:16px;font-weight:700;color:#0f172a;">Your assigned session${data.sessions.length > 1 ? 's' : ''}</h2>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <tr style="background:#f8fafc;">
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Session</th>
+              <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Date</th>
+            </tr>
+            ${sessionRows}
+          </table>
+          <p style="margin:12px 0 0;font-size:13px;color:#64748b;">Your first session is in <strong>${data.daysUntilSession} day${data.daysUntilSession !== 1 ? 's' : ''}</strong>.</p>
+        </td></tr>
+
+        <!-- WHAT YOU CAN ACCESS -->
+        <tr><td style="padding:32px 48px 0;">
+          <h2 style="margin:0 0 16px;font-size:16px;font-weight:700;color:#0f172a;">What you can access on ATLAS</h2>
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="50%" style="padding-right:8px;vertical-align:top;">
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;">
+                  <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;">You can access</p>
+                  <ul style="margin:0;padding-left:16px;font-size:14px;color:#166534;line-height:1.9;">
+                    <li>Resources for your assigned session${data.sessions.length > 1 ? 's' : ''}</li>
+                    <li>Discussions with fellows</li>
+                    <li>Cohort chat channels</li>
+                  </ul>
+                </div>
+              </td>
+              <td width="50%" style="padding-left:8px;vertical-align:top;">
+                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;">
+                  <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.5px;">Not available</p>
+                  <ul style="margin:0;padding-left:16px;font-size:14px;color:#991b1b;line-height:1.9;">
+                    <li>Admin or management tools</li>
+                    <li>Other sessions' content</li>
+                    <li>Attendance or points management</li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- ACCESS WINDOW -->
+        <tr><td style="padding:32px 48px 0;">
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:20px 24px;">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;">Your access window</p>
+            <p style="margin:0;font-size:15px;color:#78350f;line-height:1.6;">Your ATLAS account will remain active until <strong>${expiryFormatted}</strong> — <strong>${data.daysUntilLock} day${data.daysUntilLock !== 1 ? 's' : ''}</strong> from now. After this date it will be automatically locked. If you need extended access, contact your programme administrator.</p>
+          </div>
+        </td></tr>
+
+        <!-- LOGIN CREDENTIALS -->
+        <tr><td style="padding:32px 48px 0;">
+          <h2 style="margin:0 0 16px;font-size:16px;font-weight:700;color:#0f172a;">Your login credentials</h2>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:14px;color:#64748b;padding-bottom:10px;width:120px;">Login URL</td>
+                <td style="font-size:14px;padding-bottom:10px;"><a href="${loginUrl}" style="color:#1e3a8a;font-weight:600;">${loginUrl}</a></td>
+              </tr>
+              <tr>
+                <td style="font-size:14px;color:#64748b;padding-bottom:10px;">Email</td>
+                <td style="font-size:14px;color:#0f172a;font-weight:600;padding-bottom:10px;">${data.email}</td>
+              </tr>
+              <tr>
+                <td style="font-size:14px;color:#64748b;">Password</td>
+                <td style="font-size:14px;font-family:monospace;background:#e2e8f0;padding:4px 10px;border-radius:6px;color:#0f172a;font-weight:700;">${data.password}</td>
+              </tr>
+            </table>
+          </div>
+          <p style="margin:12px 0 0;font-size:13px;color:#64748b;">For security, you will be asked to change your password on first login.</p>
+        </td></tr>
+
+        <!-- CTA -->
+        <tr><td style="padding:32px 48px 40px;text-align:center;">
+          <a href="${loginUrl}" style="display:inline-block;padding:14px 44px;background:#1e3a8a;color:#ffffff!important;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(30,58,138,0.30);">Log In to ATLAS</a>
+        </td></tr>
+
+        <!-- FOOTER -->
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 48px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#0f172a;">ATLAS &mdash; LaunchPad Fellowship</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">&copy; ${year} LaunchPad. All rights reserved.</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await this.sendEmail({
+      to,
+      subject: `Welcome to ATLAS — ${data.cohortName}`,
+      html,
+    });
+  }
+
+  async sendGuestAccessExpiryReminderEmail(
+    to: string,
+    data: GuestAccessExpiryReminderEmailData,
+  ): Promise<void> {
+    const loginUrl = process.env.FRONTEND_URL
+      ? `${process.env.FRONTEND_URL}/login`
+      : 'https://launchpadatlas.vercel.app/login';
+    const year = new Date().getFullYear();
+
+    const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your ATLAS access expires tomorrow</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- HEADER -->
+        <tr><td style="background:linear-gradient(135deg,#92400e 0%,#b45309 100%);padding:48px 48px 36px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:2px;color:#fde68a;text-transform:uppercase;">LaunchPad ATLAS</p>
+          <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;">Your access expires tomorrow</h1>
+          <p style="margin:0;font-size:15px;color:#fef3c7;line-height:1.6;">Guest Facilitator access reminder</p>
+        </td></tr>
+
+        <!-- BODY -->
+        <tr><td style="padding:40px 48px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.7;">Hi <strong>${data.firstName}</strong>,</p>
+          <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.7;">This is a reminder that your guest facilitator access to ATLAS expires <strong>tomorrow, ${expiryFormatted}</strong>.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.7;">After this date, your account will be automatically locked and you will no longer be able to log in. If you need continued access beyond tomorrow, please contact your programme administrator as soon as possible.</p>
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:20px 24px;margin-bottom:32px;">
+            <p style="margin:0;font-size:14px;color:#78350f;line-height:1.6;">Your access expires on: <strong>${expiryFormatted}</strong></p>
+          </div>
+        </td></tr>
+
+        <!-- CTA -->
+        <tr><td style="padding:0 48px 40px;text-align:center;">
+          <a href="${loginUrl}" style="display:inline-block;padding:14px 44px;background:#1e3a8a;color:#ffffff!important;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(30,58,138,0.30);">Log In Now</a>
+        </td></tr>
+
+        <!-- FOOTER -->
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 48px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#0f172a;">ATLAS &mdash; LaunchPad Fellowship</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">&copy; ${year} LaunchPad. All rights reserved.</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await this.sendEmail({
+      to,
+      subject: 'Your ATLAS guest facilitator access expires tomorrow',
+      html,
+    });
   }
 }

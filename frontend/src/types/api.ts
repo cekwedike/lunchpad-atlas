@@ -4,6 +4,7 @@ export enum UserRole {
   FELLOW = 'FELLOW',
   FACILITATOR = 'FACILITATOR',
   ADMIN = 'ADMIN',
+  GUEST_FACILITATOR = 'GUEST_FACILITATOR',
 }
 
 export enum ResourceType {
@@ -65,6 +66,7 @@ export interface User {
   isSuspended?: boolean;
   suspensionReason?: string | null;
   mustChangePassword?: boolean;
+  guestAccessExpiresAt?: string | null;
 }
 
 export interface Cohort {

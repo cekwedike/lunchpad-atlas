@@ -78,6 +78,7 @@ export class AuthResponseDto {
     isSuspended: boolean;
     suspensionReason: string | null;
     mustChangePassword: boolean;
+    guestAccessExpiresAt: string | null;
   };
 }
 

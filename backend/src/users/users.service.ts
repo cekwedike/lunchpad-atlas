@@ -187,4 +187,23 @@ export class UsersService {
       recentActivity: logs,
     };
   }
+
+  async getGuestSessions(userId: string) {
+    return this.prisma.guestSession.findMany({
+      where: { userId },
+      select: {
+        sessionId: true,
+        session: {
+          select: {
+            id: true,
+            sessionNumber: true,
+            title: true,
+            scheduledDate: true,
+            cohortId: true,
+          },
+        },
+      },
+      orderBy: { session: { scheduledDate: 'asc' } },
+    });
+  }
 }

@@ -271,10 +271,26 @@ export class DiscussionsService {
     // Get user's cohortId if not provided
     let cohortId = dto.cohortId || user?.cohortId || '';
 
-    if (userRole === 'FACILITATOR' && user?.cohortId && cohortId !== user.cohortId) {
+    if (
+      (userRole === 'FACILITATOR' || userRole === 'GUEST_FACILITATOR') &&
+      user?.cohortId &&
+      cohortId !== user.cohortId
+    ) {
       throw new ForbiddenException(
-        'Facilitators can only create discussions for their cohort',
+        'You can only create discussions for your cohort',
       );
+    }
+
+    // Guest facilitators may only post discussions tied to their assigned sessions
+    if (userRole === 'GUEST_FACILITATOR' && dto.sessionId) {
+      const guestSession = await this.prisma.guestSession.findUnique({
+        where: { userId_sessionId: { userId, sessionId: dto.sessionId } },
+      });
+      if (!guestSession) {
+        throw new ForbiddenException(
+          'You can only create discussions for your assigned sessions',
+        );
+      }
     }
 
     if (userRole === 'FELLOW' && user?.cohortId && cohortId !== user.cohortId) {
@@ -509,6 +525,16 @@ export class DiscussionsService {
     if (resourceId) where.resourceId = resourceId;
     if (authorId) where.authorId = authorId;
     if (isPinned !== undefined) where.isPinned = isPinned;
+
+    // Guest facilitators only see discussions for their assigned sessions
+    if (userRole === 'GUEST_FACILITATOR') {
+      const guestRows = await this.prisma.guestSession.findMany({
+        where: { userId },
+        select: { sessionId: true },
+      });
+      const guestSessionIds = guestRows.map((r) => r.sessionId);
+      where.sessionId = { in: guestSessionIds };
+    }
 
     const parsedIsApproved =
       typeof isApproved === 'string' ? isApproved === 'true' : isApproved;

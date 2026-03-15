@@ -110,9 +110,25 @@ export class ResourcesService {
     session?: any,
     userRole?: string,
     resourceState?: string,
+    guestSessionIds?: Set<string>,
   ): Promise<'LOCKED' | 'UNLOCKED' | 'IN_PROGRESS' | 'COMPLETED'> {
     // Facilitators and admins always have access
     if (userRole === 'FACILITATOR' || userRole === 'ADMIN') {
+      return 'UNLOCKED';
+    }
+
+    // Guest facilitators: unlock only resources in their assigned sessions
+    if (userRole === 'GUEST_FACILITATOR') {
+      if (!session) {
+        const resource = await this.prisma.resource.findUnique({
+          where: { id: resourceId },
+          include: { session: true },
+        });
+        session = resource?.session;
+      }
+      if (!guestSessionIds || !session || !guestSessionIds.has(session.id)) {
+        return 'LOCKED';
+      }
       return 'UNLOCKED';
     }
 
@@ -166,10 +182,24 @@ export class ResourcesService {
       select: { role: true },
     });
 
+    // Load guest session IDs for GUEST_FACILITATOR
+    let guestSessionIds: Set<string> | undefined;
+    if (user?.role === 'GUEST_FACILITATOR') {
+      const rows = await this.prisma.guestSession.findMany({
+        where: { userId },
+        select: { sessionId: true },
+      });
+      guestSessionIds = new Set(rows.map((r) => r.sessionId));
+    }
+
     const where: any = {};
     if (type) where.type = type;
     if (sessionId) where.sessionId = sessionId;
     if (cohortId) where.session = { cohortId };
+    // Scope guest facilitator queries to only their assigned sessions
+    if (user?.role === 'GUEST_FACILITATOR' && !sessionId && guestSessionIds) {
+      where.sessionId = { in: [...guestSessionIds] };
+    }
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -202,6 +232,7 @@ export class ResourcesService {
           r.session,
           user?.role,
           r.state,
+          guestSessionIds,
         );
 
         return {
@@ -228,6 +259,16 @@ export class ResourcesService {
       select: { role: true },
     });
 
+    // Load guest session IDs for GUEST_FACILITATOR
+    let guestSessionIds: Set<string> | undefined;
+    if (user?.role === 'GUEST_FACILITATOR') {
+      const rows = await this.prisma.guestSession.findMany({
+        where: { userId },
+        select: { sessionId: true },
+      });
+      guestSessionIds = new Set(rows.map((r) => r.sessionId));
+    }
+
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
       include: {
@@ -248,6 +289,7 @@ export class ResourcesService {
       resource.session,
       user?.role,
       resource.state,
+      guestSessionIds,
     );
 
     // Check if user can access this resource
@@ -267,6 +309,15 @@ export class ResourcesService {
   }
 
   async markComplete(resourceId: string, userId: string) {
+    // Guest facilitators are read-only on resources — they do not earn points
+    const userForCheck = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (userForCheck?.role === 'GUEST_FACILITATOR') {
+      throw new ForbiddenException('Guest facilitators cannot mark resources as complete');
+    }
+
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
       include: { session: { select: { unlockDate: true } } },

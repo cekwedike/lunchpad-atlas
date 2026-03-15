@@ -777,3 +777,56 @@ export function useGenerateAIQuestions() {
     onError: () => toast.error('AI question generation failed'),
   });
 }
+
+// ==================== GUEST FACILITATOR ====================
+
+export function useCreateGuestFacilitator() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      password: string;
+      cohortId: string;
+      sessionIds?: string[];
+    }) => apiClient.post('/admin/users/guest-facilitator', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Guest facilitator account created and invitation sent');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to create guest facilitator', err?.message || 'Please check the details and try again');
+    },
+  });
+}
+
+export function useUpdateGuestSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, sessionIds }: { userId: string; sessionIds: string[] }) =>
+      apiClient.put(`/admin/users/${userId}/guest-sessions`, { sessionIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Guest facilitator sessions updated');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to update sessions', err?.message || 'Please try again');
+    },
+  });
+}
+
+export function useExtendGuestAccess() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, guestAccessExpiresAt }: { userId: string; guestAccessExpiresAt: string }) =>
+      apiClient.patch(`/admin/users/${userId}/guest-access`, { guestAccessExpiresAt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Guest facilitator access extended');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to extend access', err?.message || 'Please try again');
+    },
+  });
+}

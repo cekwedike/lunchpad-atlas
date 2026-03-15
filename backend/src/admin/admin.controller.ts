@@ -440,6 +440,51 @@ export class AdminController {
     return this.adminUserService.resetUserPassword(userId, req.user.id);
   }
 
+  @Post('users/guest-facilitator')
+  @ApiOperation({ summary: 'Create a guest facilitator account with optional session assignments' })
+  createGuestFacilitator(
+    @Body()
+    body: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      password: string;
+      cohortId: string;
+      sessionIds?: string[];
+    },
+    @Request() req,
+  ) {
+    return this.adminUserService.createGuestFacilitator(req.user.id, body);
+  }
+
+  @Put('users/:id/guest-sessions')
+  @ApiOperation({ summary: 'Update session assignments for a guest facilitator' })
+  updateGuestFacilitatorSessions(
+    @Param('id') userId: string,
+    @Body() body: { sessionIds: string[] },
+    @Request() req,
+  ) {
+    return this.adminUserService.updateGuestFacilitatorSessions(
+      userId,
+      body.sessionIds,
+      req.user.id,
+    );
+  }
+
+  @Patch('users/:id/guest-access')
+  @ApiOperation({ summary: 'Extend or unlock guest facilitator access window' })
+  extendGuestAccess(
+    @Param('id') userId: string,
+    @Body() body: { guestAccessExpiresAt: string },
+    @Request() req,
+  ) {
+    return this.adminUserService.extendGuestAccess(
+      userId,
+      new Date(body.guestAccessExpiresAt),
+      req.user.id,
+    );
+  }
+
   // ============ Resource Management Endpoints ============
 
   @Post('resources')

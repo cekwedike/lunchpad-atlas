@@ -18,6 +18,7 @@ import {
   GraduationCap,
   FileQuestion,
   Inbox,
+  UserCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -136,6 +137,34 @@ export function Sidebar() {
     },
   ];
 
+  const getGuestFacilitatorItems = (): NavItem[] => [
+    {
+      title: 'Dashboard',
+      href: '/dashboard/guest-facilitator',
+      icon: LayoutDashboard,
+    },
+    {
+      title: 'Resources',
+      href: '/resources',
+      icon: BookOpen,
+    },
+    {
+      title: 'Discussions',
+      href: '/dashboard/discussions',
+      icon: MessageSquare,
+    },
+    {
+      title: 'Chat',
+      href: '/dashboard/chat',
+      icon: MessageSquare,
+    },
+    {
+      title: 'Settings',
+      href: '/profile',
+      icon: User,
+    },
+  ];
+
   const getAdminItems = (): NavItem[] => [
     {
       title: 'Dashboard',
@@ -210,6 +239,8 @@ export function Sidebar() {
         return getAdminItems();
       case UserRole.FACILITATOR:
         return getFacilitatorItems();
+      case UserRole.GUEST_FACILITATOR:
+        return getGuestFacilitatorItems();
       case UserRole.FELLOW:
       default:
         return getFellowItems();
@@ -225,6 +256,8 @@ export function Sidebar() {
         return { label: 'Admin', icon: Shield, color: 'from-emerald-500 to-teal-500' };
       case UserRole.FACILITATOR:
         return { label: 'Facilitator', icon: GraduationCap, color: 'from-cyan-500 to-blue-500' };
+      case UserRole.GUEST_FACILITATOR:
+        return { label: 'Guest Facilitator', icon: UserCheck, color: 'from-indigo-500 to-blue-500' };
       case UserRole.FELLOW:
       default:
         return { label: 'Fellow', icon: User, color: 'from-blue-500 to-cyan-500' };

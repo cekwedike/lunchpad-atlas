@@ -23,7 +23,7 @@ import {
 interface LiveQuizContainerProps {
   quizId: string;
   userId: string;
-  userRole: 'FACILITATOR' | 'ADMIN' | 'FELLOW';
+  userRole: 'FACILITATOR' | 'ADMIN' | 'FELLOW' | 'GUEST_FACILITATOR';
   onExit?: () => void;
 }
 

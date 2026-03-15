@@ -158,10 +158,20 @@ export class AuthService {
         isSuspended: true,
         suspensionReason: true,
         mustChangePassword: true,
+        guestAccessExpiresAt: true,
       },
     });
 
     if (!user) return null;
+
+    // Guest facilitator access window check
+    if (
+      user.role === 'GUEST_FACILITATOR' &&
+      user.guestAccessExpiresAt &&
+      new Date() > user.guestAccessExpiresAt
+    ) {
+      throw new UnauthorizedException('Your guest facilitator access has expired');
+    }
 
     // Touch lastLoginAt at most once per 15 minutes so "active" status stays current
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
@@ -225,6 +235,7 @@ export class AuthService {
         isSuspended: user.isSuspended ?? false,
         suspensionReason: user.suspensionReason ?? null,
         mustChangePassword: user.mustChangePassword ?? false,
+        guestAccessExpiresAt: (user as any).guestAccessExpiresAt ?? null,
       },
     };
   }

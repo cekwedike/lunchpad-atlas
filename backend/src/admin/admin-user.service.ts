@@ -868,4 +868,240 @@ export class AdminUserService {
       note: 'A temporary password has been emailed to the user.',
     };
   }
+
+  // ==================== GUEST FACILITATOR MANAGEMENT ====================
+
+  /**
+   * Create a guest facilitator account, optionally assigning sessions.
+   * guestAccessExpiresAt = max(session.scheduledDate) + 8 days.
+   * If no sessions provided, expiry stays null until sessions are assigned.
+   */
+  async createGuestFacilitator(
+    adminId: string,
+    data: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      password: string;
+      cohortId: string;
+      sessionIds?: string[];
+    },
+  ) {
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: data.cohortId },
+    });
+    if (!cohort) throw new NotFoundException('Cohort not found');
+
+    let sessions: { id: string; title: string; scheduledDate: Date }[] = [];
+    let guestAccessExpiresAt: Date | null = null;
+
+    if (data.sessionIds && data.sessionIds.length > 0) {
+      sessions = await this.prisma.session.findMany({
+        where: { id: { in: data.sessionIds }, cohortId: data.cohortId },
+        select: { id: true, title: true, scheduledDate: true },
+      });
+      if (sessions.length !== data.sessionIds.length) {
+        throw new BadRequestException(
+          'All sessions must belong to the specified cohort',
+        );
+      }
+
+      const latestDate = sessions.reduce(
+        (max, s) => (s.scheduledDate > max ? s.scheduledDate : max),
+        sessions[0].scheduledDate,
+      );
+      guestAccessExpiresAt = new Date(latestDate);
+      guestAccessExpiresAt.setDate(guestAccessExpiresAt.getDate() + 8);
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const user = await this.prisma.user.create({
+      data: {
+        email: data.email.toLowerCase().trim(),
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        passwordHash: hashedPassword,
+        role: UserRole.GUEST_FACILITATOR,
+        cohortId: data.cohortId,
+        guestAccessExpiresAt,
+        mustChangePassword: true,
+        ...(sessions.length > 0 && {
+          guestSessions: {
+            create: sessions.map((s) => ({ sessionId: s.id })),
+          },
+        }),
+      },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'CREATE_GUEST_FACILITATOR',
+        entityType: 'User',
+        entityId: user.id,
+        changes: {
+          cohortId: data.cohortId,
+          sessionIds: sessions.map((s) => s.id),
+          guestAccessExpiresAt: guestAccessExpiresAt?.toISOString() ?? null,
+        },
+      },
+    });
+
+    // Send welcome email if sessions were assigned
+    if (sessions.length > 0 && guestAccessExpiresAt) {
+      const now = new Date();
+      const firstSession = sessions.sort(
+        (a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime(),
+      )[0];
+      const daysUntilSession = Math.ceil(
+        (firstSession.scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const daysUntilLock = Math.ceil(
+        (guestAccessExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      this.emailService
+        .sendGuestFacilitatorWelcomeEmail(user.email, {
+          firstName: user.firstName,
+          email: user.email,
+          password: data.password,
+          cohortName: cohort.name,
+          sessions,
+          daysUntilSession,
+          guestAccessExpiresAt,
+          daysUntilLock,
+        })
+        .catch(() => null);
+    }
+
+    return sanitizeUser(user);
+  }
+
+  /**
+   * Update session assignments for a guest facilitator.
+   * Recomputes guestAccessExpiresAt from the new max session date.
+   * Sends welcome email if this is the first time sessions are being assigned.
+   */
+  async updateGuestFacilitatorSessions(
+    userId: string,
+    sessionIds: string[],
+    adminId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, cohortId: true, email: true, firstName: true, lastName: true, guestAccessExpiresAt: true },
+    });
+    if (!user || user.role !== UserRole.GUEST_FACILITATOR) {
+      throw new BadRequestException('User is not a guest facilitator');
+    }
+    if (!user.cohortId) {
+      throw new BadRequestException('Guest facilitator has no cohort assigned');
+    }
+
+    const sessions = await this.prisma.session.findMany({
+      where: { id: { in: sessionIds }, cohortId: user.cohortId },
+      select: { id: true, title: true, scheduledDate: true },
+    });
+    if (sessions.length !== sessionIds.length) {
+      throw new BadRequestException(
+        "All sessions must belong to the guest facilitator's cohort",
+      );
+    }
+
+    const latestDate = sessions.reduce(
+      (max, s) => (s.scheduledDate > max ? s.scheduledDate : max),
+      sessions[0].scheduledDate,
+    );
+    const guestAccessExpiresAt = new Date(latestDate);
+    guestAccessExpiresAt.setDate(guestAccessExpiresAt.getDate() + 8);
+
+    const wasFirstAssignment = !user.guestAccessExpiresAt;
+
+    await this.prisma.$transaction([
+      this.prisma.guestSession.deleteMany({ where: { userId } }),
+      this.prisma.guestSession.createMany({
+        data: sessions.map((s) => ({ userId, sessionId: s.id })),
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { guestAccessExpiresAt },
+      }),
+    ]);
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'UPDATE_GUEST_SESSIONS',
+        entityType: 'User',
+        entityId: userId,
+        changes: {
+          sessionIds,
+          guestAccessExpiresAt: guestAccessExpiresAt.toISOString(),
+        },
+      },
+    });
+
+    // Send welcome email if this is the first time sessions are assigned
+    if (wasFirstAssignment) {
+      const cohort = await this.prisma.cohort.findUnique({
+        where: { id: user.cohortId },
+        select: { name: true },
+      });
+      const now = new Date();
+      const firstSession = [...sessions].sort(
+        (a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime(),
+      )[0];
+      const daysUntilSession = Math.ceil(
+        (firstSession.scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const daysUntilLock = Math.ceil(
+        (guestAccessExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      this.emailService
+        .sendGuestFacilitatorWelcomeEmail(user.email, {
+          firstName: user.firstName,
+          email: user.email,
+          password: '(use your current password)',
+          cohortName: cohort?.name ?? '',
+          sessions,
+          daysUntilSession,
+          guestAccessExpiresAt,
+          daysUntilLock,
+        })
+        .catch(() => null);
+    }
+
+    return { message: 'Guest facilitator sessions updated', guestAccessExpiresAt };
+  }
+
+  /**
+   * Extend or reset the access window for a guest facilitator (admin unlock).
+   */
+  async extendGuestAccess(
+    userId: string,
+    newExpiresAt: Date,
+    adminId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== UserRole.GUEST_FACILITATOR) {
+      throw new BadRequestException('User is not a guest facilitator');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { guestAccessExpiresAt: newExpiresAt },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'EXTEND_GUEST_ACCESS',
+        entityType: 'User',
+        entityId: userId,
+        changes: { guestAccessExpiresAt: newExpiresAt.toISOString() },
+      },
+    });
+
+    return sanitizeUser(updated);
+  }
 }

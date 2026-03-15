@@ -17,6 +17,7 @@ enum UserRole {
   FELLOW // Program participant
   FACILITATOR // Cohort facilitator/mentor
   ADMIN // Platform administrator
+  GUEST_FACILITATOR // External guest invited to facilitate specific session(s)
 }
 
 enum ResourceType {
@@ -88,6 +89,7 @@ model User {
   isSuspended        Boolean   @default(false) // Account suspended by admin
   isFlagged          Boolean   @default(false) // Flagged for suspicious activity review
   mustChangePassword Boolean   @default(false) // Force password change on next login (set by admin)
+  guestAccessExpiresAt DateTime? // Access window end for GUEST_FACILITATOR (8 days after last session)
   suspendedAt        DateTime? // When the account was suspended
   suspensionReason   String?   // Admin note for suspension reason
   cohortId           String?
@@ -126,6 +128,7 @@ model User {
   channelMemberships ChannelMember[]
   pushSubscriptions  PushSubscription[]
   feedback           Feedback[]
+  guestSessions      GuestSession[]
 
   @@index([email])
   @@index([cohortId])
@@ -153,6 +156,19 @@ model Cohort {
 
   @@index([state])
   @@map("cohorts")
+}
+
+model GuestSession {
+  userId    String
+  sessionId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sessionId])
+  @@index([userId])
+  @@index([sessionId])
+  @@map("guest_sessions")
 }
 
 model CohortFacilitator {
@@ -188,6 +204,7 @@ model Session {
   sessionAnalytics SessionAnalytics[]
   liveQuizSessions LiveQuizSession[]
   attendance       Attendance[]
+  guestSessions    GuestSession[]
 
   @@unique([cohortId, sessionNumber])
   @@index([cohortId])

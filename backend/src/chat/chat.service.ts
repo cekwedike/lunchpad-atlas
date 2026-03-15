@@ -312,7 +312,8 @@ export class ChatService {
     if (
       channel.isLocked &&
       user?.role !== 'ADMIN' &&
-      user?.role !== 'FACILITATOR'
+      user?.role !== 'FACILITATOR' &&
+      user?.role !== 'GUEST_FACILITATOR'
     ) {
       throw new ForbiddenException(
         'This chat room is locked for announcements only',
@@ -547,7 +548,12 @@ export class ChatService {
       where: { id: userId },
     });
 
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'FACILITATOR')) {
+    if (
+      !user ||
+      (user.role !== 'ADMIN' &&
+        user.role !== 'FACILITATOR' &&
+        user.role !== 'GUEST_FACILITATOR')
+    ) {
       throw new ForbiddenException(
         'Only admins and facilitators can flag messages',
       );

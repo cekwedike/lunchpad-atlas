@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   Users, Search, Plus, Edit, Trash2,
-  Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen, Ban, ShieldCheck
+  Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen, Ban, ShieldCheck, UserCheck
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser } from "@/hooks/api/useAdmin";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useSessions, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser, useCreateGuestFacilitator } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -36,8 +36,10 @@ export default function AdminUsersPage() {
   const updateUserDetails = useUpdateUserDetails();
   const suspendUser = useSuspendUser();
   const unsuspendUser = useUnsuspendUser();
+  const createGuestFacilitator = useCreateGuestFacilitator();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
@@ -62,6 +64,18 @@ export default function AdminUsersPage() {
     cohortId: "",
     isFacilitator: false,
   });
+
+  // Guest facilitator form state
+  const [guestForm, setGuestForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    cohortId: "",
+    sessionIds: [] as string[],
+  });
+  const { data: guestSessionsData } = useSessions(guestForm.cohortId || undefined);
+  const guestSessions = Array.isArray(guestSessionsData) ? guestSessionsData : [];
 
   // Generate auto-password for Fellows and Facilitators
   // Must satisfy backend PASSWORD_REGEX: uppercase + lowercase + digit + special char, min 8 chars
@@ -342,6 +356,17 @@ export default function AdminUsersPage() {
             <p className="text-gray-600 mt-1">Manage all platform users and their roles</p>
           </div>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm"
+              onClick={() => {
+                setGuestForm({ firstName: "", lastName: "", email: "", password: "", cohortId: "", sessionIds: [] });
+                setIsGuestDialogOpen(true);
+              }}
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              Invite Guest Facilitator
+            </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
               onClick={() => {
@@ -990,6 +1015,183 @@ export default function AdminUsersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      {/* Invite Guest Facilitator Dialog */}
+      <Dialog open={isGuestDialogOpen} onOpenChange={setIsGuestDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-indigo-600" />
+              Invite Guest Facilitator
+            </DialogTitle>
+            <DialogDescription>
+              Create a guest account for an external facilitator. They will receive a welcome email with login credentials and session details.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-firstName">First Name</Label>
+                <Input
+                  id="guest-firstName"
+                  value={guestForm.firstName}
+                  onChange={(e) => setGuestForm((f) => ({ ...f, firstName: e.target.value }))}
+                  placeholder="First name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-lastName">Last Name</Label>
+                <Input
+                  id="guest-lastName"
+                  value={guestForm.lastName}
+                  onChange={(e) => setGuestForm((f) => ({ ...f, lastName: e.target.value }))}
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="guest-email">Email Address</Label>
+              <Input
+                id="guest-email"
+                type="email"
+                value={guestForm.email}
+                onChange={(e) => setGuestForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="guest@example.com"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="guest-password">
+                Temporary Password{" "}
+                <button
+                  type="button"
+                  className="text-xs text-indigo-600 hover:underline ml-1"
+                  onClick={() => {
+                    const name = guestForm.firstName || "Guest";
+                    const firstName = name.substring(0, Math.min(5, name.length));
+                    const prefix = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+                    setGuestForm((f) => ({ ...f, password: `${prefix}@${new Date().getFullYear()}` }));
+                  }}
+                >
+                  Auto-generate
+                </button>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="guest-password"
+                  type={showPassword ? "text" : "password"}
+                  value={guestForm.password}
+                  onChange={(e) => setGuestForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Min. 8 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="guest-cohort">Cohort <span className="text-red-500">*</span></Label>
+              <select
+                id="guest-cohort"
+                value={guestForm.cohortId}
+                onChange={(e) => setGuestForm((f) => ({ ...f, cohortId: e.target.value, sessionIds: [] }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select a cohort</option>
+                {cohorts.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {guestForm.cohortId && (
+              <div className="space-y-1.5">
+                <Label>
+                  Sessions{" "}
+                  <span className="text-xs text-gray-500 font-normal">(optional — can be assigned later)</span>
+                </Label>
+                {guestSessions.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No sessions found for this cohort.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2">
+                    {guestSessions.map((s: any) => (
+                      <label
+                        key={s.id}
+                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={guestForm.sessionIds.includes(s.id)}
+                          onChange={(e) => {
+                            setGuestForm((f) => ({
+                              ...f,
+                              sessionIds: e.target.checked
+                                ? [...f.sessionIds, s.id]
+                                : f.sessionIds.filter((id) => id !== s.id),
+                            }));
+                          }}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            Session {s.sessionNumber}: {s.title}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(s.scheduledDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {guestForm.sessionIds.length > 0 && (
+                  <p className="text-xs text-indigo-600">
+                    {guestForm.sessionIds.length} session{guestForm.sessionIds.length !== 1 ? "s" : ""} selected — access expires 8 days after the last session.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsGuestDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              disabled={createGuestFacilitator.isPending || !guestForm.firstName || !guestForm.lastName || !guestForm.email || !guestForm.password || !guestForm.cohortId}
+              onClick={() => {
+                createGuestFacilitator.mutate(
+                  {
+                    firstName: guestForm.firstName.trim(),
+                    lastName: guestForm.lastName.trim(),
+                    email: guestForm.email.trim().toLowerCase(),
+                    password: guestForm.password,
+                    cohortId: guestForm.cohortId,
+                    ...(guestForm.sessionIds.length > 0 && { sessionIds: guestForm.sessionIds }),
+                  },
+                  {
+                    onSuccess: () => setIsGuestDialogOpen(false),
+                  }
+                );
+              }}
+            >
+              {createGuestFacilitator.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</>
+              ) : (
+                <><UserCheck className="h-4 w-4 mr-2" />Send Invitation</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       </div>
     </DashboardLayout>
   );
