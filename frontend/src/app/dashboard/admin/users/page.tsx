@@ -294,8 +294,20 @@ export default function AdminUsersPage() {
         return "bg-violet-50 text-violet-700 border-violet-200";
       case "FELLOW":
         return "bg-blue-50 text-blue-700 border-blue-200";
+      case "GUEST_FACILITATOR":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200";
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "ADMIN": return "Admin";
+      case "FACILITATOR": return "Facilitator";
+      case "FELLOW": return "Fellow";
+      case "GUEST_FACILITATOR": return "Guest Facilitator";
+      default: return role;
     }
   };
 
@@ -502,7 +514,7 @@ export default function AdminUsersPage() {
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} font-medium`}>
-                            {user.role}
+                            {getRoleLabel(user.role)}
                           </Badge>
                           {user.role === "ADMIN" && user.isFacilitator && (
                             <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-xs">
@@ -654,8 +666,8 @@ export default function AdminUsersPage() {
                   value={formData.role}
                   onChange={(e) => {
                     const newRole = e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN";
-                    setFormData({ 
-                      ...formData, 
+                    setFormData({
+                      ...formData,
                       role: newRole,
                       password: newRole === "ADMIN" ? "" : formData.password,
                       cohortId: newRole === "FELLOW" || newRole === "FACILITATOR" ? formData.cohortId : "",
@@ -666,6 +678,7 @@ export default function AdminUsersPage() {
                   <option value="FELLOW">Fellow</option>
                   <option value="FACILITATOR">Facilitator</option>
                   <option value="ADMIN">Admin</option>
+                  <option value="GUEST_FACILITATOR">Guest Facilitator</option>
                 </select>
               </div>
               
@@ -834,8 +847,8 @@ export default function AdminUsersPage() {
                   value={formData.role}
                   onChange={(e) => {
                     const newRole = e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN";
-                    setFormData({ 
-                      ...formData, 
+                    setFormData({
+                      ...formData,
                       role: newRole,
                       cohortId: newRole === "FELLOW" || newRole === "FACILITATOR" ? formData.cohortId : ""
                     });
@@ -845,6 +858,7 @@ export default function AdminUsersPage() {
                   <option value="FELLOW">Fellow</option>
                   <option value="FACILITATOR">Facilitator</option>
                   <option value="ADMIN">Admin</option>
+                  <option value="GUEST_FACILITATOR">Guest Facilitator</option>
                 </select>
               </div>
               
