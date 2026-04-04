@@ -28,6 +28,9 @@ describe('LeaderboardService', () => {
     cohort: {
       findUnique: jest.fn(),
     },
+    cohortFacilitator: {
+      findFirst: jest.fn(),
+    },
   };
 
   const mockNotificationsService = {
@@ -275,17 +278,14 @@ describe('LeaderboardService', () => {
     });
 
     it('should throw BadRequestException if facilitator adjusting points for fellow in different cohort', async () => {
-      mockPrismaService.user.findUnique
-        .mockResolvedValueOnce({
-          id: 'user-1',
-          role: 'FELLOW',
-          cohortId: 'cohort-1',
-          currentMonthPoints: 0,
-          lastPointReset: new Date(),
-        })
-        .mockResolvedValueOnce({
-          cohortId: 'cohort-2', // Different cohort
-        });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+        currentMonthPoints: 0,
+        lastPointReset: new Date(),
+      });
+      mockPrismaService.cohortFacilitator.findFirst.mockResolvedValue(null);
 
       await expect(
         service.adjustPoints('facilitator-1', 'FACILITATOR', { userId: 'user-1', points: 10 , description: "Manual adjustment" }),

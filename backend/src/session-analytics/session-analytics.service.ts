@@ -1,7 +1,13 @@
-import { Injectable, BadGatewayException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadGatewayException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
 
 interface FellowParticipation {
   name: string;
@@ -50,6 +56,56 @@ export class SessionAnalyticsService {
         generationConfig: { temperature: 0.8 },
       });
     }
+  }
+
+  /** Enforce cohort-scoped analytics access (session-analytics IDOR fix). */
+  async assertViewerCanAccessCohort(viewerId: string, cohortId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: viewerId },
+      select: { role: true, cohortId: true },
+    });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN) return;
+    if (user.role === UserRole.GUEST_FACILITATOR) {
+      const guest = await this.prisma.guestSession.findFirst({
+        where: { userId: viewerId, session: { cohortId } },
+      });
+      if (guest) return;
+      throw new ForbiddenException('You cannot access analytics for this cohort');
+    }
+    if (user.role === UserRole.FELLOW && user.cohortId === cohortId) return;
+    if (user.role === UserRole.FACILITATOR) {
+      const link = await this.prisma.cohortFacilitator.findFirst({
+        where: { userId: viewerId, cohortId },
+      });
+      if (link) return;
+    }
+    throw new ForbiddenException('You cannot access analytics for this cohort');
+  }
+
+  async assertViewerCanAccessSession(viewerId: string, sessionId: string): Promise<void> {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { cohortId: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: viewerId },
+      select: { role: true, cohortId: true },
+    });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN) return;
+
+    if (user.role === UserRole.GUEST_FACILITATOR) {
+      const guest = await this.prisma.guestSession.findFirst({
+        where: { userId: viewerId, sessionId },
+      });
+      if (!guest) throw new ForbiddenException('You cannot access this session');
+      return;
+    }
+
+    await this.assertViewerCanAccessCohort(viewerId, session.cohortId);
   }
 
   /**
@@ -147,7 +203,9 @@ Consider:
   /**
    * Process and store AI analytics for a session
    */
-  async processSessionAnalytics(sessionId: string, transcript: string) {
+  async processSessionAnalytics(sessionId: string, transcript: string, viewerId: string) {
+    await this.assertViewerCanAccessSession(viewerId, sessionId);
+
     // Always fetch session with fellows for participation analysis
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
@@ -229,7 +287,9 @@ Consider:
   /**
    * Get analytics for a specific session
    */
-  async getSessionAnalytics(sessionId: string) {
+  async getSessionAnalytics(sessionId: string, viewerId: string) {
+    await this.assertViewerCanAccessSession(viewerId, sessionId);
+
     return this.prisma.sessionAnalytics.findFirst({
       where: { sessionId },
       include: {
@@ -250,7 +310,9 @@ Consider:
   /**
    * Get analytics for all sessions in a cohort
    */
-  async getCohortAnalytics(cohortId: string) {
+  async getCohortAnalytics(cohortId: string, viewerId: string) {
+    await this.assertViewerCanAccessCohort(viewerId, cohortId);
+
     const sessions = await this.prisma.session.findMany({
       where: { cohortId },
       include: {
@@ -305,10 +367,13 @@ Consider:
    */
   async chatAboutSession(
     sessionId: string,
+    viewerId: string,
     message: string,
     transcript?: string,
     history: Array<{ role: 'user' | 'model'; content: string }> = [],
   ): Promise<{ reply: string }> {
+    await this.assertViewerCanAccessSession(viewerId, sessionId);
+
     if (!this.chatModel) {
       throw new Error('Gemini API key not configured');
     }
@@ -357,8 +422,8 @@ Be specific and actionable. When suggesting points, use a 0-100 scale per fellow
   /**
    * Generate AI summary for multiple sessions
    */
-  async generateCohortInsights(cohortId: string) {
-    const cohortData = await this.getCohortAnalytics(cohortId);
+  async generateCohortInsights(cohortId: string, viewerId: string) {
+    const cohortData = await this.getCohortAnalytics(cohortId, viewerId);
 
     if (!this.model || cohortData.analyzedSessions === 0) {
       return null;

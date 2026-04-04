@@ -45,9 +45,9 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
   // Join quiz
   const joinQuiz = useCallback((displayName: string) => {
     if (socketRef.current) {
-      socketRef.current.emit('joinQuiz', { quizId, userId, displayName });
+      socketRef.current.emit('joinQuiz', { quizId, displayName });
     }
-  }, [quizId, userId]);
+  }, [quizId]);
 
   // Start quiz (facilitator only)
   const startQuiz = useCallback(() => {

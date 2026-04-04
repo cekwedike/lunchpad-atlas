@@ -10,10 +10,19 @@ import {
 import { Server, Socket } from 'socket.io';
 import { LiveQuizService } from './live-quiz.service';
 import { validateWsToken } from '../common/ws-auth.util';
+import { PrismaService } from '../prisma.service';
 
 interface QuizRoom {
   quizId: string;
   participants: Set<string>;
+}
+
+function sanitizeQuestionForBroadcast(q: Record<string, unknown> | null | undefined) {
+  if (!q || typeof q !== 'object') return q;
+  const { correctAnswer: _c, ...rest } = q as Record<string, unknown> & {
+    correctAnswer?: unknown;
+  };
+  return rest;
 }
 
 @WebSocketGateway({
@@ -31,10 +40,13 @@ export class LiveQuizGateway
 
   private quizRooms: Map<string, QuizRoom> = new Map();
 
-  constructor(private liveQuizService: LiveQuizService) {}
+  constructor(
+    private liveQuizService: LiveQuizService,
+    private prisma: PrismaService,
+  ) {}
 
-  handleConnection(client: Socket) {
-    const userId = validateWsToken(client);
+  async handleConnection(client: Socket) {
+    const userId = await validateWsToken(client, this.prisma);
     if (!userId) {
       client.disconnect();
       return;
@@ -45,7 +57,6 @@ export class LiveQuizGateway
 
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected from live quiz: ${client.id}`);
-    // Clean up rooms
     this.quizRooms.forEach((room, quizId) => {
       room.participants.delete(client.id);
       if (room.participants.size === 0) {
@@ -54,32 +65,27 @@ export class LiveQuizGateway
     });
   }
 
-  // Join a quiz room
   @SubscribeMessage('joinQuiz')
   async handleJoinQuiz(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { quizId: string; userId: string; displayName: string },
+    data: { quizId: string; displayName: string },
   ) {
-    const { quizId, userId, displayName } = data;
+    const userId = (client as any).userId as string;
+    const { quizId, displayName } = data;
 
     try {
-      // Join participant to quiz
-      const participant = await this.liveQuizService.joinQuiz(quizId, {
-        userId,
+      const participant = await this.liveQuizService.joinQuiz(quizId, userId, {
         displayName,
       });
 
-      // Join socket room
       client.join(quizId);
 
-      // Track room
       if (!this.quizRooms.has(quizId)) {
         this.quizRooms.set(quizId, { quizId, participants: new Set() });
       }
       this.quizRooms.get(quizId)!.participants.add(client.id);
 
-      // Notify others that someone joined
       this.server.to(quizId).emit('participantJoined', {
         participant: {
           id: participant.id,
@@ -89,8 +95,7 @@ export class LiveQuizGateway
         participantCount: this.quizRooms.get(quizId)!.participants.size,
       });
 
-      // Send current quiz state to new participant
-      const quiz = await this.liveQuizService.findOne(quizId);
+      const quiz = await this.liveQuizService.findOne(quizId, userId);
       return {
         success: true,
         participant,
@@ -102,75 +107,71 @@ export class LiveQuizGateway
           totalQuestions: quiz.totalQuestions,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
 
-  // Start quiz (facilitator only)
   @SubscribeMessage('startQuiz')
   async handleStartQuiz(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { quizId: string },
   ) {
+    const userId = (client as any).userId as string;
     try {
-      const quiz = await this.liveQuizService.startQuiz(data.quizId);
-
-      // Notify all participants
+      const quiz = await this.liveQuizService.startQuiz(data.quizId, userId);
+      const rawQ = quiz.questions?.[0];
       this.server.to(data.quizId).emit('quizStarted', {
         quizId: quiz.id,
         currentQuestion: quiz.currentQuestion,
-        question: quiz.questions[0],
+        question: sanitizeQuestionForBroadcast(rawQ as Record<string, unknown>),
         startedAt: quiz.startedAt,
       });
 
       return { success: true, quiz };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
 
-  // Show next question (facilitator only)
   @SubscribeMessage('nextQuestion')
   async handleNextQuestion(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { quizId: string; questionIndex: number },
+    @MessageBody() data: { quizId: string },
   ) {
+    const userId = (client as any).userId as string;
     try {
-      const quiz = await this.liveQuizService.nextQuestion(
-        data.quizId,
-        data.questionIndex,
-      );
+      const updated = await this.liveQuizService.nextQuestion(data.quizId, userId);
 
-      if (quiz.status === 'COMPLETED') {
-        // Quiz finished
+      if (updated.status === 'COMPLETED') {
         const leaderboard = await this.liveQuizService.getLeaderboard(
           data.quizId,
+          userId,
         );
         this.server.to(data.quizId).emit('quizCompleted', {
-          quizId: quiz.id,
+          quizId: updated.id,
           leaderboard,
-          completedAt: quiz.completedAt,
+          completedAt: updated.completedAt,
         });
       } else {
-        // Show next question
-        const fullQuiz = await this.liveQuizService.findOne(data.quizId);
-        const question = fullQuiz.questions[data.questionIndex];
-
+        const fullQuiz = await this.liveQuizService.findOneFullForFacilitator(
+          data.quizId,
+          userId,
+        );
+        const question = fullQuiz.questions[updated.currentQuestion];
         this.server.to(data.quizId).emit('questionShown', {
-          questionIndex: data.questionIndex,
-          question,
-          timeLimit: question.timeLimit,
+          questionIndex: updated.currentQuestion,
+          question: sanitizeQuestionForBroadcast(question as Record<string, unknown>),
+          timeLimit: question?.timeLimit,
         });
       }
 
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
 
-  // Submit answer
   @SubscribeMessage('submitAnswer')
   async handleSubmitAnswer(
     @ConnectedSocket() client: Socket,
@@ -183,23 +184,26 @@ export class LiveQuizGateway
       timeToAnswer: number;
     },
   ) {
+    const userId = (client as any).userId as string;
     try {
-      const result = await this.liveQuizService.submitAnswer({
-        participantId: data.participantId,
-        questionId: data.questionId,
-        selectedAnswer: data.selectedAnswer,
-        timeToAnswer: data.timeToAnswer,
-      });
+      const result = await this.liveQuizService.submitAnswer(
+        {
+          participantId: data.participantId,
+          questionId: data.questionId,
+          selectedAnswer: data.selectedAnswer,
+          timeToAnswer: data.timeToAnswer,
+        },
+        userId,
+      );
 
-      // Update leaderboard in real-time
       const leaderboard = await this.liveQuizService.getLeaderboard(
         data.quizId,
+        userId,
       );
       this.server.to(data.quizId).emit('leaderboardUpdate', {
-        leaderboard: leaderboard.slice(0, 10), // Top 10
+        leaderboard: leaderboard.slice(0, 10),
       });
 
-      // Notify participant of their result
       client.emit('answerResult', {
         isCorrect: result.isCorrect,
         pointsEarned: result.pointsEarned,
@@ -208,44 +212,53 @@ export class LiveQuizGateway
       });
 
       return { success: true, result };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
 
-  // Get current leaderboard
   @SubscribeMessage('getLeaderboard')
   async handleGetLeaderboard(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { quizId: string },
   ) {
+    const userId = (client as any).userId as string;
     try {
       const leaderboard = await this.liveQuizService.getLeaderboard(
         data.quizId,
+        userId,
       );
       return { success: true, leaderboard };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
 
-  // Show question results (facilitator triggers)
   @SubscribeMessage('showResults')
-  handleShowResults(
+  async handleShowResults(
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
       quizId: string;
       questionId: string;
-      correctAnswer: number;
-      statistics: any;
+      statistics?: Record<string, unknown>;
     },
   ) {
-    this.server.to(data.quizId).emit('resultsShown', {
-      questionId: data.questionId,
-      correctAnswer: data.correctAnswer,
-      statistics: data.statistics,
-    });
-    return { success: true };
+    const userId = (client as any).userId as string;
+    try {
+      const correctAnswer = await this.liveQuizService.revealQuestionCorrectAnswer(
+        data.quizId,
+        data.questionId,
+        userId,
+      );
+      this.server.to(data.quizId).emit('resultsShown', {
+        questionId: data.questionId,
+        correctAnswer,
+        statistics: data.statistics ?? {},
+      });
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 }

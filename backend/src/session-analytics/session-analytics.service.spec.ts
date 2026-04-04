@@ -18,9 +18,18 @@ describe('SessionAnalyticsService', () => {
   let service: SessionAnalyticsService;
 
   const mockPrismaService = {
+    user: {
+      findUnique: jest.fn(),
+    },
     session: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+    },
+    cohortFacilitator: {
+      findFirst: jest.fn(),
+    },
+    guestSession: {
+      findFirst: jest.fn(),
     },
     sessionAnalytics: {
       findFirst: jest.fn(),
@@ -119,9 +128,11 @@ describe('SessionAnalyticsService', () => {
         engagementScore: 80,
         session: { id: 'session-1', title: 'Session 1', cohort: { id: 'cohort-1', name: 'Alpha' } },
       };
+      mockPrismaService.session.findUnique.mockResolvedValue({ cohortId: 'cohort-1' });
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'ADMIN', cohortId: null });
       mockPrismaService.sessionAnalytics.findFirst.mockResolvedValue(mockAnalytics);
 
-      const result = await service.getSessionAnalytics('session-1');
+      const result = await service.getSessionAnalytics('session-1', 'admin-1');
 
       expect(result).toEqual(mockAnalytics);
       expect(mockPrismaService.sessionAnalytics.findFirst).toHaveBeenCalledWith(
@@ -130,9 +141,11 @@ describe('SessionAnalyticsService', () => {
     });
 
     it('should return null when no analytics found', async () => {
+      mockPrismaService.session.findUnique.mockResolvedValue({ cohortId: 'cohort-1' });
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'ADMIN', cohortId: null });
       mockPrismaService.sessionAnalytics.findFirst.mockResolvedValue(null);
 
-      const result = await service.getSessionAnalytics('session-1');
+      const result = await service.getSessionAnalytics('session-1', 'admin-1');
 
       expect(result).toBeNull();
     });
@@ -166,9 +179,10 @@ describe('SessionAnalyticsService', () => {
           ],
         },
       ];
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'ADMIN', cohortId: null });
       mockPrismaService.session.findMany.mockResolvedValue(mockSessions);
 
-      const result = await service.getCohortAnalytics('cohort-1');
+      const result = await service.getCohortAnalytics('cohort-1', 'admin-1');
 
       expect(result.cohortId).toBe('cohort-1');
       expect(result.totalSessions).toBe(2);
@@ -181,11 +195,12 @@ describe('SessionAnalyticsService', () => {
     });
 
     it('should return zeroed averages when no sessions have analytics', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'ADMIN', cohortId: null });
       mockPrismaService.session.findMany.mockResolvedValue([
         { id: 'session-1', title: 'Session 1', scheduledDate: new Date(), sessionAnalytics: [] },
       ]);
 
-      const result = await service.getCohortAnalytics('cohort-1');
+      const result = await service.getCohortAnalytics('cohort-1', 'admin-1');
 
       expect(result.averageEngagement).toBe(0);
       expect(result.averageParticipation).toBe(0);

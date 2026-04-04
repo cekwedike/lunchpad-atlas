@@ -46,30 +46,41 @@ export class SessionAnalyticsController {
   async processSession(
     @Param('sessionId') sessionId: string,
     @Body() data: { transcript: string },
+    @Request() req: { user: { id: string } },
   ) {
     return this.sessionAnalyticsService.processSessionAnalytics(
       sessionId,
       data.transcript,
+      req.user.id,
     );
   }
 
   @Get('session/:sessionId')
   @ApiOperation({ summary: 'Get analytics for a specific session' })
-  async getSessionAnalytics(@Param('sessionId') sessionId: string) {
-    return this.sessionAnalyticsService.getSessionAnalytics(sessionId);
+  async getSessionAnalytics(
+    @Param('sessionId') sessionId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.sessionAnalyticsService.getSessionAnalytics(sessionId, req.user.id);
   }
 
   @Get('cohort/:cohortId')
   @ApiOperation({ summary: 'Get aggregated analytics for a cohort' })
-  async getCohortAnalytics(@Param('cohortId') cohortId: string) {
-    return this.sessionAnalyticsService.getCohortAnalytics(cohortId);
+  async getCohortAnalytics(
+    @Param('cohortId') cohortId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.sessionAnalyticsService.getCohortAnalytics(cohortId, req.user.id);
   }
 
   @Get('cohort/:cohortId/insights')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Generate AI insights for cohort performance' })
-  async getCohortInsights(@Param('cohortId') cohortId: string) {
-    return this.sessionAnalyticsService.generateCohortInsights(cohortId);
+  async getCohortInsights(
+    @Param('cohortId') cohortId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.sessionAnalyticsService.generateCohortInsights(cohortId, req.user.id);
   }
 
   @Get('export/session/:sessionId/csv')
@@ -77,8 +88,10 @@ export class SessionAnalyticsController {
   @ApiOperation({ summary: 'Export session analytics as CSV' })
   async exportSessionCSV(
     @Param('sessionId') sessionId: string,
+    @Request() req: { user: { id: string } },
     @Res() res: express.Response,
   ) {
+    await this.sessionAnalyticsService.assertViewerCanAccessSession(req.user.id, sessionId);
     const csv =
       await this.analyticsExportService.exportSessionAnalyticsToCSV(sessionId);
     res.setHeader('Content-Type', 'text/csv');
@@ -94,8 +107,10 @@ export class SessionAnalyticsController {
   @ApiOperation({ summary: 'Export cohort analytics as CSV' })
   async exportCohortCSV(
     @Param('cohortId') cohortId: string,
+    @Request() req: { user: { id: string } },
     @Res() res: express.Response,
   ) {
+    await this.sessionAnalyticsService.assertViewerCanAccessCohort(req.user.id, cohortId);
     const csv =
       await this.analyticsExportService.exportCohortAnalyticsToCSV(cohortId);
     res.setHeader('Content-Type', 'text/csv');
@@ -111,8 +126,10 @@ export class SessionAnalyticsController {
   @ApiOperation({ summary: 'Export resource progress as CSV' })
   async exportResourceProgressCSV(
     @Param('sessionId') sessionId: string,
+    @Request() req: { user: { id: string } },
     @Res() res: express.Response,
   ) {
+    await this.sessionAnalyticsService.assertViewerCanAccessSession(req.user.id, sessionId);
     const csv =
       await this.analyticsExportService.exportResourceProgressToCSV(sessionId);
     res.setHeader('Content-Type', 'text/csv');
@@ -128,10 +145,12 @@ export class SessionAnalyticsController {
   @ApiOperation({ summary: 'Export leaderboard as CSV' })
   async exportLeaderboardCSV(
     @Param('cohortId') cohortId: string,
+    @Request() req: { user: { id: string } },
     @Res() res: express.Response,
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
+    await this.sessionAnalyticsService.assertViewerCanAccessCohort(req.user.id, cohortId);
     const csv = await this.analyticsExportService.exportLeaderboardToCSV(
       cohortId,
       month ? parseInt(month) : undefined,
@@ -148,7 +167,11 @@ export class SessionAnalyticsController {
   @Get('summary/:cohortId')
   @Roles('FACILITATOR', 'ADMIN')
   @ApiOperation({ summary: 'Get analytics summary for cohort' })
-  async getAnalyticsSummary(@Param('cohortId') cohortId: string) {
+  async getAnalyticsSummary(
+    @Param('cohortId') cohortId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    await this.sessionAnalyticsService.assertViewerCanAccessCohort(req.user.id, cohortId);
     return this.analyticsExportService.generateAnalyticsSummary(cohortId);
   }
 

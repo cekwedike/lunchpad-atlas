@@ -72,10 +72,6 @@ export class CreateLiveQuizDto {
 export class JoinLiveQuizDto {
   @IsString()
   @IsNotEmpty()
-  userId: string;
-
-  @IsString()
-  @IsNotEmpty()
   displayName: string;
 }
 

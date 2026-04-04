@@ -44,7 +44,32 @@ export class DiscussionsService {
       .trim();
   }
 
+  /** Block SSRF: HTTPS only, no loopback or RFC1918 literal hosts. */
+  private isBlockedFetchHost(hostname: string): boolean {
+    const h = hostname.toLowerCase();
+    if (h === 'localhost' || h.endsWith('.localhost')) return true;
+    const oct = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+    if (!oct) return false;
+    const p = oct.slice(1, 5).map((x) => parseInt(x, 10));
+    if (p.some((n) => n > 255)) return true;
+    const [a, b] = p;
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    return false;
+  }
+
   private async fetchResourceContent(url: string, type?: string) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== 'https:') return null;
+    if (this.isBlockedFetchHost(parsed.hostname)) return null;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 7000);
 

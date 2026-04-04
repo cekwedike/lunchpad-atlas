@@ -29,6 +29,12 @@ describe('QuizzesService', () => {
     pointsLog: {
       create: jest.fn(),
     },
+    cohortFacilitator: {
+      findFirst: jest.fn(),
+    },
+    guestSession: {
+      findFirst: jest.fn(),
+    },
   };
 
   const mockAchievementsService = {
@@ -177,10 +183,19 @@ describe('QuizzesService', () => {
 
   describe('getQuiz', () => {
     it('should return quiz when found', async () => {
-      const mockQuiz = { id: 'quiz-1', title: 'Test Quiz', sessions: [] };
+      const mockQuiz = {
+        id: 'quiz-1',
+        title: 'Test Quiz',
+        cohortId: 'cohort-1',
+        sessions: [],
+      };
       mockPrismaService.quiz.findUnique.mockResolvedValue(mockQuiz);
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
 
-      const result = await service.getQuiz('quiz-1');
+      const result = await service.getQuiz('quiz-1', 'user-1');
 
       expect(result).toEqual(mockQuiz);
     });
@@ -188,7 +203,7 @@ describe('QuizzesService', () => {
     it('should throw NotFoundException when quiz not found', async () => {
       mockPrismaService.quiz.findUnique.mockResolvedValue(null);
 
-      await expect(service.getQuiz('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.getQuiz('nonexistent', 'user-1')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -197,9 +212,18 @@ describe('QuizzesService', () => {
       const mockQuestions = [
         { id: 'q-1', quizId: 'quiz-1', question: 'What is 2+2?', options: ['3', '4', '5'], order: 1 },
       ];
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        cohortId: 'cohort-1',
+        sessions: [],
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
       mockPrismaService.quizQuestion.findMany.mockResolvedValue(mockQuestions);
 
-      const result = await service.getQuizQuestions('quiz-1');
+      const result = await service.getQuizQuestions('quiz-1', 'user-1');
 
       expect(result).toEqual(mockQuestions);
       expect(mockPrismaService.quizQuestion.findMany).toHaveBeenCalledWith(
@@ -216,6 +240,15 @@ describe('QuizzesService', () => {
       const mockAttempts = [
         { id: 'attempt-1', score: 80, passed: true, pointsAwarded: 100, completedAt: new Date() },
       ];
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        cohortId: 'cohort-1',
+        sessions: [],
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
       mockPrismaService.quizResponse.findMany.mockResolvedValue(mockAttempts);
 
       const result = await service.getQuizAttempts('quiz-1', 'user-1');
@@ -233,6 +266,8 @@ describe('QuizzesService', () => {
     const baseQuiz = {
       id: 'quiz-1',
       title: 'Test Quiz',
+      cohortId: 'cohort-1',
+      sessions: [] as { sessionId: string; session: { cohortId: string } }[],
       passingScore: 70,
       pointValue: 100,
       timeLimit: 30,
@@ -241,6 +276,15 @@ describe('QuizzesService', () => {
       quizType: 'SESSION',
       showCorrectAnswers: false,
     };
+
+    beforeEach(() => {
+      mockPrismaService.quizResponse.count.mockReset();
+      mockPrismaService.user.findUnique.mockReset();
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
+    });
 
     it('should throw NotFoundException when quiz not found', async () => {
       mockPrismaService.quiz.findUnique.mockResolvedValue(null);
@@ -251,7 +295,10 @@ describe('QuizzesService', () => {
     });
 
     it('should throw BadRequestException when max attempts reached', async () => {
-      mockPrismaService.quiz.findUnique.mockResolvedValue({ ...baseQuiz, maxAttempts: 2 });
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        ...baseQuiz,
+        maxAttempts: 2,
+      });
       mockPrismaService.quizResponse.count.mockResolvedValue(2);
 
       await expect(
@@ -304,12 +351,17 @@ describe('QuizzesService', () => {
       const questions = [{ id: 'q-1', correctAnswer: 'B' }];
       mockPrismaService.quizQuestion.findMany.mockResolvedValue(questions);
 
-      // Mock awardPoints flow
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        currentMonthPoints: 0,
-        monthlyPointsCap: 5000,
-        lastPointReset: null,
-      });
+      // Mock awardPoints flow (assertUserCanAccessQuiz calls findUnique first)
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          role: 'FELLOW',
+          cohortId: 'cohort-1',
+        })
+        .mockResolvedValue({
+          currentMonthPoints: 0,
+          monthlyPointsCap: 5000,
+          lastPointReset: null,
+        });
       mockPrismaService.user.update.mockResolvedValue({});
       mockPrismaService.pointsLog.create.mockResolvedValue({});
 
@@ -374,11 +426,16 @@ describe('QuizzesService', () => {
       const questions = [{ id: 'q-1', correctAnswer: 'B' }];
       mockPrismaService.quizQuestion.findMany.mockResolvedValue(questions);
 
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        currentMonthPoints: 0,
-        monthlyPointsCap: 5000,
-        lastPointReset: null,
-      });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          role: 'FELLOW',
+          cohortId: 'cohort-1',
+        })
+        .mockResolvedValue({
+          currentMonthPoints: 0,
+          monthlyPointsCap: 5000,
+          lastPointReset: null,
+        });
       mockPrismaService.user.update.mockResolvedValue({});
       mockPrismaService.pointsLog.create.mockResolvedValue({});
 
@@ -417,7 +474,15 @@ describe('QuizzesService', () => {
     });
 
     it('should throw NotFoundException when no attempts found', async () => {
-      mockPrismaService.quiz.findUnique.mockResolvedValue({ id: 'quiz-1' });
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        cohortId: 'cohort-1',
+        sessions: [],
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
       mockPrismaService.quizResponse.findFirst.mockResolvedValue(null);
 
       await expect(service.getQuizReview('quiz-1', 'user-1')).rejects.toThrow(NotFoundException);
@@ -426,6 +491,8 @@ describe('QuizzesService', () => {
     it('should return review data with correct answers when showCorrectAnswers is true', async () => {
       const mockQuiz = {
         id: 'quiz-1',
+        cohortId: 'cohort-1',
+        sessions: [],
         showCorrectAnswers: true,
       };
       const mockAttempt = {
@@ -439,6 +506,10 @@ describe('QuizzesService', () => {
         { id: 'q-2', question: 'Q2?', options: ['A', 'B'], correctAnswer: 'B', order: 2 },
       ];
 
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
       mockPrismaService.quiz.findUnique.mockResolvedValue(mockQuiz);
       mockPrismaService.quizResponse.findFirst.mockResolvedValue(mockAttempt);
       mockPrismaService.quizQuestion.findMany.mockResolvedValue(mockQuestions);
@@ -454,7 +525,12 @@ describe('QuizzesService', () => {
     });
 
     it('should not include correct answers when showCorrectAnswers is false', async () => {
-      const mockQuiz = { id: 'quiz-1', showCorrectAnswers: false };
+      const mockQuiz = {
+        id: 'quiz-1',
+        cohortId: 'cohort-1',
+        sessions: [],
+        showCorrectAnswers: false,
+      };
       const mockAttempt = {
         score: 50,
         passed: false,
@@ -465,6 +541,10 @@ describe('QuizzesService', () => {
         { id: 'q-1', question: 'Q1?', options: ['A', 'B'], correctAnswer: 'B', order: 1 },
       ];
 
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
       mockPrismaService.quiz.findUnique.mockResolvedValue(mockQuiz);
       mockPrismaService.quizResponse.findFirst.mockResolvedValue(mockAttempt);
       mockPrismaService.quizQuestion.findMany.mockResolvedValue(mockQuestions);

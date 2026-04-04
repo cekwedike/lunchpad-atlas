@@ -34,6 +34,8 @@ import { FeedbackModule } from './feedback/feedback.module';
       isGlobal: true,
     }),
     ScheduleModule.forRoot(),
+    // In-memory storage: under multiple API instances, limits apply per instance only.
+    // For shared limits in production, use a Redis-backed throttler storage package.
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 seconds

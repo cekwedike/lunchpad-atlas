@@ -66,7 +66,6 @@ export interface CreateLiveQuizDto {
 }
 
 export interface JoinLiveQuizDto {
-  userId: string;
   displayName: string;
 }
 

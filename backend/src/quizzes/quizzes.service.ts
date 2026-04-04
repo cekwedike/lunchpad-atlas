@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
 import { AchievementsService } from '../achievements/achievements.service';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class QuizzesService {
@@ -13,6 +15,63 @@ export class QuizzesService {
     private prisma: PrismaService,
     private achievementsService: AchievementsService,
   ) {}
+
+  private async assertUserCanAccessQuiz(
+    userId: string,
+    quiz: {
+      cohortId: string | null;
+      sessions: Array<{
+        sessionId: string;
+        session: { cohortId: string } | null;
+      }>;
+    },
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, cohortId: true },
+    });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN) return;
+
+    const quizCohortIds = new Set<string>();
+    if (quiz.cohortId) quizCohortIds.add(quiz.cohortId);
+    for (const qs of quiz.sessions) {
+      const cid = qs.session?.cohortId;
+      if (cid) quizCohortIds.add(cid);
+    }
+
+    if (user.role === UserRole.FELLOW) {
+      if (!user.cohortId || !quizCohortIds.has(user.cohortId)) {
+        throw new ForbiddenException('You are not assigned to this quiz');
+      }
+      return;
+    }
+
+    if (user.role === UserRole.FACILITATOR) {
+      const links = await this.prisma.cohortFacilitator.findMany({
+        where: { userId },
+        select: { cohortId: true },
+      });
+      const mine = new Set(links.map((l) => l.cohortId));
+      const ok = [...quizCohortIds].some((cid) => mine.has(cid));
+      if (!ok) throw new ForbiddenException('You are not assigned to this quiz');
+      return;
+    }
+
+    if (user.role === UserRole.GUEST_FACILITATOR) {
+      const sessionIds = quiz.sessions.map((s) => s.sessionId);
+      if (sessionIds.length === 0) {
+        throw new ForbiddenException('You are not assigned to this quiz');
+      }
+      const guest = await this.prisma.guestSession.findFirst({
+        where: { userId, sessionId: { in: sessionIds } },
+      });
+      if (!guest) throw new ForbiddenException('You are not assigned to this quiz');
+      return;
+    }
+
+    throw new ForbiddenException('You are not assigned to this quiz');
+  }
 
   /**
    * Helper function to award points with monthly cap enforcement
@@ -153,12 +212,12 @@ export class QuizzesService {
     });
   }
 
-  async getQuiz(id: string) {
+  async getQuiz(id: string, userId: string) {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id },
       include: {
         sessions: {
-          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+          include: { session: { select: { id: true, title: true, sessionNumber: true, cohortId: true } } },
         },
       } as any,
     });
@@ -167,10 +226,25 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
+    await this.assertUserCanAccessQuiz(userId, quiz as any);
+
     return quiz;
   }
 
-  async getQuizQuestions(quizId: string) {
+  async getQuizQuestions(quizId: string, userId: string) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        sessions: {
+          include: { session: { select: { cohortId: true } } },
+        },
+      },
+    });
+    if (!quiz) {
+      throw new NotFoundException('Quiz not found');
+    }
+    await this.assertUserCanAccessQuiz(userId, quiz);
+
     const questions = await this.prisma.quizQuestion.findMany({
       where: { quizId },
       orderBy: { order: 'asc' },
@@ -187,6 +261,15 @@ export class QuizzesService {
   }
 
   async getQuizAttempts(quizId: string, userId: string) {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+      include: {
+        sessions: { include: { session: { select: { cohortId: true } } } },
+      },
+    });
+    if (!quiz) throw new NotFoundException('Quiz not found');
+    await this.assertUserCanAccessQuiz(userId, quiz);
+
     return this.prisma.quizResponse.findMany({
       where: { quizId, userId },
       orderBy: { completedAt: 'desc' },
@@ -203,11 +286,16 @@ export class QuizzesService {
   async submitQuiz(quizId: string, userId: string, dto: SubmitQuizDto) {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id: quizId },
+      include: {
+        sessions: { include: { session: { select: { cohortId: true } } } },
+      },
     });
 
     if (!quiz) {
       throw new NotFoundException('Quiz not found');
     }
+
+    await this.assertUserCanAccessQuiz(userId, quiz);
 
     // Enforce max attempt limit (0 = unlimited)
     const totalAllAttempts = await this.prisma.quizResponse.count({
@@ -375,11 +463,16 @@ export class QuizzesService {
   async getQuizReview(quizId: string, userId: string) {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id: quizId },
+      include: {
+        sessions: { include: { session: { select: { cohortId: true } } } },
+      },
     });
 
     if (!quiz) {
       throw new NotFoundException('Quiz not found');
     }
+
+    await this.assertUserCanAccessQuiz(userId, quiz);
 
     // Get the user's most recent attempt
     const latestAttempt = await this.prisma.quizResponse.findFirst({

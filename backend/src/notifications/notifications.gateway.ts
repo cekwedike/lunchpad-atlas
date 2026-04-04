@@ -6,6 +6,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { validateWsToken } from '../common/ws-auth.util';
+import { PrismaService } from '../prisma.service';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -26,11 +27,13 @@ export class NotificationsGateway
 
   private connectedUsers: Map<string, string> = new Map(); // socketId -> userId
 
+  constructor(private prisma: PrismaService) {}
+
   // ==================== CONNECTION HANDLERS ====================
 
-  handleConnection(client: AuthenticatedSocket) {
+  async handleConnection(client: AuthenticatedSocket) {
     try {
-      const userId = validateWsToken(client);
+      const userId = await validateWsToken(client, this.prisma);
 
       if (!userId) {
         client.disconnect();

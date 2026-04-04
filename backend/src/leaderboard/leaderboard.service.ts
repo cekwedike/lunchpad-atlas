@@ -512,13 +512,16 @@ export class LeaderboardService {
     }
 
     if (adjustedByRole === 'FACILITATOR') {
-      const facilitator = await this.prisma.user.findUnique({
-        where: { id: adjustedById },
-        select: { cohortId: true },
+      if (!user.cohortId) {
+        throw new BadRequestException('Fellow has no cohort');
+      }
+      const link = await this.prisma.cohortFacilitator.findFirst({
+        where: { userId: adjustedById, cohortId: user.cohortId },
       });
-
-      if (!facilitator?.cohortId || facilitator.cohortId !== user.cohortId) {
-        throw new BadRequestException('Facilitators can only adjust points for their cohort');
+      if (!link) {
+        throw new BadRequestException(
+          'Facilitators can only adjust points for fellows in cohorts they facilitate',
+        );
       }
     }
 

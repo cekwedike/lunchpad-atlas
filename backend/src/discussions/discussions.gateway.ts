@@ -36,7 +36,7 @@ export class DiscussionsGateway
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const userId = validateWsToken(client);
+      const userId = await validateWsToken(client, this.prisma);
 
       if (!userId) {
         console.log('Connection rejected: invalid or missing token');

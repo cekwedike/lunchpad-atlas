@@ -110,8 +110,8 @@ export function useNextQuestion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ quizId, questionIndex }: { quizId: string; questionIndex: number }) =>
-      apiClient.post<LiveQuiz>(`/live-quiz/${quizId}/next-question`, { questionIndex }),
+    mutationFn: (quizId: string) =>
+      apiClient.post<LiveQuiz>(`/live-quiz/${quizId}/next-question`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: LIVE_QUIZ_KEYS.all });
     },

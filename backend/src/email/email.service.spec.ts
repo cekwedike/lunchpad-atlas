@@ -117,7 +117,6 @@ describe('EmailService', () => {
         firstName: 'Jane',
         lastName: 'Smith',
         email: 'jane@example.com',
-        password: 'TempPass123',
         role: 'FELLOW',
       };
 
@@ -137,7 +136,6 @@ describe('EmailService', () => {
         firstName: 'Bob',
         lastName: 'Jones',
         email: 'bob@example.com',
-        password: 'TempPass123',
         role: 'FACILITATOR',
       };
 

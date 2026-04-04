@@ -30,13 +30,13 @@ export class QuizzesController {
   }
 
   @Get(':id')
-  getQuiz(@Param('id') id: string) {
-    return this.quizzesService.getQuiz(id);
+  getQuiz(@Param('id') id: string, @Request() req) {
+    return this.quizzesService.getQuiz(id, req.user.id);
   }
 
   @Get(':id/questions')
-  getQuizQuestions(@Param('id') id: string) {
-    return this.quizzesService.getQuizQuestions(id);
+  getQuizQuestions(@Param('id') id: string, @Request() req) {
+    return this.quizzesService.getQuizQuestions(id, req.user.id);
   }
 
   @Get(':id/attempts')

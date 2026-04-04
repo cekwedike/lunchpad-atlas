@@ -86,7 +86,6 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        password: dto.password,
         role: user.role,
       }).catch((err) => console.error('Failed to send account-created email:', err));
 
@@ -109,6 +108,10 @@ export class AuthService {
 
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.isSuspended) {
+      throw new UnauthorizedException('Account suspended');
     }
 
     await this.prisma.user.update({
@@ -164,6 +167,10 @@ export class AuthService {
 
     if (!user) return null;
 
+    if (user.isSuspended) {
+      throw new UnauthorizedException('Account suspended');
+    }
+
     // Guest facilitator access window check
     if (
       user.role === 'GUEST_FACILITATOR' &&
@@ -202,9 +209,12 @@ export class AuthService {
     // Verify user still exists and is active
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, isSuspended: true },
     });
     if (!user) throw new UnauthorizedException('User not found');
+    if (user.isSuspended) {
+      throw new UnauthorizedException('Account suspended');
+    }
 
     const accessPayload = { sub: user.id, email: user.email, role: user.role };
     return {

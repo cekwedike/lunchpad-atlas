@@ -609,7 +609,6 @@ function LiveQuizCard({ quiz }: { quiz: any }) {
     joinMutation.mutate({
       quizId: quiz.id,
       data: {
-        userId: user.id,
         displayName: user.name || user.email,
       },
     });

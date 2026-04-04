@@ -1,11 +1,14 @@
 import { Socket } from 'socket.io';
 import * as jwt from 'jsonwebtoken';
+import { PrismaService } from '../prisma.service';
 
 /**
- * Validates JWT token from WebSocket handshake and extracts userId.
- * Returns null if token is missing/invalid.
+ * Validates JWT and account state; returns userId or null.
  */
-export function validateWsToken(client: Socket): string | null {
+export async function validateWsToken(
+  client: Socket,
+  prisma: PrismaService,
+): Promise<string | null> {
   try {
     const token =
       client.handshake.auth?.token ||
@@ -20,7 +23,28 @@ export function validateWsToken(client: Socket): string | null {
     }
 
     const payload = jwt.verify(token, secret) as { sub?: string };
-    return payload.sub ?? null;
+    const sub = payload.sub;
+    if (!sub) return null;
+
+    const user = await prisma.user.findUnique({
+      where: { id: sub },
+      select: {
+        isSuspended: true,
+        guestAccessExpiresAt: true,
+        role: true,
+      },
+    });
+    if (!user) return null;
+    if (user.isSuspended) return null;
+    if (
+      user.role === 'GUEST_FACILITATOR' &&
+      user.guestAccessExpiresAt &&
+      new Date() > user.guestAccessExpiresAt
+    ) {
+      return null;
+    }
+
+    return sub;
   } catch {
     return null;
   }

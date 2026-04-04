@@ -35,7 +35,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const userId = validateWsToken(client);
+      const userId = await validateWsToken(client, this.chatService['prisma']);
 
       if (!userId) {
         client.disconnect();

@@ -24,7 +24,6 @@ import { UserRole } from '@prisma/client';
 export class LiveQuizController {
   constructor(private readonly liveQuizService: LiveQuizService) {}
 
-  // Create new live quiz (Facilitator/Admin only)
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
@@ -32,83 +31,78 @@ export class LiveQuizController {
     return this.liveQuizService.create(createDto);
   }
 
-  // Get live quizzes for the current user's cohort
   @Get('my')
   findMy(@Request() req) {
     return this.liveQuizService.findForUser(req.user.id);
   }
 
-  // Get quiz by ID
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.liveQuizService.findOne(id);
-  }
-
-  // Get all live quizzes for a cohort
   @Get('cohort/:cohortId')
-  findByCohort(@Param('cohortId') cohortId: string) {
-    return this.liveQuizService.findByCohort(cohortId);
+  findByCohort(@Param('cohortId') cohortId: string, @Request() req) {
+    return this.liveQuizService.findByCohort(cohortId, req.user.id);
   }
 
-  // Get all quizzes for a session
   @Get('session/:sessionId')
-  findBySession(@Param('sessionId') sessionId: string) {
-    return this.liveQuizService.findBySession(sessionId);
+  findBySession(@Param('sessionId') sessionId: string, @Request() req) {
+    return this.liveQuizService.findBySession(sessionId, req.user.id);
   }
 
-  // Start a quiz (Facilitator/Admin only)
+  @Get('participant/:participantId/answers')
+  getParticipantAnswers(
+    @Param('participantId') participantId: string,
+    @Request() req,
+  ) {
+    return this.liveQuizService.getParticipantAnswers(participantId, req.user.id);
+  }
+
+  @Get(':id/leaderboard')
+  getLeaderboard(@Param('id') id: string, @Request() req) {
+    return this.liveQuizService.getLeaderboard(id, req.user.id);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.liveQuizService.findOne(id, req.user.id);
+  }
+
   @Post(':id/start')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  startQuiz(@Param('id') id: string) {
-    return this.liveQuizService.startQuiz(id);
+  startQuiz(@Param('id') id: string, @Request() req) {
+    return this.liveQuizService.startQuiz(id, req.user.id);
   }
 
-  // Move to next question (Facilitator/Admin only)
   @Post(':id/next-question')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  nextQuestion(@Param('id') id: string, @Body() body: { questionIndex: number }) {
-    return this.liveQuizService.nextQuestion(id, body.questionIndex);
+  nextQuestion(@Param('id') id: string, @Request() req) {
+    return this.liveQuizService.nextQuestion(id, req.user.id);
   }
 
-  // Complete a quiz (Facilitator/Admin only)
   @Post(':id/complete')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  completeQuiz(@Param('id') id: string) {
-    return this.liveQuizService.completeQuiz(id);
+  completeQuiz(@Param('id') id: string, @Request() req) {
+    return this.liveQuizService.completeQuiz(id, req.user.id);
   }
 
-  // Join a quiz
   @Post(':id/join')
-  joinQuiz(@Param('id') id: string, @Body() joinDto: JoinLiveQuizDto) {
-    return this.liveQuizService.joinQuiz(id, joinDto);
+  joinQuiz(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() joinDto: JoinLiveQuizDto,
+  ) {
+    return this.liveQuizService.joinQuiz(id, req.user.id, joinDto);
   }
 
-  // Submit an answer
   @Post('answer')
-  submitAnswer(@Body() submitDto: SubmitAnswerDto) {
-    return this.liveQuizService.submitAnswer(submitDto);
+  submitAnswer(@Body() submitDto: SubmitAnswerDto, @Request() req) {
+    return this.liveQuizService.submitAnswer(submitDto, req.user.id);
   }
 
-  // Get leaderboard
-  @Get(':id/leaderboard')
-  getLeaderboard(@Param('id') id: string) {
-    return this.liveQuizService.getLeaderboard(id);
-  }
-
-  // Get participant's answers
-  @Get('participant/:participantId/answers')
-  getParticipantAnswers(@Param('participantId') participantId: string) {
-    return this.liveQuizService.getParticipantAnswers(participantId);
-  }
-
-  // Delete quiz (Facilitator/Admin only)
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
-  delete(@Param('id') id: string) {
-    return this.liveQuizService.delete(id);
+  delete(@Param('id') id: string, @Request() req) {
+    return this.liveQuizService.delete(id, req.user.id);
   }
 }

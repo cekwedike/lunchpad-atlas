@@ -986,17 +986,11 @@ export class AdminService {
     });
     if (!session) throw new NotFoundException('Session not found');
 
-    const requester = await this.prisma.user.findUnique({
-      where: { id: requesterId },
-      select: { role: true, cohortId: true },
-    });
-    if (!requester) throw new NotFoundException('User not found');
-
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    return this.sessionAnalyticsService.processSessionAnalytics(sessionId, dto.transcript);
+    return this.sessionAnalyticsService.processSessionAnalytics(
+      sessionId,
+      dto.transcript,
+      requesterId,
+    );
   }
 
   async aiChat(sessionId: string, dto: AiChatDto, requesterId: string) {
@@ -1006,18 +1000,9 @@ export class AdminService {
     });
     if (!session) throw new NotFoundException('Session not found');
 
-    const requester = await this.prisma.user.findUnique({
-      where: { id: requesterId },
-      select: { role: true, cohortId: true },
-    });
-    if (!requester) throw new NotFoundException('User not found');
-
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
-      throw new ForbiddenException('Access denied');
-    }
-
     return this.sessionAnalyticsService.chatAboutSession(
       sessionId,
+      requesterId,
       dto.message,
       dto.transcript,
       dto.history ?? [],

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import {
@@ -11,6 +12,7 @@ import {
 } from './dto/live-quiz.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AchievementsService } from '../achievements/achievements.service';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class LiveQuizService {
@@ -19,6 +21,138 @@ export class LiveQuizService {
     private notificationsService: NotificationsService,
     private achievementsService: AchievementsService,
   ) {}
+
+  private async getLiveQuizCohortIds(liveQuizId: string): Promise<string[]> {
+    const rows = await this.prisma.liveQuizSession.findMany({
+      where: { liveQuizId },
+      select: { session: { select: { cohortId: true } } },
+    });
+    return [...new Set(rows.map((r) => r.session.cohortId))];
+  }
+
+  private async getLiveQuizSessionIds(liveQuizId: string): Promise<string[]> {
+    const rows = await this.prisma.liveQuizSession.findMany({
+      where: { liveQuizId },
+      select: { sessionId: true },
+    });
+    return rows.map((r) => r.sessionId);
+  }
+
+  private async canFacilitateLiveQuiz(userId: string, quizId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) return false;
+    if (user.role === UserRole.ADMIN) return true;
+    if (user.role !== UserRole.FACILITATOR) return false;
+    const cohortIds = await this.getLiveQuizCohortIds(quizId);
+    if (cohortIds.length === 0) return false;
+    const link = await this.prisma.cohortFacilitator.findFirst({
+      where: { userId, cohortId: { in: cohortIds } },
+    });
+    return !!link;
+  }
+
+  async assertCanFacilitateLiveQuiz(userId: string, quizId: string): Promise<void> {
+    if (!(await this.canFacilitateLiveQuiz(userId, quizId))) {
+      throw new ForbiddenException('You cannot facilitate this live quiz');
+    }
+  }
+
+  private async assertCanParticipateLiveQuiz(userId: string, quizId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, cohortId: true },
+    });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN) return;
+
+    const cohortIds = await this.getLiveQuizCohortIds(quizId);
+    const sessionIds = await this.getLiveQuizSessionIds(quizId);
+
+    if (user.role === UserRole.FELLOW) {
+      if (user.cohortId && cohortIds.includes(user.cohortId)) return;
+      throw new ForbiddenException('You are not assigned to this live quiz cohort');
+    }
+
+    if (user.role === UserRole.FACILITATOR) {
+      const link = await this.prisma.cohortFacilitator.findFirst({
+        where: { userId, cohortId: { in: cohortIds } },
+      });
+      if (link) return;
+      throw new ForbiddenException('You are not a facilitator for this live quiz cohort');
+    }
+
+    if (user.role === UserRole.GUEST_FACILITATOR) {
+      if (sessionIds.length === 0) throw new ForbiddenException('Invalid live quiz');
+      const guest = await this.prisma.guestSession.findFirst({
+        where: { userId, sessionId: { in: sessionIds } },
+      });
+      if (guest) return;
+      throw new ForbiddenException('You are not assigned to a session for this live quiz');
+    }
+
+    throw new ForbiddenException('You cannot join this live quiz');
+  }
+
+  private async assertCanViewLiveQuiz(viewerId: string, quizId: string): Promise<void> {
+    if (await this.canFacilitateLiveQuiz(viewerId, quizId)) return;
+    await this.assertCanParticipateLiveQuiz(viewerId, quizId);
+  }
+
+  private async assertCanAccessCohort(viewerId: string, cohortId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: viewerId },
+      select: { role: true, cohortId: true },
+    });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN) return;
+    if (user.role === UserRole.FELLOW && user.cohortId === cohortId) return;
+    if (user.role === UserRole.FACILITATOR) {
+      const link = await this.prisma.cohortFacilitator.findFirst({
+        where: { userId: viewerId, cohortId },
+      });
+      if (link) return;
+    }
+    if (user.role === UserRole.GUEST_FACILITATOR) {
+      const guest = await this.prisma.guestSession.findFirst({
+        where: { userId: viewerId, session: { cohortId } },
+      });
+      if (guest) return;
+    }
+    throw new ForbiddenException('You cannot access this cohort');
+  }
+
+  private stripCorrectAnswerFromQuestion(q: {
+    id: string;
+    questionText: string;
+    options: unknown;
+    correctAnswer: number;
+    orderIndex: number;
+    timeLimit: number;
+    pointValue: number;
+    liveQuizId?: string;
+    createdAt?: Date;
+  }) {
+    const { correctAnswer: _c, ...rest } = q;
+    return rest;
+  }
+
+  private async withStrippedQuestionsIfNeeded<T extends { questions?: any[] }>(
+    quiz: T,
+    viewerId: string,
+    quizId: string,
+  ): Promise<T> {
+    if (await this.canFacilitateLiveQuiz(viewerId, quizId)) {
+      return quiz;
+    }
+    if (!quiz.questions?.length) return quiz;
+    return {
+      ...quiz,
+      questions: quiz.questions.map((q) => this.stripCorrectAnswerFromQuestion(q)),
+    };
+  }
 
   // Create a new live quiz
   async create(createDto: CreateLiveQuizDto) {
@@ -81,8 +215,45 @@ export class LiveQuizService {
     return quiz;
   }
 
-  // Get quiz by ID
-  async findOne(id: string) {
+  async revealQuestionCorrectAnswer(
+    quizId: string,
+    questionId: string,
+    facilitatorUserId: string,
+  ): Promise<number> {
+    await this.assertCanFacilitateLiveQuiz(facilitatorUserId, quizId);
+    const question = await this.prisma.liveQuizQuestion.findFirst({
+      where: { id: questionId, liveQuizId: quizId },
+    });
+    if (!question) {
+      throw new NotFoundException('Question not found');
+    }
+    return question.correctAnswer;
+  }
+
+  /** Full quiz including correct answers — only call after authorization checks. */
+  async findOneFullForFacilitator(id: string, viewerId: string) {
+    await this.assertCanFacilitateLiveQuiz(viewerId, id);
+    const quiz = await this.prisma.liveQuiz.findUnique({
+      where: { id },
+      include: {
+        questions: { orderBy: { orderIndex: 'asc' } },
+        participants: {
+          orderBy: { totalScore: 'desc' },
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+    if (!quiz) {
+      throw new NotFoundException(`Live quiz with ID ${id} not found`);
+    }
+    return quiz;
+  }
+
+  // Get quiz by ID (participant view strips correct answers)
+  async findOne(id: string, viewerId: string) {
+    await this.assertCanViewLiveQuiz(viewerId, id);
     const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id },
       include: {
@@ -108,7 +279,7 @@ export class LiveQuizService {
       throw new NotFoundException(`Live quiz with ID ${id} not found`);
     }
 
-    return quiz;
+    return this.withStrippedQuestionsIfNeeded(quiz, viewerId, id);
   }
 
   // Get live quizzes for the authenticated user's cohort
@@ -121,9 +292,9 @@ export class LiveQuizService {
     if (!user) return [];
 
     let cohortIds: string[] = [];
+    let sessionIdsFilter: string[] | undefined;
 
     if (user.role === 'ADMIN') {
-      // Admins see all live quizzes across all cohorts
       return (this.prisma.liveQuiz as any).findMany({
         where: { status: { not: 'CANCELLED' } },
         include: {
@@ -138,24 +309,33 @@ export class LiveQuizService {
     }
 
     if (user.role === 'FACILITATOR') {
-      // Facilitators see quizzes from the cohorts they facilitate
-      const facilitatedCohorts = await (this.prisma as any).cohortFacilitator.findMany({
+      const facilitatedCohorts = await this.prisma.cohortFacilitator.findMany({
         where: { userId },
         select: { cohortId: true },
       });
-      cohortIds = facilitatedCohorts.map((fc: any) => fc.cohortId);
+      cohortIds = facilitatedCohorts.map((fc) => fc.cohortId);
+    } else if (user.role === 'GUEST_FACILITATOR') {
+      const guestRows = await this.prisma.guestSession.findMany({
+        where: { userId },
+        select: { sessionId: true },
+      });
+      sessionIdsFilter = guestRows.map((g) => g.sessionId);
+      if (sessionIdsFilter.length === 0) return [];
     } else if (user.cohortId) {
-      // Fellows see quizzes from their own cohort
       cohortIds = [user.cohortId];
     }
 
-    if (cohortIds.length === 0) return [];
+    if (user.role !== 'GUEST_FACILITATOR' && cohortIds.length === 0) return [];
+
+    const where: any = { status: { not: 'CANCELLED' } };
+    if (sessionIdsFilter) {
+      where.sessions = { some: { sessionId: { in: sessionIdsFilter } } };
+    } else {
+      where.sessions = { some: { session: { cohortId: { in: cohortIds } } } };
+    }
 
     return (this.prisma.liveQuiz as any).findMany({
-      where: {
-        status: { not: 'CANCELLED' },
-        sessions: { some: { session: { cohortId: { in: cohortIds } } } },
-      },
+      where,
       include: {
         sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },
         participants: {
@@ -168,8 +348,9 @@ export class LiveQuizService {
   }
 
   // Get all live quizzes for a cohort
-  async findByCohort(cohortId: string) {
-    return (this.prisma.liveQuiz as any).findMany({
+  async findByCohort(cohortId: string, viewerId: string) {
+    await this.assertCanAccessCohort(viewerId, cohortId);
+    const list = await (this.prisma.liveQuiz as any).findMany({
       where: {
         sessions: {
           some: { session: { cohortId } },
@@ -182,11 +363,24 @@ export class LiveQuizService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    const out: Awaited<ReturnType<typeof this.withStrippedQuestionsIfNeeded>>[] = [];
+    for (const q of list) {
+      out.push(await this.withStrippedQuestionsIfNeeded(q, viewerId, q.id));
+    }
+    return out;
   }
 
   // Get all quizzes for a session
-  async findBySession(sessionId: string) {
-    return (this.prisma.liveQuiz as any).findMany({
+  async findBySession(sessionId: string, viewerId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { cohortId: true },
+    });
+    if (!session) {
+      throw new NotFoundException(`Session with ID ${sessionId} not found`);
+    }
+    await this.assertCanAccessCohort(viewerId, session.cohortId);
+    const list = await (this.prisma.liveQuiz as any).findMany({
       where: { sessions: { some: { sessionId } } },
       include: {
         sessions: { include: { session: { select: { id: true, title: true } } } },
@@ -195,10 +389,17 @@ export class LiveQuizService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    const out: Awaited<ReturnType<typeof this.withStrippedQuestionsIfNeeded>>[] = [];
+    for (const q of list) {
+      out.push(await this.withStrippedQuestionsIfNeeded(q, viewerId, q.id));
+    }
+    return out;
   }
 
   // Start a quiz
-  async startQuiz(id: string) {
+  async startQuiz(id: string, actorUserId: string) {
+    await this.assertCanFacilitateLiveQuiz(actorUserId, id);
+
     const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id },
     });
@@ -246,25 +447,29 @@ export class LiveQuizService {
     return updated;
   }
 
-  // Move to next question
-  async nextQuestion(id: string, questionIndex: number) {
+  // Move to next question (server advances from currentQuestion; ignores client-supplied index)
+  async nextQuestion(id: string, actorUserId: string) {
+    await this.assertCanFacilitateLiveQuiz(actorUserId, id);
+
     const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id },
-      include: { questions: true },
+      include: { questions: { orderBy: { orderIndex: 'asc' } } },
     });
 
     if (!quiz) {
       throw new NotFoundException(`Live quiz with ID ${id} not found`);
     }
 
-    if (questionIndex >= quiz.questions.length) {
-      // Quiz completed
-      return this.completeQuiz(id);
+    const current = quiz.currentQuestion ?? 0;
+    const nextIdx = current + 1;
+
+    if (nextIdx >= quiz.questions.length) {
+      return this.completeQuiz(id, actorUserId);
     }
 
     return this.prisma.liveQuiz.update({
       where: { id },
-      data: { currentQuestion: questionIndex },
+      data: { currentQuestion: nextIdx },
     });
   }
 
@@ -278,7 +483,9 @@ export class LiveQuizService {
   }
 
   // Complete quiz and calculate final rankings + award leaderboard points
-  async completeQuiz(id: string) {
+  async completeQuiz(id: string, actorUserId: string) {
+    await this.assertCanFacilitateLiveQuiz(actorUserId, id);
+
     const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id },
       select: { title: true },
@@ -342,8 +549,10 @@ export class LiveQuizService {
     });
   }
 
-  // Join a quiz
-  async joinQuiz(quizId: string, joinDto: JoinLiveQuizDto) {
+  // Join a quiz (userId always from authenticated identity)
+  async joinQuiz(quizId: string, userId: string, joinDto: JoinLiveQuizDto) {
+    await this.assertCanParticipateLiveQuiz(userId, quizId);
+
     const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id: quizId },
     });
@@ -358,12 +567,11 @@ export class LiveQuizService {
       );
     }
 
-    // Check if already joined
     const existing = await this.prisma.liveQuizParticipant.findUnique({
       where: {
         liveQuizId_userId: {
           liveQuizId: quizId,
-          userId: joinDto.userId,
+          userId,
         },
       },
     });
@@ -375,14 +583,13 @@ export class LiveQuizService {
     const participant = await this.prisma.liveQuizParticipant.create({
       data: {
         liveQuizId: quizId,
-        userId: joinDto.userId,
+        userId,
         displayName: joinDto.displayName,
       },
     });
 
-    // Check achievements (e.g. Live Buzzer — first live quiz participation)
     try {
-      await this.achievementsService.checkAndAwardAchievements(joinDto.userId);
+      await this.achievementsService.checkAndAwardAchievements(userId);
     } catch {
       // Non-critical
     }
@@ -391,7 +598,7 @@ export class LiveQuizService {
   }
 
   // Submit an answer
-  async submitAnswer(submitDto: SubmitAnswerDto) {
+  async submitAnswer(submitDto: SubmitAnswerDto, authUserId: string) {
     const [participant, question] = await Promise.all([
       this.prisma.liveQuizParticipant.findUnique({
         where: { id: submitDto.participantId },
@@ -403,6 +610,10 @@ export class LiveQuizService {
 
     if (!participant || !question) {
       throw new NotFoundException('Participant or question not found');
+    }
+
+    if (participant.userId !== authUserId) {
+      throw new ForbiddenException('Cannot submit answers for another participant');
     }
 
     // Check if already answered
@@ -479,7 +690,9 @@ export class LiveQuizService {
   }
 
   // Get leaderboard
-  async getLeaderboard(quizId: string) {
+  async getLeaderboard(quizId: string, viewerId: string) {
+    await this.assertCanViewLiveQuiz(viewerId, quizId);
+
     return this.prisma.liveQuizParticipant.findMany({
       where: { liveQuizId: quizId },
       orderBy: [{ totalScore: 'desc' }, { joinedAt: 'asc' }],
@@ -502,7 +715,17 @@ export class LiveQuizService {
   }
 
   // Get participant's answers
-  async getParticipantAnswers(participantId: string) {
+  async getParticipantAnswers(participantId: string, viewerId: string) {
+    const participant = await this.prisma.liveQuizParticipant.findUnique({
+      where: { id: participantId },
+    });
+    if (!participant) {
+      throw new NotFoundException('Participant not found');
+    }
+    if (participant.userId !== viewerId) {
+      await this.assertCanFacilitateLiveQuiz(viewerId, participant.liveQuizId);
+    }
+
     return this.prisma.liveQuizAnswer.findMany({
       where: { participantId },
       include: {
@@ -513,7 +736,9 @@ export class LiveQuizService {
   }
 
   // Delete quiz (facilitator only) — notifies participants if points are deducted
-  async delete(id: string) {
+  async delete(id: string, actorUserId: string) {
+    await this.assertCanFacilitateLiveQuiz(actorUserId, id);
+
     const quiz = await this.prisma.liveQuiz.findUnique({
       where: { id },
       select: { title: true },
