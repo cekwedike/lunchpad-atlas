@@ -73,7 +73,7 @@ function redirectToLogin(request: NextRequest, pathname: string) {
   return response;
 }
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken =
     request.cookies.get(ACCESS_COOKIE)?.value ??
