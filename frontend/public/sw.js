@@ -183,9 +183,13 @@ self.addEventListener('push', (event) => {
 
       await self.registration.showNotification(data.title, options);
 
-      // Update app icon badge when a push arrives
-      if ('setAppBadge' in navigator) {
-        navigator.setAppBadge().catch(() => {});
+      // Update app icon badge when a push arrives (API may be absent in some SW runtimes)
+      if (
+        typeof self.navigator !== 'undefined' &&
+        'setAppBadge' in self.navigator &&
+        typeof self.navigator.setAppBadge === 'function'
+      ) {
+        self.navigator.setAppBadge().catch(() => {});
       }
     })(),
   );
@@ -196,36 +200,62 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Clear the app icon badge when the user interacts with a notification
-  if ('clearAppBadge' in navigator) {
-    navigator.clearAppBadge().catch(() => {});
+  if (
+    typeof self.navigator !== 'undefined' &&
+    'clearAppBadge' in self.navigator &&
+    typeof self.navigator.clearAppBadge === 'function'
+  ) {
+    self.navigator.clearAppBadge().catch(() => {});
   }
 
   const notifData = event.notification.data ?? {};
-  let targetUrl = '/dashboard';
+  let path = '/dashboard';
 
-  if (notifData.channelId) targetUrl = `/dashboard/chat?channelId=${notifData.channelId}`;
-  else if (notifData.discussionId) targetUrl = `/dashboard/discussions/${notifData.discussionId}`;
-  else if (notifData.resourceId) targetUrl = `/resources/${notifData.resourceId}`;
-  else if (notifData.liveQuizId) targetUrl = `/dashboard/live-quiz/${notifData.liveQuizId}`;
-  else if (notifData.quizId) targetUrl = `/quiz/${notifData.quizId}`;
+  if (notifData.channelId) path = `/dashboard/chat?channelId=${notifData.channelId}`;
+  else if (notifData.discussionId) path = `/dashboard/discussions/${notifData.discussionId}`;
+  else if (notifData.resourceId) path = `/resources/${notifData.resourceId}`;
+  else if (notifData.liveQuizId) path = `/dashboard/live-quiz/${notifData.liveQuizId}`;
+  else if (notifData.quizId) path = `/quiz/${notifData.quizId}`;
+
+  const targetUrl = new URL(path, self.location.origin).href;
 
   event.waitUntil(
-    self.clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // Focus an existing tab if one is already open
-        for (const client of clientList) {
-          if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
-            client.focus();
-            client.navigate(targetUrl);
-            return;
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const openOrNavigate = (client) => {
+        if (new URL(client.url).origin !== self.location.origin || !('focus' in client)) {
+          return null;
+        }
+        const afterFocus = () => {
+          if (
+            'navigate' in client &&
+            typeof client.navigate === 'function'
+          ) {
+            try {
+              const result = client.navigate(targetUrl);
+              if (result !== undefined && typeof result.then === 'function') {
+                return result.catch(() => self.clients.openWindow(targetUrl));
+              }
+              return result ?? self.clients.openWindow(targetUrl);
+            } catch {
+              return self.clients.openWindow(targetUrl);
+            }
           }
-        }
-        // Otherwise open a new tab
-        if (self.clients.openWindow) {
           return self.clients.openWindow(targetUrl);
-        }
-      }),
+        };
+        const focused = client.focus();
+        return focused !== undefined && typeof focused.then === 'function'
+          ? focused.then(afterFocus)
+          : Promise.resolve().then(afterFocus);
+      };
+
+      for (const client of clientList) {
+        const p = openOrNavigate(client);
+        if (p) return p;
+      }
+
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    }),
   );
 });
