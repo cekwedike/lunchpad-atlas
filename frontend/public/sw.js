@@ -5,11 +5,12 @@
  *  - /_next/static/*  → Cache First  (hashed filenames, safe forever)
  *  - /icons/*, /favicon.ico, /manifest.webmanifest → Cache First
  *  - /api/*           → Network Only (real-time data must be fresh)
- *  - navigation       → Network First → offline fallback page
+ *  - navigation       → not intercepted (Next.js proxy + auth redirects break SW fetch;
+ *                        avoids "FetchEvent ... error response" and login/session bugs)
  *  - everything else  → Network First → cache fallback
  */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `atlas-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline';
 
@@ -90,9 +91,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Navigation (HTML pages) — Network First with offline page fallback
+  // 5. Navigation — never intercept. Service-worker fetch() for document navigations
+  //    often resolves to responses Chrome treats as "error" with Next middleware,
+  //    redirects, and cookies — breaking login and showing console warnings.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstNavigate(request));
     return;
   }
 
@@ -113,17 +115,6 @@ async function cacheFirst(request) {
     cache.put(request, response.clone());
   }
   return response;
-}
-
-/** Tries network first; falls back to offline page on failure (navigation only). */
-async function networkFirstNavigate(request) {
-  try {
-    const response = await fetch(request);
-    return response;
-  } catch {
-    const cached = await caches.match(OFFLINE_PAGE);
-    return cached ?? Response.error();
-  }
 }
 
 /** Tries network first; falls back to cached version if network fails. */
