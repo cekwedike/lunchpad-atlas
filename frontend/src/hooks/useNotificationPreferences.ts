@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { safeGetItem, safeSetItem } from '@/lib/safe-local-storage';
 
 const SW_CACHE = 'atlas-prefs-v1';
 const SW_CACHE_KEY = 'notification-prefs';
@@ -22,8 +23,8 @@ export function useNotificationPreferences() {
 
   // Hydrate from localStorage on mount
   useEffect(() => {
-    const s = localStorage.getItem('notif-sound') !== 'false';
-    const v = localStorage.getItem('notif-vibration') !== 'false';
+    const s = safeGetItem('notif-sound') !== 'false';
+    const v = safeGetItem('notif-vibration') !== 'false';
     setSound(s);
     setVibration(v);
     flushToCache(s, v);
@@ -31,15 +32,15 @@ export function useNotificationPreferences() {
 
   const updateSound = useCallback((value: boolean) => {
     setSound(value);
-    localStorage.setItem('notif-sound', String(value));
-    const v = localStorage.getItem('notif-vibration') !== 'false';
+    safeSetItem('notif-sound', String(value));
+    const v = safeGetItem('notif-vibration') !== 'false';
     flushToCache(value, v);
   }, []);
 
   const updateVibration = useCallback((value: boolean) => {
     setVibration(value);
-    localStorage.setItem('notif-vibration', String(value));
-    const s = localStorage.getItem('notif-sound') !== 'false';
+    safeSetItem('notif-vibration', String(value));
+    const s = safeGetItem('notif-sound') !== 'false';
     flushToCache(s, value);
   }, []);
 

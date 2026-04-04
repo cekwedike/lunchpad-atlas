@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { safeGetItem, safeSetItem } from '@/lib/safe-local-storage';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { UserRole } from '@/types/api';
@@ -445,7 +446,7 @@ export function TourGuide() {
   useEffect(() => {
     if (!user?.id || tourOpen) return;
     const key = tourStorageKey(user.id);
-    if (!localStorage.getItem(key)) {
+    if (!safeGetItem(key)) {
       const t = setTimeout(() => startTour(), 800);
       return () => clearTimeout(t);
     }
@@ -457,7 +458,7 @@ export function TourGuide() {
       setTourOpen(false);
       setClosing(false);
       if (user?.id) {
-        localStorage.setItem(tourStorageKey(user.id), '1');
+        safeSetItem(tourStorageKey(user.id), '1');
       }
     }, 200);
   };

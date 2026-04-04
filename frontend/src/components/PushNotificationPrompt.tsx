@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { usePushVapidConfigured } from '@/hooks/usePushVapidConfigured';
+import { useAuthStore } from '@/stores/authStore';
+import { safeGetItem, safeSetItem } from '@/lib/safe-local-storage';
+
+function pushPromptDismissKey(userId: string) {
+  return `atlas_push_prompt_dismissed_${userId}`;
+}
 
 /**
  * Renders a dismissible banner prompting the user to enable push notifications.
@@ -10,21 +16,27 @@ import { usePushVapidConfigured } from '@/hooks/usePushVapidConfigured';
  *  - The browser supports push
  *  - API reports a VAPID public key (same source as subscribe)
  *  - Permission is not yet granted or denied
- *  - User has not already dismissed it this session
+ *  - User has not dismissed the prompt for this account (stored per user id)
  */
 export function PushNotificationPrompt() {
+  const { user } = useAuthStore();
+  const userId = user?.id;
   const { state, isSubscribed, isLoading, isSupported, subscribe } = usePushNotifications();
   const { vapidAvailable, vapidLoading } = usePushVapidConfigured(isSupported);
   const [dismissed, setDismissed] = useState(true); // start hidden, show after mount check
 
   useEffect(() => {
-    // Don't show if already dismissed (persisted across sessions)
-    const wasDismissed = localStorage.getItem('push-prompt-dismissed') === '1';
-    if (!wasDismissed) setDismissed(false);
-  }, []);
+    if (!userId) {
+      setDismissed(true);
+      return;
+    }
+    const wasDismissed = safeGetItem(pushPromptDismissKey(userId)) === '1';
+    setDismissed(wasDismissed);
+  }, [userId]);
 
   // Only show when: supported, server VAPID ready, permission is default, not subscribed, not dismissed
   const shouldShow =
+    !!userId &&
     isSupported &&
     !vapidLoading &&
     vapidAvailable &&
@@ -42,7 +54,7 @@ export function PushNotificationPrompt() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('push-prompt-dismissed', '1');
+    if (userId) safeSetItem(pushPromptDismissKey(userId), '1');
     setDismissed(true);
   };
 

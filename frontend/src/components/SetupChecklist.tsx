@@ -7,19 +7,16 @@ import { useUIStore } from '@/stores/uiStore';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Circle, X, KeyRound, Compass, Bell, ChevronRight } from 'lucide-react';
+import { safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/safe-local-storage';
 
 // ─── localStorage key helpers ──────────────────────────────────────────────────
 
 export function markPasswordChanged(userId: string) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(`atlas_setup_pwd_${userId}`, '1');
-  }
+  safeSetItem(`atlas_setup_pwd_${userId}`, '1');
 }
 
 export function markNotifPrefsSet(userId: string) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(`atlas_setup_notif_${userId}`, '1');
-  }
+  safeSetItem(`atlas_setup_notif_${userId}`, '1');
 }
 
 interface ChecklistState {
@@ -27,19 +24,21 @@ interface ChecklistState {
   tourTaken: boolean;
   notifSet: boolean;
   dismissed: boolean;
+  pwdFromStorage: boolean;
 }
 
 function readState(uid: string, mustChangePassword?: boolean | null): ChecklistState {
   if (typeof window === 'undefined') {
-    return { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false };
+    return { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false, pwdFromStorage: false };
   }
-  const pwdFromStorage = !!localStorage.getItem(`atlas_setup_pwd_${uid}`);
+  const pwdFromStorage = !!safeGetItem(`atlas_setup_pwd_${uid}`);
   const pwdChanged = mustChangePassword === false || pwdFromStorage;
   return {
     pwdChanged,
-    tourTaken: !!localStorage.getItem(`atlas_tour_completed_${uid}`),
-    notifSet: !!localStorage.getItem(`atlas_setup_notif_${uid}`),
-    dismissed: !!localStorage.getItem(`atlas_setup_dismissed_${uid}`),
+    pwdFromStorage,
+    tourTaken: !!safeGetItem(`atlas_tour_completed_${uid}`),
+    notifSet: !!safeGetItem(`atlas_setup_notif_${uid}`),
+    dismissed: !!safeGetItem(`atlas_setup_dismissed_${uid}`),
   };
 }
 
@@ -53,7 +52,13 @@ export function SetupChecklist() {
   const [state, setState] = useState<ChecklistState>(() =>
     uid
       ? readState(uid, user?.mustChangePassword)
-      : { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false },
+      : {
+          pwdChanged: false,
+          tourTaken: false,
+          notifSet: false,
+          dismissed: false,
+          pwdFromStorage: false,
+        },
   );
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -81,7 +86,7 @@ export function SetupChecklist() {
     if (!uid || !allDone || state.dismissed) return;
     setShowSuccess(true);
     const t = setTimeout(() => {
-      localStorage.setItem(`atlas_setup_dismissed_${uid}`, '1');
+      safeSetItem(`atlas_setup_dismissed_${uid}`, '1');
       setState(prev => ({ ...prev, dismissed: true }));
     }, 2500);
     return () => clearTimeout(t);
@@ -104,19 +109,42 @@ export function SetupChecklist() {
 
   // ── Helpers (safe to define after early returns since they're not hooks) ──────
 
-  const mark = (key: string) => {
-    localStorage.setItem(key, '1');
+  const pwdKey = `atlas_setup_pwd_${uid}`;
+  const tourKey = `atlas_tour_completed_${uid}`;
+  const notifKey = `atlas_setup_notif_${uid}`;
+
+  const togglePwd = () => {
+    if (state.pwdChanged) {
+      if (state.pwdFromStorage) safeRemoveItem(pwdKey);
+    } else {
+      safeSetItem(pwdKey, '1');
+    }
+    setState(readState(uid, user?.mustChangePassword));
+  };
+
+  const toggleTour = () => {
+    if (state.tourTaken) safeRemoveItem(tourKey);
+    else safeSetItem(tourKey, '1');
+    setState(readState(uid, user?.mustChangePassword));
+  };
+
+  const toggleNotif = () => {
+    if (state.notifSet) safeRemoveItem(notifKey);
+    else safeSetItem(notifKey, '1');
     setState(readState(uid, user?.mustChangePassword));
   };
 
   const dismiss = () => {
-    localStorage.setItem(`atlas_setup_dismissed_${uid}`, '1');
+    safeSetItem(`atlas_setup_dismissed_${uid}`, '1');
     setState(prev => ({ ...prev, dismissed: true }));
   };
 
+  const pwdToggleDisabled =
+    state.pwdChanged && !state.pwdFromStorage && user?.mustChangePassword === false;
+
   const items = [
     {
-      id: 'pwd',
+      id: 'pwd' as const,
       done: state.pwdChanged,
       icon: KeyRound,
       title: 'Change your password',
@@ -131,10 +159,11 @@ export function SetupChecklist() {
           </Button>
         </Link>
       ),
-      onToggle: () => mark(`atlas_setup_pwd_${uid}`),
+      onToggle: togglePwd,
+      toggleDisabled: pwdToggleDisabled,
     },
     {
-      id: 'tour',
+      id: 'tour' as const,
       done: state.tourTaken,
       icon: Compass,
       title: 'Take the platform tour',
@@ -149,10 +178,11 @@ export function SetupChecklist() {
           Start Tour <ChevronRight className="h-3 w-3" />
         </Button>
       ),
-      onToggle: () => mark(`atlas_tour_completed_${uid}`),
+      onToggle: toggleTour,
+      toggleDisabled: false,
     },
     {
-      id: 'notif',
+      id: 'notif' as const,
       done: state.notifSet,
       icon: Bell,
       title: 'Review notification preferences',
@@ -165,7 +195,8 @@ export function SetupChecklist() {
           </Button>
         </Link>
       ),
-      onToggle: () => mark(`atlas_setup_notif_${uid}`),
+      onToggle: toggleNotif,
+      toggleDisabled: false,
     },
   ];
 
@@ -182,6 +213,7 @@ export function SetupChecklist() {
           </span>
         </div>
         <button
+          type="button"
           onClick={dismiss}
           className="h-6 w-6 rounded-full hover:bg-blue-100 flex items-center justify-center text-blue-400 hover:text-blue-700 transition-colors"
           title="Dismiss checklist"
@@ -201,7 +233,6 @@ export function SetupChecklist() {
       {/* Items */}
       <div className="divide-y divide-slate-100">
         {items.map(item => {
-          const Icon = item.icon;
           return (
             <div
               key={item.id}
@@ -211,9 +242,20 @@ export function SetupChecklist() {
               )}
             >
               <button
+                type="button"
                 onClick={item.onToggle}
-                className="mt-0.5 shrink-0 hover:opacity-70 transition-opacity"
-                title={item.done ? 'Mark as incomplete' : 'Mark as done'}
+                disabled={item.toggleDisabled}
+                className={cn(
+                  'mt-0.5 shrink-0 hover:opacity-70 transition-opacity',
+                  item.toggleDisabled && 'opacity-40 cursor-not-allowed hover:opacity-40'
+                )}
+                title={
+                  item.toggleDisabled
+                    ? 'Password already updated on your account'
+                    : item.done
+                      ? 'Mark as incomplete'
+                      : 'Mark as done'
+                }
               >
                 {item.done
                   ? <CheckCircle2 className="h-5 w-5 text-blue-600" />
