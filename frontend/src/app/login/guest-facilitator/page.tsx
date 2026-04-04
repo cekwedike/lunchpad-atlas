@@ -49,9 +49,7 @@ export default function GuestFacilitatorLoginPage() {
           );
           return;
         }
-        setTimeout(() => {
-          router.replace(getDashboardForRole(response.user.role));
-        }, 150);
+        window.location.assign(getDashboardForRole(response.user.role));
       },
       onError: () => {
         setFormError("Invalid email or password. Please try again.");

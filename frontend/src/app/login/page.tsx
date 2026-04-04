@@ -50,11 +50,9 @@ function LoginContent() {
     setFormError(null);
     login(data, {
       onSuccess: (response) => {
-        // Navigate based on user role
         const dashboardRoute = getDashboardForRole(response.user.role);
-        setTimeout(() => {
-          router.replace(dashboardRoute);
-        }, 150);
+        // Full navigation so HttpOnly auth cookies are always sent on the next load (avoids false "session expired" after SPA client routing).
+        window.location.assign(dashboardRoute);
       },
       onError: () => {
         setFormError("Invalid email or password. Please try again.");

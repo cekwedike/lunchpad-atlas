@@ -47,9 +47,7 @@ export default function AdminLoginPage() {
           setFormError(`Access denied. This account is not an Administrator. Please use the ${portalName} portal.`);
           return;
         }
-        setTimeout(() => {
-          router.replace('/dashboard/admin');
-        }, 150);
+        window.location.assign('/dashboard/admin');
       },
       onError: () => {
         setFormError("Invalid email or password. Please try again.");

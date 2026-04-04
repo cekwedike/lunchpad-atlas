@@ -47,9 +47,7 @@ export default function FellowLoginPage() {
           setFormError(`Access denied. This account is not a Fellow. Please use the ${portalName} portal.`);
           return;
         }
-        setTimeout(() => {
-          router.replace('/dashboard/fellow');
-        }, 150);
+        window.location.assign('/dashboard/fellow');
       },
       onError: () => {
         setFormError("Invalid email or password. Please try again.");

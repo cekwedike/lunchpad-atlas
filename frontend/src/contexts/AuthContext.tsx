@@ -89,7 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         apiClient.clearTokens();
         storeLogout();
-        if (isProtectedRoute) router.replace('/login?session=expired');
+        if (isProtectedRoute) {
+          router.replace('/login?session=expired');
+        }
       }
       setIsLoading(false);
     };
@@ -110,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await postBffAuth('/api/auth/login', credentials);
       setUser(data.user);
       toast.success('Welcome back!', `Logged in as ${data.user.name}`);
-      router.push(getDashboardForRole(data.user.role));
+      window.location.assign(getDashboardForRole(data.user.role));
     } catch (error: unknown) {
       const msg =
         error instanceof ApiClientError ? error.message : 'Invalid credentials';
@@ -124,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await postBffAuth('/api/auth/register', data);
       setUser(res.user);
       toast.success('Account created!', 'Welcome to ATLAS');
-      router.push(getDashboardForRole(res.user.role));
+      window.location.assign(getDashboardForRole(res.user.role));
     } catch (error: unknown) {
       const msg =
         error instanceof ApiClientError

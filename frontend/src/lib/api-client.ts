@@ -89,7 +89,20 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`;
 
     try {
-      const response = await fetch(url, config);
+      let response = await fetch(url, config);
+
+      // Right after login, the browser may not attach fresh HttpOnly cookies to the very next
+      // same-tab fetch. Retry /users/me once before refresh/logout to avoid a false "session expired".
+      if (
+        response.status === 401 &&
+        requiresAuth &&
+        isBrowser &&
+        !_retry &&
+        endpoint === '/users/me'
+      ) {
+        await new Promise((r) => setTimeout(r, 400));
+        response = await fetch(url, config);
+      }
 
       if (
         response.status === 401 &&

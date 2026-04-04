@@ -44,7 +44,7 @@ export default function SetupPage() {
         password: form.password,
         confirmPassword: typeof form.confirmPassword === "string" ? form.confirmPassword : "",
       });
-      router.replace("/dashboard/admin");
+      window.location.assign("/dashboard/admin");
     } catch {
       // error handled by hook
     }
