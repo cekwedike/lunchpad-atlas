@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getInternalApiBase } from '@/lib/internal-api-url';
-import { ACCESS_COOKIE, REFRESH_COOKIE } from '@/lib/auth-cookie-names';
-import { jwtRemainingSeconds } from '@/lib/auth-bff';
+import { ACCESS_COOKIE } from '@/lib/auth-cookie-names';
+import { getRefreshTokenFromRequest, jwtRemainingSeconds } from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
+  const refresh = getRefreshTokenFromRequest(request);
   if (!refresh) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }

@@ -1,10 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getInternalApiBase } from '@/lib/internal-api-url';
-import {
-  ACCESS_COOKIE,
-  LEGACY_ACCESS_COOKIE,
-} from '@/lib/auth-cookie-names';
+import { getAccessTokenFromRequest } from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
 
@@ -29,14 +26,16 @@ async function proxyToBackend(
   const url = new URL(request.url);
   const target = `${base}/${path.join('/')}${url.search}`;
 
-  const access =
-    request.cookies.get(ACCESS_COOKIE)?.value ??
-    request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
+  const access = getAccessTokenFromRequest(request);
+  const hadIncomingAuthorization = Boolean(
+    request.headers.get('authorization'),
+  );
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
     const k = key.toLowerCase();
-    if (SKIP_HEADERS.has(k) || k === 'cookie') return;
+    // Never forward browser Authorization — we only trust HttpOnly cookies turned into Bearer here.
+    if (SKIP_HEADERS.has(k) || k === 'cookie' || k === 'authorization') return;
     headers.set(key, value);
   });
 
@@ -71,14 +70,16 @@ async function proxyToBackend(
     },
     body: JSON.stringify({
       sessionId: '14ec07',
-      hypothesisId: 'H1',
+      hypothesisId: 'H1-H4',
       location: 'api/proxy/[...path]/route.ts:proxyToBackend',
-      message: 'upstream response meta (encoding strip applied)',
+      message: 'proxy upstream meta',
       data: {
         path: path.join('/'),
         upstreamStatus: upstream.status,
         hadContentEncoding: Boolean(upstream.headers.get('content-encoding')),
         hadContentLength: Boolean(upstream.headers.get('content-length')),
+        hasAccessCookie: Boolean(access),
+        hadIncomingAuthorization,
       },
       timestamp: Date.now(),
     }),

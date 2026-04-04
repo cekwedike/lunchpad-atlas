@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import {
   ACCESS_COOKIE,
@@ -6,6 +7,45 @@ import {
 } from '@/lib/auth-cookie-names';
 
 export { ACCESS_COOKIE, REFRESH_COOKIE, LEGACY_ACCESS_COOKIE };
+
+function readCookieFromHeader(
+  cookieHeader: string | null,
+  name: string,
+): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const k = part.slice(0, idx).trim();
+    if (k !== name) continue;
+    const v = part.slice(idx + 1).trim();
+    try {
+      return decodeURIComponent(v);
+    } catch {
+      return v;
+    }
+  }
+  return undefined;
+}
+
+/** Prefer parsed cookies; fall back to raw Cookie header (some runtimes differ). */
+export function getAccessTokenFromRequest(request: NextRequest): string | undefined {
+  const parsed =
+    request.cookies.get(ACCESS_COOKIE)?.value ??
+    request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
+  if (parsed) return parsed;
+  const raw = request.headers.get('cookie');
+  return (
+    readCookieFromHeader(raw, ACCESS_COOKIE) ??
+    readCookieFromHeader(raw, LEGACY_ACCESS_COOKIE)
+  );
+}
+
+export function getRefreshTokenFromRequest(request: NextRequest): string | undefined {
+  const parsed = request.cookies.get(REFRESH_COOKIE)?.value;
+  if (parsed) return parsed;
+  return readCookieFromHeader(request.headers.get('cookie'), REFRESH_COOKIE);
+}
 
 function decodeJwtPayload(token: string): { exp?: number } | null {
   try {
