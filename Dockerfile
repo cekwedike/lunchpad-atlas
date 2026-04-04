@@ -6,7 +6,8 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy backend package files (lockfile for reproducible npm ci)
+# Copy backend package files — run `npm install --no-workspaces` in backend/ after
+# changing package.json, then commit package-lock.json (npm ci fails if they drift).
 COPY backend/package.json backend/package-lock.json ./backend/
 WORKDIR /app/backend
 RUN npm ci
@@ -32,7 +33,7 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app/backend
 
-# Copy backend package files and install production deps
+# Production deps (lockfile must match package.json — see builder stage comment)
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev
 
