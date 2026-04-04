@@ -3,14 +3,18 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import {
   ACCESS_COOKIE,
-  REFRESH_COOKIE,
   LEGACY_ACCESS_COOKIE,
 } from '@/lib/auth-cookie-names';
 
-const protectedRoutes = ['/dashboard', '/profile', '/resources', '/discussions', '/leaderboard', '/quiz'];
+const protectedRoutes = [
+  '/dashboard',
+  '/profile',
+  '/resources',
+  '/discussions',
+  '/leaderboard',
+  '/quiz',
+];
 const authRoutes = ['/login'];
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 function decodeJwtPayloadUnverified(token: string): Record<string, unknown> | null {
   try {
@@ -18,31 +22,40 @@ function decodeJwtPayloadUnverified(token: string): Record<string, unknown> | nu
     if (parts.length !== 3) return null;
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const json = atob(base64);
-    return JSON.parse(json);
+    return JSON.parse(json) as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
-async function roleFromAccessToken(token: string): Promise<{ role: string; verified: boolean } | null> {
+/**
+ * Resolve role for edge redirects. Prefer verified JWT when JWT_SECRET matches the API.
+ * If verification fails (wrong/missing Vercel env, clock skew), fall back to payload + exp
+ * so users are not stuck in a login loop — the BFF and API still enforce real auth.
+ */
+async function roleFromToken(token: string): Promise<string | null> {
   const secret = process.env.JWT_SECRET;
   if (secret) {
     try {
-      const key = new TextEncoder().encode(secret);
-      const { payload } = await jwtVerify(token, key);
-      const role = (payload.role as string) ?? 'FELLOW';
-      return { role, verified: true };
+      const { payload } = await jwtVerify(
+        token,
+        new TextEncoder().encode(secret),
+      );
+      const role = payload.role as string | undefined;
+      return typeof role === 'string' ? role : 'FELLOW';
     } catch {
-      return null;
+      // Continue to unverified parse
     }
   }
-  // Production: never trust unverified cookies for routing — avoids shell/API mismatch.
-  if (isProduction) {
-    return null;
-  }
+
   const payload = decodeJwtPayloadUnverified(token);
   if (!payload) return null;
-  return { role: (payload.role as string) ?? 'FELLOW', verified: false };
+  const exp = payload.exp;
+  if (typeof exp === 'number' && exp < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+  const role = payload.role;
+  return typeof role === 'string' ? role : 'FELLOW';
 }
 
 function getDashboardForRole(role: string): string {
@@ -52,30 +65,15 @@ function getDashboardForRole(role: string): string {
   return '/dashboard/fellow';
 }
 
-function clearSessionCookies(res: NextResponse) {
-  const opts = {
-    path: '/',
-    maxAge: 0,
-    sameSite: 'lax' as const,
-    secure: isProduction,
-  };
-  res.cookies.set(ACCESS_COOKIE, '', opts);
-  res.cookies.set(REFRESH_COOKIE, '', opts);
-  res.cookies.set(LEGACY_ACCESS_COOKIE, '', opts);
-}
-
-function redirectToLogin(request: NextRequest, pathname: string, clearCookie: boolean) {
+function redirectToLogin(request: NextRequest, pathname: string) {
   const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('redirect', pathname);
   const response = NextResponse.redirect(loginUrl);
-  if (clearCookie) {
-    clearSessionCookies(response);
-  }
   response.headers.set('Cache-Control', 'no-store');
   return response;
 }
 
-export default async function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken =
     request.cookies.get(ACCESS_COOKIE)?.value ??
@@ -85,29 +83,19 @@ export default async function proxy(request: NextRequest) {
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
   if (isAuthRoute && accessToken) {
-    const parsed = await roleFromAccessToken(accessToken);
-    if (parsed === null) {
-      const res = NextResponse.redirect(new URL('/login', request.url));
-      clearSessionCookies(res);
-      res.headers.set('Cache-Control', 'no-store');
-      return res;
+    const role = await roleFromToken(accessToken);
+    if (role) {
+      const response = NextResponse.redirect(
+        new URL(getDashboardForRole(role), request.url),
+      );
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
-    const response = NextResponse.redirect(
-      new URL(getDashboardForRole(parsed.role), request.url),
-    );
-    response.headers.set('Cache-Control', 'no-store');
-    return response;
+    // Cookie present but unreadable — still show login; BFF/API own validation (do not clear cookies).
   }
 
   if (isProtectedRoute && !accessToken) {
-    return redirectToLogin(request, pathname, false);
-  }
-
-  if (isProtectedRoute && accessToken) {
-    const parsed = await roleFromAccessToken(accessToken);
-    if (parsed === null) {
-      return redirectToLogin(request, pathname, true);
-    }
+    return redirectToLogin(request, pathname);
   }
 
   const response = NextResponse.next();

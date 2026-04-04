@@ -25,6 +25,15 @@ export function isProtectedRoutePath(pathname: string): boolean {
   return PROTECTED_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+/** `?redirect=` from middleware — only allow same-origin app paths (no open redirects). */
+export function safePostLoginRedirect(redirect: string | null): string | null {
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
+    return null;
+  }
+  if (redirect.includes('..')) return null;
+  return isProtectedRoutePath(redirect) ? redirect : null;
+}
+
 /** Human-readable portal name for “use the X portal” copy. */
 export function getPortalLabelForRole(role: string): string {
   switch (role) {

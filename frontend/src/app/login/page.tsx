@@ -6,7 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LogIn, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useLogin, useSetupStatus } from "@/hooks/api/useAuth";
-import { getDashboardForRole } from "@/lib/dashboard-routes";
+import {
+  getDashboardForRole,
+  safePostLoginRedirect,
+} from "@/lib/dashboard-routes";
 import { SessionExpiredBanner } from "@/components/login/SessionExpiredBanner";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
@@ -50,9 +53,10 @@ function LoginContent() {
     setFormError(null);
     login(data, {
       onSuccess: (response) => {
-        const dashboardRoute = getDashboardForRole(response.user.role);
-        // Full navigation so HttpOnly auth cookies are always sent on the next load (avoids false "session expired" after SPA client routing).
-        window.location.assign(dashboardRoute);
+        const fromQuery = safePostLoginRedirect(redirect);
+        const dest =
+          fromQuery ?? getDashboardForRole(response.user.role);
+        window.location.assign(dest);
       },
       onError: () => {
         setFormError("Invalid email or password. Please try again.");
