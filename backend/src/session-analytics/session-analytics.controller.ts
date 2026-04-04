@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -9,6 +10,7 @@ import {
   Res,
   Request,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import type * as express from 'express';
 import { IsString, IsObject, IsOptional } from 'class-validator';
@@ -177,6 +179,7 @@ export class SessionAnalyticsController {
 
   // Accessible to all authenticated users (no @Roles restriction)
   @Post('/events')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @ApiOperation({ summary: 'Track a client-side engagement event' })
   async trackEvent(@Body() dto: TrackEventDto, @Request() req: { user: { id: string } }) {
     const validTypes = [
@@ -185,11 +188,32 @@ export class SessionAnalyticsController {
     ];
     const eventType = validTypes.includes(dto.eventType) ? dto.eventType : 'RESOURCE_VIEW';
 
+    const meta = dto.metadata ?? {};
+    if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
+      throw new BadRequestException('metadata must be a plain object');
+    }
+    const keys = Object.keys(meta as Record<string, unknown>);
+    if (keys.length > 40) {
+      throw new BadRequestException('metadata has too many keys');
+    }
+    let approxSize = 0;
+    for (const k of keys) {
+      if (k.length > 64) {
+        throw new BadRequestException('metadata key too long');
+      }
+      const v = (meta as Record<string, unknown>)[k];
+      const sv = typeof v === 'string' ? v : JSON.stringify(v ?? null);
+      approxSize += k.length + sv.length;
+      if (approxSize > 8000) {
+        throw new BadRequestException('metadata payload too large');
+      }
+    }
+
     await this.prisma.engagementEvent.create({
       data: {
         userId: req.user.id,
         eventType: eventType as any,
-        metadata: dto.metadata ?? {},
+        metadata: meta as object,
       },
     });
 

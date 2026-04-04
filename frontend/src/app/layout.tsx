@@ -17,7 +17,9 @@ const inter = Inter({
   display: "swap",
 });
 
-const APP_URL = "https://launchpadatlas.vercel.app";
+const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL || "https://launchpadatlas.vercel.app"
+).replace(/\/$/, "");
 
 export const metadata: Metadata = {
   title: "ATLAS - Accelerating Talent for Leadership & Success",

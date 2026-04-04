@@ -31,6 +31,9 @@ describe('LeaderboardService', () => {
     cohortFacilitator: {
       findFirst: jest.fn(),
     },
+    guestSession: {
+      findFirst: jest.fn(),
+    },
   };
 
   const mockNotificationsService = {
@@ -71,7 +74,7 @@ describe('LeaderboardService', () => {
       mockPrismaService.discussionComment.findMany.mockResolvedValue([]);
       mockPrismaService.pointsLog.findMany.mockResolvedValue([]);
 
-      const result = await service.getLeaderboard({ page: 1, limit: 20 });
+      const result = await service.getLeaderboard('admin-1', 'ADMIN', { page: 1, limit: 20 });
 
       expect(result).toMatchObject({
         total: 2,
@@ -87,7 +90,7 @@ describe('LeaderboardService', () => {
     it('should return empty leaderboard when no fellows exist', async () => {
       mockPrismaService.user.findMany.mockResolvedValue([]);
 
-      const result = await service.getLeaderboard({ page: 1, limit: 20 });
+      const result = await service.getLeaderboard('admin-1', 'ADMIN', { page: 1, limit: 20 });
 
       expect(result).toEqual({
         data: [],
@@ -101,7 +104,11 @@ describe('LeaderboardService', () => {
     it('should filter by cohortId when provided', async () => {
       mockPrismaService.user.findMany.mockResolvedValue([]);
 
-      await service.getLeaderboard({ cohortId: 'cohort-1', page: 1, limit: 20 });
+      await service.getLeaderboard('admin-1', 'ADMIN', {
+        cohortId: 'cohort-1',
+        page: 1,
+        limit: 20,
+      });
 
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -129,24 +136,32 @@ describe('LeaderboardService', () => {
       mockPrismaService.discussionComment.findMany.mockResolvedValue([]);
       mockPrismaService.pointsLog.findMany.mockResolvedValue(days);
 
-      const result = await service.getLeaderboard({ page: 1, limit: 20 });
+      const result = await service.getLeaderboard('admin-1', 'ADMIN', { page: 1, limit: 20 });
 
       // User should have base points + streak bonus (streak >= 7 = +10)
       expect(result.data[0].basePoints).toBe(100);
       expect(result.data[0].points).toBeGreaterThanOrEqual(100);
+    });
+
+    it('should require cohortId for facilitators', async () => {
+      await expect(
+        service.getLeaderboard('fac-1', 'FACILITATOR', { page: 1, limit: 20 }),
+      ).rejects.toThrow('cohortId query parameter is required');
     });
   });
 
   describe('getUserRank', () => {
     it('should return rank info for a fellow user', async () => {
       const userId = 'user-1';
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        firstName: 'Alice',
-        lastName: 'Smith',
-        email: 'alice@test.com',
-        role: 'FELLOW',
-      });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          id: userId,
+          firstName: 'Alice',
+          lastName: 'Smith',
+          email: 'alice@test.com',
+          role: 'FELLOW',
+        })
+        .mockResolvedValueOnce({ cohortId: 'cohort-1' });
       mockPrismaService.user.findMany.mockResolvedValue([
         { id: userId, firstName: 'Alice', lastName: 'Smith', email: 'alice@test.com' },
       ]);
@@ -157,7 +172,7 @@ describe('LeaderboardService', () => {
       mockPrismaService.discussionComment.findMany.mockResolvedValue([]);
       mockPrismaService.pointsLog.findMany.mockResolvedValue([]);
 
-      const result = await service.getUserRank(userId, {});
+      const result = await service.getUserRank(userId, 'FELLOW', {});
 
       expect(result).toMatchObject({
         rank: 1,
@@ -175,7 +190,7 @@ describe('LeaderboardService', () => {
         role: 'ADMIN',
       });
 
-      const result = await service.getUserRank('admin-1', {});
+      const result = await service.getUserRank('admin-1', 'ADMIN', {});
 
       expect(result).toMatchObject({
         rank: null,
@@ -186,18 +201,22 @@ describe('LeaderboardService', () => {
     it('should throw NotFoundException if user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.getUserRank('nonexistent', {})).rejects.toThrow(NotFoundException);
+      await expect(service.getUserRank('nonexistent', 'FELLOW', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle case when user has no activity in period', async () => {
       const userId = 'user-1';
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        firstName: 'Alice',
-        lastName: 'Smith',
-        email: 'alice@test.com',
-        role: 'FELLOW',
-      });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          id: userId,
+          firstName: 'Alice',
+          lastName: 'Smith',
+          email: 'alice@test.com',
+          role: 'FELLOW',
+        })
+        .mockResolvedValueOnce({ cohortId: 'cohort-1' });
       mockPrismaService.user.findMany.mockResolvedValue([
         { id: 'user-2', firstName: 'Bob', lastName: 'Jones', email: 'bob@test.com' },
       ]);
@@ -206,7 +225,7 @@ describe('LeaderboardService', () => {
       mockPrismaService.discussionComment.findMany.mockResolvedValue([]);
       mockPrismaService.pointsLog.findMany.mockResolvedValue([]);
 
-      const result = await service.getUserRank(userId, {});
+      const result = await service.getUserRank(userId, 'FELLOW', {});
 
       expect(result).toMatchObject({
         rank: null,

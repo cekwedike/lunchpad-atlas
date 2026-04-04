@@ -17,13 +17,13 @@ export class LeaderboardController {
   constructor(private readonly leaderboardService: LeaderboardService) {}
 
   @Get()
-  async getLeaderboard(@Query() filterDto: LeaderboardFilterDto) {
-    return this.leaderboardService.getLeaderboard(filterDto);
+  async getLeaderboard(@Request() req, @Query() filterDto: LeaderboardFilterDto) {
+    return this.leaderboardService.getLeaderboard(req.user.id, req.user.role, filterDto);
   }
 
   @Get('rank')
   async getUserRank(@Request() req, @Query() filterDto: LeaderboardFilterDto) {
-    return this.leaderboardService.getUserRank(req.user.id, filterDto);
+    return this.leaderboardService.getUserRank(req.user.id, req.user.role, filterDto);
   }
 
   @Get('months')

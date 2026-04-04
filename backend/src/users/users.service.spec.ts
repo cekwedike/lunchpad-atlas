@@ -24,6 +24,7 @@ describe('UsersService', () => {
     },
     pointsLog: {
       aggregate: jest.fn(),
+      findMany: jest.fn(),
     },
     userAchievement: {
       findMany: jest.fn(),
@@ -102,6 +103,7 @@ describe('UsersService', () => {
       mockPrismaService.pointsLog.aggregate.mockResolvedValue({
         _sum: { points: 450 },
       });
+      mockPrismaService.pointsLog.findMany.mockResolvedValue([]);
 
       const result = await service.getUserStats(userId);
 
@@ -123,6 +125,7 @@ describe('UsersService', () => {
       mockPrismaService.pointsLog.aggregate.mockResolvedValue({
         _sum: { points: null },
       });
+      mockPrismaService.pointsLog.findMany.mockResolvedValue([]);
 
       const result = await service.getUserStats(userId);
 

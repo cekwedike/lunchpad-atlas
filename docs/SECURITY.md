@@ -12,14 +12,15 @@
 - Session analytics: cohort/session scoped access; exports require the same checks.
 - Standard quizzes: cohort/session assignment enforced for get/submit/review flows.
 - Account state: suspended users blocked at login, refresh, `validateUser`, and WebSocket connect; forced password change enforced in `JwtAuthGuard` except for profile and change-password routes.
-- Next.js middleware verifies access cookies with `jose` when `JWT_SECRET` is set.
+- Next.js `proxy` verifies access cookies with `jose` when `JWT_SECRET` is set.
 - Production: `JWT_REFRESH_SECRET` required; Swagger only if `SWAGGER_ENABLED=true`.
 - Discussion resource fetch: HTTPS only; blocks common private/loopback literal hosts.
 - Welcome email: no plaintext passwords; admins must share temporary passwords out of band.
+- Leaderboard list/rank: **FELLOW** is scoped to their cohort; **FACILITATOR** / **GUEST_FACILITATOR** must pass `cohortId` and prove membership; **ADMIN** may omit `cohortId` for an org-wide view.
 
 ## Operational checklist
 
 1. Set strong, distinct `JWT_SECRET` and `JWT_REFRESH_SECRET` in production.
-2. Set `JWT_SECRET` on the Next.js server so middleware can verify cookies.
+2. Set `JWT_SECRET` on the Next.js server so the edge `proxy` can verify cookies. In production, if it is missing, users with a cookie are sent back to login (unverified JWTs are never used for routing).
 3. Keep `SWAGGER_ENABLED` unset/false in production unless the docs endpoint is intentionally public.
 4. Plan Redis-backed rate limiting if you run more than one API replica.

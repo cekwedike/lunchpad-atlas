@@ -5,6 +5,8 @@ import { jwtVerify } from 'jose';
 const protectedRoutes = ['/dashboard', '/profile', '/resources', '/discussions', '/leaderboard', '/quiz'];
 const authRoutes = ['/login'];
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 function decodeJwtPayloadUnverified(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split('.');
@@ -29,6 +31,10 @@ async function roleFromAccessToken(token: string): Promise<{ role: string; verif
       return null;
     }
   }
+  // Production: never trust unverified cookies for routing — avoids shell/API mismatch.
+  if (isProduction) {
+    return null;
+  }
   const payload = decodeJwtPayloadUnverified(token);
   if (!payload) return null;
   return { role: (payload.role as string) ?? 'FELLOW', verified: false };
@@ -41,7 +47,18 @@ function getDashboardForRole(role: string): string {
   return '/dashboard/fellow';
 }
 
-export default async function middleware(request: NextRequest) {
+function redirectToLogin(request: NextRequest, pathname: string, clearCookie: boolean) {
+  const loginUrl = new URL('/login', request.url);
+  loginUrl.searchParams.set('redirect', pathname);
+  const response = NextResponse.redirect(loginUrl);
+  if (clearCookie) {
+    response.cookies.set('accessToken', '', { path: '/', maxAge: 0 });
+  }
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
+}
+
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken = request.cookies.get('accessToken')?.value;
 
@@ -64,22 +81,13 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (isProtectedRoute && !accessToken) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    const response = NextResponse.redirect(loginUrl);
-    response.headers.set('Cache-Control', 'no-store');
-    return response;
+    return redirectToLogin(request, pathname, false);
   }
 
-  if (isProtectedRoute && accessToken && process.env.JWT_SECRET) {
+  if (isProtectedRoute && accessToken) {
     const parsed = await roleFromAccessToken(accessToken);
     if (parsed === null) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      const response = NextResponse.redirect(loginUrl);
-      response.cookies.set('accessToken', '', { path: '/', maxAge: 0 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return redirectToLogin(request, pathname, true);
     }
   }
 

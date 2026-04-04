@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
+import { computeEngagementDayStreak } from '../common/engagement-streak';
 import { UpdateUserDto, ChangePasswordDto, UserStatsDto } from './dto/user.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -119,7 +120,7 @@ export class UsersService {
   }
 
   async getUserStats(userId: string): Promise<UserStatsDto> {
-    const [resourcesCompleted, discussionsPosted, quizzesTaken, pointsData] =
+    const [resourcesCompleted, discussionsPosted, quizzesTaken, pointsData, currentStreak] =
       await Promise.all([
         this.prisma.resourceProgress.count({
           where: { userId, state: 'COMPLETED' },
@@ -134,6 +135,7 @@ export class UsersService {
           where: { userId },
           _sum: { points: true },
         }),
+        computeEngagementDayStreak(this.prisma, userId),
       ]);
 
     return {
@@ -141,7 +143,7 @@ export class UsersService {
       discussionsPosted,
       quizzesTaken,
       totalPoints: pointsData._sum.points || 0,
-      currentStreak: 0, // TODO: Calculate based on engagement events
+      currentStreak,
     };
   }
 

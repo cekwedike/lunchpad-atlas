@@ -1,7 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { LeaderboardFilterDto, LeaderboardAdjustPointsDto } from './dto/leaderboard.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+
+/** Resolved cohort visibility for leaderboard lists and rank (privacy). */
+export type LeaderboardCohortScope =
+  | { kind: 'ALL' }
+  | { kind: 'COHORT'; cohortId: string }
+  | { kind: 'EMPTY' };
 
 @Injectable()
 export class LeaderboardService {
@@ -88,9 +99,84 @@ export class LeaderboardService {
     return chatCount >= 50 ? 30 : 0;
   }
 
-  async getLeaderboard(filterDto: LeaderboardFilterDto) {
-    const { month, cohortId, year, page = 1, limit = 20 } = filterDto;
+  /**
+   * Enforces role-based cohort boundaries: fellows see only their cohort; facilitators
+   * must pass cohortId and must facilitate it; admins may omit cohortId for org-wide view.
+   */
+  async resolveLeaderboardCohortScope(
+    viewerId: string,
+    viewerRole: string,
+    queryCohortId?: string,
+  ): Promise<LeaderboardCohortScope> {
+    if (viewerRole === 'ADMIN') {
+      if (queryCohortId) return { kind: 'COHORT', cohortId: queryCohortId };
+      return { kind: 'ALL' };
+    }
+
+    if (viewerRole === 'FELLOW') {
+      const u = await this.prisma.user.findUnique({
+        where: { id: viewerId },
+        select: { cohortId: true },
+      });
+      if (!u?.cohortId) return { kind: 'EMPTY' };
+      if (queryCohortId && queryCohortId !== u.cohortId) {
+        throw new ForbiddenException('You can only view your cohort leaderboard');
+      }
+      return { kind: 'COHORT', cohortId: u.cohortId };
+    }
+
+    if (viewerRole === 'FACILITATOR') {
+      if (!queryCohortId) {
+        throw new BadRequestException('cohortId query parameter is required');
+      }
+      const link = await this.prisma.cohortFacilitator.findFirst({
+        where: { userId: viewerId, cohortId: queryCohortId },
+      });
+      if (!link) {
+        throw new ForbiddenException('You are not a facilitator for this cohort');
+      }
+      return { kind: 'COHORT', cohortId: queryCohortId };
+    }
+
+    if (viewerRole === 'GUEST_FACILITATOR') {
+      if (!queryCohortId) {
+        throw new BadRequestException('cohortId query parameter is required');
+      }
+      const ok = await this.prisma.guestSession.findFirst({
+        where: { userId: viewerId, session: { cohortId: queryCohortId } },
+      });
+      if (!ok) {
+        throw new ForbiddenException('You do not have access to this cohort leaderboard');
+      }
+      return { kind: 'COHORT', cohortId: queryCohortId };
+    }
+
+    throw new ForbiddenException('Leaderboard is not available for your role');
+  }
+
+  async getLeaderboard(
+    viewerId: string,
+    viewerRole: string,
+    filterDto: LeaderboardFilterDto,
+  ) {
+    const { month, year, page = 1, limit = 20 } = filterDto;
     const skip = (page - 1) * limit;
+
+    const scope = await this.resolveLeaderboardCohortScope(
+      viewerId,
+      viewerRole,
+      filterDto.cohortId,
+    );
+
+    if (scope.kind === 'EMPTY') {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      };
+    }
 
     // Calculate date range for month filtering
     let startDate: Date | undefined;
@@ -108,8 +194,8 @@ export class LeaderboardService {
       role: 'FELLOW',
     };
 
-    if (cohortId) {
-      fellowWhere.cohortId = cohortId;
+    if (scope.kind === 'COHORT') {
+      fellowWhere.cohortId = scope.cohortId;
     }
 
     const fellows = await this.prisma.user.findMany({
@@ -276,11 +362,15 @@ export class LeaderboardService {
     };
   }
 
-  async getUserRank(userId: string, filterDto: LeaderboardFilterDto) {
-    const { month, cohortId, year } = filterDto;
+  async getUserRank(
+    viewerId: string,
+    viewerRole: string,
+    filterDto: LeaderboardFilterDto,
+  ) {
+    const { month, year } = filterDto;
 
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: viewerId },
       select: { id: true, role: true, firstName: true, lastName: true, email: true },
     });
 
@@ -294,10 +384,29 @@ export class LeaderboardService {
         totalUsers: 0,
         points: 0,
         streak: 0,
-        userId,
+        userId: viewerId,
         userName: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
         message: 'Only fellows appear on the leaderboard',
+      };
+    }
+
+    const scope = await this.resolveLeaderboardCohortScope(
+      viewerId,
+      viewerRole,
+      filterDto.cohortId,
+    );
+
+    if (scope.kind === 'EMPTY') {
+      return {
+        rank: null,
+        totalUsers: 0,
+        points: 0,
+        streak: 0,
+        userId: viewerId,
+        userName: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        message: 'No cohort assigned',
       };
     }
 
@@ -316,8 +425,8 @@ export class LeaderboardService {
       role: 'FELLOW',
     };
 
-    if (cohortId) {
-      fellowWhere.cohortId = cohortId;
+    if (scope.kind === 'COHORT') {
+      fellowWhere.cohortId = scope.cohortId;
     }
 
     const fellows = await this.prisma.user.findMany({
@@ -333,7 +442,7 @@ export class LeaderboardService {
         totalUsers: 0,
         points: 0,
         streak: 0,
-        userId,
+        userId: viewerId,
         userName: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
         message: 'No fellows in this cohort',
@@ -454,7 +563,7 @@ export class LeaderboardService {
     });
 
     leaderboardRows.sort((a, b) => b.points - a.points || b.basePoints - a.basePoints);
-    const userRankIndex = leaderboardRows.findIndex((row) => row.userId === userId);
+    const userRankIndex = leaderboardRows.findIndex((row) => row.userId === viewerId);
 
     if (userRankIndex === -1) {
       return {
@@ -462,6 +571,9 @@ export class LeaderboardService {
         totalUsers: leaderboardRows.length,
         points: 0,
         streak: 0,
+        userId: viewerId,
+        userName: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
         message: 'User has no activity in this period',
       };
     }
@@ -479,7 +591,7 @@ export class LeaderboardService {
       chatStreak: rankedUser.chatStreak,
       streak: rankedUser.streak,
       streakBonus: rankedUser.streakBonus,
-      userId,
+      userId: viewerId,
       userName: rankedUser.userName,
       email: rankedUser.email,
     };
@@ -641,20 +753,45 @@ export class LeaderboardService {
   async getAvailableMonths(userId: string, userRole: string, cohortId?: string) {
     let resolvedCohortId = cohortId;
 
-    if (!resolvedCohortId) {
+    if (userRole === 'FELLOW') {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { cohortId: true },
       });
+      if (cohortId && cohortId !== user?.cohortId) {
+        return { months: [] };
+      }
       resolvedCohortId = user?.cohortId || undefined;
-    }
-
-    if (resolvedCohortId && (userRole === 'FACILITATOR' || userRole === 'FELLOW')) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { cohortId: true },
-      });
-      if (user?.cohortId && user.cohortId !== resolvedCohortId) {
+    } else if (userRole === 'FACILITATOR') {
+      if (cohortId) {
+        const link = await this.prisma.cohortFacilitator.findFirst({
+          where: { userId, cohortId },
+        });
+        if (!link) return { months: [] };
+        resolvedCohortId = cohortId;
+      } else {
+        const link = await this.prisma.cohortFacilitator.findFirst({
+          where: { userId },
+          select: { cohortId: true },
+        });
+        resolvedCohortId = link?.cohortId;
+      }
+    } else if (userRole === 'GUEST_FACILITATOR') {
+      if (cohortId) {
+        const ok = await this.prisma.guestSession.findFirst({
+          where: { userId, session: { cohortId } },
+        });
+        if (!ok) return { months: [] };
+        resolvedCohortId = cohortId;
+      } else {
+        const gs = await this.prisma.guestSession.findFirst({
+          where: { userId },
+          include: { session: { select: { cohortId: true } } },
+        });
+        resolvedCohortId = gs?.session?.cohortId ?? undefined;
+      }
+    } else if (userRole === 'ADMIN') {
+      if (!resolvedCohortId) {
         return { months: [] };
       }
     }
