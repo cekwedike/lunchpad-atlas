@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { LiveQuizService } from './live-quiz.service';
 import { validateWsToken } from '../common/ws-auth.util';
+import { getWebsocketCorsOrigin } from '../common/ws-cors.config';
 import { PrismaService } from '../prisma.service';
 
 interface QuizRoom {
@@ -27,7 +28,7 @@ function sanitizeQuestionForBroadcast(q: Record<string, unknown> | null | undefi
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : false),
+    origin: getWebsocketCorsOrigin(),
     credentials: true,
   },
   namespace: '/live-quiz',

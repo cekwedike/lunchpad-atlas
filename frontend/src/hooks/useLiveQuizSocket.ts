@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { fetchSocketAuthToken } from '@/lib/socket-auth';
 import {
@@ -31,6 +31,8 @@ interface UseLiveQuizSocketOptions {
  */
 export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionIssue, setConnectionIssue] = useState<string | null>(null);
   const {
     quizId,
     userId,
@@ -111,29 +113,55 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
   }, [quizId]);
 
   useEffect(() => {
+    if (!userId || !quizId) return;
     let cancelled = false;
     let socket: Socket | null = null;
 
+    setConnectionIssue(null);
+    setIsConnected(false);
+
     void (async () => {
       const token = await fetchSocketAuthToken();
-      if (cancelled || !token) return;
+      if (cancelled) return;
+      if (!token) {
+        setConnectionIssue(
+          'Live quiz needs an active login. Refresh the page or sign in again.'
+        );
+        return;
+      }
 
       socket = io(`${SOCKET_URL}/live-quiz`, {
         auth: { token },
         transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000,
       });
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log('Live Quiz socket connected');
+        setIsConnected(true);
+        setConnectionIssue(null);
       });
 
       socket.on('disconnect', () => {
-        console.log('Live Quiz socket disconnected');
+        setIsConnected(false);
+      });
+
+      socket.on('connect_error', (error: Error) => {
+        setConnectionIssue(
+          error?.message || 'Could not connect to live quiz. Check your network.'
+        );
+      });
+
+      socket.on('reconnect_failed', () => {
+        setConnectionIssue(
+          'Live quiz connection failed after several tries. Refresh the page to try again.'
+        );
       });
 
       socket.on('error', (error: Error) => {
-        console.error('Live Quiz socket error:', error);
+        setConnectionIssue(error?.message || 'Live quiz connection error.');
       });
 
       const pj = onParticipantJoinedRef.current;
@@ -157,6 +185,8 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
       if (socket) {
         socket.off('connect');
         socket.off('disconnect');
+        socket.off('connect_error');
+        socket.off('reconnect_failed');
         socket.off('error');
         socket.off('participantJoined');
         socket.off('quizStarted');
@@ -172,12 +202,13 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
   }, [userId, quizId]);
 
   return {
-    socket: socketRef.current,
     joinQuiz,
     startQuiz,
     nextQuestion,
     submitAnswer,
     getLeaderboard,
     showResults,
+    isConnected,
+    connectionIssue,
   };
 }

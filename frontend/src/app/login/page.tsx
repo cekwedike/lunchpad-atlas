@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LogIn, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useLogin, useSetupStatus } from "@/hooks/api/useAuth";
+import { getDashboardForRole } from "@/lib/dashboard-routes";
+import { SessionExpiredBanner } from "@/components/login/SessionExpiredBanner";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
 
@@ -49,8 +51,7 @@ function LoginContent() {
     login(data, {
       onSuccess: (response) => {
         // Navigate based on user role
-        const dashboardRoute = `/dashboard/${response.user.role.toLowerCase()}`;
-        // Use replace and add delay to ensure state is updated
+        const dashboardRoute = getDashboardForRole(response.user.role);
         setTimeout(() => {
           router.replace(dashboardRoute);
         }, 150);
@@ -88,9 +89,13 @@ function LoginContent() {
 
         {/* Login Form */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
+          <SessionExpiredBanner />
           <div className="mb-6 text-center" suppressHydrationWarning>
             <h1 className="text-2xl font-bold text-white mb-2" style={{ color: '#ffffff' }}>Welcome Back</h1>
             <p className="text-white/70 text-sm">Sign in to continue your learning journey</p>
+            <p className="text-white/50 text-xs mt-2">
+              Tip: pick your role on the home page for the right portal. Passwords are at least 8 characters (same rules as registration).
+            </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" suppressHydrationWarning>
@@ -130,7 +135,7 @@ function LoginContent() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
-                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />

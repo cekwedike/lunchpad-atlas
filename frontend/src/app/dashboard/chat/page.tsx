@@ -21,6 +21,7 @@ import { useChatSocket } from "@/hooks/useChatSocket";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
+import { ApiClientError } from "@/lib/api-client";
 import type { ChatMessage } from "@/types/chat";
 
 export default function ChatRoomPage() {
@@ -118,7 +119,7 @@ function ChatRoomContent() {
     });
   }, [cohortId, queryClient]);
 
-  const { isConnected, lastError } = useChatSocket({
+  const { isConnected, lastError, tokenMissing, reconnectExhausted } = useChatSocket({
     userId: profile?.id || "",
     channelId: mainChannel?.id,
     onNewMessage: handleSocketNewMessage,
@@ -162,8 +163,11 @@ function ChatRoomContent() {
       setTimeout(() => refetchMessages(), 500);
       toast.success("Message sent!");
     } catch (error) {
-      console.error('Failed to send message:', error);
-      toast.error("Failed to send message");
+      const description =
+        error instanceof ApiClientError
+          ? error.message
+          : "Something went wrong. Check your connection and try again.";
+      toast.error("Failed to send message", { description });
     }
   };
 
@@ -188,11 +192,41 @@ function ChatRoomContent() {
               <ArrowLeft className="h-4 w-4" />
               Back to Discussions
             </Button>
-            <div className="flex items-center gap-2 text-xs">
-              <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-300'}`} />
-              <span className="text-gray-600">
-                {isConnected ? 'Live' : 'Reconnecting'}
-              </span>
+            <div className="flex flex-col items-end gap-1 text-xs sm:flex-row sm:items-center sm:gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full shrink-0 ${
+                    tokenMissing || reconnectExhausted
+                      ? 'bg-amber-500'
+                      : isConnected
+                        ? 'bg-green-500'
+                        : 'bg-gray-400 animate-pulse'
+                  }`}
+                />
+                <span className="text-gray-600 text-right sm:text-left">
+                  {tokenMissing || reconnectExhausted
+                    ? 'Could not connect'
+                    : isConnected
+                      ? 'Live'
+                      : 'Reconnecting…'}
+                </span>
+                {(tokenMissing || reconnectExhausted) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh
+                  </Button>
+                )}
+              </div>
+              {(tokenMissing || reconnectExhausted) && lastError && (
+                <span className="text-amber-800 max-w-[220px] text-right leading-snug">
+                  {lastError}
+                </span>
+              )}
             </div>
           </div>
 

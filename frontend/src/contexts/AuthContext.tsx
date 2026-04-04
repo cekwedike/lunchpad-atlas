@@ -3,6 +3,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { apiClient, ApiClientError } from '@/lib/api-client';
+import {
+  getDashboardForRole,
+  isProtectedRoutePath,
+} from '@/lib/dashboard-routes';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import type { User, LoginRequest, RegisterRequest } from '@/types/api';
@@ -16,22 +20,6 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
-
-function getDashboardForRole(role: string): string {
-  if (role === 'ADMIN') return '/dashboard/admin';
-  if (role === 'FACILITATOR') return '/dashboard/facilitator';
-  if (role === 'GUEST_FACILITATOR') return '/dashboard/guest-facilitator';
-  return '/dashboard/fellow';
-}
-
-const PROTECTED_PREFIXES = [
-  '/dashboard',
-  '/profile',
-  '/resources',
-  '/discussions',
-  '/leaderboard',
-  '/quiz',
-];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -70,9 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!_hasHydrated) return;
 
-    const isProtectedRoute = PROTECTED_PREFIXES.some((r) =>
-      pathname.startsWith(r)
-    );
+    const isProtectedRoute = isProtectedRoutePath(pathname);
 
     const checkAuth = async () => {
       try {
@@ -103,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         apiClient.clearTokens();
         storeLogout();
-        if (isProtectedRoute) router.replace('/login');
+        if (isProtectedRoute) router.replace('/login?session=expired');
       }
       setIsLoading(false);
     };
@@ -159,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       apiClient.clearTokens();
       storeLogout();
       toast.info('Logged out', 'See you next time!');
-      router.push('/login');
+      router.push('/');
     }
   };
 

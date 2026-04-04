@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ApiClientError } from '@/lib/api-client';
+import { toast } from '@/lib/toast';
 import { useLiveQuiz } from '@/hooks/api/useLiveQuiz';
 import { useLiveQuizSocket } from '@/hooks/useLiveQuizSocket';
 import { useSubmitAnswer } from '@/hooks/api/useLiveQuiz';
@@ -84,8 +87,7 @@ export function LiveQuizContainer({
     // Answer result is handled in LiveQuizPlayer component
   }, []);
 
-  // Setup WebSocket
-  const {} = useLiveQuizSocket({
+  const { connectionIssue } = useLiveQuizSocket({
     quizId,
     userId,
     onQuizStarted: handleQuizStarted,
@@ -110,7 +112,12 @@ export function LiveQuizContainer({
           timeToAnswer,
         });
       } catch (error) {
-        console.error('Failed to submit answer:', error);
+        const msg =
+          error instanceof ApiClientError
+            ? error.message
+            : 'Could not submit your answer. Try again.';
+        toast.error('Answer not saved', msg);
+        setHasAnswered(false);
       }
     },
     [participantId, currentQuestion, hasAnswered, submitAnswerMutation]
@@ -173,6 +180,11 @@ export function LiveQuizContainer({
   if (quizState === 'playing' && currentQuestion) {
     return (
       <div className="space-y-6">
+        {connectionIssue && (
+          <Alert variant="destructive" className="border-amber-600/50 bg-amber-50 text-amber-950 [&>svg]:text-amber-700 max-w-4xl mx-auto">
+            <AlertDescription>{connectionIssue}</AlertDescription>
+          </Alert>
+        )}
         <LiveQuizPlayer
           question={currentQuestion}
           questionNumber={questionNumber}
@@ -197,11 +209,18 @@ export function LiveQuizContainer({
 
   if (quizState === 'completed') {
     return (
-      <LiveQuizResults
-        quiz={quiz}
-        currentUserId={userId}
-        onGoHome={onExit}
-      />
+      <div className="space-y-4">
+        {connectionIssue && (
+          <Alert variant="destructive" className="border-amber-600/50 bg-amber-50 text-amber-950 [&>svg]:text-amber-700 max-w-4xl mx-auto">
+            <AlertDescription>{connectionIssue}</AlertDescription>
+          </Alert>
+        )}
+        <LiveQuizResults
+          quiz={quiz}
+          currentUserId={userId}
+          onGoHome={onExit}
+        />
+      </div>
     );
   }
 

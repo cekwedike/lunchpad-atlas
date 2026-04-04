@@ -37,12 +37,6 @@ export function useLogin() {
       queryClient.invalidateQueries();
       toast.success('Welcome back!', `Logged in as ${data.user.name}`);
     },
-    onError: (error: unknown) => {
-      console.error('Login error:', error);
-      const msg =
-        error instanceof ApiClientError ? error.message : 'Invalid credentials';
-      toast.error('Login failed', msg);
-    },
   });
 }
 

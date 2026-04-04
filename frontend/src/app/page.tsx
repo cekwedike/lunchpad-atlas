@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Target, MessageCircle, BarChart3, Users, Shield, BookOpen,
+  Target, MessageCircle, BarChart3, Users, Shield, BookOpen, UserCircle,
   ChevronDown, Trophy, Zap, Brain, Gamepad2, Bell, CalendarDays,
   FileText, Video, Award, TrendingUp, Star, CheckCircle2, Flame, Layout, Lock,
 } from "lucide-react";
@@ -9,7 +9,9 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const [role, setRole] = useState<"fellow" | "facilitator" | "admin">("fellow");
+  const [role, setRole] = useState<
+    "fellow" | "facilitator" | "guest-facilitator" | "admin"
+  >("fellow");
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const featuresRef = useRef<HTMLDivElement>(null);
@@ -25,6 +27,7 @@ export default function Home() {
   const roles = [
     { id: "fellow" as const, label: "Fellow", icon: BookOpen, grad: "from-blue-500 to-indigo-600" },
     { id: "facilitator" as const, label: "Facilitator", icon: Users, grad: "from-cyan-500 to-teal-600" },
+    { id: "guest-facilitator" as const, label: "Guest Facilitator", icon: UserCircle, grad: "from-emerald-500 to-teal-700" },
     { id: "admin" as const, label: "Admin", icon: Shield, grad: "from-violet-500 to-purple-600" },
   ];
   const cur = roles.find(r => r.id === role)!;

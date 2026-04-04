@@ -30,7 +30,7 @@ export function LiveQuizHost({ quiz, userId }: LiveQuizHostProps) {
   const [participantCount, setParticipantCount] = useState(quiz.participants?.length || 0);
   const [currentResults, setCurrentResults] = useState<ResultsShownEvent | null>(null);
 
-  const { startQuiz, nextQuestion, showResults } = useLiveQuizSocket({
+  const { startQuiz, nextQuestion, showResults, connectionIssue } = useLiveQuizSocket({
     quizId: quiz.id,
     userId,
     onParticipantJoined: (event) => {
@@ -79,6 +79,11 @@ export function LiveQuizHost({ quiz, userId }: LiveQuizHostProps) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4">
+      {connectionIssue && (
+        <Alert variant="destructive" className="border-amber-600/50 bg-amber-50 text-amber-950 [&>svg]:text-amber-700">
+          <AlertDescription>{connectionIssue}</AlertDescription>
+        </Alert>
+      )}
       {/* Host Controls */}
       <Card className="border-2 border-primary">
         <CardHeader className="bg-primary text-primary-foreground">

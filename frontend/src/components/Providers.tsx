@@ -7,6 +7,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import { queryClient, PERSIST_MAX_AGE } from '@/lib/react-query';
 import { idbStorage } from '@/lib/idb-store';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthSessionGate } from '@/components/AuthSessionGate';
 import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { OfflineBanner } from './OfflineBanner';
 import { UpdateBanner } from './UpdateBanner';
@@ -37,10 +38,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       persistOptions={{ persister, maxAge: PERSIST_MAX_AGE }}
     >
       <AuthProvider>
-        {children}
+        <AuthSessionGate>{children}</AuthSessionGate>
         {mounted && <OfflineBanner />}
         {mounted && <UpdateBanner />}
-        {mounted && <ReactQueryDevtools initialIsOpen={false} />}
+        {mounted && process.env.NODE_ENV === 'development' && (
+          <ReactQueryDevtools initialIsOpen={false} />
+        )}
         {mounted && <PushPromptGate />}
       </AuthProvider>
     </PersistQueryClientProvider>

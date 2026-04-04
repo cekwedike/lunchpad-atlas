@@ -3,7 +3,6 @@
 import { Menu, Trophy, User, LogOut, Compass } from 'lucide-react';
 import { useLeaderboardRank } from '@/hooks/api/useLeaderboard';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,10 +16,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { getDashboardForRole } from '@/lib/dashboard-routes';
 import { NotificationBell } from '@/components/Notifications';
 
 export function Navbar() {
-  const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
   // Only show leaderboard trophy for fellows
   const showTrophy = isAuthenticated && user && user.role === 'FELLOW';
@@ -31,8 +30,10 @@ export function Navbar() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/login');
   };
+
+  const logoHref =
+    isAuthenticated && user ? getDashboardForRole(user.role) : '/';
 
   const getUserInitials = () => {
     if (!user?.name) return 'G';
@@ -56,7 +57,7 @@ export function Navbar() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <Link href="/dashboard/fellow" className="flex items-center gap-2">
+          <Link href={logoHref} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-atlas-navy">
               {showTrophy ? (
                 <Trophy className="h-5 w-5 text-white" />
@@ -136,7 +137,7 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <Button asChild size="sm">
-              <Link href="/login">Login</Link>
+              <Link href="/">Home / Sign in</Link>
             </Button>
           )}
         </div>

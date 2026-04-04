@@ -1,4 +1,5 @@
 import type { ApiError } from '@/types/api';
+import { formatApiErrorMessage } from '@/lib/format-api-message';
 
 const DIRECT_BASE =
   (typeof window === 'undefined'
@@ -43,9 +44,15 @@ class ApiClient {
         };
       }
 
+      let message = formatApiErrorMessage(errorData.message);
+      if (response.status === 429) {
+        message =
+          'Too many requests. Please wait a moment and try again.';
+      }
+
       throw new ApiClientError(
         response.status,
-        errorData.message,
+        message,
         errorData.errors
       );
     }
@@ -111,7 +118,7 @@ class ApiClient {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('auth-storage');
-            window.location.href = '/login';
+            window.location.href = '/login?session=expired';
           }
         }
         throw error;

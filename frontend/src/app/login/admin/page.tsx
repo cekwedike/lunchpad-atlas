@@ -8,6 +8,8 @@ import { LogIn, ArrowLeft, Eye, EyeOff, Loader2, Shield } from "lucide-react";
 import { useLogin } from "@/hooks/api/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/lib/api-client";
+import { getPortalLabelForRole } from "@/lib/dashboard-routes";
+import { SessionExpiredBanner } from "@/components/login/SessionExpiredBanner";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
 
@@ -41,7 +43,7 @@ export default function AdminLoginPage() {
       onSuccess: (response) => {
         if (response.user.role !== 'ADMIN') {
           clearAuthState();
-          const portalName = response.user.role === 'FELLOW' ? 'Fellow' : 'Facilitator';
+          const portalName = getPortalLabelForRole(response.user.role);
           setFormError(`Access denied. This account is not an Administrator. Please use the ${portalName} portal.`);
           return;
         }
@@ -87,6 +89,7 @@ export default function AdminLoginPage() {
 
         {/* Login Form */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
+          <SessionExpiredBanner />
           <div className="mb-6 text-center" suppressHydrationWarning>
             <h1 className="text-2xl font-bold text-white mb-2" style={{ color: '#ffffff' }}>Administrator Access</h1>
             <p className="text-white/90 text-sm">Sign in to access platform administration</p>
@@ -129,7 +132,7 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
-                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />

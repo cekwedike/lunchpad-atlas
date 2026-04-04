@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { validateWsToken } from '../common/ws-auth.util';
+import { getWebsocketCorsOrigin } from '../common/ws-cors.config';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -18,7 +19,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : false),
+    origin: getWebsocketCorsOrigin(),
     credentials: true,
   },
   namespace: '/chat',

@@ -8,6 +8,8 @@ import { LogIn, ArrowLeft, Eye, EyeOff, Loader2, Users } from "lucide-react";
 import { useLogin } from "@/hooks/api/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/lib/api-client";
+import { getDashboardForRole, getPortalLabelForRole } from "@/lib/dashboard-routes";
+import { SessionExpiredBanner } from "@/components/login/SessionExpiredBanner";
 import { loginSchema } from "@/lib/validations/auth";
 import type { LoginRequest } from "@/types/api";
 
@@ -39,14 +41,19 @@ export default function FacilitatorLoginPage() {
     setFormError(null);
     login(data, {
       onSuccess: (response) => {
-        if (response.user.role !== 'FACILITATOR') {
+        if (
+          response.user.role !== 'FACILITATOR' &&
+          response.user.role !== 'GUEST_FACILITATOR'
+        ) {
           clearAuthState();
-          const portalName = response.user.role === 'ADMIN' ? 'Administrator' : 'Fellow';
-          setFormError(`Access denied. This account is not a Facilitator. Please use the ${portalName} portal.`);
+          const portalName = getPortalLabelForRole(response.user.role);
+          setFormError(
+            `Access denied. This portal is for facilitators. Please use the ${portalName} portal.`
+          );
           return;
         }
         setTimeout(() => {
-          router.replace('/dashboard/facilitator');
+          router.replace(getDashboardForRole(response.user.role));
         }, 150);
       },
       onError: () => {
@@ -87,9 +94,13 @@ export default function FacilitatorLoginPage() {
 
         {/* Login Form */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20" suppressHydrationWarning>
+          <SessionExpiredBanner />
           <div className="mb-6 text-center" suppressHydrationWarning>
             <h1 className="text-2xl font-bold text-white mb-2" style={{ color: '#ffffff' }}>Welcome Back, Facilitator</h1>
             <p className="text-white/90 text-sm">Sign in to manage your cohorts</p>
+            <p className="text-white/55 text-xs mt-2">
+              Guest facilitator? Choose Guest Facilitator on the home page, or sign in here — you&apos;ll be routed to the right dashboard.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" suppressHydrationWarning>
@@ -129,7 +140,7 @@ export default function FacilitatorLoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
-                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />

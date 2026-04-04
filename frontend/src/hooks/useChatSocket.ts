@@ -25,6 +25,8 @@ export function useChatSocket(options: UseChatSocketOptions) {
   const pendingChannelRef = useRef<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [tokenMissing, setTokenMissing] = useState(false);
+  const [reconnectExhausted, setReconnectExhausted] = useState(false);
   const {
     userId,
     channelId,
@@ -37,13 +39,29 @@ export function useChatSocket(options: UseChatSocketOptions) {
   } = options;
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setTokenMissing(false);
+      setReconnectExhausted(false);
+      setLastError(null);
+      return;
+    }
     let cancelled = false;
     let socket: Socket | null = null;
 
+    setTokenMissing(false);
+    setReconnectExhausted(false);
+    setLastError(null);
+
     void (async () => {
       const token = await fetchSocketAuthToken();
-      if (cancelled || !token) return;
+      if (cancelled) return;
+      if (!token) {
+        setTokenMissing(true);
+        setLastError(
+          'Live chat needs an active login. Refresh the page or sign in again.'
+        );
+        return;
+      }
 
       socket = io(`${SOCKET_URL}/chat`, {
         auth: { token },
@@ -56,6 +74,7 @@ export function useChatSocket(options: UseChatSocketOptions) {
 
       socket.on('connect', () => {
         setIsConnected(true);
+        setReconnectExhausted(false);
         setLastError(null);
         const pendingChannelId = pendingChannelRef.current;
         if (pendingChannelId) {
@@ -78,6 +97,20 @@ export function useChatSocket(options: UseChatSocketOptions) {
         setIsConnected(false);
       });
 
+      socket.on('reconnect_attempt', () => {
+        setReconnectExhausted(false);
+      });
+
+      socket.on('reconnect_failed', () => {
+        setReconnectExhausted(true);
+        setIsConnected(false);
+        setLastError(
+          (prev) =>
+            prev ||
+            'Could not reconnect to chat after several tries. Try refreshing the page.'
+        );
+      });
+
       socket.on('connect_error', (error) => {
         setIsConnected(false);
         setLastError(error?.message || 'Failed to connect to chat');
@@ -98,6 +131,8 @@ export function useChatSocket(options: UseChatSocketOptions) {
       if (socket) {
         socket.off('connect');
         socket.off('disconnect');
+        socket.off('reconnect_attempt');
+        socket.off('reconnect_failed');
         socket.off('connect_error');
         socket.off('new_message');
         socket.off('message_deleted');
@@ -192,5 +227,7 @@ export function useChatSocket(options: UseChatSocketOptions) {
     stopTyping,
     isConnected,
     lastError,
+    tokenMissing,
+    reconnectExhausted,
   };
 }

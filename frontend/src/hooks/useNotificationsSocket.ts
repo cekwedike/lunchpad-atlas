@@ -19,6 +19,7 @@ interface UseNotificationsSocketOptions {
 export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionIssue, setConnectionIssue] = useState<string | null>(null);
   const { userId, onNotification, onUnreadCountUpdate } = options;
 
   const onNotificationRef = useRef(onNotification);
@@ -27,28 +28,54 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
   onUnreadRef.current = onUnreadCountUpdate;
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setConnectionIssue(null);
+      setIsConnected(false);
+      return;
+    }
     let cancelled = false;
     let socket: Socket | null = null;
 
+    setConnectionIssue(null);
+
     void (async () => {
       const token = await fetchSocketAuthToken();
-      if (cancelled || !token) return;
+      if (cancelled) return;
+      if (!token) {
+        setConnectionIssue(
+          'Instant alerts need an active login. Refresh the page or sign in again.'
+        );
+        return;
+      }
 
       socket = io(`${SOCKET_URL}/notifications`, {
         auth: { token },
         transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000,
       });
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log('Notifications socket connected');
         setIsConnected(true);
+        setConnectionIssue(null);
       });
 
       socket.on('disconnect', () => {
-        console.log('Notifications socket disconnected');
         setIsConnected(false);
+      });
+
+      socket.on('connect_error', (err: Error) => {
+        setConnectionIssue(
+          err?.message || 'Could not connect to notifications. You may still see updates when you open the bell.'
+        );
+      });
+
+      socket.on('reconnect_failed', () => {
+        setConnectionIssue(
+          'Could not reconnect live notifications. Refresh the page to try again.'
+        );
       });
 
       const n = onNotificationRef.current;
@@ -65,6 +92,10 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
     return () => {
       cancelled = true;
       setIsConnected(false);
+      socket?.off('connect');
+      socket?.off('disconnect');
+      socket?.off('connect_error');
+      socket?.off('reconnect_failed');
       socket?.disconnect();
       socketRef.current = null;
     };
@@ -72,5 +103,6 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
 
   return {
     isConnected,
+    connectionIssue,
   };
 }

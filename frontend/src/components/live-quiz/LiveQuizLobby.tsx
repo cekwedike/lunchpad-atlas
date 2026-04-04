@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +27,7 @@ export function LiveQuizLobby({ quizId, userId, onQuizStarted }: LiveQuizLobbyPr
 
   const { data: quiz, isLoading } = useLiveQuiz(quizId);
 
-  const { joinQuiz } = useLiveQuizSocket({
+  const { joinQuiz, connectionIssue } = useLiveQuizSocket({
     quizId,
     userId,
     onParticipantJoined: (event: ParticipantJoinedEvent) => {
@@ -74,6 +75,11 @@ export function LiveQuizLobby({ quizId, userId, onQuizStarted }: LiveQuizLobbyPr
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4">
+      {connectionIssue && (
+        <Alert variant="destructive" className="border-amber-600/50 bg-amber-50 text-amber-950 [&>svg]:text-amber-700">
+          <AlertDescription>{connectionIssue}</AlertDescription>
+        </Alert>
+      )}
       {/* Quiz Info */}
       <Card className="bg-gradient-to-br from-purple-500 to-blue-600 text-white">
         <CardHeader>
