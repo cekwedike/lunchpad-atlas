@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/authStore';
+import { fetchSocketAuthToken } from '@/lib/socket-auth';
 
-const RAW_SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const RAW_SOCKET_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 const SOCKET_URL = RAW_SOCKET_URL.replace(/\/api\/v1\/?$/, '');
 
 export function useDiscussionsSocket() {
@@ -15,42 +17,47 @@ export function useDiscussionsSocket() {
 
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
+    let socketInstance: Socket | null = null;
 
-    // Create socket connection
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    const socketInstance = io(`${SOCKET_URL}/discussions`, {
-      auth: {
-        token,
-      },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-    });
+    void (async () => {
+      const token = await fetchSocketAuthToken();
+      if (cancelled || !token) return;
 
-    socketRef.current = socketInstance;
-    setSocket(socketInstance);
+      socketInstance = io(`${SOCKET_URL}/discussions`, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+      });
 
-    // Connection event handlers
-    socketInstance.on('connect', () => {
-      console.log('[Discussions] Connected to WebSocket');
-      setIsConnected(true);
-    });
+      socketRef.current = socketInstance;
+      setSocket(socketInstance);
 
-    socketInstance.on('disconnect', () => {
-      console.log('[Discussions] Disconnected from WebSocket');
-      setIsConnected(false);
-    });
+      socketInstance.on('connect', () => {
+        console.log('[Discussions] Connected to WebSocket');
+        setIsConnected(true);
+      });
 
-    socketInstance.on('connect_error', (error) => {
-      console.error('[Discussions] Connection error:', error);
-      setIsConnected(false);
-    });
+      socketInstance.on('disconnect', () => {
+        console.log('[Discussions] Disconnected from WebSocket');
+        setIsConnected(false);
+      });
 
-    // Cleanup on unmount
+      socketInstance.on('connect_error', (error) => {
+        console.error('[Discussions] Connection error:', error);
+        setIsConnected(false);
+      });
+    })();
+
     return () => {
+      cancelled = true;
       console.log('[Discussions] Cleaning up socket connection');
-      socketInstance.disconnect();
+      socketInstance?.disconnect();
+      socketRef.current = null;
+      setSocket(null);
+      setIsConnected(false);
     };
   }, [user?.id]);
 

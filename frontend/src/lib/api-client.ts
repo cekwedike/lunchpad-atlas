@@ -1,6 +1,12 @@
 import type { ApiError } from '@/types/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const DIRECT_BASE =
+  (typeof window === 'undefined'
+    ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'
+    : ''
+  ).replace(/\/$/, '');
+
+const BFF_BASE = '/api/proxy';
 
 export class ApiClientError extends Error {
   constructor(
@@ -15,31 +21,14 @@ export class ApiClientError extends Error {
 
 interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;
+  _retry?: boolean;
 }
 
 class ApiClient {
   private baseURL: string;
 
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
-  }
-
-  private getAuthToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('accessToken');
-  }
-
-  private setAuthToken(token: string): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('accessToken', token);
-  }
-
-  private removeAuthToken(): void {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('auth-storage');
-    document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
+  constructor() {
+    this.baseURL = typeof window === 'undefined' ? DIRECT_BASE : BFF_BASE;
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -61,7 +50,6 @@ class ApiClient {
       );
     }
 
-    // Handle 204 No Content
     if (response.status === 204) {
       return {} as T;
     }
@@ -73,52 +61,76 @@ class ApiClient {
     endpoint: string,
     options: RequestOptions = {}
   ): Promise<T> {
-    const { requiresAuth = true, headers = {}, ...fetchOptions } = options;
+    const {
+      requiresAuth = true,
+      headers = {},
+      _retry,
+      ...fetchOptions
+    } = options;
+
+    const isBrowser = typeof window !== 'undefined';
 
     const config: RequestInit = {
       ...fetchOptions,
+      credentials: isBrowser ? 'include' : undefined,
       headers: {
         'Content-Type': 'application/json',
         ...headers,
       },
     };
 
-    // Add auth token if required
-    if (requiresAuth) {
-      const token = this.getAuthToken();
-      if (token) {
-        (config.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-      }
-    }
-
     const url = `${this.baseURL}${endpoint}`;
 
     try {
       const response = await fetch(url, config);
+
+      if (
+        response.status === 401 &&
+        requiresAuth &&
+        isBrowser &&
+        !_retry
+      ) {
+        const refreshed = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (refreshed.ok) {
+          return this.request<T>(endpoint, { ...options, _retry: true });
+        }
+      }
+
       return await this.handleResponse<T>(response);
     } catch (error) {
       if (error instanceof ApiClientError) {
-        // Handle 401 Unauthorized - clear tokens and redirect to login
         if (error.statusCode === 401) {
-          this.removeAuthToken();
           if (typeof window !== 'undefined') {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              credentials: 'include',
+            }).catch(() => {});
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('auth-storage');
             window.location.href = '/login';
           }
         }
         throw error;
       }
-      // Network or other errors (backend unreachable, DNS failure, CORS, etc.)
-      const isNetworkError = error instanceof TypeError && (error.message === 'Failed to fetch' || error.message.includes('NetworkError'));
+      const isNetworkError =
+        error instanceof TypeError &&
+        (error.message === 'Failed to fetch' ||
+          error.message.includes('NetworkError'));
       throw new ApiClientError(
         0,
         isNetworkError
           ? 'Unable to connect to the server. Please check your connection and try again.'
-          : error instanceof Error ? error.message : 'Network error occurred'
+          : error instanceof Error
+            ? error.message
+            : 'Network error occurred'
       );
     }
   }
 
-  // Convenience methods
   async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
@@ -163,15 +175,21 @@ class ApiClient {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 
-  // Auth-specific methods
+  /** @deprecated Tokens are HttpOnly; kept for call sites that still invoke it. */
   setToken(token: string): void {
-    this.setAuthToken(token);
+    void token;
   }
 
   clearTokens(): void {
-    this.removeAuthToken();
+    if (typeof window === 'undefined') return;
+    void fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('auth-storage');
   }
 }
 
-// Export singleton instance
-export const apiClient = new ApiClient(API_BASE_URL);
+export const apiClient = new ApiClient();

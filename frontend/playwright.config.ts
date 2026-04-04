@@ -2,15 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright configuration for ATLAS frontend E2E tests.
- * Tests run against the production deployment at launchpadatlas.vercel.app.
  *
- * To run locally:
- *   cd frontend && npx playwright test
+ * Base URL:
+ *   PLAYWRIGHT_BASE_URL — defaults to http://localhost:3000 (start Next with `pnpm dev`)
+ *   Omit or set to https://launchpadatlas.vercel.app to hit production (not recommended for PR CI).
  *
- * Environment variables:
- *   TEST_EMAIL    - email address for test user login
- *   TEST_PASSWORD - password for test user login
+ * Credentials: TEST_EMAIL, TEST_PASSWORD
  */
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -23,7 +24,7 @@ export default defineConfig({
   expect: { timeout: 15000 },
 
   use: {
-    baseURL: 'https://launchpadatlas.vercel.app',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

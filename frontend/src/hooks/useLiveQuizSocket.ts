@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { fetchSocketAuthToken } from '@/lib/socket-auth';
 import {
   ParticipantJoinedEvent,
   QuizStartedEvent,
@@ -41,6 +42,21 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
     onAnswerResult,
     onResultsShown,
   } = options;
+
+  const onParticipantJoinedRef = useRef(onParticipantJoined);
+  const onQuizStartedRef = useRef(onQuizStarted);
+  const onQuestionShownRef = useRef(onQuestionShown);
+  const onQuizCompletedRef = useRef(onQuizCompleted);
+  const onLeaderboardUpdateRef = useRef(onLeaderboardUpdate);
+  const onAnswerResultRef = useRef(onAnswerResult);
+  const onResultsShownRef = useRef(onResultsShown);
+  onParticipantJoinedRef.current = onParticipantJoined;
+  onQuizStartedRef.current = onQuizStarted;
+  onQuestionShownRef.current = onQuestionShown;
+  onQuizCompletedRef.current = onQuizCompleted;
+  onLeaderboardUpdateRef.current = onLeaderboardUpdate;
+  onAnswerResultRef.current = onAnswerResult;
+  onResultsShownRef.current = onResultsShown;
 
   // Join quiz
   const joinQuiz = useCallback((displayName: string) => {
@@ -95,83 +111,65 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
   }, [quizId]);
 
   useEffect(() => {
-    // Initialize socket connection
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    socketRef.current = io(`${SOCKET_URL}/live-quiz`, {
-      auth: {
-        token,
-      },
-      transports: ['websocket'],
-    });
+    let cancelled = false;
+    let socket: Socket | null = null;
 
-    const socket = socketRef.current;
+    void (async () => {
+      const token = await fetchSocketAuthToken();
+      if (cancelled || !token) return;
 
-    // Connection events
-    socket.on('connect', () => {
-      console.log('Live Quiz socket connected');
-    });
+      socket = io(`${SOCKET_URL}/live-quiz`, {
+        auth: { token },
+        transports: ['websocket'],
+      });
+      socketRef.current = socket;
 
-    socket.on('disconnect', () => {
-      console.log('Live Quiz socket disconnected');
-    });
+      socket.on('connect', () => {
+        console.log('Live Quiz socket connected');
+      });
 
-    socket.on('error', (error: Error) => {
-      console.error('Live Quiz socket error:', error);
-    });
+      socket.on('disconnect', () => {
+        console.log('Live Quiz socket disconnected');
+      });
 
-    // Quiz events
-    if (onParticipantJoined) {
-      socket.on('participantJoined', onParticipantJoined);
-    }
+      socket.on('error', (error: Error) => {
+        console.error('Live Quiz socket error:', error);
+      });
 
-    if (onQuizStarted) {
-      socket.on('quizStarted', onQuizStarted);
-    }
+      const pj = onParticipantJoinedRef.current;
+      if (pj) socket.on('participantJoined', pj);
+      const qs = onQuizStartedRef.current;
+      if (qs) socket.on('quizStarted', qs);
+      const qsh = onQuestionShownRef.current;
+      if (qsh) socket.on('questionShown', qsh);
+      const qc = onQuizCompletedRef.current;
+      if (qc) socket.on('quizCompleted', qc);
+      const lu = onLeaderboardUpdateRef.current;
+      if (lu) socket.on('leaderboardUpdate', lu);
+      const ar = onAnswerResultRef.current;
+      if (ar) socket.on('answerResult', ar);
+      const rs = onResultsShownRef.current;
+      if (rs) socket.on('resultsShown', rs);
+    })();
 
-    if (onQuestionShown) {
-      socket.on('questionShown', onQuestionShown);
-    }
-
-    if (onQuizCompleted) {
-      socket.on('quizCompleted', onQuizCompleted);
-    }
-
-    if (onLeaderboardUpdate) {
-      socket.on('leaderboardUpdate', onLeaderboardUpdate);
-    }
-
-    if (onAnswerResult) {
-      socket.on('answerResult', onAnswerResult);
-    }
-
-    if (onResultsShown) {
-      socket.on('resultsShown', onResultsShown);
-    }
-
-    // Cleanup
     return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('error');
-      socket.off('participantJoined');
-      socket.off('quizStarted');
-      socket.off('questionShown');
-      socket.off('quizCompleted');
-      socket.off('leaderboardUpdate');
-      socket.off('answerResult');
-      socket.off('resultsShown');
-      socket.close();
+      cancelled = true;
+      if (socket) {
+        socket.off('connect');
+        socket.off('disconnect');
+        socket.off('error');
+        socket.off('participantJoined');
+        socket.off('quizStarted');
+        socket.off('questionShown');
+        socket.off('quizCompleted');
+        socket.off('leaderboardUpdate');
+        socket.off('answerResult');
+        socket.off('resultsShown');
+        socket.close();
+      }
+      socketRef.current = null;
     };
-  }, [
-    userId,
-    onParticipantJoined,
-    onQuizStarted,
-    onQuestionShown,
-    onQuizCompleted,
-    onLeaderboardUpdate,
-    onAnswerResult,
-    onResultsShown,
-  ]);
+  }, [userId, quizId]);
 
   return {
     socket: socketRef.current,

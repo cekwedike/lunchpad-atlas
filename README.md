@@ -20,31 +20,32 @@ ATLAS transforms traditional learning into an engaging, accountable, and measura
 ### Tech Stack
 
 **Frontend**
-- Next.js 14+ (App Router)
+- Next.js 16 (App Router) + `src/proxy.ts` route protection
 - TypeScript
-- React Query (data fetching)
+- TanStack Query (data fetching)
 - Zustand (state management)
 - Tailwind CSS + Shadcn UI
 - Radix UI components
+- API calls default to same-origin `/api/proxy` with HttpOnly auth cookies (see `frontend/src/app/api/`)
 
 **Backend**
 - NestJS (TypeScript)
 - PostgreSQL (primary database)
-- Redis (leaderboards, caching, quiz sessions)
+- Prisma ORM
 - JWT authentication + RBAC
-- Event-based analytics pipeline
+- Google Gemini for session analytics, discussion scoring, and admin AI helpers
 
-**AI Services** (Python)
-- Session engagement analyzer
-- Discussion quality evaluator
-- Skimming pattern detector
-- OpenAI API / Anthropic API integration (Claude 3.5 Haiku support enabled)
+**AI Services** (`ai-services/`)
+- **Planned / documentation only** in this repository — there is no Python service implementation here yet. In-app AI features use Gemini from the Nest backend.
 
-**Deployment**
+**Deployment** (see [DEPLOYMENT.md](DEPLOYMENT.md))
 - Frontend: Vercel
-- Backend: AWS/Fly.io/Railway
-- Database: Managed PostgreSQL (AWS RDS/Neon/Supabase)
-- Redis: Upstash/Redis Cloud
+- Backend: Render (Dockerfile at repository root)
+- Database: Neon (or any managed PostgreSQL)
+
+**Other directories**
+- `shared/` — TypeScript curriculum data consumed by the backend via relative imports (not a published npm package).
+- `legacy/` — Older stack kept for reference only; it is not the active application.
 
 ## 🎓 Program Structure
 
@@ -149,16 +150,13 @@ career-resources-hub/
 ## 📋 Prerequisites
 
 ### Development Environment
-- **Node.js**: v18 or higher
-- **pnpm**: v8 or higher (package manager)
-- **PostgreSQL**: v14 or higher
-- **Redis**: v7 or higher
-- **Python**: v3.10+ (for AI services)
+- **Node.js**: v18 or higher (v20 recommended for Docker parity)
+- **pnpm**: v8 or higher (monorepo installs)
+- **PostgreSQL**: v14 or higher (see [docker-compose.yml](docker-compose.yml) — host port **5433**)
 
 ### Required Services
 - PostgreSQL database
-- Redis instance
-- OpenAI API key (for AI features)
+- `GEMINI_API_KEY` (optional but required for AI-backed features in Nest)
 
 ## 🛠️ Development Setup
 
@@ -170,34 +168,14 @@ cd lunchpad-atlas
 
 ### 2. Set Up Environment Variables
 
-**Backend** (`.env` in `/backend`)
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/atlas"
-REDIS_URL="redis://localhost:6379"
-JWT_SECRET="your-jwt-secret-key"
-JWT_REFRESH_SECRET="your-refresh-secret-key"
+Copy [backend/.env.example](backend/.env.example) to `backend/.env` and adjust URLs. Prisma requires both `DATABASE_URL` and `DIRECT_URL` (see example file).
 
-# AI Configuration (choose one provider)
-AI_MODEL_PROVIDER="anthropic"  # Options: "openai", "anthropic"
-AI_MODEL_NAME="claude-3-5-haiku-20241022"
-ANTHROPIC_API_KEY="your-anthropic-api-key"
-# OR
-# AI_MODEL_PROVIDER="openai"
-# OPENAI_API_KEY="your-openai-api-key"
-```
-
-**Frontend** (`.env.local` in `/frontend`)
-```env
-NEXT_PUBLIC_API_URL="http://localhost:4000/api/v1"
-```
+**Frontend** — copy [frontend/.env.example](frontend/.env.example) to `frontend/.env.local`. Use the **same** `JWT_SECRET` as the backend so `src/proxy.ts` can verify session cookies.
 
 ### 3. Database Setup
 ```bash
-# Start PostgreSQL (if using Docker)
-docker run --name atlas-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:14
-
-# Start Redis (if using Docker)
-docker run --name atlas-redis -p 6379:6379 -d redis:7
+# From repo root — Postgres on localhost:5433 (see docker-compose.yml)
+docker compose up -d
 
 # Run database migrations (from /backend)
 cd backend
@@ -219,12 +197,6 @@ cd frontend
 pnpm install
 ```
 
-**AI Services**
-```bash
-cd ai-services/session-analyzer
-pip install -r requirements.txt
-```
-
 ### 5. Run Development Servers
 
 **Terminal 1: Backend API**
@@ -239,12 +211,6 @@ cd frontend
 pnpm dev  # Runs on http://localhost:3000
 ```
 
-**Terminal 3: AI Services (Optional)**
-```bash
-cd ai-services/session-analyzer
-python main.py  # Runs on http://localhost:8000
-```
-
 ### 6. Access the Platform
 - **Fellow Dashboard**: http://localhost:3000/dashboard/fellow
 - **Admin Dashboard**: http://localhost:3000/dashboard/admin
@@ -253,18 +219,11 @@ python main.py  # Runs on http://localhost:8000
 
 ## 🚀 Deployment
 
-### Frontend (Vercel)
-```bash
-cd frontend
-vercel --prod
-```
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Vercel + Render + Neon. The production Docker image is built from the **repository root** [Dockerfile](Dockerfile) (`docker compose` / Render `dockerContext: .`).
 
-### Backend (Fly.io/Railway)
-```bash
-cd backend
-# Configure deployment in fly.toml or railway.json
-fly deploy  # or railway up
-```
+### Package managers
+- **Local monorepo**: pnpm workspaces (`frontend`, `backend`).
+- **Docker image**: `npm ci` with [backend/package-lock.json](backend/package-lock.json) for reproducible production installs.
 
 ### Database
 - **Production PostgreSQL**: AWS RDS, Neon, or Supabase

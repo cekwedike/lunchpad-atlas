@@ -13,6 +13,7 @@
 - Standard quizzes: cohort/session assignment enforced for get/submit/review flows.
 - Account state: suspended users blocked at login, refresh, `validateUser`, and WebSocket connect; forced password change enforced in `JwtAuthGuard` except for profile and change-password routes.
 - Next.js `proxy` verifies access cookies with `jose` when `JWT_SECRET` is set.
+- HttpOnly session cookies (`at_access`, `at_refresh`) are set by Next.js route handlers under `frontend/src/app/api/auth/`; authenticated REST traffic from the browser goes through same-origin `frontend/src/app/api/proxy/` which attaches `Authorization: Bearer` for the Nest API. Set `INTERNAL_API_URL` (and `NEXT_PUBLIC_API_URL`) to the backend `/api/v1` base. Socket.io still receives a short-lived token from `GET /api/auth/socket-token` for cross-origin handshake to Render.
 - Production: `JWT_REFRESH_SECRET` required; Swagger only if `SWAGGER_ENABLED=true`.
 - Discussion resource fetch: HTTPS only; blocks common private/loopback literal hosts.
 - Welcome email: no plaintext passwords; admins must share temporary passwords out of band.

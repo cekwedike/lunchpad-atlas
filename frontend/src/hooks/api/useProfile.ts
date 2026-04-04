@@ -5,9 +5,9 @@ import { toast } from 'sonner';
 import type { User, UserAchievement } from '@/types/api';
 
 export function useProfile(userId?: string) {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAuthenticated, _hasHydrated } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
-  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+  const sessionReady = _hasHydrated && isAuthenticated;
 
   return useQuery({
     queryKey: ['user', targetUserId || 'me'],
@@ -15,15 +15,15 @@ export function useProfile(userId?: string) {
       const endpoint = userId ? `/users/${userId}` : '/users/me';
       return apiClient.get<User>(endpoint);
     },
-    enabled: userId ? !!userId : hasToken,
+    enabled: userId ? !!userId : sessionReady,
     retry: false,
   });
 }
 
 export function useUserAchievements(userId?: string) {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAuthenticated, _hasHydrated } = useAuthStore();
   const targetUserId = userId || currentUser?.id;
-  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+  const sessionReady = _hasHydrated && isAuthenticated;
 
   return useQuery({
     queryKey: ['user-achievements', targetUserId],
@@ -33,18 +33,19 @@ export function useUserAchievements(userId?: string) {
         : '/users/me/achievements';
       return apiClient.get<UserAchievement[]>(endpoint);
     },
-    enabled: userId ? !!userId : hasToken,
+    enabled: userId ? !!userId : sessionReady,
     retry: false,
   });
 }
 
 /** All achievement definitions (for the gallery page) */
 export function useAllAchievements() {
-  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
+  const sessionReady = _hasHydrated && isAuthenticated;
   return useQuery({
     queryKey: ['achievements', 'all'],
     queryFn: () => apiClient.get<any[]>('/achievements'),
-    enabled: hasToken,
+    enabled: sessionReady,
     staleTime: 5 * 60 * 1000, // achievements rarely change
   });
 }

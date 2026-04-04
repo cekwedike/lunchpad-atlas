@@ -18,6 +18,10 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
+  if (isProduction && !process.env.FRONTEND_URL) {
+    throw new Error('FRONTEND_URL must be set in production for CORS');
+  }
+
   // Enable CORS for frontend
   const allowedOrigins = isProduction
     ? [process.env.FRONTEND_URL].filter(Boolean)

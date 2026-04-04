@@ -1,6 +1,8 @@
 # AI Services - ATLAS Platform
 
-Python microservices for AI-powered analytics and quality assessment.
+> **Status:** This folder currently contains **design documentation only**. There is no Python implementation in this repository yet. Live AI features (session analytics, discussion scoring, admin tools) run in the **NestJS backend** via the Google Gemini API.
+
+Python microservices for AI-powered analytics and quality assessment (planned).
 
 ## Services
 

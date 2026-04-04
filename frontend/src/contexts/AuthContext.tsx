@@ -1,11 +1,11 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
+import { useRouter, usePathname } from 'next/navigation';
+import { apiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
-import type { User, LoginRequest, RegisterRequest, LoginResponse } from '@/types/api';
+import type { User, LoginRequest, RegisterRequest } from '@/types/api';
 
 interface AuthContextType {
   user: User | null;
@@ -24,124 +24,140 @@ function getDashboardForRole(role: string): string {
   return '/dashboard/fellow';
 }
 
+const PROTECTED_PREFIXES = [
+  '/dashboard',
+  '/profile',
+  '/resources',
+  '/discussions',
+  '/leaderboard',
+  '/quiz',
+];
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+async function postBffAuth(
+  path: string,
+  body: unknown
+): Promise<{ user: User }> {
+  const r = await fetch(path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    throw new ApiClientError(
+      r.status,
+      (data as { message?: string }).message || 'Request failed'
+    );
+  }
+  return data as { user: User };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, isAuthenticated, setUser, logout: storeLogout } = useAuthStore();
+  const pathname = usePathname();
+  const {
+    user,
+    isAuthenticated,
+    setUser,
+    logout: storeLogout,
+    _hasHydrated,
+  } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
   useEffect(() => {
-    // Check if user is already authenticated on mount
-    const checkAuth = async () => {
-      const token = localStorage.getItem('accessToken');
+    if (!_hasHydrated) return;
 
-      if (token) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = window.setTimeout(() => controller.abort(), 3000);
-          await fetch(`${apiBaseUrl}/health`, {
-            method: 'GET',
-            signal: controller.signal,
-          });
-          window.clearTimeout(timeoutId);
-        } catch (error) {
-          apiClient.clearTokens();
-          storeLogout();
-          router.replace('/login');
-          setIsLoading(false);
-          return;
-        }
+    const isProtectedRoute = PROTECTED_PREFIXES.some((r) =>
+      pathname.startsWith(r)
+    );
+
+    const checkAuth = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 3000);
+        await fetch('/api/proxy/health', {
+          method: 'GET',
+          signal: controller.signal,
+          credentials: 'include',
+        });
+        window.clearTimeout(timeoutId);
+      } catch {
+        apiClient.clearTokens();
+        storeLogout();
+        if (isProtectedRoute) router.replace('/login');
+        setIsLoading(false);
+        return;
       }
 
-      if (token && !user) {
-        try {
-          const userData = await apiClient.get<User>('/users/me');
-          setUser(userData);
-        } catch (error) {
-          // Token invalid, clear it
-          apiClient.clearTokens();
-          storeLogout();
-          router.replace('/login');
-        }
+      if (!isAuthenticated && !user && !isProtectedRoute) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userData = await apiClient.get<User>('/users/me');
+        setUser(userData);
+      } catch {
+        apiClient.clearTokens();
+        storeLogout();
+        if (isProtectedRoute) router.replace('/login');
       }
       setIsLoading(false);
     };
 
     checkAuth();
-  }, [apiBaseUrl, router, user, setUser, storeLogout]);
+  }, [
+    _hasHydrated,
+    pathname,
+    isAuthenticated,
+    user,
+    router,
+    setUser,
+    storeLogout,
+  ]);
 
   const login = async (credentials: LoginRequest) => {
     try {
-      const response = await apiClient.post<LoginResponse>('/auth/login', credentials, {
-        requiresAuth: false,
-      });
-
-      // Store tokens in localStorage
-      localStorage.setItem('accessToken', response.accessToken);
-      if (response.refreshToken) {
-        localStorage.setItem('refreshToken', response.refreshToken);
-      }
-      
-      // Store token in cookies for middleware
-      document.cookie = `accessToken=${response.accessToken}; path=/; max-age=604800`; // 7 days
-      
-      apiClient.setToken(response.accessToken);
-
-      // Update store
-      setUser(response.user);
-
-      toast.success('Welcome back!', `Logged in as ${response.user.name}`);
-      router.push(getDashboardForRole(response.user.role));
-    } catch (error: any) {
-      toast.error('Login failed', error.message || 'Invalid credentials');
+      const data = await postBffAuth('/api/auth/login', credentials);
+      setUser(data.user);
+      toast.success('Welcome back!', `Logged in as ${data.user.name}`);
+      router.push(getDashboardForRole(data.user.role));
+    } catch (error: unknown) {
+      const msg =
+        error instanceof ApiClientError ? error.message : 'Invalid credentials';
+      toast.error('Login failed', msg);
       throw error;
     }
   };
 
   const register = async (data: RegisterRequest) => {
     try {
-      const response = await apiClient.post<LoginResponse>('/auth/register', data, {
-        requiresAuth: false,
-      });
-
-      // Store tokens in localStorage
-      localStorage.setItem('accessToken', response.accessToken);
-      if (response.refreshToken) {
-        localStorage.setItem('refreshToken', response.refreshToken);
-      }
-      
-      // Store token in cookies for middleware
-      document.cookie = `accessToken=${response.accessToken}; path=/; max-age=604800`; // 7 days
-      
-      apiClient.setToken(response.accessToken);
-
-      // Update store
-      setUser(response.user);
-
+      const res = await postBffAuth('/api/auth/register', data);
+      setUser(res.user);
       toast.success('Account created!', 'Welcome to ATLAS');
-      router.push(getDashboardForRole(response.user.role));
-    } catch (error: any) {
-      toast.error('Registration failed', error.message || 'Could not create account');
+      router.push(getDashboardForRole(res.user.role));
+    } catch (error: unknown) {
+      const msg =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Could not create account';
+      toast.error('Registration failed', msg);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
-      // Call logout endpoint if it exists
-      await apiClient.post('/auth/logout', {}).catch(() => {
-        // Ignore errors, just clear local data
-      });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {});
     } finally {
-      // Clear tokens and store
       apiClient.clearTokens();
       storeLogout();
-      
-      // Clear cookies
-      document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
-      
       toast.info('Logged out', 'See you next time!');
       router.push('/login');
     }

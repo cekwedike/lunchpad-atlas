@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { fetchSocketAuthToken } from '@/lib/socket-auth';
 
 const RAW_SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 const SOCKET_URL = RAW_SOCKET_URL.replace(/\/api\/v1\/?$/, '');
@@ -37,87 +38,86 @@ export function useChatSocket(options: UseChatSocketOptions) {
 
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
+    let socket: Socket | null = null;
 
-    // Initialize socket connection
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    socketRef.current = io(`${SOCKET_URL}/chat`, {
-      auth: {
-        token,
-      },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      timeout: 10000,
-    });
+    void (async () => {
+      const token = await fetchSocketAuthToken();
+      if (cancelled || !token) return;
 
-    const socket = socketRef.current;
+      socket = io(`${SOCKET_URL}/chat`, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000,
+      });
+      socketRef.current = socket;
 
-    // Connection events
-    socket.on('connect', () => {
-      setIsConnected(true);
-      setLastError(null);
-      const pendingChannelId = pendingChannelRef.current;
-      if (pendingChannelId) {
-        socket.emit('join_channel', { channelId: pendingChannelId }, (response: any) => {
-          if (response?.success) {
-            joinedChannelRef.current = pendingChannelId;
-            pendingChannelRef.current = null;
-          } else if (response?.error) {
-            setLastError(response.error);
-          }
-        });
-      }
-    });
+      socket.on('connect', () => {
+        setIsConnected(true);
+        setLastError(null);
+        const pendingChannelId = pendingChannelRef.current;
+        if (pendingChannelId) {
+          socket!.emit(
+            'join_channel',
+            { channelId: pendingChannelId },
+            (response: any) => {
+              if (response?.success) {
+                joinedChannelRef.current = pendingChannelId;
+                pendingChannelRef.current = null;
+              } else if (response?.error) {
+                setLastError(response.error);
+              }
+            }
+          );
+        }
+      });
 
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
+      socket.on('disconnect', () => {
+        setIsConnected(false);
+      });
 
-    socket.on('connect_error', (error) => {
-      setIsConnected(false);
-      setLastError(error?.message || 'Failed to connect to chat');
-    });
+      socket.on('connect_error', (error) => {
+        setIsConnected(false);
+        setLastError(error?.message || 'Failed to connect to chat');
+      });
 
-    // Message events
-    if (onNewMessage) {
-      socket.on('new_message', onNewMessage);
-    }
+      if (onNewMessage) socket.on('new_message', onNewMessage);
+      if (onMessageDeleted) socket.on('message_deleted', onMessageDeleted);
+      if (onChannelDeleted) socket.on('channel_deleted', onChannelDeleted);
+      if (onChannelLockUpdated)
+        socket.on('channel_lock_updated', onChannelLockUpdated);
+      if (onUserTyping) socket.on('user_typing', onUserTyping);
+      if (onUserStoppedTyping)
+        socket.on('user_stopped_typing', onUserStoppedTyping);
+    })();
 
-    if (onMessageDeleted) {
-      socket.on('message_deleted', onMessageDeleted);
-    }
-
-    if (onChannelDeleted) {
-      socket.on('channel_deleted', onChannelDeleted);
-    }
-
-    if (onChannelLockUpdated) {
-      socket.on('channel_lock_updated', onChannelLockUpdated);
-    }
-
-    // Typing events
-    if (onUserTyping) {
-      socket.on('user_typing', onUserTyping);
-    }
-
-    if (onUserStoppedTyping) {
-      socket.on('user_stopped_typing', onUserStoppedTyping);
-    }
-
-    // Cleanup
     return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('connect_error');
-      socket.off('new_message');
-      socket.off('message_deleted');
-      socket.off('channel_deleted');
-      socket.off('channel_lock_updated');
-      socket.off('user_typing');
-      socket.off('user_stopped_typing');
-      socket.disconnect();
+      cancelled = true;
+      if (socket) {
+        socket.off('connect');
+        socket.off('disconnect');
+        socket.off('connect_error');
+        socket.off('new_message');
+        socket.off('message_deleted');
+        socket.off('channel_deleted');
+        socket.off('channel_lock_updated');
+        socket.off('user_typing');
+        socket.off('user_stopped_typing');
+        socket.disconnect();
+      }
+      socketRef.current = null;
     };
-  }, [userId, onNewMessage, onMessageDeleted, onChannelDeleted, onChannelLockUpdated, onUserTyping, onUserStoppedTyping]);
+  }, [
+    userId,
+    onNewMessage,
+    onMessageDeleted,
+    onChannelDeleted,
+    onChannelLockUpdated,
+    onUserTyping,
+    onUserStoppedTyping,
+  ]);
 
   // Join channel
   useEffect(() => {

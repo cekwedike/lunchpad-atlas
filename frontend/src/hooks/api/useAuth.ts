@@ -1,8 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import type { LoginRequest, RegisterRequest, LoginResponse, User } from '@/types/api';
+
+async function postBffAuth(
+  path: string,
+  body: unknown
+): Promise<LoginResponse> {
+  const r = await fetch(path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    throw new ApiClientError(
+      r.status,
+      (data as { message?: string }).message || 'Request failed'
+    );
+  }
+  return data as LoginResponse;
+}
 
 export function useLogin() {
   const { setUser } = useAuthStore();
@@ -10,35 +30,18 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (credentials: LoginRequest) => {
-      return apiClient.post<LoginResponse>('/auth/login', credentials, {
-        requiresAuth: false,
-      });
+      return postBffAuth('/api/auth/login', credentials);
     },
     onSuccess: (data) => {
-      // Store tokens in localStorage
-      localStorage.setItem('accessToken', data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-      
-      // Store token in cookies for middleware with proper settings
-      const expires = new Date();
-      expires.setDate(expires.getDate() + 7); // 7 days
-      document.cookie = `accessToken=${data.accessToken}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
-      
-      apiClient.setToken(data.accessToken);
-      
-      // Update store - This triggers the query hooks to fetch data
       setUser(data.user);
-      
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries();
-      
       toast.success('Welcome back!', `Logged in as ${data.user.name}`);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('Login error:', error);
-      toast.error('Login failed', error.message || 'Invalid credentials');
+      const msg =
+        error instanceof ApiClientError ? error.message : 'Invalid credentials';
+      toast.error('Login failed', msg);
     },
   });
 }
@@ -49,32 +52,19 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      return apiClient.post<LoginResponse>('/auth/register', data, {
-        requiresAuth: false,
-      });
+      return postBffAuth('/api/auth/register', data);
     },
     onSuccess: (data) => {
-      // Store tokens in localStorage
-      localStorage.setItem('accessToken', data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-      
-      // Store token in cookies for middleware
-      document.cookie = `accessToken=${data.accessToken}; path=/; max-age=604800`; // 7 days
-      
-      apiClient.setToken(data.accessToken);
-      
-      // Update store
       setUser(data.user);
-      
-      // Invalidate queries
       queryClient.invalidateQueries();
-      
       toast.success('Account created!', 'Welcome to ATLAS');
     },
-    onError: (error: any) => {
-      toast.error('Registration failed', error.message || 'Could not create account');
+    onError: (error: unknown) => {
+      const msg =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Could not create account';
+      toast.error('Registration failed', msg);
     },
   });
 }
@@ -85,21 +75,15 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
-      await apiClient.post('/auth/logout', {}).catch(() => {
-        // Ignore errors, just clear local data
-      });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {});
     },
     onSettled: () => {
-      // Clear tokens from localStorage and store
       apiClient.clearTokens();
       storeLogout();
-      
-      // Clear cookies
-      document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC';
-      
-      // Clear all queries
       queryClient.clear();
-      
       toast.info('Logged out', 'See you next time!');
     },
   });
@@ -118,22 +102,31 @@ export function useUpdateProfile() {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success('Profile updated', 'Your changes have been saved');
     },
-    onError: (error: any) => {
-      toast.error('Update failed', error.message || 'Could not update profile');
+    onError: (error: unknown) => {
+      const msg =
+        error instanceof ApiClientError ? error.message : 'Could not update profile';
+      toast.error('Update failed', msg);
     },
   });
 }
 
 export function useChangePassword() {
   return useMutation({
-    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+    mutationFn: async (data: {
+      currentPassword: string;
+      newPassword: string;
+    }) => {
       return apiClient.post('/users/me/change-password', data);
     },
     onSuccess: () => {
       toast.success('Password changed', 'Your password has been updated');
     },
-    onError: (error: any) => {
-      toast.error('Password change failed', error.message || 'Incorrect current password');
+    onError: (error: unknown) => {
+      const msg =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Incorrect current password';
+      toast.error('Password change failed', msg);
     },
   });
 }
@@ -142,7 +135,9 @@ export function useSetupStatus() {
   return useQuery({
     queryKey: ['setup-status'],
     queryFn: async () => {
-      return apiClient.get<{ needsSetup: boolean }>('/auth/setup', { requiresAuth: false } as any);
+      return apiClient.get<{ needsSetup: boolean }>('/auth/setup', {
+        requiresAuth: false,
+      });
     },
     staleTime: 30_000,
     retry: false,
@@ -153,20 +148,27 @@ export function useSetupAdmin() {
   const { setUser } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; password: string; confirmPassword: string }) => {
-      return apiClient.post<LoginResponse>('/auth/setup', data, { requiresAuth: false });
+    mutationFn: async (data: {
+      name: string;
+      email: string;
+      password: string;
+      confirmPassword: string;
+    }) => {
+      return postBffAuth('/api/auth/setup', data);
     },
     onSuccess: (data) => {
-      localStorage.setItem('accessToken', data.accessToken);
-      const expires = new Date();
-      expires.setDate(expires.getDate() + 7);
-      document.cookie = `accessToken=${data.accessToken}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
-      apiClient.setToken(data.accessToken);
       setUser(data.user);
-      toast.success('Setup complete!', 'Admin account created. Welcome to ATLAS!');
+      toast.success(
+        'Setup complete!',
+        'Admin account created. Welcome to ATLAS!'
+      );
     },
-    onError: (error: any) => {
-      toast.error('Setup failed', error.message || 'Could not create admin account');
+    onError: (error: unknown) => {
+      const msg =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Could not create admin account';
+      toast.error('Setup failed', msg);
     },
   });
 }

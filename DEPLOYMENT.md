@@ -31,9 +31,10 @@
 3. Connect your GitHub repo
 4. Configure:
    - **Name:** `atlas-backend`
-   - **Root Directory:** *(leave empty — Dockerfile is at repo root)*
+   - **Root Directory:** *(leave empty — Docker build context is the repo root)*
    - **Runtime:** `Docker`
    - **Dockerfile Path:** `./Dockerfile`
+   - **Docker Build Context:** repository root (same as [render.yaml](render.yaml): `dockerContext: .`)
    - **Plan:** `Free`
 5. Add **Environment Variables** (Settings → Environment):
 
@@ -42,6 +43,7 @@
    | `NODE_ENV` | `production` |
    | `PORT` | `4000` |
    | `DATABASE_URL` | *(your Neon connection string from Step 1)* |
+   | `DIRECT_URL` | *(Neon non-pooled “direct” URL — required for `prisma migrate`)* |
    | `JWT_SECRET` | *(generate: `openssl rand -base64 32`)* |
    | `JWT_REFRESH_SECRET` | *(generate: `openssl rand -base64 32`)* |
    | `JWT_EXPIRATION` | `15m` |
@@ -68,11 +70,15 @@
 4. Configure:
    - **Framework Preset:** Next.js (auto-detected)
    - **Root Directory:** `frontend`
-5. Add **Environment Variable:**
+5. Add **Environment Variables:**
 
    | Variable | Value |
    |----------|-------|
    | `NEXT_PUBLIC_API_URL` | `https://atlas-backend.onrender.com/api/v1` |
+   | `INTERNAL_API_URL` | Same as `NEXT_PUBLIC_API_URL` *(server-side API proxy and auth routes; not exposed to the browser)* |
+   | `JWT_SECRET` | **Must match** the backend `JWT_SECRET` exactly *(used by Next.js [frontend/src/proxy.ts](frontend/src/proxy.ts) to verify the access cookie; see [docs/SECURITY.md](docs/SECURITY.md))* |
+
+   Optional (Sentry): `SENTRY_ORG`, `SENTRY_PROJECT`, and related keys if you use error reporting.
 
 6. Click **Deploy**
 7. Your frontend URL will be something like: `https://launchpadatlas.vercel.app/`

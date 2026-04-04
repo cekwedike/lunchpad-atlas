@@ -12,7 +12,7 @@ import {
 } from './dto/live-quiz.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AchievementsService } from '../achievements/achievements.service';
-import { UserRole } from '@prisma/client';
+import { NotificationType, Prisma, UserRole } from '@prisma/client';
 
 @Injectable()
 export class LiveQuizService {
@@ -156,7 +156,7 @@ export class LiveQuizService {
 
   // Create a new live quiz
   async create(createDto: CreateLiveQuizDto) {
-    const quiz = await (this.prisma.liveQuiz as any).create({
+    const quiz = await this.prisma.liveQuiz.create({
       data: {
         title: createDto.title,
         description: createDto.description,
@@ -168,7 +168,7 @@ export class LiveQuizService {
         questions: {
           create: createDto.questions.map((q, index) => ({
             questionText: q.questionText,
-            options: q.options as any,
+            options: q.options as unknown as Prisma.InputJsonValue,
             correctAnswer: q.correctAnswer,
             orderIndex: index,
             timeLimit: q.timeLimit || createDto.timePerQuestion || 30,
@@ -186,8 +186,8 @@ export class LiveQuizService {
     try {
       const cohortIds = [
         ...new Set<string>(
-          (quiz.sessions as any[])
-            .map((s) => s.session?.cohortId as string | undefined)
+          quiz.sessions
+            .map((s) => s.session?.cohortId)
             .filter((id): id is string => !!id),
         ),
       ];
@@ -200,7 +200,7 @@ export class LiveQuizService {
           await this.notificationsService.createBulkNotifications(
             fellows.map((f) => ({
               userId: f.id,
-              type: 'QUIZ_REMINDER' as any,
+              type: NotificationType.QUIZ_REMINDER,
               title: 'New Live Quiz Scheduled!',
               message: `"${quiz.title}" has been scheduled. Watch for the go-live notification!`,
               data: { liveQuizId: quiz.id },
@@ -295,7 +295,7 @@ export class LiveQuizService {
     let sessionIdsFilter: string[] | undefined;
 
     if (user.role === 'ADMIN') {
-      return (this.prisma.liveQuiz as any).findMany({
+      return this.prisma.liveQuiz.findMany({
         where: { status: { not: 'CANCELLED' } },
         include: {
           sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },
@@ -327,14 +327,14 @@ export class LiveQuizService {
 
     if (user.role !== 'GUEST_FACILITATOR' && cohortIds.length === 0) return [];
 
-    const where: any = { status: { not: 'CANCELLED' } };
+    const where: Prisma.LiveQuizWhereInput = { status: { not: 'CANCELLED' } };
     if (sessionIdsFilter) {
       where.sessions = { some: { sessionId: { in: sessionIdsFilter } } };
     } else {
       where.sessions = { some: { session: { cohortId: { in: cohortIds } } } };
     }
 
-    return (this.prisma.liveQuiz as any).findMany({
+    return this.prisma.liveQuiz.findMany({
       where,
       include: {
         sessions: { include: { session: { select: { id: true, title: true, sessionNumber: true } } } },
@@ -350,7 +350,7 @@ export class LiveQuizService {
   // Get all live quizzes for a cohort
   async findByCohort(cohortId: string, viewerId: string) {
     await this.assertCanAccessCohort(viewerId, cohortId);
-    const list = await (this.prisma.liveQuiz as any).findMany({
+    const list = await this.prisma.liveQuiz.findMany({
       where: {
         sessions: {
           some: { session: { cohortId } },
@@ -380,7 +380,7 @@ export class LiveQuizService {
       throw new NotFoundException(`Session with ID ${sessionId} not found`);
     }
     await this.assertCanAccessCohort(viewerId, session.cohortId);
-    const list = await (this.prisma.liveQuiz as any).findMany({
+    const list = await this.prisma.liveQuiz.findMany({
       where: { sessions: { some: { sessionId } } },
       include: {
         sessions: { include: { session: { select: { id: true, title: true } } } },
@@ -757,7 +757,7 @@ export class LiveQuizService {
         pointsEntries.map((entry) =>
           this.notificationsService.createBulkNotifications([{
             userId: entry.userId,
-            type: 'SYSTEM_ALERT' as any,
+            type: NotificationType.SYSTEM_ALERT,
             title: 'Live Quiz Removed',
             message: `"${quiz.title}" has been deleted. Your ${entry.points} leaderboard points from this quiz have been removed.`,
             data: {},

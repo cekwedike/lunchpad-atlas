@@ -6,10 +6,10 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy backend package files
-COPY backend/package.json ./backend/
+# Copy backend package files (lockfile for reproducible npm ci)
+COPY backend/package.json backend/package-lock.json ./backend/
 WORKDIR /app/backend
-RUN npm install
+RUN npm ci
 
 # Copy prisma schema and generate client
 COPY backend/prisma ./prisma
@@ -33,8 +33,8 @@ RUN apk add --no-cache openssl
 WORKDIR /app/backend
 
 # Copy backend package files and install production deps
-COPY backend/package.json ./
-RUN npm install --omit=dev
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci --omit=dev
 
 # Copy prisma schema and generate client
 COPY backend/prisma ./prisma

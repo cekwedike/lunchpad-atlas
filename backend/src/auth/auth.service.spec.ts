@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -38,6 +39,13 @@ describe('AuthService', () => {
     sendAccountCreatedEmail: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string, defaultVal?: string) => {
+      if (key === 'JWT_REFRESH_EXPIRATION') return '7d';
+      return defaultVal;
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -46,6 +54,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 

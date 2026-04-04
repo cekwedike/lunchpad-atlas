@@ -5,7 +5,8 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
 import { LoginDto, RegisterDto, SetupAdminDto, AuthResponseDto } from './dto/auth.dto';
@@ -24,6 +25,7 @@ export class AuthService {
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
     private emailService: EmailService,
+    private config: ConfigService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -231,12 +233,14 @@ export class AuthService {
       (process.env.JWT_REFRESH_SECRET ||
         process.env.JWT_SECRET! + '_refresh');
 
+    const refreshSign: JwtSignOptions = {
+      secret: refreshSecret,
+      expiresIn: (this.config.get<string>('JWT_REFRESH_EXPIRATION') ||
+        '7d') as JwtSignOptions['expiresIn'],
+    };
     return {
       accessToken: this.jwtService.sign(payload),
-      refreshToken: this.jwtService.sign(payload, {
-        secret: refreshSecret,
-        expiresIn: '30d',
-      }),
+      refreshToken: this.jwtService.sign(payload, refreshSign),
       user: {
         id: user.id,
         email: user.email,

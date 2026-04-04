@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  LEGACY_ACCESS_COOKIE,
+} from '@/lib/auth-cookie-names';
 
 const protectedRoutes = ['/dashboard', '/profile', '/resources', '/discussions', '/leaderboard', '/quiz'];
 const authRoutes = ['/login'];
@@ -47,12 +52,24 @@ function getDashboardForRole(role: string): string {
   return '/dashboard/fellow';
 }
 
+function clearSessionCookies(res: NextResponse) {
+  const opts = {
+    path: '/',
+    maxAge: 0,
+    sameSite: 'lax' as const,
+    secure: isProduction,
+  };
+  res.cookies.set(ACCESS_COOKIE, '', opts);
+  res.cookies.set(REFRESH_COOKIE, '', opts);
+  res.cookies.set(LEGACY_ACCESS_COOKIE, '', opts);
+}
+
 function redirectToLogin(request: NextRequest, pathname: string, clearCookie: boolean) {
   const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('redirect', pathname);
   const response = NextResponse.redirect(loginUrl);
   if (clearCookie) {
-    response.cookies.set('accessToken', '', { path: '/', maxAge: 0 });
+    clearSessionCookies(response);
   }
   response.headers.set('Cache-Control', 'no-store');
   return response;
@@ -60,7 +77,9 @@ function redirectToLogin(request: NextRequest, pathname: string, clearCookie: bo
 
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const accessToken = request.cookies.get('accessToken')?.value;
+  const accessToken =
+    request.cookies.get(ACCESS_COOKIE)?.value ??
+    request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
@@ -69,7 +88,7 @@ export default async function proxy(request: NextRequest) {
     const parsed = await roleFromAccessToken(accessToken);
     if (parsed === null) {
       const res = NextResponse.redirect(new URL('/login', request.url));
-      res.cookies.set('accessToken', '', { path: '/', maxAge: 0 });
+      clearSessionCookies(res);
       res.headers.set('Cache-Control', 'no-store');
       return res;
     }

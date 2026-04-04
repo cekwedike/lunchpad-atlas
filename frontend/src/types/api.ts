@@ -316,10 +316,11 @@ export interface LoginRequest {
   password: string;
 }
 
+/** BFF login/register/setup return `{ user }` only; tokens are HttpOnly cookies. */
 export interface LoginResponse {
   user: User;
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 export interface RegisterRequest {

@@ -7,8 +7,7 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend",
-    "shared"
+    "backend"
   ],
   "scripts": {
     "dev": "npx concurrently -n \"FRONTEND,BACKEND\" -c \"cyan,magenta\" \"pnpm dev:frontend\" \"pnpm dev:backend\"",
@@ -17,7 +16,7 @@
     "build": "pnpm -r build",
     "build:frontend": "cd frontend && pnpm build",
     "build:backend": "cd backend && pnpm build",
-    "clean": "pnpm -r clean && rm -rf node_modules",
+    "clean": "pnpm -r clean && pnpm exec rimraf node_modules",
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,md}'",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test"
@@ -25,13 +24,11 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "prettier": "^3.2.5",
+    "rimraf": "^6.0.1",
     "typescript": "^5.6.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
-  },
-  "dependencies": {
-    "axios": "^1.13.5"
   }
 }

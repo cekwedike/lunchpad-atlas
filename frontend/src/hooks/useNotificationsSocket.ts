@@ -1,8 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Notification } from '@/types/notification';
+import { fetchSocketAuthToken } from '@/lib/socket-auth';
 
-const RAW_SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const RAW_SOCKET_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 const SOCKET_URL = RAW_SOCKET_URL.replace(/\/api\/v1\/?$/, '');
 
 interface UseNotificationsSocketOptions {
@@ -16,49 +18,59 @@ interface UseNotificationsSocketOptions {
  */
 export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const { userId, onNotification, onUnreadCountUpdate } = options;
+
+  const onNotificationRef = useRef(onNotification);
+  const onUnreadRef = useRef(onUnreadCountUpdate);
+  onNotificationRef.current = onNotification;
+  onUnreadRef.current = onUnreadCountUpdate;
 
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
+    let socket: Socket | null = null;
 
-    // Initialize socket connection
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    socketRef.current = io(`${SOCKET_URL}/notifications`, {
-      auth: {
-        token,
-      },
-      transports: ['websocket'],
-    });
+    void (async () => {
+      const token = await fetchSocketAuthToken();
+      if (cancelled || !token) return;
 
-    const socket = socketRef.current;
-
-    // Connection events
-    socket.on('connect', () => {
-      console.log('Notifications socket connected');
-    });
-
-    socket.on('disconnect', () => {
-      console.log('Notifications socket disconnected');
-    });
-
-    // Notification events
-    if (onNotification) {
-      socket.on('new_notification', onNotification);
-    }
-
-    if (onUnreadCountUpdate) {
-      socket.on('unread_count_update', (payload: { count: number }) => {
-        onUnreadCountUpdate(payload.count);
+      socket = io(`${SOCKET_URL}/notifications`, {
+        auth: { token },
+        transports: ['websocket'],
       });
-    }
+      socketRef.current = socket;
 
-    // Cleanup
+      socket.on('connect', () => {
+        console.log('Notifications socket connected');
+        setIsConnected(true);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Notifications socket disconnected');
+        setIsConnected(false);
+      });
+
+      const n = onNotificationRef.current;
+      if (n) socket.on('new_notification', n);
+
+      const u = onUnreadRef.current;
+      if (u) {
+        socket.on('unread_count_update', (payload: { count: number }) => {
+          u(payload.count);
+        });
+      }
+    })();
+
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      setIsConnected(false);
+      socket?.disconnect();
+      socketRef.current = null;
     };
-  }, [userId, onNotification, onUnreadCountUpdate]);
+  }, [userId]);
 
   return {
-    isConnected: socketRef.current?.connected ?? false,
+    isConnected,
   };
 }

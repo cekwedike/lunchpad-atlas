@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import type { Resource, ResourceProgress, PaginatedResponse, MarkResourceCompleteRequest } from '@/types/api';
 
 export function useResources(filters?: { sessionId?: string; cohortId?: string }) {
-  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
+  const sessionReady = _hasHydrated && isAuthenticated;
 
   return useQuery({
     queryKey: ['resources', filters],
@@ -24,7 +26,7 @@ export function useResources(filters?: { sessionId?: string; cohortId?: string }
       // Fallback if response structure is different
       return Array.isArray(response) ? response : [];
     },
-    enabled: hasToken,
+    enabled: sessionReady,
     retry: false,
   });
 }
