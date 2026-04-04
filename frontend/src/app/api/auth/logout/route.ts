@@ -1,10 +1,11 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { clearAuthCookies } from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const res = NextResponse.json({ ok: true });
-  clearAuthCookies(res);
+  clearAuthCookies(res, request);
   return res;
 }

@@ -29,9 +29,8 @@ function decodeJwtPayloadUnverified(token: string): Record<string, unknown> | nu
 }
 
 /**
- * Resolve role for edge redirects. Prefer verified JWT when JWT_SECRET matches the API.
- * If verification fails (wrong/missing Vercel env, clock skew), fall back to payload + exp
- * so users are not stuck in a login loop — the BFF and API still enforce real auth.
+ * When JWT_SECRET is set (production), only a signature-valid token may pass the edge.
+ * Unverified decode is used only when no secret is configured (local convenience).
  */
 async function roleFromToken(token: string): Promise<string | null> {
   const secret = process.env.JWT_SECRET;
@@ -44,7 +43,7 @@ async function roleFromToken(token: string): Promise<string | null> {
       const role = payload.role as string | undefined;
       return typeof role === 'string' ? role : 'FELLOW';
     } catch {
-      // Continue to unverified parse
+      return null;
     }
   }
 
@@ -65,9 +64,16 @@ function getDashboardForRole(role: string): string {
   return '/dashboard/fellow';
 }
 
-function redirectToLogin(request: NextRequest, pathname: string) {
+function redirectToLogin(
+  request: NextRequest,
+  pathname: string,
+  opts?: { session?: string },
+) {
   const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('redirect', pathname);
+  if (opts?.session) {
+    loginUrl.searchParams.set('session', opts.session);
+  }
   const response = NextResponse.redirect(loginUrl);
   response.headers.set('Cache-Control', 'no-store');
   return response;
@@ -94,8 +100,14 @@ export default async function proxy(request: NextRequest) {
     // Cookie present but unreadable — still show login; BFF/API own validation (do not clear cookies).
   }
 
-  if (isProtectedRoute && !accessToken) {
-    return redirectToLogin(request, pathname);
+  if (isProtectedRoute) {
+    if (!accessToken) {
+      return redirectToLogin(request, pathname);
+    }
+    const role = await roleFromToken(accessToken);
+    if (!role) {
+      return redirectToLogin(request, pathname, { session: 'expired' });
+    }
   }
 
   const response = NextResponse.next();

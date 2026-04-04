@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
@@ -7,6 +8,19 @@ import {
 } from '@/lib/auth-cookie-names';
 
 export { ACCESS_COOKIE, REFRESH_COOKIE, LEGACY_ACCESS_COOKIE };
+
+/** Match Set-Cookie `secure` to the actual request (Vercel sets VERCEL=1; avoid Secure cookies on plain HTTP dev). */
+export function cookieShouldBeSecure(request?: NextRequest): boolean {
+  if (process.env.COOKIE_SECURE === 'false') return false;
+  if (process.env.VERCEL === '1') return true;
+  const proto = request?.headers
+    .get('x-forwarded-proto')
+    ?.split(',')[0]
+    ?.trim()
+    .toLowerCase();
+  if (proto === 'https') return true;
+  return process.env.NODE_ENV === 'production';
+}
 
 function readCookieFromHeader(
   cookieHeader: string | null,
@@ -47,6 +61,34 @@ export function getRefreshTokenFromRequest(request: NextRequest): string | undef
   return readCookieFromHeader(request.headers.get('cookie'), REFRESH_COOKIE);
 }
 
+/** Prefer `cookies()` (App Router) then fall back to raw request parsing. */
+export async function getAccessTokenFromRequestAsync(
+  request: NextRequest,
+): Promise<string | undefined> {
+  try {
+    const jar = await cookies();
+    const fromJar =
+      jar.get(ACCESS_COOKIE)?.value ?? jar.get(LEGACY_ACCESS_COOKIE)?.value;
+    if (fromJar) return fromJar;
+  } catch {
+    // cookies() unavailable outside request scope
+  }
+  return getAccessTokenFromRequest(request);
+}
+
+export async function getRefreshTokenFromRequestAsync(
+  request: NextRequest,
+): Promise<string | undefined> {
+  try {
+    const jar = await cookies();
+    const v = jar.get(REFRESH_COOKIE)?.value;
+    if (v) return v;
+  } catch {
+    // ignore
+  }
+  return getRefreshTokenFromRequest(request);
+}
+
 function decodeJwtPayload(token: string): { exp?: number } | null {
   try {
     const parts = token.split('.');
@@ -72,28 +114,29 @@ export function attachAuthCookies(
   res: NextResponse,
   accessToken: string,
   refreshToken: string,
+  request?: NextRequest,
 ) {
-  const isProd = process.env.NODE_ENV === 'production';
+  const secure = cookieShouldBeSecure(request);
   const accessMax = jwtRemainingSeconds(accessToken);
   res.cookies.set(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
-    secure: isProd,
+    secure,
     maxAge: accessMax,
   });
   res.cookies.set(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
-    secure: isProd,
+    secure,
     maxAge: 60 * 60 * 24 * 90,
   });
 }
 
-export function clearAuthCookies(res: NextResponse) {
-  const isProd = process.env.NODE_ENV === 'production';
-  const empty = { path: '/', maxAge: 0, sameSite: 'lax' as const, secure: isProd };
+export function clearAuthCookies(res: NextResponse, request?: NextRequest) {
+  const secure = cookieShouldBeSecure(request);
+  const empty = { path: '/', maxAge: 0, sameSite: 'lax' as const, secure };
   res.cookies.set(ACCESS_COOKIE, '', empty);
   res.cookies.set(REFRESH_COOKIE, '', empty);
   res.cookies.set(LEGACY_ACCESS_COOKIE, '', empty);

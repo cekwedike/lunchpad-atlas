@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 import { getInternalApiBase } from '@/lib/internal-api-url';
-import { getAccessTokenFromRequest } from '@/lib/auth-bff';
+import { getAccessTokenFromRequestAsync } from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
 
@@ -26,10 +27,22 @@ async function proxyToBackend(
   const url = new URL(request.url);
   const target = `${base}/${path.join('/')}${url.search}`;
 
-  const access = getAccessTokenFromRequest(request);
+  const access = await getAccessTokenFromRequestAsync(request);
   const hadIncomingAuthorization = Boolean(
     request.headers.get('authorization'),
   );
+
+  let bffJwtVerify: 'ok' | 'fail' | 'skip' = 'skip';
+  if (process.env.ATLAS_AUTH_DEBUG === 'true') {
+    if (access && process.env.JWT_SECRET) {
+      try {
+        await jwtVerify(access, new TextEncoder().encode(process.env.JWT_SECRET));
+        bffJwtVerify = 'ok';
+      } catch {
+        bffJwtVerify = 'fail';
+      }
+    }
+  }
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
@@ -61,6 +74,27 @@ async function proxyToBackend(
   outHeaders.delete('content-length');
   outHeaders.delete('transfer-encoding');
 
+  outHeaders.set('x-atlas-proxy-access', access ? 'present' : 'absent');
+  if (process.env.ATLAS_AUTH_DEBUG === 'true') {
+    try {
+      outHeaders.set('x-atlas-api-host', new URL(base).hostname);
+    } catch {
+      outHeaders.set('x-atlas-api-host', 'invalid-base');
+    }
+    outHeaders.set('x-atlas-bff-jwt', bffJwtVerify);
+    if (access) {
+      outHeaders.set('x-atlas-access-len', String(access.length));
+    }
+    outHeaders.set('x-atlas-target-path', path.join('/'));
+  }
+
+  let apiHost = '';
+  try {
+    apiHost = new URL(base).hostname;
+  } catch {
+    apiHost = 'invalid';
+  }
+
   // #region agent log
   fetch('http://127.0.0.1:7701/ingest/e81e2ca9-9269-46ee-8b1d-7417bde9f25b', {
     method: 'POST',
@@ -70,7 +104,7 @@ async function proxyToBackend(
     },
     body: JSON.stringify({
       sessionId: '14ec07',
-      hypothesisId: 'H1-H4',
+      hypothesisId: 'H5-H8',
       location: 'api/proxy/[...path]/route.ts:proxyToBackend',
       message: 'proxy upstream meta',
       data: {
@@ -79,7 +113,10 @@ async function proxyToBackend(
         hadContentEncoding: Boolean(upstream.headers.get('content-encoding')),
         hadContentLength: Boolean(upstream.headers.get('content-length')),
         hasAccessCookie: Boolean(access),
+        accessLen: access?.length ?? 0,
         hadIncomingAuthorization,
+        bffJwtVerify,
+        apiHost,
       },
       timestamp: Date.now(),
     }),

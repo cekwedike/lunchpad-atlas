@@ -40,6 +40,6 @@ export async function POST(request: NextRequest) {
   }
 
   const res = NextResponse.json({ user: data.user });
-  attachAuthCookies(res, data.accessToken, data.refreshToken);
+  attachAuthCookies(res, data.accessToken, data.refreshToken, request);
   return res;
 }

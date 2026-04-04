@@ -2,12 +2,16 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getInternalApiBase } from '@/lib/internal-api-url';
 import { ACCESS_COOKIE } from '@/lib/auth-cookie-names';
-import { getRefreshTokenFromRequest, jwtRemainingSeconds } from '@/lib/auth-bff';
+import {
+  cookieShouldBeSecure,
+  getRefreshTokenFromRequestAsync,
+  jwtRemainingSeconds,
+} from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  const refresh = getRefreshTokenFromRequest(request);
+  const refresh = await getRefreshTokenFromRequestAsync(request);
   if (!refresh) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
@@ -33,13 +37,12 @@ export async function POST(request: NextRequest) {
   }
 
   const accessToken = data.accessToken as string;
-  const isProd = process.env.NODE_ENV === 'production';
   const res = NextResponse.json({ ok: true });
   res.cookies.set(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
-    secure: isProd,
+    secure: cookieShouldBeSecure(request),
     maxAge: jwtRemainingSeconds(accessToken),
   });
   return res;
