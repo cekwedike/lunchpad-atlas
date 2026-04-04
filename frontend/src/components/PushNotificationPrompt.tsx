@@ -2,18 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { env } from '@/lib/env';
+import { usePushVapidConfigured } from '@/hooks/usePushVapidConfigured';
 
 /**
  * Renders a dismissible banner prompting the user to enable push notifications.
  * Only shows when:
  *  - The browser supports push
- *  - VAPID public key is configured
+ *  - API reports a VAPID public key (same source as subscribe)
  *  - Permission is not yet granted or denied
  *  - User has not already dismissed it this session
  */
 export function PushNotificationPrompt() {
   const { state, isSubscribed, isLoading, isSupported, subscribe } = usePushNotifications();
+  const { vapidAvailable, vapidLoading } = usePushVapidConfigured(isSupported);
   const [dismissed, setDismissed] = useState(true); // start hidden, show after mount check
 
   useEffect(() => {
@@ -22,10 +23,11 @@ export function PushNotificationPrompt() {
     if (!wasDismissed) setDismissed(false);
   }, []);
 
-  // Only show when: supported, vapid key set, permission is default, not subscribed, not dismissed
+  // Only show when: supported, server VAPID ready, permission is default, not subscribed, not dismissed
   const shouldShow =
     isSupported &&
-    !!env.vapidPublicKey &&
+    !vapidLoading &&
+    vapidAvailable &&
     state === 'default' &&
     !isSubscribed &&
     !dismissed;

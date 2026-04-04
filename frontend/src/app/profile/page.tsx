@@ -15,8 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { usePushVapidConfigured } from "@/hooks/usePushVapidConfigured";
 import { useUIStore } from "@/stores/uiStore";
-import { env } from "@/lib/env";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
@@ -88,6 +88,7 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
 function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { emailNotifications: boolean; weeklyDigest: boolean }) {
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
   const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribeError, subscribe, unsubscribe } = usePushNotifications();
+  const { vapidAvailable, vapidLoading } = usePushVapidConfigured(isSupported);
   const updateProfile = useUpdateProfile();
   const { user } = useAuthStore();
   const [supportsVibration, setSupportsVibration] = useState(false);
@@ -102,7 +103,8 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
   }, [user?.id]);
 
   const pushDenied = pushState === 'denied';
-  const pushUnsupported = !isSupported || !env.vapidPublicKey;
+  const pushUnsupported =
+    !isSupported || (!vapidLoading && !vapidAvailable);
 
   const handlePushToggle = async (checked: boolean) => {
     if (checked) {
@@ -147,8 +149,10 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900">Push notifications</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {!env.vapidPublicKey
-                  ? 'Not configured — contact your administrator.'
+                {vapidLoading
+                  ? 'Checking push configuration…'
+                  : !vapidAvailable
+                  ? 'Not configured on the server — contact your administrator.'
                   : pushUnsupported
                   ? 'Not supported in this browser or blocked by a browser extension (e.g. Malwarebytes). Whitelist this site to enable.'
                   : pushDenied
@@ -160,7 +164,7 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
           <Switch
             checked={isSubscribed}
             onCheckedChange={handlePushToggle}
-            disabled={pushUnsupported || pushDenied || pushLoading}
+            disabled={pushUnsupported || pushDenied || pushLoading || vapidLoading}
             aria-label="Push notifications"
           />
         </div>

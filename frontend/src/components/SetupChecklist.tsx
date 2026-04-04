@@ -29,12 +29,14 @@ interface ChecklistState {
   dismissed: boolean;
 }
 
-function readState(uid: string): ChecklistState {
+function readState(uid: string, mustChangePassword?: boolean | null): ChecklistState {
   if (typeof window === 'undefined') {
     return { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false };
   }
+  const pwdFromStorage = !!localStorage.getItem(`atlas_setup_pwd_${uid}`);
+  const pwdChanged = mustChangePassword === false || pwdFromStorage;
   return {
-    pwdChanged: !!localStorage.getItem(`atlas_setup_pwd_${uid}`),
+    pwdChanged,
     tourTaken: !!localStorage.getItem(`atlas_tour_completed_${uid}`),
     notifSet: !!localStorage.getItem(`atlas_setup_notif_${uid}`),
     dismissed: !!localStorage.getItem(`atlas_setup_dismissed_${uid}`),
@@ -49,7 +51,9 @@ export function SetupChecklist() {
   const uid = user?.id;
 
   const [state, setState] = useState<ChecklistState>(() =>
-    uid ? readState(uid) : { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false }
+    uid
+      ? readState(uid, user?.mustChangePassword)
+      : { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false },
   );
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -58,15 +62,17 @@ export function SetupChecklist() {
 
   // Re-read from localStorage when uid becomes available (auth store hydration)
   useEffect(() => {
-    if (uid) setState(readState(uid));
-  }, [uid]);
+    if (uid) setState(readState(uid, user?.mustChangePassword));
+  }, [uid, user?.mustChangePassword]);
 
   // Re-read from localStorage when the window regains focus
   useEffect(() => {
-    const refresh = () => { if (uid) setState(readState(uid)); };
+    const refresh = () => {
+      if (uid) setState(readState(uid, user?.mustChangePassword));
+    };
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
-  }, [uid]);
+  }, [uid, user?.mustChangePassword]);
 
   // Auto-dismiss when all items are done.
   // IMPORTANT: this useEffect MUST stay before any early returns to satisfy Rules of Hooks.
@@ -100,7 +106,7 @@ export function SetupChecklist() {
 
   const mark = (key: string) => {
     localStorage.setItem(key, '1');
-    setState(readState(uid));
+    setState(readState(uid, user?.mustChangePassword));
   };
 
   const dismiss = () => {
@@ -150,7 +156,8 @@ export function SetupChecklist() {
       done: state.notifSet,
       icon: Bell,
       title: 'Review notification preferences',
-      description: 'Choose how ATLAS notifies you about quizzes, resources, and updates.',
+      description:
+        'Choose email and in-app preferences; push is optional and only on supported browsers (open Profile to review).',
       action: (
         <Link href="/profile">
           <Button size="sm" variant="outline" className="gap-1 text-xs h-7 shrink-0 whitespace-nowrap">

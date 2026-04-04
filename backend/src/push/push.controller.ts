@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PushService } from './push.service';
@@ -25,13 +26,20 @@ export class PushController {
 
   /** Save (upsert) a push subscription for the authenticated user */
   @Post('subscribe')
-  subscribe(@Request() req: any, @Body() dto: SaveSubscriptionDto) {
-    return this.pushService.saveSubscription(req.user.sub, dto);
+  subscribe(@Request() req: { user?: { id: string } }, @Body() dto: SaveSubscriptionDto) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException();
+    return this.pushService.saveSubscription(userId, dto);
   }
 
   /** Remove a push subscription */
   @Delete('unsubscribe')
-  unsubscribe(@Request() req: any, @Query('endpoint') endpoint: string) {
-    return this.pushService.deleteSubscription(req.user.sub, endpoint);
+  unsubscribe(
+    @Request() req: { user?: { id: string } },
+    @Query('endpoint') endpoint: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException();
+    return this.pushService.deleteSubscription(userId, endpoint);
   }
 }
