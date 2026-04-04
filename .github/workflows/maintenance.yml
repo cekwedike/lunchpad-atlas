@@ -1,0 +1,93 @@
+# Scheduled hygiene: security audit, outdated deps report, quick lint smoke.
+# Runs weekly and on demand (Actions → Maintenance → Run workflow).
+
+name: Maintenance
+
+on:
+  schedule:
+    # Monday 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit-and-report:
+    name: Audit and dependency report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm audit (high or worse)
+        id: audit
+        run: pnpm audit --audit-level=high
+
+      - name: Outdated packages (recursive)
+        id: outdated
+        if: always()
+        run: pnpm outdated -r 2>&1 | tee outdated.txt || true
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Maintenance run"
+            echo ""
+            echo "### Security audit (pnpm audit --audit-level=high)"
+            if [ "${{ steps.audit.outcome }}" = "success" ]; then
+              echo "✅ Audit step completed without failing the job threshold."
+            else
+              echo "⚠️ Audit failed — fix vulnerabilities or adjust policy. Workflow is marked failed."
+            fi
+            echo ""
+            echo "### Outdated dependencies"
+            echo '```'
+            if [ -f outdated.txt ]; then
+              head -n 200 outdated.txt
+            else
+              echo "(no output)"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  lint-smoke:
+    name: Lint (workspace)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Backend lint
+        run: pnpm --filter backend run lint
+
+      - name: Frontend lint
+        run: pnpm --filter frontend run lint

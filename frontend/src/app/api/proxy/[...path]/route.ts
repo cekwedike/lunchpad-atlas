@@ -56,6 +56,34 @@ async function proxyToBackend(
 
   const outHeaders = new Headers(upstream.headers);
   outHeaders.delete('set-cookie');
+  // Node fetch may transparently decompress the body while upstream still sent Content-Encoding.
+  // Forwarding those headers causes browsers to fail with net::ERR_CONTENT_DECODING_FAILED.
+  outHeaders.delete('content-encoding');
+  outHeaders.delete('content-length');
+  outHeaders.delete('transfer-encoding');
+
+  // #region agent log
+  fetch('http://127.0.0.1:7701/ingest/e81e2ca9-9269-46ee-8b1d-7417bde9f25b', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '14ec07',
+    },
+    body: JSON.stringify({
+      sessionId: '14ec07',
+      hypothesisId: 'H1',
+      location: 'api/proxy/[...path]/route.ts:proxyToBackend',
+      message: 'upstream response meta (encoding strip applied)',
+      data: {
+        path: path.join('/'),
+        upstreamStatus: upstream.status,
+        hadContentEncoding: Boolean(upstream.headers.get('content-encoding')),
+        hadContentLength: Boolean(upstream.headers.get('content-length')),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   return new NextResponse(upstream.body, {
     status: upstream.status,
