@@ -31,6 +31,9 @@ export class UsersService {
         isSuspended: true,
         suspensionReason: true,
         mustChangePassword: true,
+        onboardingChecklistDismissed: true,
+        onboardingTourCompleted: true,
+        onboardingNotifReviewed: true,
         cohort: {
           select: { id: true, name: true },
         },
@@ -62,6 +65,15 @@ export class UsersService {
     if (dto.emailNotifications !== undefined) {
       updateData.emailNotifications = dto.emailNotifications;
     }
+    if (dto.onboardingChecklistDismissed !== undefined) {
+      updateData.onboardingChecklistDismissed = dto.onboardingChecklistDismissed;
+    }
+    if (dto.onboardingTourCompleted !== undefined) {
+      updateData.onboardingTourCompleted = dto.onboardingTourCompleted;
+    }
+    if (dto.onboardingNotifReviewed !== undefined) {
+      updateData.onboardingNotifReviewed = dto.onboardingNotifReviewed;
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -73,6 +85,10 @@ export class UsersService {
         lastName: true,
         role: true,
         emailNotifications: true,
+        mustChangePassword: true,
+        onboardingChecklistDismissed: true,
+        onboardingTourCompleted: true,
+        onboardingNotifReviewed: true,
       },
     });
 

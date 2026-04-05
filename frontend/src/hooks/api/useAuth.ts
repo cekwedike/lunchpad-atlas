@@ -92,7 +92,8 @@ export function useUpdateProfile() {
       return apiClient.put<User>('/users/me', data);
     },
     onSuccess: (data) => {
-      setUser(data);
+      const prev = useAuthStore.getState().user;
+      setUser(prev && data ? { ...prev, ...data } : data);
       queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success('Profile updated', 'Your changes have been saved');
     },

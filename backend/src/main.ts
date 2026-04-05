@@ -7,7 +7,43 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
+/** Same defaults as `backend/.env.example` (docker-compose Postgres on host port 5433). */
+const DEV_DATABASE_URL =
+  'postgresql://postgres:postgres@localhost:5433/atlas';
+
+/** Lets `pnpm --filter backend run start:dev` work before you copy `.env.example` → `.env`. Never used in production. */
+function applyLocalDevEnvDefaultsIfMissing() {
+  if (process.env.NODE_ENV === 'production') return;
+  if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET =
+      'dev-only-atlas-jwt-secret-do-not-use-in-production-min-length';
+    console.warn(
+      '[ATLAS] JWT_SECRET was unset — using a development default. Create backend/.env from .env.example for a proper setup.',
+    );
+  }
+  if (!process.env.JWT_REFRESH_SECRET) {
+    process.env.JWT_REFRESH_SECRET =
+      'dev-only-atlas-refresh-secret-do-not-use-in-production-xx';
+    console.warn(
+      '[ATLAS] JWT_REFRESH_SECRET was unset — using a development default.',
+    );
+  }
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = DEV_DATABASE_URL;
+    console.warn(
+      '[ATLAS] DATABASE_URL was unset — using development default (localhost:5433/atlas). Start Postgres (e.g. docker compose) or set backend/.env.',
+    );
+  }
+  if (!process.env.DIRECT_URL) {
+    process.env.DIRECT_URL = process.env.DATABASE_URL;
+    console.warn(
+      '[ATLAS] DIRECT_URL was unset — defaulting to DATABASE_URL (fine for local Postgres).',
+    );
+  }
+}
+
 async function bootstrap() {
+  applyLocalDevEnvDefaultsIfMissing();
   const app = await NestFactory.create(AppModule);
 
   const isProduction = process.env.NODE_ENV === 'production';

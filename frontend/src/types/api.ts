@@ -67,6 +67,10 @@ export interface User {
   suspensionReason?: string | null;
   mustChangePassword?: boolean;
   guestAccessExpiresAt?: string | null;
+  /** Server-persisted getting started checklist (survives clearing site data) */
+  onboardingChecklistDismissed?: boolean;
+  onboardingTourCompleted?: boolean;
+  onboardingNotifReviewed?: boolean;
 }
 
 export interface Cohort {

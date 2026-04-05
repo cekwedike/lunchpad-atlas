@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Circle, X, KeyRound, Compass, Bell, ChevronRight } from 'lucide-react';
 import { safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/safe-local-storage';
+import { apiClient } from '@/lib/api-client';
+import type { User } from '@/types/api';
 
 // ─── localStorage key helpers ──────────────────────────────────────────────────
 // Onboarding checklist item 1 (password-change step acknowledged). Not a credential — avoid
@@ -29,8 +31,18 @@ export function markPasswordChanged(userId: string) {
   safeSetItem(checklistItem1Key(userId), '1');
 }
 
+/** Marks notification prefs reviewed locally and persists on the server (survives cache clear). */
 export function markNotifPrefsSet(userId: string) {
   safeSetItem(`atlas_setup_notif_${userId}`, '1');
+  void apiClient
+    .put<Partial<User>>('/users/me', { onboardingNotifReviewed: true })
+    .then((partial) => {
+      const prev = useAuthStore.getState().user;
+      if (prev?.id === userId) {
+        useAuthStore.getState().setUser({ ...prev, ...partial });
+      }
+    })
+    .catch(() => {});
 }
 
 interface ChecklistState {
@@ -41,7 +53,11 @@ interface ChecklistState {
   pwdFromStorage: boolean;
 }
 
-function readState(uid: string, mustChangePassword?: boolean | null): ChecklistState {
+function readState(
+  uid: string,
+  apiUser: User | null | undefined,
+  mustChangePassword?: boolean | null,
+): ChecklistState {
   if (typeof window === 'undefined') {
     return { pwdChanged: false, tourTaken: false, notifSet: false, dismissed: false, pwdFromStorage: false };
   }
@@ -59,10 +75,23 @@ function readState(uid: string, mustChangePassword?: boolean | null): ChecklistS
   return {
     pwdChanged,
     pwdFromStorage,
-    tourTaken: !!safeGetItem(`atlas_tour_completed_${uid}`),
-    notifSet: !!safeGetItem(`atlas_setup_notif_${uid}`),
-    dismissed: !!safeGetItem(`atlas_setup_dismissed_${uid}`),
+    tourTaken:
+      apiUser?.onboardingTourCompleted === true ||
+      !!safeGetItem(`atlas_tour_completed_${uid}`),
+    notifSet:
+      apiUser?.onboardingNotifReviewed === true ||
+      !!safeGetItem(`atlas_setup_notif_${uid}`),
+    dismissed:
+      apiUser?.onboardingChecklistDismissed === true ||
+      !!safeGetItem(`atlas_setup_dismissed_${uid}`),
   };
+}
+
+function mergeProfilePatch(patch: Partial<User>) {
+  return apiClient.put<Partial<User>>('/users/me', patch).then((partial) => {
+    const prev = useAuthStore.getState().user;
+    if (prev) useAuthStore.getState().setUser({ ...prev, ...partial });
+  });
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -74,7 +103,7 @@ export function SetupChecklist() {
 
   const [state, setState] = useState<ChecklistState>(() =>
     uid
-      ? readState(uid, user?.mustChangePassword)
+      ? readState(uid, user, user?.mustChangePassword)
       : {
           pwdChanged: false,
           tourTaken: false,
@@ -90,17 +119,26 @@ export function SetupChecklist() {
 
   // Re-read from localStorage when uid becomes available (auth store hydration)
   useEffect(() => {
-    if (uid) setState(readState(uid, user?.mustChangePassword));
-  }, [uid, user?.mustChangePassword]);
+    if (uid) {
+      setState(readState(uid, user, user?.mustChangePassword));
+    }
+  }, [
+    uid,
+    user,
+    user?.mustChangePassword,
+    user?.onboardingChecklistDismissed,
+    user?.onboardingTourCompleted,
+    user?.onboardingNotifReviewed,
+  ]);
 
   // Re-read from localStorage when the window regains focus
   useEffect(() => {
     const refresh = () => {
-      if (uid) setState(readState(uid, user?.mustChangePassword));
+      if (uid) setState(readState(uid, user, user?.mustChangePassword));
     };
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
-  }, [uid, user?.mustChangePassword]);
+  }, [uid, user, user?.mustChangePassword]);
 
   // Auto-dismiss when all items are done.
   // IMPORTANT: this useEffect MUST stay before any early returns to satisfy Rules of Hooks.
@@ -111,6 +149,7 @@ export function SetupChecklist() {
     const t = setTimeout(() => {
       safeSetItem(`atlas_setup_dismissed_${uid}`, '1');
       setState(prev => ({ ...prev, dismissed: true }));
+      void mergeProfilePatch({ onboardingChecklistDismissed: true });
     }, 2500);
     return () => clearTimeout(t);
   }, [allDone, state.dismissed, uid]);
@@ -142,24 +181,52 @@ export function SetupChecklist() {
     } else {
       safeSetItem(pwdKey, '1');
     }
-    setState(readState(uid, user?.mustChangePassword));
+    setState(readState(uid, user, user?.mustChangePassword));
+  };
+
+  const refreshFromStore = () => {
+    const u = useAuthStore.getState().user;
+    if (uid) setState(readState(uid, u, u?.mustChangePassword));
   };
 
   const toggleTour = () => {
-    if (state.tourTaken) safeRemoveItem(tourKey);
-    else safeSetItem(tourKey, '1');
-    setState(readState(uid, user?.mustChangePassword));
+    if (state.tourTaken) {
+      safeRemoveItem(tourKey);
+      void mergeProfilePatch({ onboardingTourCompleted: false }).then(refreshFromStore);
+    } else {
+      safeSetItem(tourKey, '1');
+      setState(
+        readState(
+          uid,
+          user ? { ...user, onboardingTourCompleted: true } : user,
+          user?.mustChangePassword,
+        ),
+      );
+      void mergeProfilePatch({ onboardingTourCompleted: true }).then(refreshFromStore);
+    }
   };
 
   const toggleNotif = () => {
-    if (state.notifSet) safeRemoveItem(notifKey);
-    else safeSetItem(notifKey, '1');
-    setState(readState(uid, user?.mustChangePassword));
+    if (state.notifSet) {
+      safeRemoveItem(notifKey);
+      void mergeProfilePatch({ onboardingNotifReviewed: false }).then(refreshFromStore);
+    } else {
+      safeSetItem(notifKey, '1');
+      setState(
+        readState(
+          uid,
+          user ? { ...user, onboardingNotifReviewed: true } : user,
+          user?.mustChangePassword,
+        ),
+      );
+      void mergeProfilePatch({ onboardingNotifReviewed: true }).then(refreshFromStore);
+    }
   };
 
   const dismiss = () => {
     safeSetItem(`atlas_setup_dismissed_${uid}`, '1');
     setState(prev => ({ ...prev, dismissed: true }));
+    void mergeProfilePatch({ onboardingChecklistDismissed: true });
   };
 
   const pwdToggleDisabled =

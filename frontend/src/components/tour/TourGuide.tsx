@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { safeGetItem, safeSetItem } from '@/lib/safe-local-storage';
+import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { UserRole } from '@/types/api';
+import type { User as AppUser } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -446,11 +448,13 @@ export function TourGuide() {
   useEffect(() => {
     if (!user?.id || tourOpen) return;
     const key = tourStorageKey(user.id);
-    if (!safeGetItem(key)) {
+    const completed =
+      user.onboardingTourCompleted === true || !!safeGetItem(key);
+    if (!completed) {
       const t = setTimeout(() => startTour(), 800);
       return () => clearTimeout(t);
     }
-  }, [user?.id, tourOpen, startTour]);
+  }, [user?.id, user?.onboardingTourCompleted, tourOpen, startTour]);
 
   const close = () => {
     setClosing(true);
@@ -459,6 +463,15 @@ export function TourGuide() {
       setClosing(false);
       if (user?.id) {
         safeSetItem(tourStorageKey(user.id), '1');
+        void apiClient
+          .put<Partial<AppUser>>('/users/me', { onboardingTourCompleted: true })
+          .then((partial) => {
+            const prev = useAuthStore.getState().user;
+            if (prev?.id === user.id) {
+              useAuthStore.getState().setUser({ ...prev, ...partial });
+            }
+          })
+          .catch(() => {});
       }
     }, 200);
   };

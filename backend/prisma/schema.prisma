@@ -89,6 +89,10 @@ model User {
   isSuspended        Boolean   @default(false) // Account suspended by admin
   isFlagged          Boolean   @default(false) // Flagged for suspicious activity review
   mustChangePassword Boolean   @default(false) // Force password change on next login (set by admin)
+  // Getting started checklist (survives clearing browser site data; localStorage is only a cache)
+  onboardingChecklistDismissed Boolean @default(false)
+  onboardingTourCompleted      Boolean @default(false)
+  onboardingNotifReviewed      Boolean @default(false)
   guestAccessExpiresAt DateTime? // Access window end for GUEST_FACILITATOR (8 days after last session)
   suspendedAt        DateTime? // When the account was suspended
   suspensionReason   String?   // Admin note for suspension reason

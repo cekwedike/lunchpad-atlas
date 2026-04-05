@@ -17,6 +17,18 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   emailNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  onboardingChecklistDismissed?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  onboardingTourCompleted?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  onboardingNotifReviewed?: boolean;
 }
 
 export class ChangePasswordDto {
