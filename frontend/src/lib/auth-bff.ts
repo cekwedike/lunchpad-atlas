@@ -6,6 +6,7 @@ import {
   REFRESH_COOKIE,
   LEGACY_ACCESS_COOKIE,
 } from '@/lib/auth-cookie-names';
+import { readCookieFromHeader } from '@/lib/parse-cookie-header';
 
 export { ACCESS_COOKIE, REFRESH_COOKIE, LEGACY_ACCESS_COOKIE };
 
@@ -20,26 +21,6 @@ export function cookieShouldBeSecure(request?: NextRequest): boolean {
     .toLowerCase();
   if (proto === 'https') return true;
   return process.env.NODE_ENV === 'production';
-}
-
-function readCookieFromHeader(
-  cookieHeader: string | null,
-  name: string,
-): string | undefined {
-  if (!cookieHeader) return undefined;
-  for (const part of cookieHeader.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx === -1) continue;
-    const k = part.slice(0, idx).trim();
-    if (k !== name) continue;
-    const v = part.slice(idx + 1).trim();
-    try {
-      return decodeURIComponent(v);
-    } catch {
-      return v;
-    }
-  }
-  return undefined;
 }
 
 /**

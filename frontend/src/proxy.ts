@@ -3,8 +3,10 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import {
   ACCESS_COOKIE,
+  REFRESH_COOKIE,
   LEGACY_ACCESS_COOKIE,
 } from '@/lib/auth-cookie-names';
+import { readCookieFromHeader } from '@/lib/parse-cookie-header';
 
 const protectedRoutes = [
   '/dashboard',
@@ -79,11 +81,27 @@ function redirectToLogin(
   return response;
 }
 
+function hasRefreshCookie(request: NextRequest): boolean {
+  const raw = request.headers.get('cookie');
+  const fromHeader = readCookieFromHeader(raw, REFRESH_COOKIE)?.trim();
+  const fromJar = request.cookies.get(REFRESH_COOKIE)?.value?.trim();
+  return Boolean(fromHeader || fromJar);
+}
+
+function passThrough() {
+  const response = NextResponse.next();
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
+}
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const accessToken =
+  const accessToken = (
     request.cookies.get(ACCESS_COOKIE)?.value ??
-    request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
+    request.cookies.get(LEGACY_ACCESS_COOKIE)?.value ??
+    readCookieFromHeader(request.headers.get('cookie'), ACCESS_COOKIE) ??
+    readCookieFromHeader(request.headers.get('cookie'), LEGACY_ACCESS_COOKIE)
+  )?.trim();
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
@@ -101,18 +119,21 @@ export default async function proxy(request: NextRequest) {
   }
 
   if (isProtectedRoute) {
+    const canRefresh = hasRefreshCookie(request);
+    // Access JWT is short-lived (~JWT_EXPIRATION). If it is missing/expired but the user
+    // still has a refresh cookie, let the page load so the client can POST /api/auth/refresh.
     if (!accessToken) {
+      if (canRefresh) return passThrough();
       return redirectToLogin(request, pathname);
     }
     const role = await roleFromToken(accessToken);
     if (!role) {
+      if (canRefresh) return passThrough();
       return redirectToLogin(request, pathname, { session: 'expired' });
     }
   }
 
-  const response = NextResponse.next();
-  response.headers.set('Cache-Control', 'no-store');
-  return response;
+  return passThrough();
 }
 
 export const config = {
