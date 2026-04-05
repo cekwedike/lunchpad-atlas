@@ -83,6 +83,8 @@ export class AuthResponseDto {
 }
 
 export class RefreshTokenDto {
+  /** Optional when refresh token is sent via `at_refresh` HttpOnly cookie (BFF forwards Cookie). */
+  @IsOptional()
   @IsString()
-  refreshToken: string;
+  refreshToken?: string;
 }

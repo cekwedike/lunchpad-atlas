@@ -16,9 +16,16 @@ const NO_STORE = {
   Vary: 'Cookie',
 } as const;
 
+function cookieHasRefreshName(cookieHeader: string | null): boolean {
+  if (!cookieHeader) return false;
+  return cookieHeader.split(';').some((p) => p.trim().startsWith('at_refresh='));
+}
+
 export async function POST(request: NextRequest) {
   const refresh = await getRefreshTokenFromRequestAsync(request);
-  if (!refresh) {
+  const inboundCookie = request.headers.get('cookie');
+
+  if (!refresh && !cookieHasRefreshName(inboundCookie)) {
     return NextResponse.json(
       { message: 'Unauthorized' },
       {
@@ -31,8 +38,11 @@ export async function POST(request: NextRequest) {
   const base = getInternalApiBase();
   const upstream = await fetch(`${base}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: refresh }),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(inboundCookie ? { Cookie: inboundCookie } : {}),
+    },
+    body: JSON.stringify(refresh ? { refreshToken: refresh } : {}),
     cache: 'no-store',
   });
 

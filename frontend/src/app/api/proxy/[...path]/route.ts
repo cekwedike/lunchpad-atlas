@@ -79,8 +79,9 @@ async function proxyToBackend(
   const headers = new Headers();
   request.headers.forEach((value, key) => {
     const k = key.toLowerCase();
-    // Never forward browser Authorization — we only trust HttpOnly cookies turned into Bearer here.
-    if (SKIP_HEADERS.has(k) || k === 'cookie' || k === 'authorization') return;
+    // Never forward browser Authorization — we set Bearer from HttpOnly cookies below.
+    // Forward `Cookie` so Nest `cookieBearerBridgeMiddleware` can read `at_access` if needed.
+    if (SKIP_HEADERS.has(k) || k === 'authorization') return;
     headers.set(key, value);
   });
 

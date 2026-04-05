@@ -5,7 +5,10 @@ import {
   Get,
   UseGuards,
   Request,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -20,6 +23,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { readRefreshTokenFromCookieHeader } from '../common/cookie-auth.util';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -67,8 +71,17 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   @ApiResponse({ status: 200, description: 'New access token issued' })
   @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
-  refreshToken(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshToken(dto.refreshToken);
+  refreshToken(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const fromBody = dto.refreshToken?.trim();
+    const fromCookie = readRefreshTokenFromCookieHeader(req.headers.cookie);
+    const token = fromBody || fromCookie;
+    if (!token) {
+      throw new UnauthorizedException('Refresh token required');
+    }
+    return this.authService.refreshToken(token);
   }
 
   @Get('me')

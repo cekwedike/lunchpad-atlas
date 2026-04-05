@@ -6,6 +6,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { cookieBearerBridgeMiddleware } from './common/middleware/cookie-bearer.middleware';
 
 /** Same defaults as `backend/.env.example` (docker-compose Postgres on host port 5433). */
 const DEV_DATABASE_URL =
@@ -45,6 +46,9 @@ function applyLocalDevEnvDefaultsIfMissing() {
 async function bootstrap() {
   applyLocalDevEnvDefaultsIfMissing();
   const app = await NestFactory.create(AppModule);
+
+  // Let Passport JWT accept tokens from BFF-proxied `Cookie` when `Authorization` is missing.
+  app.use(cookieBearerBridgeMiddleware);
 
   const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction && !process.env.JWT_REFRESH_SECRET) {
