@@ -61,32 +61,39 @@ export function getRefreshTokenFromRequest(request: NextRequest): string | undef
   return readCookieFromHeader(request.headers.get('cookie'), REFRESH_COOKIE);
 }
 
-/** Prefer `cookies()` (App Router) then fall back to raw request parsing. */
+/**
+ * Prefer the incoming `NextRequest` cookie jar first. In some App Router + Vercel
+ * setups, `cookies()` from `next/headers` can be empty in route handlers even when
+ * the browser sent `Cookie` — which breaks the BFF (no `Authorization` → 401).
+ */
 export async function getAccessTokenFromRequestAsync(
   request: NextRequest,
 ): Promise<string | undefined> {
+  const fromRequest = getAccessTokenFromRequest(request);
+  if (fromRequest) return fromRequest;
   try {
     const jar = await cookies();
-    const fromJar =
-      jar.get(ACCESS_COOKIE)?.value ?? jar.get(LEGACY_ACCESS_COOKIE)?.value;
-    if (fromJar) return fromJar;
+    return (
+      jar.get(ACCESS_COOKIE)?.value ??
+      jar.get(LEGACY_ACCESS_COOKIE)?.value ??
+      undefined
+    );
   } catch {
-    // cookies() unavailable outside request scope
+    return undefined;
   }
-  return getAccessTokenFromRequest(request);
 }
 
 export async function getRefreshTokenFromRequestAsync(
   request: NextRequest,
 ): Promise<string | undefined> {
+  const fromRequest = getRefreshTokenFromRequest(request);
+  if (fromRequest) return fromRequest;
   try {
     const jar = await cookies();
-    const v = jar.get(REFRESH_COOKIE)?.value;
-    if (v) return v;
+    return jar.get(REFRESH_COOKIE)?.value ?? undefined;
   } catch {
-    // ignore
+    return undefined;
   }
-  return getRefreshTokenFromRequest(request);
 }
 
 function decodeJwtPayload(token: string): { exp?: number } | null {
