@@ -13,6 +13,15 @@ const SKIP_HEADERS = new Set([
   'transfer-encoding',
 ]);
 
+function isLoopbackApiBase(base: string): boolean {
+  try {
+    const host = new URL(base).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
 async function proxyToBackend(
   request: NextRequest,
   ctx: { params: Promise<{ path: string[] }> },
@@ -26,6 +35,19 @@ async function proxyToBackend(
   const base = getInternalApiBase();
   const url = new URL(request.url);
   const target = `${base}/${path.join('/')}${url.search}`;
+
+  const deployIsRemote =
+    process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+  if (deployIsRemote && isLoopbackApiBase(base)) {
+    return NextResponse.json(
+      {
+        statusCode: 503,
+        message: 'API base URL is not configured for this deployment',
+        hint: 'Set INTERNAL_API_URL on Vercel to your backend base including /api/v1 (e.g. https://your-service.onrender.com/api/v1). See DEPLOYMENT.md.',
+      },
+      { status: 503 },
+    );
+  }
 
   const access = await getAccessTokenFromRequestAsync(request);
   const hadIncomingAuthorization = Boolean(
@@ -59,12 +81,24 @@ async function proxyToBackend(
   const hasBody = !['GET', 'HEAD'].includes(method);
   const body = hasBody ? await request.arrayBuffer() : undefined;
 
-  const upstream = await fetch(target, {
-    method,
-    headers,
-    body: body && body.byteLength > 0 ? body : undefined,
-    cache: 'no-store',
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, {
+      method,
+      headers,
+      body: body && body.byteLength > 0 ? body : undefined,
+      cache: 'no-store',
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        statusCode: 502,
+        message: 'Upstream API unreachable',
+        hint: 'Confirm the backend is running and INTERNAL_API_URL points to it. Render free tier sleeps until the first request.',
+      },
+      { status: 502 },
+    );
+  }
 
   const outHeaders = new Headers(upstream.headers);
   outHeaders.delete('set-cookie');
@@ -95,33 +129,35 @@ async function proxyToBackend(
     apiHost = 'invalid';
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7701/ingest/e81e2ca9-9269-46ee-8b1d-7417bde9f25b', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '14ec07',
-    },
-    body: JSON.stringify({
-      sessionId: '14ec07',
-      hypothesisId: 'H5-H8',
-      location: 'api/proxy/[...path]/route.ts:proxyToBackend',
-      message: 'proxy upstream meta',
-      data: {
-        path: path.join('/'),
-        upstreamStatus: upstream.status,
-        hadContentEncoding: Boolean(upstream.headers.get('content-encoding')),
-        hadContentLength: Boolean(upstream.headers.get('content-length')),
-        hasAccessCookie: Boolean(access),
-        accessLen: access?.length ?? 0,
-        hadIncomingAuthorization,
-        bffJwtVerify,
-        apiHost,
+  if (process.env.ATLAS_AUTH_DEBUG === 'true') {
+    // #region agent log
+    fetch('http://127.0.0.1:7701/ingest/e81e2ca9-9269-46ee-8b1d-7417bde9f25b', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '14ec07',
       },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
+      body: JSON.stringify({
+        sessionId: '14ec07',
+        hypothesisId: 'H5-H8',
+        location: 'api/proxy/[...path]/route.ts:proxyToBackend',
+        message: 'proxy upstream meta',
+        data: {
+          path: path.join('/'),
+          upstreamStatus: upstream.status,
+          hadContentEncoding: Boolean(upstream.headers.get('content-encoding')),
+          hadContentLength: Boolean(upstream.headers.get('content-length')),
+          hasAccessCookie: Boolean(access),
+          accessLen: access?.length ?? 0,
+          hadIncomingAuthorization,
+          bffJwtVerify,
+          apiHost,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  }
 
   return new NextResponse(upstream.body, {
     status: upstream.status,
