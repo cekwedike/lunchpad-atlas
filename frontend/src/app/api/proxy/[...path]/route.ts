@@ -5,6 +5,13 @@ import { getInternalApiBase } from '@/lib/internal-api-url';
 import { getAccessTokenFromRequestAsync } from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
+/** Avoid edge/CDN serving one cached 401/200 for all users (must vary by session cookie). */
+export const dynamic = 'force-dynamic';
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+  Vary: 'Cookie',
+} as const;
 
 const SKIP_HEADERS = new Set([
   'connection',
@@ -29,7 +36,10 @@ async function proxyToBackend(
 ) {
   const { path } = await ctx.params;
   if (!path?.length) {
-    return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    return NextResponse.json(
+      { message: 'Not found' },
+      { status: 404, headers: NO_STORE_HEADERS },
+    );
   }
 
   const base = getInternalApiBase();
@@ -45,7 +55,7 @@ async function proxyToBackend(
         message: 'API base URL is not configured for this deployment',
         hint: 'Set INTERNAL_API_URL on Vercel to your backend base including /api/v1 (e.g. https://your-service.onrender.com/api/v1). See DEPLOYMENT.md.',
       },
-      { status: 503 },
+      { status: 503, headers: NO_STORE_HEADERS },
     );
   }
 
@@ -96,7 +106,7 @@ async function proxyToBackend(
         message: 'Upstream API unreachable',
         hint: 'Confirm the backend is running and INTERNAL_API_URL points to it. Render free tier sleeps until the first request.',
       },
-      { status: 502 },
+      { status: 502, headers: NO_STORE_HEADERS },
     );
   }
 
@@ -107,6 +117,9 @@ async function proxyToBackend(
   outHeaders.delete('content-encoding');
   outHeaders.delete('content-length');
   outHeaders.delete('transfer-encoding');
+
+  outHeaders.set('Cache-Control', NO_STORE_HEADERS['Cache-Control']);
+  outHeaders.set('Vary', 'Cookie');
 
   outHeaders.set('x-atlas-proxy-access', access ? 'present' : 'absent');
   if (process.env.ATLAS_AUTH_DEBUG === 'true') {

@@ -42,23 +42,27 @@ function readCookieFromHeader(
   return undefined;
 }
 
-/** Prefer parsed cookies; fall back to raw Cookie header (some runtimes differ). */
+/**
+ * Raw `Cookie` header first: some Vercel/Next runtimes expose an incomplete parsed jar
+ * on `NextRequest.cookies` while the header still contains `at_access` / `at_refresh`.
+ */
 export function getAccessTokenFromRequest(request: NextRequest): string | undefined {
+  const raw = request.headers.get('cookie');
+  const fromHeader =
+    readCookieFromHeader(raw, ACCESS_COOKIE) ??
+    readCookieFromHeader(raw, LEGACY_ACCESS_COOKIE);
+  if (fromHeader) return fromHeader.trim();
   const parsed =
     request.cookies.get(ACCESS_COOKIE)?.value ??
     request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
-  if (parsed) return parsed;
-  const raw = request.headers.get('cookie');
-  return (
-    readCookieFromHeader(raw, ACCESS_COOKIE) ??
-    readCookieFromHeader(raw, LEGACY_ACCESS_COOKIE)
-  );
+  return parsed?.trim();
 }
 
 export function getRefreshTokenFromRequest(request: NextRequest): string | undefined {
-  const parsed = request.cookies.get(REFRESH_COOKIE)?.value;
-  if (parsed) return parsed;
-  return readCookieFromHeader(request.headers.get('cookie'), REFRESH_COOKIE);
+  const raw = request.headers.get('cookie');
+  const fromHeader = readCookieFromHeader(raw, REFRESH_COOKIE);
+  if (fromHeader) return fromHeader.trim();
+  return request.cookies.get(REFRESH_COOKIE)?.value?.trim();
 }
 
 /**

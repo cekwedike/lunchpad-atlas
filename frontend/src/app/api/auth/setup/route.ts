@@ -4,6 +4,7 @@ import { getInternalApiBase } from '@/lib/internal-api-url';
 import { attachAuthCookies } from '@/lib/auth-bff';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const base = getInternalApiBase();
