@@ -102,6 +102,11 @@ export function jwtRemainingSeconds(token: string): number {
   return Math.max(60, payload.exp - Math.floor(Date.now() / 1000));
 }
 
+/** `none` + `Secure` helps browsers attach cookies reliably on full reloads (e.g. Vercel + PWA). */
+export function authCookieSameSite(secure: boolean): 'none' | 'lax' {
+  return secure ? 'none' : 'lax';
+}
+
 export function attachAuthCookies(
   res: NextResponse,
   accessToken: string,
@@ -109,18 +114,19 @@ export function attachAuthCookies(
   request?: NextRequest,
 ) {
   const secure = cookieShouldBeSecure(request);
+  const sameSite = authCookieSameSite(secure);
   const accessMax = jwtRemainingSeconds(accessToken);
   res.cookies.set(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
     path: '/',
-    sameSite: 'lax',
+    sameSite,
     secure,
     maxAge: accessMax,
   });
   res.cookies.set(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
     path: '/',
-    sameSite: 'lax',
+    sameSite,
     secure,
     maxAge: 60 * 60 * 24 * 90,
   });
@@ -128,7 +134,8 @@ export function attachAuthCookies(
 
 export function clearAuthCookies(res: NextResponse, request?: NextRequest) {
   const secure = cookieShouldBeSecure(request);
-  const empty = { path: '/', maxAge: 0, sameSite: 'lax' as const, secure };
+  const sameSite = authCookieSameSite(secure);
+  const empty = { path: '/', maxAge: 0, sameSite, secure };
   res.cookies.set(ACCESS_COOKIE, '', empty);
   res.cookies.set(REFRESH_COOKIE, '', empty);
   res.cookies.set(LEGACY_ACCESS_COOKIE, '', empty);

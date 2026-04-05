@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useAuthSessionReady } from '@/hooks/useAuthSessionReady';
 import { toast } from 'sonner';
 import { Resource, ResourceType } from '@/types/api';
 
@@ -80,17 +81,21 @@ export interface PlatformMetrics {
 
 // Get audit logs
 export function useAuditLogs(page: number = 1, limit: number = 50) {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['audit-logs', page, limit],
     queryFn: () => 
       apiClient.get<AuditLogsResponse>(`/admin/audit-logs?page=${page}&limit=${limit}`),
+    enabled: sessionReady,
   });
 }
 
 export function useAdminMetrics() {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['admin-metrics'],
     queryFn: () => apiClient.get<PlatformMetrics>('/admin/metrics'),
+    enabled: sessionReady,
   });
 }
 
@@ -136,13 +141,14 @@ export function useUpdateSession() {
 
 // Get cohorts (for admin view)
 export function useCohorts(enabled = true) {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['cohorts'],
     queryFn: async () => {
       const data = await apiClient.get('/cohorts');
       return Array.isArray(data) ? data : [];
     },
-    enabled,
+    enabled: enabled && sessionReady,
   });
 }
 
@@ -211,6 +217,7 @@ export function useAdminUsers(
   filters?: { role?: string; cohortId?: string; search?: string },
   options?: { enabled?: boolean },
 ) {
+  const sessionReady = useAuthSessionReady();
   const params = new URLSearchParams();
   if (filters?.role) params.append('role', filters.role);
   if (filters?.cohortId) params.append('cohortId', filters.cohortId);
@@ -225,19 +232,20 @@ export function useAdminUsers(
       console.log('Admin users API response:', response);
       return response;
     },
-    enabled: options?.enabled ?? true,
+    enabled: sessionReady && (options?.enabled ?? true),
   });
 }
 
 // Get sessions for a cohort
 export function useSessions(cohortId?: string) {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['sessions', cohortId],
     queryFn: async () => {
       const data = await apiClient.get(`/sessions?cohortId=${cohortId}`);
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!cohortId,
+    enabled: !!cohortId && sessionReady,
   });
 }
 
@@ -267,10 +275,11 @@ export function useCreateSession() {
 
 // Get attendance for a session
 export function useSessionAttendance(sessionId?: string) {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['session-attendance', sessionId],
     queryFn: () => apiClient.get<any>(`/admin/sessions/${sessionId}/attendance`),
-    enabled: !!sessionId,
+    enabled: !!sessionId && sessionReady,
   });
 }
 
@@ -544,19 +553,22 @@ export function useAdminResources(filters?: {
   if (filters?.cohortId) params.append('cohortId', filters.cohortId);
 
   const queryString = params.toString();
+  const sessionReady = useAuthSessionReady();
 
   return useQuery({
     queryKey: ['admin-resources', filters],
     queryFn: () => apiClient.get(`/admin/resources${queryString ? `?${queryString}` : ''}`),
+    enabled: sessionReady,
   });
 }
 
 // Get resources by session ID
 export function useResourcesBySession(sessionId?: string) {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['session-resources', sessionId],
     queryFn: () => apiClient.get(`/admin/sessions/${sessionId}/resources`),
-    enabled: !!sessionId,
+    enabled: !!sessionId && sessionReady,
   });
 }
 
@@ -627,23 +639,25 @@ export function useDeleteResource() {
 }
 
 export function useCohortMembers(cohortId?: string) {
+  const sessionReady = useAuthSessionReady();
   return useQuery({
     queryKey: ['cohort-members', cohortId],
     queryFn: async () => {
       const data = await apiClient.get<any[]>(`/admin/cohorts/${cohortId}/members`);
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!cohortId,
+    enabled: !!cohortId && sessionReady,
   });
 }
 
 // ─── Quiz Management ──────────────────────────────────────────────────────────
 
 export function useCohortQuizzes(cohortId?: string) {
+  const sessionReady = useAuthSessionReady();
   return useQuery<{ sessionQuizzes: any[]; cohortQuizzes: any[] }>({
     queryKey: ['cohort-quizzes', cohortId],
     queryFn: () => apiClient.get(`/admin/quizzes/cohort/${cohortId}`),
-    enabled: !!cohortId,
+    enabled: !!cohortId && sessionReady,
   });
 }
 

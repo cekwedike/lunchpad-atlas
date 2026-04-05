@@ -1,13 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
+import { useAuthSessionReady } from '@/hooks/useAuthSessionReady';
 import { toast } from 'sonner';
 import type { User, UserAchievement } from '@/types/api';
 
 export function useProfile(userId?: string) {
   const { user: currentUser, isAuthenticated, _hasHydrated } = useAuthStore();
+  const authSessionReady = useAuthSessionReady();
   const targetUserId = userId || currentUser?.id;
-  const sessionReady = _hasHydrated && isAuthenticated;
+  const sessionReady = _hasHydrated && isAuthenticated && authSessionReady;
 
   return useQuery({
     queryKey: ['user', targetUserId || 'me'],
@@ -22,8 +24,9 @@ export function useProfile(userId?: string) {
 
 export function useUserAchievements(userId?: string) {
   const { user: currentUser, isAuthenticated, _hasHydrated } = useAuthStore();
+  const authSessionReady = useAuthSessionReady();
   const targetUserId = userId || currentUser?.id;
-  const sessionReady = _hasHydrated && isAuthenticated;
+  const sessionReady = _hasHydrated && isAuthenticated && authSessionReady;
 
   return useQuery({
     queryKey: ['user-achievements', targetUserId],
@@ -41,7 +44,8 @@ export function useUserAchievements(userId?: string) {
 /** All achievement definitions (for the gallery page) */
 export function useAllAchievements() {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
-  const sessionReady = _hasHydrated && isAuthenticated;
+  const authSessionReady = useAuthSessionReady();
+  const sessionReady = _hasHydrated && isAuthenticated && authSessionReady;
   return useQuery({
     queryKey: ['achievements', 'all'],
     queryFn: () => apiClient.get<any[]>('/achievements'),
@@ -60,6 +64,7 @@ export interface UserStats {
 
 export function useUserStats(userId?: string) {
   const { user: currentUser, isAuthenticated } = useAuthStore();
+  const authSessionReady = useAuthSessionReady();
   const targetUserId = userId || currentUser?.id;
 
   return useQuery({
@@ -68,7 +73,9 @@ export function useUserStats(userId?: string) {
       const endpoint = userId ? `/users/${userId}/stats` : '/users/me/stats';
       return apiClient.get<UserStats>(endpoint);
     },
-    enabled: userId ? !!userId : (isAuthenticated && !!currentUser),
+    enabled: userId
+      ? !!userId
+      : isAuthenticated && !!currentUser && authSessionReady,
     retry: false,
   });
 }

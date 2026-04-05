@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getInternalApiBase } from '@/lib/internal-api-url';
 import { ACCESS_COOKIE } from '@/lib/auth-cookie-names';
 import {
+  authCookieSameSite,
   cookieShouldBeSecure,
   getRefreshTokenFromRequestAsync,
   jwtRemainingSeconds,
@@ -63,11 +64,12 @@ export async function POST(request: NextRequest) {
 
   const accessToken = data.accessToken as string;
   const res = NextResponse.json({ ok: true }, { headers: NO_STORE });
+  const secure = cookieShouldBeSecure(request);
   res.cookies.set(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
     path: '/',
-    sameSite: 'lax',
-    secure: cookieShouldBeSecure(request),
+    sameSite: authCookieSameSite(secure),
+    secure,
     maxAge: jwtRemainingSeconds(accessToken),
   });
   return res;

@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
+import { useAuthSessionReady } from '@/hooks/useAuthSessionReady';
 import { toast } from '@/lib/toast';
 import type { Resource, ResourceProgress, PaginatedResponse, MarkResourceCompleteRequest } from '@/types/api';
 
 export function useResources(filters?: { sessionId?: string; cohortId?: string }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
-  const sessionReady = _hasHydrated && isAuthenticated;
+  const authSessionReady = useAuthSessionReady();
+  const sessionReady = _hasHydrated && isAuthenticated && authSessionReady;
 
   return useQuery({
     queryKey: ['resources', filters],
@@ -40,12 +42,18 @@ export function useResource(id: string) {
 }
 
 export function useResourceProgress(userId?: string) {
+  const { isAuthenticated } = useAuthStore();
+  const authSessionReady = useAuthSessionReady();
+  const canFetchMe = !userId && isAuthenticated && authSessionReady;
+  const canFetchByUserId = !!userId && authSessionReady;
+
   return useQuery({
     queryKey: ['resource-progress', userId],
     queryFn: async () => {
       const endpoint = userId ? `/resource-progress?userId=${userId}` : '/resource-progress/me';
       return apiClient.get<ResourceProgress[]>(endpoint);
     },
+    enabled: userId ? canFetchByUserId : canFetchMe,
   });
 }
 

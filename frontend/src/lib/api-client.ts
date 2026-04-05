@@ -122,18 +122,8 @@ class ApiClient {
       return await this.handleResponse<T>(response);
     } catch (error) {
       if (error instanceof ApiClientError) {
-        if (error.statusCode === 401) {
-          if (typeof window !== 'undefined') {
-            await fetch('/api/auth/logout', {
-              method: 'POST',
-              credentials: 'include',
-            }).catch(() => {});
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('auth-storage');
-            window.location.href = '/login?session=expired';
-          }
-        }
+        // Let AuthContext (or callers) clear cookies + navigate — avoids double logout
+        // and full-page reload racing client-side session recovery after refresh.
         throw error;
       }
       const isNetworkError =

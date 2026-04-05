@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     setUser,
     logout: storeLogout,
+    setSessionBootstrapComplete,
     _hasHydrated,
   } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
@@ -61,39 +62,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isProtectedRoute = isProtectedRoutePath(pathname);
 
     const checkAuth = async () => {
+      setSessionBootstrapComplete(false);
       try {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 3000);
-        await fetch('/api/proxy/health', {
-          method: 'GET',
-          signal: controller.signal,
-          credentials: 'include',
-        });
-        window.clearTimeout(timeoutId);
-      } catch {
-        apiClient.clearTokens();
-        storeLogout();
-        if (isProtectedRoute) router.replace('/login');
-        setIsLoading(false);
-        return;
-      }
-
-      if (!isAuthenticated && !user && !isProtectedRoute) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const userData = await apiClient.get<User>('/users/me');
-        setUser(userData);
-      } catch {
-        apiClient.clearTokens();
-        storeLogout();
-        if (isProtectedRoute) {
-          router.replace('/login?session=expired');
+        try {
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(() => controller.abort(), 3000);
+          await fetch('/api/proxy/health', {
+            method: 'GET',
+            signal: controller.signal,
+            credentials: 'include',
+          });
+          window.clearTimeout(timeoutId);
+        } catch {
+          apiClient.clearTokens();
+          storeLogout();
+          if (isProtectedRoute) router.replace('/login');
+          return;
         }
+
+        if (!isAuthenticated && !user && !isProtectedRoute) {
+          return;
+        }
+
+        // Renew access cookie before /users/me (short JWT_EXPIRATION vs long refresh).
+        if (isProtectedRoute || (isAuthenticated && user)) {
+          const r1 = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            cache: 'no-store',
+          });
+          if (!r1.ok) {
+            await new Promise((r) => setTimeout(r, 400));
+            await fetch('/api/auth/refresh', {
+              method: 'POST',
+              credentials: 'include',
+              cache: 'no-store',
+            });
+          }
+          await new Promise((r) => setTimeout(r, 80));
+        }
+
+        try {
+          const userData = await apiClient.get<User>('/users/me');
+          setUser(userData);
+        } catch {
+          apiClient.clearTokens();
+          storeLogout();
+          if (isProtectedRoute) {
+            router.replace('/login?session=expired');
+          }
+        }
+      } finally {
+        setSessionBootstrapComplete(true);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAuth();
@@ -105,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router,
     setUser,
     storeLogout,
+    setSessionBootstrapComplete,
   ]);
 
   const login = async (credentials: LoginRequest) => {

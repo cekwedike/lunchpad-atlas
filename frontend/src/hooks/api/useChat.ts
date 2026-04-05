@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Channel, ChatMessage, CreateChannelDto, SendMessageDto } from '@/types/chat';
 import { apiClient } from '@/lib/api-client';
+import { useAuthSessionReady } from '@/hooks/useAuthSessionReady';
 
 // ==================== CHANNELS ====================
 
 export function useCohortChannels(cohortId: string | undefined) {
+  const sessionReady = useAuthSessionReady();
   return useQuery<Channel[]>({
     queryKey: ['channels', cohortId],
     queryFn: async () => {
@@ -12,19 +14,20 @@ export function useCohortChannels(cohortId: string | undefined) {
 
       return apiClient.get<Channel[]>(`/chat/channels/cohort/${cohortId}`);
     },
-    enabled: !!cohortId,
+    enabled: !!cohortId && sessionReady,
     refetchInterval: 10000,
   });
 }
 
 export function useAllChannels(enabled: boolean) {
+  const sessionReady = useAuthSessionReady();
   return useQuery<Channel[]>({
     queryKey: ['channels', 'all'],
     queryFn: async () => {
       return apiClient.get<Channel[]>('/chat/channels');
     },
-    enabled,
-    refetchInterval: enabled ? 10000 : false,
+    enabled: enabled && sessionReady,
+    refetchInterval: enabled && sessionReady ? 10000 : false,
   });
 }
 
@@ -98,14 +101,15 @@ export function useInitializeCohortChannels() {
 }
 
 export function useChannelById(channelId?: string, enabled: boolean = true) {
+  const sessionReady = useAuthSessionReady();
   return useQuery<Channel>({
     queryKey: ['channels', 'by-id', channelId],
     queryFn: async () => {
       if (!channelId) throw new Error('Channel ID required');
       return apiClient.get<Channel>(`/chat/channels/${channelId}`);
     },
-    enabled: enabled && !!channelId,
-    refetchInterval: enabled && !!channelId ? 10000 : false,
+    enabled: enabled && !!channelId && sessionReady,
+    refetchInterval: enabled && !!channelId && sessionReady ? 10000 : false,
   });
 }
 
@@ -127,6 +131,7 @@ export function useToggleChannelLock() {
 // ==================== MESSAGES ====================
 
 export function useChannelMessages(channelId: string | undefined, limit = 50) {
+  const sessionReady = useAuthSessionReady();
   return useQuery<ChatMessage[]>({
     queryKey: ['messages', channelId, limit],
     queryFn: async () => {
@@ -139,8 +144,8 @@ export function useChannelMessages(channelId: string | undefined, limit = 50) {
       // Reverse to show oldest first
       return messages.reverse();
     },
-    enabled: !!channelId,
-    refetchInterval: 5000, // Poll every 5 seconds (WebSocket is better)
+    enabled: !!channelId && sessionReady,
+    refetchInterval: !!channelId && sessionReady ? 5000 : false,
   });
 }
 
@@ -197,14 +202,15 @@ export function useOpenDM() {
 }
 
 export function useAdminDirectChannels(enabled: boolean) {
+  const sessionReady = useAuthSessionReady();
   return useQuery<any[]>({
     queryKey: ['direct-channels', 'admin'],
     queryFn: async () => {
       const data = await apiClient.get<any[]>('/chat/direct');
       return Array.isArray(data) ? data : [];
     },
-    enabled,
-    refetchInterval: enabled ? 15000 : false,
+    enabled: enabled && sessionReady,
+    refetchInterval: enabled && sessionReady ? 15000 : false,
   });
 }
 
