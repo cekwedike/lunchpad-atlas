@@ -28,6 +28,11 @@ import { z } from "zod";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  IOS_PWA_PROFILE_NOTE,
+  isLikelyIOS,
+  isStandalonePwa,
+} from "@/lib/pwa-platform";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -87,11 +92,22 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
 // ─── Notification Preferences ─────────────────────────────────────────────────
 function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { emailNotifications: boolean; weeklyDigest: boolean }) {
   const { sound, vibration, updateSound, updateVibration } = useNotificationPreferences();
-  const { isSubscribed, isSupported, isLoading: pushLoading, state: pushState, subscribeError, subscribe, unsubscribe } = usePushNotifications();
+  const {
+    isSubscribed,
+    isSupported,
+    isLoading: pushLoading,
+    state: pushState,
+    subscribeError,
+    subscribe,
+    unsubscribe,
+    clearSubscribeError,
+  } = usePushNotifications();
   const { vapidAvailable, vapidLoading } = usePushVapidConfigured(isSupported);
   const updateProfile = useUpdateProfile();
   const { user } = useAuthStore();
   const [supportsVibration, setSupportsVibration] = useState(false);
+  /** Keeps the switch visually ON while subscribe() runs so a failed attempt doesn’t feel “stuck off”. */
+  const [enablingPush, setEnablingPush] = useState(false);
 
   useEffect(() => {
     setSupportsVibration(typeof navigator !== 'undefined' && 'vibrate' in navigator);
@@ -105,14 +121,21 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
   const pushDenied = pushState === 'denied';
   const pushUnsupported =
     !isSupported || (!vapidLoading && !vapidAvailable);
+  const iosInSafariTab = isLikelyIOS() && !isStandalonePwa();
 
   const handlePushToggle = async (checked: boolean) => {
+    clearSubscribeError();
     if (checked) {
-      const { ok, error } = await subscribe();
-      if (ok) {
-        toast.success('Push notifications enabled.');
-      } else {
-        toast.error(error ?? 'Could not enable push notifications.');
+      setEnablingPush(true);
+      try {
+        const { ok, error } = await subscribe();
+        if (ok) {
+          toast.success('Push notifications enabled.');
+        } else {
+          toast.error(error ?? 'Could not enable push notifications.');
+        }
+      } finally {
+        setEnablingPush(false);
       }
     } else {
       const ok = await unsubscribe();
@@ -136,37 +159,68 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
           Controls in-app sounds and push notification behaviour on this device.
         </p>
       </div>
+      {iosInSafariTab && (
+        <div className="flex gap-3 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <Compass className="h-5 w-5 shrink-0 text-amber-700 mt-0.5" aria-hidden />
+          <p className="leading-snug text-amber-950/90">{IOS_PWA_PROFILE_NOTE}</p>
+        </div>
+      )}
       <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100 overflow-hidden">
 
         {/* Push notifications row */}
-        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            {isSubscribed ? (
-              <Bell className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
-            ) : (
-              <BellOff className="h-5 w-5 mt-0.5 shrink-0 text-gray-400" />
-            )}
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900">Push notifications</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {vapidLoading
-                  ? 'Checking push configuration…'
-                  : !vapidAvailable
-                  ? 'Not configured on the server — contact your administrator.'
-                  : pushUnsupported
-                  ? 'Not supported in this browser or blocked by a browser extension (e.g. Malwarebytes). Whitelist this site to enable.'
-                  : pushDenied
-                  ? 'Blocked by browser. Tap the lock icon in the address bar and allow notifications.'
-                  : 'Receive notifications even when the app is in the background.'}
-              </p>
+        <div className="px-4 py-3.5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              {isSubscribed ? (
+                <Bell className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+              ) : (
+                <BellOff className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">Push notifications</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {vapidLoading
+                    ? 'Checking push configuration…'
+                    : !vapidAvailable
+                      ? 'Not configured on the server — contact your administrator.'
+                      : pushUnsupported
+                        ? iosInSafariTab
+                          ? 'Web push in the Safari tab is limited. Add ATLAS to your Home Screen (Share → Add to Home Screen); on iOS 16.4+ you can enable push here after installing.'
+                          : 'Not supported in this browser or blocked by a browser extension (e.g. Malwarebytes). Whitelist this site to enable.'
+                        : pushDenied
+                          ? 'Blocked by browser. Tap the lock icon in the address bar and allow notifications.'
+                          : 'Receive notifications even when the app is in the background.'}
+                </p>
+                {subscribeError && !pushUnsupported && !pushDenied && (
+                  <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-900">
+                    <p className="leading-snug">{subscribeError}</p>
+                    <p className="mt-1.5 leading-snug text-red-800/90">
+                      After adjusting VPN, firewall, or extensions, turn the toggle on again to retry.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => clearSubscribeError()}
+                      className="mt-1.5 font-medium text-red-800 underline decoration-red-300 underline-offset-2 hover:text-red-950"
+                    >
+                      Dismiss message
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+            <Switch
+              checked={isSubscribed || enablingPush}
+              onCheckedChange={handlePushToggle}
+              disabled={
+                pushUnsupported ||
+                pushDenied ||
+                pushLoading ||
+                vapidLoading ||
+                enablingPush
+              }
+              aria-label="Push notifications"
+            />
           </div>
-          <Switch
-            checked={isSubscribed}
-            onCheckedChange={handlePushToggle}
-            disabled={pushUnsupported || pushDenied || pushLoading || vapidLoading}
-            aria-label="Push notifications"
-          />
         </div>
 
         {/* Email notifications row */}

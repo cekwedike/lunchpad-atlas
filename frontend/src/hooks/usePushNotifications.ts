@@ -121,6 +121,7 @@ export function usePushNotifications() {
       }
 
       setIsSubscribed(true);
+      setSubscribeError(null);
       return { ok: true };
     } catch (e: any) {
       const msg = e?.message ?? String(e);
@@ -131,6 +132,10 @@ export function usePushNotifications() {
       setIsLoading(false);
     }
   }, [isSupported]);
+
+  const clearSubscribeError = useCallback(() => {
+    setSubscribeError(null);
+  }, []);
 
   const unsubscribe = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false;
@@ -165,5 +170,14 @@ export function usePushNotifications() {
     }
   }, [isSupported]);
 
-  return { state, isSubscribed, isLoading, isSupported, subscribeError, subscribe, unsubscribe } as const;
+  return {
+    state,
+    isSubscribed,
+    isLoading,
+    isSupported,
+    subscribeError,
+    subscribe,
+    unsubscribe,
+    clearSubscribeError,
+  } as const;
 }
