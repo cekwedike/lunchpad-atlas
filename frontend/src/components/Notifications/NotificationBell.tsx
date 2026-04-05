@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useUnreadCount } from '@/hooks/api/useNotifications';
 import { useNotificationsSocket } from '@/hooks/useNotificationsSocket';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { playNotificationTone } from '@/lib/notification-tone';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface NotificationBellProps {
@@ -22,6 +24,7 @@ export function NotificationBell({ userId, userRole }: NotificationBellProps) {
   const { data: unreadData } = useUnreadCount(userId);
   const queryClient = useQueryClient();
   const unreadCount = unreadData?.count ?? 0;
+  const { sound, vibration } = useNotificationPreferences();
 
   const { connectionIssue } = useNotificationsSocket({
     userId,
@@ -30,6 +33,10 @@ export function NotificationBell({ userId, userRole }: NotificationBellProps) {
     },
     onNotification: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', userId] });
+      if (sound) playNotificationTone();
+      if (vibration && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([80, 40, 80]);
+      }
     },
   });
 

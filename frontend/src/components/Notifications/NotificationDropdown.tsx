@@ -1,7 +1,4 @@
-import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { playNotificationTone } from '@/lib/notification-tone';
-import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import {
   Bell,
   BookOpen,
@@ -31,7 +28,6 @@ import {
   useMarkAllAsRead,
   useDeleteNotification,
 } from '@/hooks/api/useNotifications';
-import { useNotificationsSocket } from '@/hooks/useNotificationsSocket';
 import { Notification, NotificationType } from '@/types/notification';
 import { formatLocalTimestamp } from '@/lib/date-utils';
 
@@ -115,26 +111,11 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
   const markAsReadMutation = useMarkAsRead();
   const markAllAsReadMutation = useMarkAllAsRead();
   const deleteNotificationMutation = useDeleteNotification();
-  const { sound, vibration } = useNotificationPreferences();
 
   const isAdmin = userRole === 'ADMIN';
 
-  const handleIncomingNotification = useCallback(() => {
-    refetch();
-    if (sound) playNotificationTone();
-    if (vibration && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate([80, 40, 80]);
-    }
-  }, [refetch, sound, vibration]);
-
-  // WebSocket integration
-  useNotificationsSocket({
-    userId,
-    onNotification: handleIncomingNotification,
-    onUnreadCountUpdate: () => {
-      refetch();
-    },
-  });
+  // Live updates: single Socket.IO connection in NotificationBell only. Duplicate hooks here
+  // caused two /notifications namespaces + teardown races when navigating the dashboard.
 
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;

@@ -115,7 +115,6 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
   useEffect(() => {
     if (!userId || !quizId) return;
     let cancelled = false;
-    let socket: Socket | null = null;
 
     setConnectionIssue(null);
     setIsConnected(false);
@@ -130,13 +129,18 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
         return;
       }
 
-      socket = io(`${SOCKET_URL}/live-quiz`, {
+      const socket = io(`${SOCKET_URL}/live-quiz`, {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
         timeout: 10000,
       });
+      if (cancelled) {
+        socket.disconnect();
+        return;
+      }
       socketRef.current = socket;
 
       socket.on('connect', () => {
@@ -182,20 +186,15 @@ export function useLiveQuizSocket(options: UseLiveQuizSocketOptions) {
 
     return () => {
       cancelled = true;
-      if (socket) {
-        socket.off('connect');
-        socket.off('disconnect');
-        socket.off('connect_error');
-        socket.off('reconnect_failed');
-        socket.off('error');
-        socket.off('participantJoined');
-        socket.off('quizStarted');
-        socket.off('questionShown');
-        socket.off('quizCompleted');
-        socket.off('leaderboardUpdate');
-        socket.off('answerResult');
-        socket.off('resultsShown');
-        socket.close();
+      setIsConnected(false);
+      const active = socketRef.current;
+      if (active) {
+        try {
+          active.removeAllListeners();
+          active.disconnect();
+        } catch {
+          /* ignore */
+        }
       }
       socketRef.current = null;
     };

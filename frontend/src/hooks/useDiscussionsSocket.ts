@@ -31,6 +31,10 @@ export function useDiscussionsSocket() {
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
       });
+      if (cancelled) {
+        socketInstance.disconnect();
+        return;
+      }
 
       socketRef.current = socketInstance;
       setSocket(socketInstance);
@@ -53,8 +57,15 @@ export function useDiscussionsSocket() {
 
     return () => {
       cancelled = true;
-      console.log('[Discussions] Cleaning up socket connection');
-      socketInstance?.disconnect();
+      const active = socketRef.current;
+      if (active) {
+        try {
+          active.removeAllListeners();
+          active.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }
       socketRef.current = null;
       setSocket(null);
       setIsConnected(false);

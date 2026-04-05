@@ -38,6 +38,19 @@ export function useChatSocket(options: UseChatSocketOptions) {
     onUserStoppedTyping,
   } = options;
 
+  const onNewMessageRef = useRef(onNewMessage);
+  const onMessageDeletedRef = useRef(onMessageDeleted);
+  const onChannelDeletedRef = useRef(onChannelDeleted);
+  const onChannelLockUpdatedRef = useRef(onChannelLockUpdated);
+  const onUserTypingRef = useRef(onUserTyping);
+  const onUserStoppedTypingRef = useRef(onUserStoppedTyping);
+  onNewMessageRef.current = onNewMessage;
+  onMessageDeletedRef.current = onMessageDeleted;
+  onChannelDeletedRef.current = onChannelDeleted;
+  onChannelLockUpdatedRef.current = onChannelLockUpdated;
+  onUserTypingRef.current = onUserTyping;
+  onUserStoppedTypingRef.current = onUserStoppedTyping;
+
   useEffect(() => {
     if (!userId) {
       setTokenMissing(false);
@@ -46,7 +59,6 @@ export function useChatSocket(options: UseChatSocketOptions) {
       return;
     }
     let cancelled = false;
-    let socket: Socket | null = null;
 
     setTokenMissing(false);
     setReconnectExhausted(false);
@@ -63,13 +75,18 @@ export function useChatSocket(options: UseChatSocketOptions) {
         return;
       }
 
-      socket = io(`${SOCKET_URL}/chat`, {
+      const socket = io(`${SOCKET_URL}/chat`, {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
         timeout: 10000,
       });
+      if (cancelled) {
+        socket.disconnect();
+        return;
+      }
       socketRef.current = socket;
 
       socket.on('connect', () => {
@@ -78,7 +95,7 @@ export function useChatSocket(options: UseChatSocketOptions) {
         setLastError(null);
         const pendingChannelId = pendingChannelRef.current;
         if (pendingChannelId) {
-          socket!.emit(
+          socket.emit(
             'join_channel',
             { channelId: pendingChannelId },
             (response: any) => {
@@ -116,43 +133,34 @@ export function useChatSocket(options: UseChatSocketOptions) {
         setLastError(error?.message || 'Failed to connect to chat');
       });
 
-      if (onNewMessage) socket.on('new_message', onNewMessage);
-      if (onMessageDeleted) socket.on('message_deleted', onMessageDeleted);
-      if (onChannelDeleted) socket.on('channel_deleted', onChannelDeleted);
-      if (onChannelLockUpdated)
-        socket.on('channel_lock_updated', onChannelLockUpdated);
-      if (onUserTyping) socket.on('user_typing', onUserTyping);
-      if (onUserStoppedTyping)
-        socket.on('user_stopped_typing', onUserStoppedTyping);
+      const nm = onNewMessageRef.current;
+      if (nm) socket.on('new_message', nm);
+      const md = onMessageDeletedRef.current;
+      if (md) socket.on('message_deleted', md);
+      const cd = onChannelDeletedRef.current;
+      if (cd) socket.on('channel_deleted', cd);
+      const cl = onChannelLockUpdatedRef.current;
+      if (cl) socket.on('channel_lock_updated', cl);
+      const ut = onUserTypingRef.current;
+      if (ut) socket.on('user_typing', ut);
+      const ust = onUserStoppedTypingRef.current;
+      if (ust) socket.on('user_stopped_typing', ust);
     })();
 
     return () => {
       cancelled = true;
-      if (socket) {
-        socket.off('connect');
-        socket.off('disconnect');
-        socket.off('reconnect_attempt');
-        socket.off('reconnect_failed');
-        socket.off('connect_error');
-        socket.off('new_message');
-        socket.off('message_deleted');
-        socket.off('channel_deleted');
-        socket.off('channel_lock_updated');
-        socket.off('user_typing');
-        socket.off('user_stopped_typing');
-        socket.disconnect();
+      const active = socketRef.current;
+      if (active) {
+        try {
+          active.removeAllListeners();
+          active.disconnect();
+        } catch {
+          /* ignore */
+        }
       }
       socketRef.current = null;
     };
-  }, [
-    userId,
-    onNewMessage,
-    onMessageDeleted,
-    onChannelDeleted,
-    onChannelLockUpdated,
-    onUserTyping,
-    onUserStoppedTyping,
-  ]);
+  }, [userId]);
 
   // Join channel
   useEffect(() => {

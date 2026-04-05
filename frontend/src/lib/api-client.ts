@@ -200,7 +200,8 @@ class ApiClient {
     }).catch(() => {});
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('auth-storage');
+    // Do not remove `auth-storage` here — that key is owned by zustand-persist; deleting it
+    // mid-reload races rehydration and caused false logouts. Call `storeLogout()` to clear it.
   }
 }
 

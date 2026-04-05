@@ -75,21 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        try {
-          const controller = new AbortController();
-          const timeoutId = window.setTimeout(() => controller.abort(), 3000);
-          await fetch('/api/proxy/health', {
-            method: 'GET',
-            signal: controller.signal,
-            credentials: 'include',
-          });
-          window.clearTimeout(timeoutId);
-        } catch {
-          apiClient.clearTokens();
-          storeLogout();
-          if (isProtectedRoute) router.replace('/login');
-          return;
-        }
+        // Do not gate auth on a short health probe: Render cold starts often exceed a few
+        // seconds and used to trigger abort → clearTokens → full logout on every reload.
 
         const sessionSnap = await getBffSessionSnapshot();
         if (!sessionSnap.hasRefreshCookie && !sessionSnap.hasAccessCookie) {
@@ -114,18 +101,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await new Promise((r) => setTimeout(r, 400));
             await fetchBffRefresh();
           }
-          await new Promise((r) => setTimeout(r, 80));
+          await new Promise((r) => setTimeout(r, 200));
         }
 
         try {
           const userData = await apiClient.get<User>('/users/me');
           setUser(userData);
-        } catch {
-          apiClient.clearTokens();
-          storeLogout();
-          if (isProtectedRoute) {
-            router.replace('/login?session=expired');
+        } catch (err) {
+          const isUnauthorized =
+            err instanceof ApiClientError && err.statusCode === 401;
+          if (isUnauthorized) {
+            apiClient.clearTokens();
+            storeLogout();
+            if (isProtectedRoute) {
+              router.replace('/login?session=expired');
+            }
           }
+          // Network / 502 / 429: keep cookies + persisted state; user can retry or refresh.
         }
       } finally {
         setSessionBootstrapComplete(true);

@@ -34,7 +34,6 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
       return;
     }
     let cancelled = false;
-    let socket: Socket | null = null;
 
     setConnectionIssue(null);
 
@@ -48,13 +47,18 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
         return;
       }
 
-      socket = io(`${SOCKET_URL}/notifications`, {
+      const socket = io(`${SOCKET_URL}/notifications`, {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
         timeout: 10000,
       });
+      if (cancelled) {
+        socket.disconnect();
+        return;
+      }
       socketRef.current = socket;
 
       socket.on('connect', () => {
@@ -92,11 +96,15 @@ export function useNotificationsSocket(options: UseNotificationsSocketOptions) {
     return () => {
       cancelled = true;
       setIsConnected(false);
-      socket?.off('connect');
-      socket?.off('disconnect');
-      socket?.off('connect_error');
-      socket?.off('reconnect_failed');
-      socket?.disconnect();
+      const active = socketRef.current;
+      if (active) {
+        try {
+          active.removeAllListeners();
+          active.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }
       socketRef.current = null;
     };
   }, [userId]);
