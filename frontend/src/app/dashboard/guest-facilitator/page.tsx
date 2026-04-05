@@ -13,8 +13,10 @@ import {
   UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
+import { calendarDaysFromToday } from '@/lib/date-utils';
 
-function daysUntil(date: Date): number {
+/** Time-based days until instant (access expiry); avoids treating “expires later today” as already expired. */
+function daysUntilInstant(date: Date): number {
   return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
@@ -30,7 +32,7 @@ export default function GuestFacilitatorDashboard() {
   const { user } = useAuthStore();
 
   const expiresAt = user?.guestAccessExpiresAt ? new Date(user.guestAccessExpiresAt) : null;
-  const daysLeft = expiresAt ? daysUntil(expiresAt) : null;
+  const daysLeft = expiresAt ? daysUntilInstant(expiresAt) : null;
   const isExpiringSoon = daysLeft !== null && daysLeft <= 2 && daysLeft > 0;
   const isExpired = daysLeft !== null && daysLeft <= 0;
 
@@ -109,7 +111,7 @@ export default function GuestFacilitatorDashboard() {
                 const s = row.session;
                 if (!s) return null;
                 const sDate = new Date(s.scheduledDate);
-                const d = daysUntil(sDate);
+                const d = calendarDaysFromToday(sDate);
                 return (
                   <div
                     key={row.sessionId}

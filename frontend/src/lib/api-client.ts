@@ -1,5 +1,6 @@
 import type { ApiError } from '@/types/api';
 import { formatApiErrorMessage } from '@/lib/format-api-message';
+import { fetchBffRefresh } from '@/lib/bff-refresh';
 
 const DIRECT_BASE =
   (typeof window === 'undefined'
@@ -110,10 +111,7 @@ class ApiClient {
         isBrowser &&
         !_retry
       ) {
-        const refreshed = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          credentials: 'include',
-        });
+        const refreshed = await fetchBffRefresh();
         if (refreshed.ok) {
           return this.request<T>(endpoint, { ...options, _retry: true });
         }

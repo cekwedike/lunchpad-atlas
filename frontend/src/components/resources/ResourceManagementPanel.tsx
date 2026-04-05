@@ -19,7 +19,8 @@ import {
   useCreateResource, useUpdateResource, useDeleteResource,
 } from "@/hooks/api/useAdmin";
 import { ResourceType } from "@/types/api";
-import { format, differenceInDays, isPast } from "date-fns";
+import { format, isPast } from "date-fns";
+import { calendarDaysFromToday } from "@/lib/date-utils";
 
 interface ResourceManagementPanelProps {
   role: "ADMIN" | "FACILITATOR";
@@ -30,7 +31,7 @@ function getLockStatus(session: any, resource: any) {
   const unlockDate = session?.unlockDate ? new Date(session.unlockDate) : null;
   const scheduledDate = session?.scheduledDate ? new Date(session.scheduledDate) : null;
   const autoUnlocked = unlockDate ? now >= unlockDate : false;
-  const daysUntilUnlock = unlockDate && !autoUnlocked ? differenceInDays(unlockDate, now) : null;
+  const daysUntilUnlock = unlockDate && !autoUnlocked ? calendarDaysFromToday(unlockDate) : null;
 
   // Manual unlock overrides everything
   if (resource?.state === "UNLOCKED") {
@@ -386,7 +387,7 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
                       const now = new Date();
                       const autoUnlocked = unlockDate ? now >= unlockDate : false;
                       const sessionPassed = scheduledDate ? isPast(scheduledDate) : false;
-                      const daysUntilUnlock = unlockDate && !autoUnlocked ? differenceInDays(unlockDate, now) : null;
+                      const daysUntilUnlock = unlockDate && !autoUnlocked ? calendarDaysFromToday(unlockDate) : null;
 
                       return (
                         <div key={session.id}>

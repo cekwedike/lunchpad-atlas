@@ -7,6 +7,7 @@ import {
   getDashboardForRole,
   isProtectedRoutePath,
 } from '@/lib/dashboard-routes';
+import { fetchBffRefresh } from '@/lib/bff-refresh';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import type { User, LoginRequest, RegisterRequest } from '@/types/api';
@@ -95,18 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Renew access cookie before /users/me (short JWT_EXPIRATION vs long refresh).
         if (isProtectedRoute || (isAuthenticated && user)) {
-          const r1 = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include',
-            cache: 'no-store',
-          });
+          const r1 = await fetchBffRefresh();
           if (!r1.ok) {
             await new Promise((r) => setTimeout(r, 400));
-            await fetch('/api/auth/refresh', {
-              method: 'POST',
-              credentials: 'include',
-              cache: 'no-store',
-            });
+            await fetchBffRefresh();
           }
           await new Promise((r) => setTimeout(r, 80));
         }

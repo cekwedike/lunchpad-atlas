@@ -4,7 +4,8 @@ import {
   formatRelative,
   formatDistanceToNowStrict,
   subDays,
-  differenceInDays,
+  differenceInCalendarDays,
+  startOfDay,
   differenceInHours,
   differenceInMinutes,
   isPast,
@@ -161,6 +162,16 @@ export function formatRelativeDate(date: Date | string): string {
 
 // ─── Resource / session logic ─────────────────────────────────────────────────
 
+/**
+ * Whole calendar days from the start of today (local) to the start of `target`'s calendar day.
+ * Use for "in X days" / "starts in X days" — not `differenceInDays`, which truncates 24h periods
+ * and reads one short (e.g. Apr 5 → Apr 11 shows 5 instead of 6).
+ */
+export function calendarDaysFromToday(target: Date | string): number {
+  const d = typeof target === 'string' ? new Date(target) : target;
+  return Math.max(0, differenceInCalendarDays(startOfDay(d), startOfDay(new Date())));
+}
+
 /** Calculate the unlock date: 8 days before the session date. */
 export function calculateUnlockDate(sessionDate: Date | string): Date {
   const dateObj = typeof sessionDate === 'string' ? new Date(sessionDate) : sessionDate;
@@ -174,9 +185,7 @@ export function isResourceUnlocked(sessionDate: Date | string): boolean {
 
 /** Days remaining until the session (0 if already past). */
 export function getDaysUntilSession(sessionDate: Date | string): number {
-  const dateObj = typeof sessionDate === 'string' ? new Date(sessionDate) : sessionDate;
-  const days = differenceInDays(dateObj, new Date());
-  return days > 0 ? days : 0;
+  return calendarDaysFromToday(sessionDate);
 }
 
 /** Hours remaining until a date (0 if already past). */
@@ -216,11 +225,14 @@ export function formatCountdown(targetDate: Date | string): string {
   if (isPast(dateObj)) return 'Expired';
 
   const now = new Date();
-  const days = differenceInDays(dateObj, now);
+  const calDays = Math.max(
+    0,
+    differenceInCalendarDays(startOfDay(dateObj), startOfDay(now)),
+  );
   const hours = differenceInHours(dateObj, now) % 24;
   const minutes = differenceInMinutes(dateObj, now) % 60;
 
-  if (days > 0) return `${days}d ${hours}h`;
+  if (calDays > 0) return `${calDays}d`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 }

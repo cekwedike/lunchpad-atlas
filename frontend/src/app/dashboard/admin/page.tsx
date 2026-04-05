@@ -15,7 +15,8 @@ import { useCohortChannels, useChannelMessages } from "@/hooks/api/useChat";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { formatDistanceToNow, format, differenceInDays, isPast, isFuture } from "date-fns";
+import { formatDistanceToNow, format, isPast, isFuture } from "date-fns";
+import { calendarDaysFromToday } from "@/lib/date-utils";
 
 // Determine cohort status from dates, ignoring the DB state field
 function getCohortStatus(cohort: any): { label: string; color: string; bg: string; dot: string } {
@@ -56,7 +57,7 @@ export default function AdminDashboard() {
 
   const cohortStatus = displayCohort ? getCohortStatus(displayCohort) : null;
   const daysUntilStart = displayCohort?.startDate && isFuture(new Date(displayCohort.startDate))
-    ? differenceInDays(new Date(displayCohort.startDate), new Date())
+    ? calendarDaysFromToday(displayCohort.startDate)
     : null;
 
   // Upcoming sessions: not yet past their scheduled date, sorted ascending
@@ -250,7 +251,7 @@ export default function AdminDashboard() {
                     {upcomingSessions.map((session: any) => {
                       const scheduledDate = new Date(session.scheduledDate);
                       const unlockDate = session.unlockDate ? new Date(session.unlockDate) : null;
-                      const daysToSession = differenceInDays(scheduledDate, new Date());
+                      const daysToSession = calendarDaysFromToday(scheduledDate);
                       const unlockPast = unlockDate ? isPast(unlockDate) : false;
                       return (
                         <div
