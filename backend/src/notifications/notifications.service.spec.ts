@@ -360,7 +360,12 @@ describe('NotificationsService', () => {
       mockPrismaService.notification.createMany.mockResolvedValue({ count: 2 });
       mockPrismaService.notification.count.mockResolvedValue(0);
 
-      await service.notifyFellowsResourceUnlocked('res-1', 'cohort-1', 'Intro to JS');
+      await service.notifyFellowsResourceUnlocked(
+        'res-1',
+        'cohort-1',
+        'Intro to JS',
+        'Week 1',
+      );
 
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         where: { cohortId: 'cohort-1', role: 'FELLOW' },

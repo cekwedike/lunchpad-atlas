@@ -78,6 +78,8 @@ export interface Cohort {
   name: string;
   startDate: Date;
   endDate: Date;
+  /** IANA timezone for program calendar (emails, reminders). Default UTC on server. */
+  timeZone?: string;
   state: CohortState;
   facilitatorId: string;
   createdAt: Date;

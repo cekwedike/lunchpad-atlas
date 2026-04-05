@@ -73,9 +73,13 @@ export class EmailService {
   }
 
   private initializeTransporter() {
-    const enabled = this.configService.get<string>('EMAIL_NOTIFICATIONS_ENABLED');
+    const enabled = this.configService.get<string>(
+      'EMAIL_NOTIFICATIONS_ENABLED',
+    );
     if (enabled !== 'true') {
-      console.log('[EmailService] Email notifications disabled (EMAIL_NOTIFICATIONS_ENABLED != "true")');
+      console.log(
+        '[EmailService] Email notifications disabled (EMAIL_NOTIFICATIONS_ENABLED != "true")',
+      );
     }
 
     // 1. Brevo HTTP API (works on Render — no SMTP port needed)
@@ -98,9 +102,13 @@ export class EmailService {
     const user = this.configService.get<string>('EMAIL_USER');
     const pass = this.configService.get<string>('EMAIL_PASSWORD');
     if (!user || !pass) {
-      console.warn('[EmailService] No BREVO_API_KEY, RESEND_API_KEY, or EMAIL_USER/PASSWORD — emails will not be sent');
+      console.warn(
+        '[EmailService] No BREVO_API_KEY, RESEND_API_KEY, or EMAIL_USER/PASSWORD — emails will not be sent',
+      );
     } else {
-      console.log(`[EmailService] Initialized with SMTP user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`);
+      console.log(
+        `[EmailService] Initialized with SMTP user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`,
+      );
     }
 
     this.transporter = nodemailer.createTransport({
@@ -124,13 +132,20 @@ export class EmailService {
    * Send a generic email
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    const enabled = this.configService.get<string>('EMAIL_NOTIFICATIONS_ENABLED');
+    const enabled = this.configService.get<string>(
+      'EMAIL_NOTIFICATIONS_ENABLED',
+    );
     if (enabled !== 'true') {
-      console.log(`[EmailService] Skipping email to ${options.to} — notifications disabled`);
+      console.log(
+        `[EmailService] Skipping email to ${options.to} — notifications disabled`,
+      );
       return false;
     }
 
-    const from = options.from ?? this.configService.get('EMAIL_FROM') ?? 'ATLAS Platform <onboarding@resend.dev>';
+    const from =
+      options.from ??
+      this.configService.get('EMAIL_FROM') ??
+      'ATLAS Platform <onboarding@resend.dev>';
     const toArray = Array.isArray(options.to) ? options.to : [options.to];
 
     try {
@@ -140,7 +155,7 @@ export class EmailService {
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
-            'accept': 'application/json',
+            accept: 'application/json',
             'api-key': this.brevoApiKey,
             'content-type': 'application/json',
           },
@@ -169,16 +184,26 @@ export class EmailService {
         const user = this.configService.get<string>('EMAIL_USER');
         const pass = this.configService.get<string>('EMAIL_PASSWORD');
         if (!user || !pass) {
-          console.warn(`[EmailService] Cannot send email to ${options.to} — no email provider configured`);
+          console.warn(
+            `[EmailService] Cannot send email to ${options.to} — no email provider configured`,
+          );
           return false;
         }
-        await this.transporter.sendMail({ from, to: options.to, subject: options.subject, html: options.html });
+        await this.transporter.sendMail({
+          from,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+        });
       }
 
       console.log(`[EmailService] Sent "${options.subject}" to ${options.to}`);
       return true;
     } catch (error: any) {
-      console.error(`[EmailService] Failed to send "${options.subject}" to ${options.to}:`, error?.message ?? error);
+      console.error(
+        `[EmailService] Failed to send "${options.subject}" to ${options.to}:`,
+        error?.message ?? error,
+      );
       return false;
     }
   }
@@ -255,12 +280,20 @@ export class EmailService {
     firstName: string,
     resourceTitle: string,
     sessionTitle: string,
+    resourceId?: string,
   ): Promise<boolean> {
+    const base = this.configService.get(
+      'FRONTEND_URL',
+      'http://localhost:5173',
+    );
+    const actionUrl = resourceId
+      ? `${base}/resources/${resourceId}`
+      : `${base}/resources`;
     return this.sendNotificationEmail(email, {
       firstName,
       title: 'New Resource Available',
       message: `A new resource "${resourceTitle}" has been unlocked in ${sessionTitle}. Get started now to earn points!`,
-      actionUrl: `${this.configService.get('FRONTEND_URL')}/resources`,
+      actionUrl,
       actionText: 'View Resource',
     });
   }
@@ -337,7 +370,10 @@ export class EmailService {
   /**
    * Password Reset Email Template
    */
-  private getPasswordResetTemplate(data: { firstName: string; temporaryPassword: string }): string {
+  private getPasswordResetTemplate(data: {
+    firstName: string;
+    temporaryPassword: string;
+  }): string {
     const loginUrl = `${this.configService.get('FRONTEND_URL')}/login`;
     const year = new Date().getFullYear();
     return `<!DOCTYPE html>
@@ -428,7 +464,10 @@ export class EmailService {
    * Welcome Email Template
    */
   private getWelcomeTemplate(data: WelcomeEmailData): string {
-    const startDateFormatted = new Date(data.startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const startDateFormatted = new Date(data.startDate).toLocaleDateString(
+      'en-US',
+      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' },
+    );
     const dashboardUrl = `${this.configService.get('FRONTEND_URL')}/dashboard`;
     const year = new Date().getFullYear();
     return `<!DOCTYPE html>
@@ -570,7 +609,9 @@ export class EmailService {
     const accentColor = isFacilitator ? '#0ea5e9' : '#4338ca';
     const headerBg = isFacilitator ? '#1e293b' : '#1e3a8a';
     const btnBg = isFacilitator ? '#1e293b' : '#4338ca';
-    const btnShadow = isFacilitator ? 'rgba(30,41,59,0.35)' : 'rgba(67,56,202,0.35)';
+    const btnShadow = isFacilitator
+      ? 'rgba(30,41,59,0.35)'
+      : 'rgba(67,56,202,0.35)';
     const credBg = isFacilitator ? '#f0f9ff' : '#f5f3ff';
     const credBorder = isFacilitator ? '#bae6fd' : '#ddd6fe';
     const credLabelColor = isFacilitator ? '#0284c7' : '#7c3aed';
@@ -770,11 +811,15 @@ export class EmailService {
           </table>
         </td></tr>
 
-        ${data.actionUrl ? `
+        ${
+          data.actionUrl
+            ? `
         <!-- CTA -->
         <tr><td style="padding:28px 48px 0;text-align:center;">
           <a href="${data.actionUrl}" style="display:inline-block;padding:14px 40px;background:#1e3a8a;color:#ffffff!important;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(30,58,138,0.30);">${data.actionText ?? 'View Now'}</a>
-        </td></tr>` : ''}
+        </td></tr>`
+            : ''
+        }
 
         <!-- CLOSING -->
         <tr><td style="padding:28px 48px 40px;">
@@ -798,7 +843,9 @@ export class EmailService {
    * Weekly Summary Email Template
    */
   private getWeeklySummaryTemplate(data: WeeklySummaryData): string {
-    const percentile = Math.round((1 - (data.rank - 1) / data.totalParticipants) * 100);
+    const percentile = Math.round(
+      (1 - (data.rank - 1) / data.totalParticipants) * 100,
+    );
     const leaderboardUrl = `${this.configService.get('FRONTEND_URL')}/leaderboard`;
     const prefsUrl = `${this.configService.get('FRONTEND_URL')}/dashboard/settings`;
     const unsubUrl = `${this.configService.get('FRONTEND_URL')}/unsubscribe`;
@@ -919,11 +966,14 @@ export class EmailService {
       )
       .join('');
 
-    const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString(
+      'en-GB',
+      {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      },
+    );
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1051,12 +1101,15 @@ export class EmailService {
       : 'https://launchpadatlas.vercel.app/login';
     const year = new Date().getFullYear();
 
-    const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString(
+      'en-GB',
+      {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      },
+    );
 
     const html = `<!DOCTYPE html>
 <html lang="en">

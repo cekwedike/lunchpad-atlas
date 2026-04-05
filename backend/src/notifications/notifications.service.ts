@@ -11,18 +11,21 @@ import { PushService } from '../push/push.service';
  * Everything else stays in-app only (or arrives via the weekly digest).
  */
 const EMAIL_WORTHY_TYPES = new Set<NotificationType>([
-  NotificationType.USER_SUSPENDED,       // Account suspended — user needs to know immediately
-  NotificationType.USER_UNSUSPENDED,     // Account restored
-  NotificationType.QUIZ_STARTED,         // Live quiz is starting now — time-sensitive
-  NotificationType.ANTI_SKIMMING_WARNING,// Academic integrity warning
-  NotificationType.SYSTEM_ALERT,         // Platform-level alert
-  NotificationType.PASSWORD_CHANGED,     // Security event
-  NotificationType.USER_PROMOTED,        // Role promotion
-  NotificationType.ACHIEVEMENT_EARNED,   // Positive milestone worth celebrating
-  NotificationType.RESOURCE_UNLOCK,      // New resource available to complete
-  NotificationType.LEADERBOARD_UPDATE,   // Ranking change
-  NotificationType.ATTENDANCE_MARKED,    // Attendance recorded for a session
-  NotificationType.POINTS_ADJUSTED,      // Points manually adjusted by admin
+  NotificationType.USER_SUSPENDED, // Account suspended — user needs to know immediately
+  NotificationType.USER_UNSUSPENDED, // Account restored
+  NotificationType.QUIZ_STARTED, // Live quiz is starting now — time-sensitive
+  NotificationType.ANTI_SKIMMING_WARNING, // Academic integrity warning
+  NotificationType.SYSTEM_ALERT, // Platform-level alert
+  NotificationType.PASSWORD_CHANGED, // Security event
+  NotificationType.USER_PROMOTED, // Role promotion
+  NotificationType.ACHIEVEMENT_EARNED, // Positive milestone worth celebrating
+  NotificationType.RESOURCE_UNLOCK, // New resource available to complete
+  NotificationType.LEADERBOARD_UPDATE, // Ranking change
+  NotificationType.ATTENDANCE_MARKED, // Attendance recorded for a session
+  NotificationType.POINTS_ADJUSTED, // Points manually adjusted by admin
+  NotificationType.QUIZ_REMINDER, // Scheduled reminder (cron)
+  NotificationType.INCOMPLETE_RESOURCE, // Deadline approaching (cron)
+  NotificationType.SESSION_REMINDER, // Upcoming session (cron)
 ]);
 
 export interface CreateNotificationDto {
@@ -81,7 +84,11 @@ export class NotificationsService {
     });
 
     this.pushService
-      .sendPushToUser(dto.userId, { title: dto.title, body: dto.message, data: dto.data })
+      .sendPushToUser(dto.userId, {
+        title: dto.title,
+        body: dto.message,
+        data: dto.data,
+      })
       .catch((error) => {
         console.error('Failed to send push notification:', error);
       });
@@ -148,10 +155,8 @@ export class NotificationsService {
       return `${baseUrl}/dashboard/chat?channelId=${data.channelId}`;
     if (data.discussionId)
       return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
-    if (data.resourceId)
-      return `${baseUrl}/resources/${data.resourceId}`;
-    if (data.sessionId)
-      return `${baseUrl}/dashboard/attendance`;
+    if (data.resourceId) return `${baseUrl}/resources/${data.resourceId}`;
+    if (data.sessionId) return `${baseUrl}/dashboard/attendance`;
     if (data.liveQuizId)
       return `${baseUrl}/dashboard/live-quiz/${data.liveQuizId}`;
     if (data.quizId) return `${baseUrl}/quiz/${data.quizId}`;
@@ -171,6 +176,30 @@ export class NotificationsService {
     if (!user?.email) return;
     if (user.emailNotifications === false) return;
 
+    if (dto.type === NotificationType.RESOURCE_UNLOCK) {
+      const data = dto.data as {
+        resourceId?: string;
+        resourceTitle?: string;
+        sessionTitle?: string;
+      };
+      const resourceTitle =
+        typeof data?.resourceTitle === 'string'
+          ? data.resourceTitle
+          : dto.message;
+      const sessionTitle =
+        typeof data?.sessionTitle === 'string'
+          ? data.sessionTitle
+          : 'your session';
+      await this.emailService.sendResourceUnlockEmail(
+        user.email,
+        user.firstName || 'there',
+        resourceTitle,
+        sessionTitle,
+        typeof data?.resourceId === 'string' ? data.resourceId : undefined,
+      );
+      return;
+    }
+
     const actionUrl = this.buildActionUrl(dto.data);
 
     const isSuspensionEmail = dto.type === 'USER_SUSPENDED';
@@ -178,8 +207,8 @@ export class NotificationsService {
     const footer = isSuspensionEmail
       ? 'If you believe this is a mistake or would like to appeal, please contact your facilitator or the ATLAS support team.'
       : isUnsuspendEmail
-      ? 'You can now log in and access all platform features as normal.'
-      : undefined;
+        ? 'You can now log in and access all platform features as normal.'
+        : undefined;
 
     await this.emailService.sendNotificationEmail(user.email, {
       firstName: user.firstName || 'there',
@@ -206,7 +235,12 @@ export class NotificationsService {
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, email: true, firstName: true, emailNotifications: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        emailNotifications: true,
+      },
     });
 
     const userMap = new Map(users.map((user) => [user.id, user]));
@@ -216,6 +250,29 @@ export class NotificationsService {
         const user = userMap.get(notification.userId);
         if (!user?.email) return Promise.resolve();
         if (user.emailNotifications === false) return Promise.resolve();
+
+        if (notification.type === NotificationType.RESOURCE_UNLOCK) {
+          const data = notification.data as {
+            resourceId?: string;
+            resourceTitle?: string;
+            sessionTitle?: string;
+          };
+          const resourceTitle =
+            typeof data?.resourceTitle === 'string'
+              ? data.resourceTitle
+              : notification.message;
+          const sessionTitle =
+            typeof data?.sessionTitle === 'string'
+              ? data.sessionTitle
+              : 'your session';
+          return this.emailService.sendResourceUnlockEmail(
+            user.email,
+            user.firstName || 'there',
+            resourceTitle,
+            sessionTitle,
+            typeof data?.resourceId === 'string' ? data.resourceId : undefined,
+          );
+        }
 
         const actionUrl = this.buildActionUrl(notification.data);
 
@@ -230,7 +287,9 @@ export class NotificationsService {
     );
   }
 
-  private async sendBulkPushNotifications(notifications: CreateNotificationDto[]) {
+  private async sendBulkPushNotifications(
+    notifications: CreateNotificationDto[],
+  ) {
     await Promise.allSettled(
       notifications.map((n) =>
         this.pushService.sendPushToUser(n.userId, {
@@ -248,13 +307,14 @@ export class NotificationsService {
     userId: string,
     resourceTitle: string,
     resourceId: string,
+    sessionTitle = 'your session',
   ) {
     return this.createNotification({
       userId,
       type: 'RESOURCE_UNLOCK',
       title: 'New Resource Available',
       message: `${resourceTitle} is now unlocked and ready to complete!`,
-      data: { resourceId },
+      data: { resourceId, resourceTitle, sessionTitle },
     });
   }
 
@@ -262,6 +322,7 @@ export class NotificationsService {
     resourceId: string,
     cohortId: string,
     resourceTitle: string,
+    sessionTitle: string,
   ) {
     const fellows = await this.prisma.user.findMany({
       where: { cohortId, role: 'FELLOW' },
@@ -273,7 +334,7 @@ export class NotificationsService {
       type: 'RESOURCE_UNLOCK' as NotificationType,
       title: 'New Resource Available',
       message: `"${resourceTitle}" is now unlocked and ready to complete!`,
-      data: { resourceId },
+      data: { resourceId, resourceTitle, sessionTitle },
     }));
 
     return this.createBulkNotifications(notifications);
@@ -360,7 +421,11 @@ export class NotificationsService {
     isPresent: boolean,
     isLate = false,
   ) {
-    const status = !isPresent ? 'absent' : isLate ? 'present (late)' : 'present';
+    const status = !isPresent
+      ? 'absent'
+      : isLate
+        ? 'present (late)'
+        : 'present';
     return this.createNotification({
       userId,
       type: 'ATTENDANCE_MARKED',
@@ -456,7 +521,12 @@ export class NotificationsService {
       type: 'SYSTEM_ALERT',
       title: `Private message from ${senderName}`,
       message: messagePreview,
-      data: { senderName, channelName: `DM: ${senderName}`, channelId, isDm: true },
+      data: {
+        senderName,
+        channelName: `DM: ${senderName}`,
+        channelId,
+        isDm: true,
+      },
     });
   }
 
@@ -982,10 +1052,7 @@ export class NotificationsService {
     // Notify facilitators assigned to this cohort + all admins
     const staff = await this.prisma.user.findMany({
       where: {
-        OR: [
-          { role: 'ADMIN' },
-          { role: 'FACILITATOR', cohortId },
-        ],
+        OR: [{ role: 'ADMIN' }, { role: 'FACILITATOR', cohortId }],
       },
       select: { id: true },
     });
@@ -1052,7 +1119,8 @@ export class NotificationsService {
       userId,
       type: 'USER_UNSUSPENDED',
       title: 'Account Reinstated',
-      message: 'Your account has been reinstated. You can now access the platform normally.',
+      message:
+        'Your account has been reinstated. You can now access the platform normally.',
       data: {},
     });
   }
@@ -1090,10 +1158,7 @@ export class NotificationsService {
   ) {
     const staff = await this.prisma.user.findMany({
       where: {
-        OR: [
-          { role: 'ADMIN' },
-          { role: 'FACILITATOR', cohortId },
-        ],
+        OR: [{ role: 'ADMIN' }, { role: 'FACILITATOR', cohortId }],
       },
       select: { id: true },
     });
@@ -1117,10 +1182,7 @@ export class NotificationsService {
   ) {
     const staff = await this.prisma.user.findMany({
       where: {
-        OR: [
-          { role: 'ADMIN' },
-          { role: 'FACILITATOR', cohortId },
-        ],
+        OR: [{ role: 'ADMIN' }, { role: 'FACILITATOR', cohortId }],
       },
       select: { id: true },
     });
@@ -1144,10 +1206,7 @@ export class NotificationsService {
   ) {
     const staff = await this.prisma.user.findMany({
       where: {
-        OR: [
-          { role: 'ADMIN' },
-          { role: 'FACILITATOR', cohortId },
-        ],
+        OR: [{ role: 'ADMIN' }, { role: 'FACILITATOR', cohortId }],
       },
       select: { id: true },
     });

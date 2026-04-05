@@ -30,6 +30,15 @@ export class CreateCohortDto {
   @IsNotEmpty()
   @IsDateString()
   endDate: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'IANA timezone for program calendar (e.g. America/New_York). Default UTC.',
+  })
+  @IsOptional()
+  @IsString()
+  timeZone?: string;
 }
 
 export class UpdateCohortDto {
@@ -56,6 +65,13 @@ export class UpdateCohortDto {
   @IsEnum(['PENDING', 'ACTIVE', 'COMPLETED', 'ARCHIVED'])
   state?: 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 
+  @ApiProperty({
+    required: false,
+    description: 'IANA timezone for program calendar (e.g. America/New_York).',
+  })
+  @IsOptional()
+  @IsString()
+  timeZone?: string;
 }
 
 export class UpdateSessionDto {
@@ -242,24 +258,36 @@ export class CreateQuizDto {
   @Min(1)
   pointValue: number;
 
-  @ApiProperty({ required: false, description: '0 = unlimited; 1-5 = max total attempts' })
+  @ApiProperty({
+    required: false,
+    description: '0 = unlimited; 1-5 = max total attempts',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
   @Max(5)
   maxAttempts?: number;
 
-  @ApiProperty({ required: false, description: 'Show correct answers to fellows after completing quiz' })
+  @ApiProperty({
+    required: false,
+    description: 'Show correct answers to fellows after completing quiz',
+  })
   @IsOptional()
   @IsBoolean()
   showCorrectAnswers?: boolean;
 
-  @ApiProperty({ required: false, description: 'ISO date string - when quiz opens for fellows' })
+  @ApiProperty({
+    required: false,
+    description: 'ISO date string - when quiz opens for fellows',
+  })
   @IsOptional()
   @IsDateString()
   openAt?: string;
 
-  @ApiProperty({ required: false, description: 'ISO date string - when quiz closes' })
+  @ApiProperty({
+    required: false,
+    description: 'ISO date string - when quiz closes',
+  })
   @IsOptional()
   @IsDateString()
   closeAt?: string;

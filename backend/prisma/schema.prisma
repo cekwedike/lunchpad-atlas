@@ -133,6 +133,7 @@ model User {
   pushSubscriptions  PushSubscription[]
   feedback           Feedback[]
   guestSessions      GuestSession[]
+  reminderDispatches ReminderDispatch[]
 
   @@index([email])
   @@index([cohortId])
@@ -145,6 +146,8 @@ model Cohort {
   name          String // e.g., "April 2026 Cohort A"
   startDate     DateTime
   endDate       DateTime
+  /// IANA timezone for program calendar (weekly digest, reminders). Default UTC.
+  timeZone      String      @default("UTC")
   state         CohortState @default(PENDING)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -239,10 +242,39 @@ model Resource {
   session     Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   progress    ResourceProgress[]
   discussions Discussion[]
+  dateUnlockNotified ResourceDateUnlockNotification?
 
   @@index([sessionId])
   @@index([type])
   @@map("resources")
+}
+
+model ResourceDateUnlockNotification {
+  resourceId String   @id
+  notifiedAt DateTime @default(now())
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@map("resource_date_unlock_notifications")
+}
+
+enum ReminderDispatchKind {
+  SESSION_UPCOMING
+  QUIZ_CLOSING
+  INCOMPLETE_RESOURCE
+}
+
+model ReminderDispatch {
+  id        String               @id @default(uuid())
+  kind      ReminderDispatchKind
+  userId    String
+  entityId  String
+  createdAt DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, userId, entityId])
+  @@index([userId])
+  @@map("reminder_dispatches")
 }
 
 model ResourceProgress {

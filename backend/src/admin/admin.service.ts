@@ -47,7 +47,14 @@ export class AdminService {
         facilitators: {
           include: {
             user: {
-              select: { id: true, firstName: true, lastName: true, email: true, role: true, isFacilitator: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                isFacilitator: true,
+              },
             },
           },
         },
@@ -82,16 +89,10 @@ export class AdminService {
     if (!requester) {
       throw new ForbiddenException('Not authenticated');
     }
-    if (
-      requester.role === 'FELLOW' &&
-      requester.cohortId !== cohortId
-    ) {
+    if (requester.role === 'FELLOW' && requester.cohortId !== cohortId) {
       throw new ForbiddenException('You can only view your own cohort members');
     }
-    if (
-      requester.role === 'FACILITATOR' &&
-      requester.cohortId !== cohortId
-    ) {
+    if (requester.role === 'FACILITATOR' && requester.cohortId !== cohortId) {
       throw new ForbiddenException(
         'You can only view members of your assigned cohort',
       );
@@ -112,7 +113,15 @@ export class AdminService {
     // Compute live points from pointsLog for the current calendar month
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
     const pointsSums = await this.prisma.pointsLog.groupBy({
       by: ['userId'],
       where: {
@@ -121,7 +130,9 @@ export class AdminService {
       },
       _sum: { points: true },
     });
-    const pointsMap = new Map(pointsSums.map((p) => [p.userId, p._sum.points ?? 0]));
+    const pointsMap = new Map(
+      pointsSums.map((p) => [p.userId, p._sum.points ?? 0]),
+    );
 
     return members.map((m) => ({
       ...m,
@@ -136,6 +147,7 @@ export class AdminService {
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
         state: 'ACTIVE',
+        timeZone: dto.timeZone?.trim() || 'UTC',
       },
     });
 
@@ -187,7 +199,8 @@ export class AdminService {
 
     // Exclude facilitatorId from the DTO since facilitators are managed via CohortFacilitator
     const { facilitatorId: _ignored, ...updateData } = dto as any;
-    if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+    if (updateData.startDate)
+      updateData.startDate = new Date(updateData.startDate);
     if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
     const updatedCohort = await this.prisma.cohort.update({
       where: { id: cohortId },
@@ -232,7 +245,9 @@ export class AdminService {
 
     const u = user as any;
     if (u.role !== 'FACILITATOR' && !(u.role === 'ADMIN' && u.isFacilitator)) {
-      throw new BadRequestException('User must be a FACILITATOR or an Admin with facilitator privilege');
+      throw new BadRequestException(
+        'User must be a FACILITATOR or an Admin with facilitator privilege',
+      );
     }
 
     return (this.prisma as any).cohortFacilitator.upsert({
@@ -247,7 +262,8 @@ export class AdminService {
       where: { cohortId_userId: { cohortId, userId } },
     });
 
-    if (!record) throw new NotFoundException('Facilitator assignment not found');
+    if (!record)
+      throw new NotFoundException('Facilitator assignment not found');
 
     return (this.prisma as any).cohortFacilitator.delete({
       where: { cohortId_userId: { cohortId, userId } },
@@ -327,8 +343,13 @@ export class AdminService {
       where: { id: adminId },
       select: { role: true, cohortId: true },
     });
-    if (requester?.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
-      throw new ForbiddenException('Facilitators can only edit sessions in their own cohort');
+    if (
+      requester?.role === 'FACILITATOR' &&
+      requester.cohortId !== session.cohortId
+    ) {
+      throw new ForbiddenException(
+        'Facilitators can only edit sessions in their own cohort',
+      );
     }
 
     // Auto-calculate unlock date if scheduledDate provided but unlockDate not
@@ -416,7 +437,9 @@ export class AdminService {
           role: 'FELLOW',
           OR: [
             { lastLoginAt: { gte: sevenDaysAgo } },
-            { resourceProgress: { some: { updatedAt: { gte: sevenDaysAgo } } } },
+            {
+              resourceProgress: { some: { updatedAt: { gte: sevenDaysAgo } } },
+            },
             { discussions: { some: { createdAt: { gte: sevenDaysAgo } } } },
             { quizResponses: { some: { completedAt: { gte: sevenDaysAgo } } } },
           ],
@@ -427,7 +450,9 @@ export class AdminService {
       this.prisma.user.count({ where: { role: 'FELLOW' } }),
       this.prisma.user.count({ where: { role: 'FACILITATOR' } }),
       this.prisma.user.count({ where: { role: 'ADMIN' } }),
-      this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo }, role: 'FELLOW' } }),
+      this.prisma.user.count({
+        where: { createdAt: { gte: sevenDaysAgo }, role: 'FELLOW' },
+      }),
       this.prisma.user.count({
         where: {
           createdAt: {
@@ -488,8 +513,13 @@ export class AdminService {
       throw new NotFoundException('Session not found');
     }
 
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
-      throw new BadRequestException('Facilitators can only manage resources in their cohort');
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId !== session.cohortId
+    ) {
+      throw new BadRequestException(
+        'Facilitators can only manage resources in their cohort',
+      );
     }
 
     // Create the resource
@@ -503,7 +533,7 @@ export class AdminService {
         duration: dto.duration,
         estimatedMinutes: dto.estimatedMinutes || 10,
         isCore: dto.isCore !== undefined ? dto.isCore : true,
-        pointValue: dto.pointValue ?? ((dto.isCore === false) ? 50 : 100),
+        pointValue: dto.pointValue ?? (dto.isCore === false ? 50 : 100),
         order: dto.order,
       },
       include: {
@@ -565,7 +595,9 @@ export class AdminService {
       });
 
       if (!existingSession || existingSession.cohortId !== requester.cohortId) {
-        throw new BadRequestException('Facilitators can only manage resources in their cohort');
+        throw new BadRequestException(
+          'Facilitators can only manage resources in their cohort',
+        );
       }
     }
 
@@ -579,8 +611,13 @@ export class AdminService {
         throw new NotFoundException('Session not found');
       }
 
-      if (requester.role === 'FACILITATOR' && session.cohortId !== requester.cohortId) {
-        throw new BadRequestException('Facilitators can only move resources within their cohort');
+      if (
+        requester.role === 'FACILITATOR' &&
+        session.cohortId !== requester.cohortId
+      ) {
+        throw new BadRequestException(
+          'Facilitators can only move resources within their cohort',
+        );
       }
     }
 
@@ -601,7 +638,9 @@ export class AdminService {
         ...(dto.duration !== undefined && { duration: dto.duration }),
         ...(dto.estimatedMinutes && { estimatedMinutes: dto.estimatedMinutes }),
         ...(dto.isCore !== undefined && { isCore: dto.isCore }),
-        ...(effectivePointValue !== undefined && { pointValue: effectivePointValue }),
+        ...(effectivePointValue !== undefined && {
+          pointValue: effectivePointValue,
+        }),
         ...(dto.order && { order: dto.order }),
         ...(dto.state && { state: dto.state }),
       },
@@ -635,7 +674,11 @@ export class AdminService {
     return updatedResource;
   }
 
-  async toggleResourceLock(resourceId: string, state: string, requesterId: string) {
+  async toggleResourceLock(
+    resourceId: string,
+    state: string,
+    requesterId: string,
+  ) {
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
       include: { session: { select: { cohortId: true } } },
@@ -648,8 +691,13 @@ export class AdminService {
         select: { role: true, cohortId: true },
       });
       if (requester?.role === 'FACILITATOR') {
-        if (!resource.session || resource.session.cohortId !== requester.cohortId) {
-          throw new ForbiddenException('Facilitators can only manage resources in their cohort');
+        if (
+          !resource.session ||
+          resource.session.cohortId !== requester.cohortId
+        ) {
+          throw new ForbiddenException(
+            'Facilitators can only manage resources in their cohort',
+          );
         }
       }
     }
@@ -659,7 +707,12 @@ export class AdminService {
       data: { state: state as ResourceState },
       include: {
         session: {
-          select: { id: true, scheduledDate: true, unlockDate: true },
+          select: {
+            id: true,
+            title: true,
+            scheduledDate: true,
+            unlockDate: true,
+          },
         },
       },
     });
@@ -685,6 +738,7 @@ export class AdminService {
           resourceId,
           resource.session.cohortId,
           resource.title,
+          updated.session.title,
         );
       } catch {
         // Non-critical — don't fail if notifications error
@@ -722,7 +776,9 @@ export class AdminService {
       });
 
       if (!session || session.cohortId !== requester.cohortId) {
-        throw new BadRequestException('Facilitators can only manage resources in their cohort');
+        throw new BadRequestException(
+          'Facilitators can only manage resources in their cohort',
+        );
       }
     }
 
@@ -776,7 +832,9 @@ export class AdminService {
         });
 
         if (!session || session.cohortId !== requester.cohortId) {
-          throw new BadRequestException('Facilitators can only view resources in their cohort');
+          throw new BadRequestException(
+            'Facilitators can only view resources in their cohort',
+          );
         }
       }
     }
@@ -807,11 +865,18 @@ export class AdminService {
     });
     if (!requester) throw new NotFoundException('User not found');
 
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== dto.cohortId) {
-      throw new ForbiddenException('Facilitators can only create sessions for their own cohort');
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId !== dto.cohortId
+    ) {
+      throw new ForbiddenException(
+        'Facilitators can only create sessions for their own cohort',
+      );
     }
 
-    const cohort = await this.prisma.cohort.findUnique({ where: { id: dto.cohortId } });
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: dto.cohortId },
+    });
     if (!cohort) throw new NotFoundException('Cohort not found');
 
     const scheduledDate = new Date(dto.scheduledDate);
@@ -872,8 +937,13 @@ export class AdminService {
     });
     if (!requester) throw new NotFoundException('User not found');
 
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
-      throw new ForbiddenException('Facilitators can only view attendance for their own cohort');
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId !== session.cohortId
+    ) {
+      throw new ForbiddenException(
+        'Facilitators can only view attendance for their own cohort',
+      );
     }
 
     const [fellows, attendances] = await Promise.all([
@@ -884,7 +954,13 @@ export class AdminService {
       }),
       this.prisma.attendance.findMany({
         where: { sessionId },
-        select: { userId: true, isLate: true, isExcused: true, notes: true, checkInTime: true },
+        select: {
+          userId: true,
+          isLate: true,
+          isExcused: true,
+          notes: true,
+          checkInTime: true,
+        },
       }),
     ]);
 
@@ -912,7 +988,11 @@ export class AdminService {
     };
   }
 
-  async markBulkAttendance(sessionId: string, dto: BulkMarkAttendanceDto, requesterId: string) {
+  async markBulkAttendance(
+    sessionId: string,
+    dto: BulkMarkAttendanceDto,
+    requesterId: string,
+  ) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
       include: { cohort: { select: { name: true } } },
@@ -925,8 +1005,13 @@ export class AdminService {
     });
     if (!requester) throw new NotFoundException('User not found');
 
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
-      throw new ForbiddenException('Facilitators can only mark attendance for their own cohort');
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId !== session.cohortId
+    ) {
+      throw new ForbiddenException(
+        'Facilitators can only mark attendance for their own cohort',
+      );
     }
 
     const results = await Promise.all(
@@ -980,7 +1065,11 @@ export class AdminService {
     };
   }
 
-  async submitAiReview(sessionId: string, dto: AiReviewDto, requesterId: string) {
+  async submitAiReview(
+    sessionId: string,
+    dto: AiReviewDto,
+    requesterId: string,
+  ) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
     });
@@ -1021,7 +1110,10 @@ export class AdminService {
     });
     if (!requester) throw new NotFoundException('User not found');
 
-    if (requester.role === 'FACILITATOR' && requester.cohortId !== session.cohortId) {
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId !== session.cohortId
+    ) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -1111,7 +1203,9 @@ export class AdminService {
       } as any,
       include: {
         sessions: {
-          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+          include: {
+            session: { select: { id: true, title: true, sessionNumber: true } },
+          },
         },
         ...commonInclude,
       } as any,
@@ -1156,7 +1250,9 @@ export class AdminService {
       } as any,
       include: {
         sessions: {
-          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+          include: {
+            session: { select: { id: true, title: true, sessionNumber: true } },
+          },
           orderBy: { session: { sessionNumber: 'asc' } },
         },
         questions: { orderBy: { order: 'asc' } },
@@ -1200,13 +1296,15 @@ export class AdminService {
     if (pointsEntries.length > 0) {
       await Promise.allSettled(
         pointsEntries.map((entry) =>
-          this.notificationsService.createBulkNotifications([{
-            userId: entry.userId,
-            type: 'SYSTEM_ALERT' as any,
-            title: 'Quiz Removed',
-            message: `"${quiz.title}" has been deleted. Your ${entry.points} leaderboard points from this quiz have been removed.`,
-            data: {},
-          }]),
+          this.notificationsService.createBulkNotifications([
+            {
+              userId: entry.userId,
+              type: 'SYSTEM_ALERT' as any,
+              title: 'Quiz Removed',
+              message: `"${quiz.title}" has been deleted. Your ${entry.points} leaderboard points from this quiz have been removed.`,
+              data: {},
+            },
+          ]),
         ),
       );
     }
@@ -1215,7 +1313,11 @@ export class AdminService {
     if (quiz.cohortId) {
       const notifiedUserIds = new Set(pointsEntries.map((e) => e.userId));
       const remainingFellows = await this.prisma.user.findMany({
-        where: { cohortId: quiz.cohortId, role: 'FELLOW', id: { notIn: [...notifiedUserIds] } },
+        where: {
+          cohortId: quiz.cohortId,
+          role: 'FELLOW',
+          id: { notIn: [...notifiedUserIds] },
+        },
         select: { id: true },
       });
       if (remainingFellows.length > 0) {
@@ -1234,18 +1336,26 @@ export class AdminService {
     return this.prisma.quiz.delete({ where: { id: quizId } });
   }
 
-  async updateQuiz(quizId: string, dto: {
-    title?: string;
-    description?: string;
-    timeLimit?: number;
-    passingScore?: number;
-    pointValue?: number;
-    maxAttempts?: number;
-    showCorrectAnswers?: boolean;
-    openAt?: string | null;
-    closeAt?: string | null;
-    questions?: Array<{ question: string; options: string[]; correctAnswer: string; order?: number }>;
-  }) {
+  async updateQuiz(
+    quizId: string,
+    dto: {
+      title?: string;
+      description?: string;
+      timeLimit?: number;
+      passingScore?: number;
+      pointValue?: number;
+      maxAttempts?: number;
+      showCorrectAnswers?: boolean;
+      openAt?: string | null;
+      closeAt?: string | null;
+      questions?: Array<{
+        question: string;
+        options: string[];
+        correctAnswer: string;
+        order?: number;
+      }>;
+    },
+  ) {
     const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
     if (!quiz) throw new NotFoundException('Quiz not found');
 
@@ -1269,16 +1379,26 @@ export class AdminService {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-        ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
+        ...(dto.passingScore !== undefined && {
+          passingScore: dto.passingScore,
+        }),
         ...(dto.pointValue !== undefined && { pointValue: dto.pointValue }),
         ...(dto.maxAttempts !== undefined && { maxAttempts: dto.maxAttempts }),
-        ...(dto.showCorrectAnswers !== undefined && { showCorrectAnswers: dto.showCorrectAnswers }),
-        ...(dto.openAt !== undefined && { openAt: dto.openAt ? new Date(dto.openAt) : null }),
-        ...(dto.closeAt !== undefined && { closeAt: dto.closeAt ? new Date(dto.closeAt) : null }),
+        ...(dto.showCorrectAnswers !== undefined && {
+          showCorrectAnswers: dto.showCorrectAnswers,
+        }),
+        ...(dto.openAt !== undefined && {
+          openAt: dto.openAt ? new Date(dto.openAt) : null,
+        }),
+        ...(dto.closeAt !== undefined && {
+          closeAt: dto.closeAt ? new Date(dto.closeAt) : null,
+        }),
       },
       include: {
         sessions: {
-          include: { session: { select: { id: true, title: true, sessionNumber: true } } },
+          include: {
+            session: { select: { id: true, title: true, sessionNumber: true } },
+          },
         },
         questions: { orderBy: { order: 'asc' } },
         _count: { select: { questions: true, responses: true } },
@@ -1291,17 +1411,25 @@ export class AdminService {
     const liveQuiz = await (this.prisma.liveQuiz as any).findUnique({
       where: { id: liveQuizId },
       include: {
-        sessions: { include: { session: { select: { cohortId: true, title: true } } } },
+        sessions: {
+          include: { session: { select: { cohortId: true, title: true } } },
+        },
         participants: { select: { userId: true } },
       },
     });
     if (!liveQuiz) throw new NotFoundException('Live quiz not found');
 
-    const cohortIds: string[] = [...new Set(
-      liveQuiz.sessions.map((s: any) => s.session.cohortId).filter(Boolean) as string[]
-    )];
+    const cohortIds: string[] = [
+      ...new Set(
+        liveQuiz.sessions
+          .map((s: any) => s.session.cohortId)
+          .filter(Boolean) as string[],
+      ),
+    ];
 
-    const joinedUserIds = new Set(liveQuiz.participants.map((p: any) => p.userId));
+    const joinedUserIds = new Set(
+      liveQuiz.participants.map((p: any) => p.userId),
+    );
 
     for (const cohortId of cohortIds) {
       const fellows = await this.prisma.user.findMany({
@@ -1362,7 +1490,9 @@ export class AdminService {
     const topic =
       dto.topic ||
       dto.quizTitle ||
-      (sessionTitlesFromDb.length ? sessionTitlesFromDb.join(', ') : 'career development');
+      (sessionTitlesFromDb.length
+        ? sessionTitlesFromDb.join(', ')
+        : 'career development');
 
     const context = transcriptContext || dto.context;
 
@@ -1394,19 +1524,29 @@ Rules:
     try {
       result = await model.generateContent(prompt);
     } catch (err: any) {
-      throw new BadGatewayException(`Gemini API error: ${err?.message ?? 'unknown'}`);
+      throw new BadGatewayException(
+        `Gemini API error: ${err?.message ?? 'unknown'}`,
+      );
     }
 
     const raw = result.response.text();
-    const stripped = raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '').trim();
+    const stripped = raw
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```\s*/gi, '')
+      .trim();
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new BadGatewayException('AI returned an unparseable response. Try again.');
+    if (!jsonMatch)
+      throw new BadGatewayException(
+        'AI returned an unparseable response. Try again.',
+      );
 
     let generated: any[];
     try {
       generated = JSON.parse(jsonMatch[0]);
     } catch {
-      throw new BadGatewayException('AI returned an unparseable response. Try again.');
+      throw new BadGatewayException(
+        'AI returned an unparseable response. Try again.',
+      );
     }
 
     return {
@@ -1430,7 +1570,8 @@ Rules:
     });
     if (!session) throw new NotFoundException('Session not found');
 
-    const results: Array<{ userId: string; points: number; awarded: boolean }> = [];
+    const results: Array<{ userId: string; points: number; awarded: boolean }> =
+      [];
 
     for (const award of awards) {
       if (award.points <= 0) continue;
@@ -1447,9 +1588,17 @@ Rules:
           where: { id: award.userId },
           data: { currentMonthPoints: { increment: award.points } },
         });
-        results.push({ userId: award.userId, points: award.points, awarded: true });
+        results.push({
+          userId: award.userId,
+          points: award.points,
+          awarded: true,
+        });
       } catch {
-        results.push({ userId: award.userId, points: award.points, awarded: false });
+        results.push({
+          userId: award.userId,
+          points: award.points,
+          awarded: false,
+        });
       }
     }
 
@@ -1466,7 +1615,11 @@ Rules:
     return { sessionId, results };
   }
 
-  async duplicateCohort(cohortId: string, newName: string | undefined, adminId: string) {
+  async duplicateCohort(
+    cohortId: string,
+    newName: string | undefined,
+    adminId: string,
+  ) {
     // Load the source cohort with all sessions and resources
     const source = await this.prisma.cohort.findUnique({
       where: { id: cohortId },
@@ -1580,14 +1733,18 @@ Rules:
     },
     adminId: string,
   ) {
-    const achievement = await this.prisma.achievement.findUnique({ where: { id } });
+    const achievement = await this.prisma.achievement.findUnique({
+      where: { id },
+    });
     if (!achievement) throw new NotFoundException('Achievement not found');
 
     const updated = await this.prisma.achievement.update({
       where: { id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
         ...(data.pointValue !== undefined && { pointValue: data.pointValue }),
         ...(data.iconUrl !== undefined && { iconUrl: data.iconUrl }),
         ...(data.criteria !== undefined && { criteria: data.criteria }),
