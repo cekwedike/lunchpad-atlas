@@ -1,6 +1,7 @@
 import type { ApiError } from '@/types/api';
 import { formatApiErrorMessage } from '@/lib/format-api-message';
 import { fetchBffRefresh } from '@/lib/bff-refresh';
+import { getBffSessionSnapshot } from '@/lib/bff-session';
 
 const DIRECT_BASE =
   (typeof window === 'undefined'
@@ -111,9 +112,12 @@ class ApiClient {
         isBrowser &&
         !_retry
       ) {
-        const refreshed = await fetchBffRefresh();
-        if (refreshed.ok) {
-          return this.request<T>(endpoint, { ...options, _retry: true });
+        const snap = await getBffSessionSnapshot();
+        if (snap.hasRefreshCookie) {
+          const refreshed = await fetchBffRefresh();
+          if (refreshed.ok) {
+            return this.request<T>(endpoint, { ...options, _retry: true });
+          }
         }
       }
 

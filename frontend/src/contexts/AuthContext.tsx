@@ -8,6 +8,7 @@ import {
   isProtectedRoutePath,
 } from '@/lib/dashboard-routes';
 import { fetchBffRefresh } from '@/lib/bff-refresh';
+import { getBffSessionSnapshot } from '@/lib/bff-session';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 import type { User, LoginRequest, RegisterRequest } from '@/types/api';
@@ -87,6 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           apiClient.clearTokens();
           storeLogout();
           if (isProtectedRoute) router.replace('/login');
+          return;
+        }
+
+        const sessionSnap = await getBffSessionSnapshot();
+        if (!sessionSnap.hasRefreshCookie && !sessionSnap.hasAccessCookie) {
+          if (isAuthenticated || user) {
+            apiClient.clearTokens();
+            storeLogout();
+          }
+          if (isProtectedRoute) {
+            router.replace('/login?session=expired');
+          }
           return;
         }
 

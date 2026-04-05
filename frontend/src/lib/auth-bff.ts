@@ -102,9 +102,13 @@ export function jwtRemainingSeconds(token: string): number {
   return Math.max(60, payload.exp - Math.floor(Date.now() / 1000));
 }
 
-/** `none` + `Secure` helps browsers attach cookies reliably on full reloads (e.g. Vercel + PWA). */
-export function authCookieSameSite(secure: boolean): 'none' | 'lax' {
-  return secure ? 'none' : 'lax';
+/**
+ * Same-origin BFF (`/api/*` on the app host): `lax` is sent on same-site navigations and fetch/XHR.
+ * `none` is for cross-site cookies and is increasingly partitioned / blocked; it is not needed here
+ * and can prevent cookies from being sent reliably on some desktop browsers.
+ */
+export function authCookieSameSite(_secure: boolean): 'lax' {
+  return 'lax';
 }
 
 export function attachAuthCookies(
