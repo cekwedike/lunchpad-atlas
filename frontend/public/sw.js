@@ -5,12 +5,11 @@
  *  - /_next/static/*  → Cache First  (hashed filenames, safe forever)
  *  - /icons/*, /favicon.ico, /manifest.webmanifest → Cache First
  *  - /api/*           → Network Only (real-time data must be fresh)
- *  - navigation       → not intercepted (Next.js proxy + auth redirects break SW fetch;
- *                        avoids "FetchEvent ... error response" and login/session bugs)
- *  - everything else  → Network First → cache fallback
+ *  - All app HTML/RSC → not intercepted. Next uses GET + mode !== "navigate" for flights;
+ *    our old "networkFirst" fallback returned Response.error() and broke /login + refresh auth.
  */
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = `atlas-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline';
 
@@ -91,15 +90,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. Navigation — never intercept. Service-worker fetch() for document navigations
-  //    often resolves to responses Chrome treats as "error" with Next middleware,
-  //    redirects, and cookies — breaking login and showing console warnings.
-  if (request.mode === 'navigate') {
-    return;
-  }
-
-  // 6. Everything else — Network First with cache fallback
-  event.respondWith(networkFirst(request));
+  // 5. Do not intercept any other requests. Next.js uses non-navigate GETs for RSC flights;
+  //    the old generic networkFirst fallback could resolve to Response.error() and break
+  //    /login, cookies, and post-refresh auth until users cleared site data.
+  return;
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -115,21 +109,6 @@ async function cacheFirst(request) {
     cache.put(request, response.clone());
   }
   return response;
-}
-
-/** Tries network first; falls back to cached version if network fails. */
-async function networkFirst(request) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    return cached ?? Response.error();
-  }
 }
 
 // ─── Push ─────────────────────────────────────────────────────────────────────
