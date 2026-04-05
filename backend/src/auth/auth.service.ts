@@ -235,8 +235,9 @@ export class AuthService {
 
     const refreshSign: JwtSignOptions = {
       secret: refreshSecret,
+      // Keep in sync with BFF `at_refresh` cookie maxAge (~90d in `frontend/src/lib/auth-bff.ts`).
       expiresIn: (this.config.get<string>('JWT_REFRESH_EXPIRATION') ||
-        '7d') as JwtSignOptions['expiresIn'],
+        '90d') as JwtSignOptions['expiresIn'],
     };
     return {
       accessToken: this.jwtService.sign(payload),

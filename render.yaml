@@ -23,7 +23,7 @@ services:
       - key: JWT_EXPIRATION
         value: "15m"
       - key: JWT_REFRESH_EXPIRATION
-        value: "7d"
+        value: "90d"
       - key: FRONTEND_URL
         sync: false  # Set to your Vercel URL after deploying frontend
       - key: GEMINI_API_KEY

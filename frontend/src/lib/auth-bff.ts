@@ -123,12 +123,14 @@ export function attachAuthCookies(
     secure,
     maxAge: accessMax,
   });
+  /** Must match backend `JWT_REFRESH_EXPIRATION` (default 90d in auth.service). */
+  const refreshMaxAgeSec = 60 * 60 * 24 * 90;
   res.cookies.set(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
     path: '/',
     sameSite,
     secure,
-    maxAge: 60 * 60 * 24 * 90,
+    maxAge: refreshMaxAgeSec,
   });
 }
 

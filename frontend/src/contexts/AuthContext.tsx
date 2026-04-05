@@ -64,6 +64,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       setSessionBootstrapComplete(false);
       try {
+        if (
+          pathname.startsWith('/login') &&
+          new URLSearchParams(window.location.search).get('session') === 'expired'
+        ) {
+          apiClient.clearTokens();
+          storeLogout();
+          return;
+        }
+
         try {
           const controller = new AbortController();
           const timeoutId = window.setTimeout(() => controller.abort(), 3000);
