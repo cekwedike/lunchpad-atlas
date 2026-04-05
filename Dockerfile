@@ -6,8 +6,9 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy backend package files — run `npm install --no-workspaces` in backend/ after
-# changing package.json, then commit package-lock.json (npm ci fails if they drift).
+# Copy backend package files — after changing backend/package.json (e.g. via pnpm add),
+# run `cd backend && npm install` to refresh backend/package-lock.json and commit it.
+# Docker has no workspace root here; `npm ci` fails if package.json and lockfile drift.
 COPY backend/package.json backend/package-lock.json ./backend/
 WORKDIR /app/backend
 RUN npm ci
