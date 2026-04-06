@@ -411,8 +411,13 @@ export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: 'FELLOW' | 'FACILITATOR' | 'ADMIN' }) =>
-      apiClient.put(`/admin/users/${userId}/role`, { role }),
+    mutationFn: ({
+      userId,
+      role,
+    }: {
+      userId: string;
+      role: 'FELLOW' | 'FACILITATOR' | 'ADMIN' | 'GUEST_FACILITATOR';
+    }) => apiClient.put(`/admin/users/${userId}/role`, { role }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] });

@@ -20,9 +20,14 @@ import {
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen, Ban, ShieldCheck, UserCheck
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useSessions, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser, useCreateGuestFacilitator } from "@/hooks/api/useAdmin";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useSessions, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser, useCreateGuestFacilitator, useExtendGuestAccess } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+function formatDateForDatetimeLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
@@ -37,7 +42,10 @@ export default function AdminUsersPage() {
   const suspendUser = useSuspendUser();
   const unsuspendUser = useUnsuspendUser();
   const createGuestFacilitator = useCreateGuestFacilitator();
+  const extendGuestAccess = useExtendGuestAccess();
   const [searchQuery, setSearchQuery] = useState("");
+  /** `datetime-local` value for guest facilitator access window (admin extend). */
+  const [guestAccessExpiryInput, setGuestAccessExpiryInput] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -60,7 +68,7 @@ export default function AdminUsersPage() {
     name: "",
     email: "",
     password: "",
-    role: "FELLOW" as "FELLOW" | "FACILITATOR" | "ADMIN",
+    role: "FELLOW" as "FELLOW" | "FACILITATOR" | "ADMIN" | "GUEST_FACILITATOR",
     cohortId: "",
     isFacilitator: false,
   });
@@ -79,7 +87,10 @@ export default function AdminUsersPage() {
 
   // Generate auto-password for Fellows and Facilitators
   // Must satisfy backend PASSWORD_REGEX: uppercase + lowercase + digit + special char, min 8 chars
-  const generatePassword = (name: string, role: "FELLOW" | "FACILITATOR" | "ADMIN"): string => {
+  const generatePassword = (
+    name: string,
+    role: "FELLOW" | "FACILITATOR" | "ADMIN" | "GUEST_FACILITATOR",
+  ): string => {
     if (role === "ADMIN") {
       return ""; // Admins set their own password
     }
@@ -233,7 +244,24 @@ export default function AdminUsersPage() {
       cohortId: user.cohortId || "",
       isFacilitator: user.isFacilitator ?? false,
     });
+    setGuestAccessExpiryInput(
+      user.guestAccessExpiresAt
+        ? formatDateForDatetimeLocal(new Date(user.guestAccessExpiresAt))
+        : "",
+    );
     setIsEditDialogOpen(true);
+  };
+
+  const handleExtendGuestAccessSubmit = async () => {
+    if (!selectedUser || formData.role !== "GUEST_FACILITATOR" || !guestAccessExpiryInput) return;
+    try {
+      await extendGuestAccess.mutateAsync({
+        userId: selectedUser.id,
+        guestAccessExpiresAt: new Date(guestAccessExpiryInput).toISOString(),
+      });
+    } catch {
+      /* toast from hook */
+    }
   };
 
   const openDeleteDialog = (user: any) => {
@@ -278,6 +306,7 @@ export default function AdminUsersPage() {
       isFacilitator: false,
     });
     setShowPassword(false);
+    setGuestAccessExpiryInput("");
   };
 
   const filteredUsers = users.filter((user: any) =>
@@ -846,7 +875,7 @@ export default function AdminUsersPage() {
                   id="edit-role"
                   value={formData.role}
                   onChange={(e) => {
-                    const newRole = e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN";
+                    const newRole = e.target.value as "FELLOW" | "FACILITATOR" | "ADMIN" | "GUEST_FACILITATOR";
                     setFormData({
                       ...formData,
                       role: newRole,
@@ -896,6 +925,31 @@ export default function AdminUsersPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {formData.role === "GUEST_FACILITATOR" && (
+                <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                  <Label className="text-sm font-medium text-gray-900">Guest access window</Label>
+                  <p className="text-xs text-gray-600">
+                    After this date and time they cannot sign in until you set a new end date here (unlock by extending the window).
+                  </p>
+                  <Input
+                    type="datetime-local"
+                    value={guestAccessExpiryInput}
+                    onChange={(e) => setGuestAccessExpiryInput(e.target.value)}
+                    className="bg-white border-gray-300 text-gray-900"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    disabled={extendGuestAccess.isPending || !guestAccessExpiryInput}
+                    onClick={handleExtendGuestAccessSubmit}
+                  >
+                    {extendGuestAccess.isPending ? "Updating…" : "Update access window"}
+                  </Button>
                 </div>
               )}
             </div>

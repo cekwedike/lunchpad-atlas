@@ -22,6 +22,8 @@ export interface AccountCreatedEmailData {
   lastName: string;
   email: string;
   role: string;
+  /** Plain temporary password set at account creation (shown in the email). */
+  password: string;
 }
 
 export interface GuestFacilitatorWelcomeEmailData {
@@ -70,6 +72,15 @@ export class EmailService {
 
   constructor(private configService: ConfigService) {
     this.initializeTransporter();
+  }
+
+  /** Escape HTML entities for safe interpolation into email templates. */
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   private initializeTransporter() {
@@ -376,6 +387,8 @@ export class EmailService {
   }): string {
     const loginUrl = `${this.configService.get('FRONTEND_URL')}/login`;
     const year = new Date().getFullYear();
+    const safeFirst = this.escapeHtml(data.firstName);
+    const safePw = this.escapeHtml(data.temporaryPassword);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -405,7 +418,7 @@ export class EmailService {
 
         <!-- GREETING -->
         <tr><td style="padding:40px 48px 0;">
-          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Hi <strong style="color:#0f172a;">${data.firstName}</strong>,</p>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Hi <strong style="color:#0f172a;">${safeFirst}</strong>,</p>
           <p style="margin:0;font-size:15px;line-height:1.7;color:#334155;">An administrator has reset your password on LaunchPad ATLAS. Use the temporary password below to log in, then change it to something personal from your profile settings.</p>
         </td></tr>
 
@@ -418,7 +431,7 @@ export class EmailService {
                 <tr>
                   <td width="90" valign="top" style="font-size:13px;font-weight:600;color:#374151;padding:5px 0;">Password</td>
                   <td valign="top" style="padding:5px 0;">
-                    <span style="font-size:13px;font-family:'Courier New',monospace;background:#ffffff;border:1px solid #e5e7eb;border-radius:4px;padding:3px 10px;color:#111827;">${data.temporaryPassword}</span>
+                    <span style="font-size:13px;font-family:'Courier New',monospace;background:#ffffff;border:1px solid #e5e7eb;border-radius:4px;padding:3px 10px;color:#111827;">${safePw}</span>
                   </td>
                 </tr>
                 <tr><td colspan="2" style="height:8px;"></td></tr>
@@ -437,7 +450,7 @@ export class EmailService {
         <tr><td style="padding:16px 48px 0;">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;">
             <tr><td style="padding:14px 18px;font-size:13px;color:#92400e;line-height:1.6;">
-              <strong>Security note:</strong> If you did not expect this reset, contact your programme administrator immediately. We recommend changing your password as soon as you log in.
+              <strong>Security note:</strong> Passwords are case-sensitive — copy and paste carefully. If you did not expect this reset, contact your programme administrator immediately. We recommend changing your password as soon as you log in.
             </td></tr>
           </table>
         </td></tr>
@@ -605,6 +618,9 @@ export class EmailService {
     const roleLabel = isFacilitator ? 'Facilitator' : 'Fellow';
     const loginUrl = `${this.configService.get('FRONTEND_URL')}/login`;
     const year = new Date().getFullYear();
+    const safeFirst = this.escapeHtml(data.firstName);
+    const safeEmail = this.escapeHtml(data.email);
+    const safePassword = this.escapeHtml(data.password);
 
     const accentColor = isFacilitator ? '#0ea5e9' : '#4338ca';
     const headerBg = isFacilitator ? '#1e293b' : '#1e3a8a';
@@ -698,13 +714,13 @@ export class EmailService {
         <tr><td style="background:${headerBg};padding:40px 48px 32px;text-align:center;">
           <div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${accentColor};margin-bottom:12px;">LaunchPad ATLAS</div>
           <div style="font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">Your ${roleLabel} account is ready</div>
-          <p style="margin:10px 0 0;font-size:14px;color:#94a3b8;">Sign in with your email and the temporary password your administrator shared with you securely.</p>
+          <p style="margin:10px 0 0;font-size:14px;color:#94a3b8;">Use the email and temporary password below to sign in.</p>
         </td></tr>
 
         <!-- GREETING -->
         <tr><td style="padding:40px 48px 0;">
-          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Hi <strong style="color:#0f172a;">${data.firstName}</strong>,</p>
-          <p style="margin:0;font-size:15px;line-height:1.7;color:#334155;">An administrator has created a <strong>${roleLabel}</strong> account for you on the LaunchPad ATLAS platform. Use the email below to sign in; your temporary password was shared with you separately (not in this email).</p>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Hi <strong style="color:#0f172a;">${safeFirst}</strong>,</p>
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#334155;">An administrator has created a <strong>${roleLabel}</strong> account for you on the LaunchPad ATLAS platform. Your login details are below.</p>
         </td></tr>
 
         <!-- CREDENTIALS BOX -->
@@ -716,7 +732,14 @@ export class EmailService {
                 <tr>
                   <td width="90" valign="top" style="font-size:13px;font-weight:600;color:#374151;padding:5px 0;">Email</td>
                   <td valign="top" style="padding:5px 0;">
-                    <span style="font-size:13px;font-family:'Courier New',monospace;background:#ffffff;border:1px solid #e5e7eb;border-radius:4px;padding:3px 10px;color:#111827;word-break:break-all;">${data.email}</span>
+                    <span style="font-size:13px;font-family:'Courier New',monospace;background:#ffffff;border:1px solid #e5e7eb;border-radius:4px;padding:3px 10px;color:#111827;word-break:break-all;">${safeEmail}</span>
+                  </td>
+                </tr>
+                <tr><td colspan="2" style="height:8px;"></td></tr>
+                <tr>
+                  <td width="90" valign="top" style="font-size:13px;font-weight:600;color:#374151;padding:5px 0;">Password</td>
+                  <td valign="top" style="padding:5px 0;">
+                    <span style="font-size:13px;font-family:'Courier New',monospace;background:#ffffff;border:1px solid #e5e7eb;border-radius:4px;padding:3px 10px;color:#111827;word-break:break-all;">${safePassword}</span>
                   </td>
                 </tr>
                 <tr><td colspan="2" style="height:8px;"></td></tr>
@@ -735,7 +758,7 @@ export class EmailService {
         <tr><td style="padding:16px 48px 0;">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;">
             <tr><td style="padding:14px 18px;font-size:13px;color:#92400e;line-height:1.6;">
-              <strong>Security:</strong> Temporary passwords are never sent by email. Change your password after first sign-in. If you did not receive a password, contact your administrator.
+              <strong>Password note:</strong> Passwords are case-sensitive — copy and paste carefully. You may keep this temporary password or change it after sign-in. If you did not expect this account, contact your administrator.
             </td></tr>
           </table>
         </td></tr>
@@ -950,17 +973,20 @@ export class EmailService {
     to: string,
     data: GuestFacilitatorWelcomeEmailData,
   ): Promise<void> {
-    const loginUrl = process.env.FRONTEND_URL
-      ? `${process.env.FRONTEND_URL}/login`
-      : 'https://launchpadatlas.vercel.app/login';
+    const base = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const loginUrl = `${base.replace(/\/$/, '')}/login`;
     const year = new Date().getFullYear();
+    const safeFirst = this.escapeHtml(data.firstName);
+    const safeCohort = this.escapeHtml(data.cohortName);
+    const safeEmail = this.escapeHtml(data.email);
+    const safePassword = this.escapeHtml(data.password);
 
     const sessionRows = data.sessions
       .sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime())
       .map(
         (s) =>
           `<tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#334155;">${s.title}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#334155;">${this.escapeHtml(s.title)}</td>
             <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#64748b;white-space:nowrap;">${s.scheduledDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
           </tr>`,
       )
@@ -986,14 +1012,14 @@ export class EmailService {
         <!-- HEADER -->
         <tr><td style="background:linear-gradient(135deg,#0f2a6b 0%,#1e3a8a 60%,#3730a3 100%);padding:48px 48px 36px;text-align:center;">
           <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;">LaunchPad ATLAS</p>
-          <h1 style="margin:0 0 10px;font-size:28px;font-weight:800;color:#ffffff;">Welcome to ATLAS, ${data.firstName}</h1>
+          <h1 style="margin:0 0 10px;font-size:28px;font-weight:800;color:#ffffff;">Welcome to ATLAS, ${safeFirst}</h1>
           <p style="margin:0;font-size:15px;color:#bfdbfe;line-height:1.6;">You have been invited as a Guest Facilitator</p>
         </td></tr>
 
         <!-- WHY YOU'RE HERE -->
         <tr><td style="padding:40px 48px 0;">
           <h2 style="margin:0 0 12px;font-size:16px;font-weight:700;color:#0f172a;">Why you have been invited</h2>
-          <p style="margin:0;font-size:15px;color:#334155;line-height:1.7;">You have been invited as a Guest Facilitator for the <strong>${data.cohortName}</strong> cohort on the LaunchPad Fellowship ATLAS platform. We believe that fellows benefit greatly from interacting with experienced practitioners beyond formal sessions — your presence creates real-world connection and meaningful mentorship that extends the impact of each session.</p>
+          <p style="margin:0;font-size:15px;color:#334155;line-height:1.7;">You have been invited as a Guest Facilitator for the <strong>${safeCohort}</strong> cohort on the LaunchPad Fellowship ATLAS platform. We believe that fellows benefit greatly from interacting with experienced practitioners beyond formal sessions — your presence creates real-world connection and meaningful mentorship that extends the impact of each session.</p>
         </td></tr>
 
         <!-- YOUR SESSION(S) -->
@@ -1012,30 +1038,13 @@ export class EmailService {
         <!-- WHAT YOU CAN ACCESS -->
         <tr><td style="padding:32px 48px 0;">
           <h2 style="margin:0 0 16px;font-size:16px;font-weight:700;color:#0f172a;">What you can access on ATLAS</h2>
-          <table cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-              <td width="50%" style="padding-right:8px;vertical-align:top;">
-                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;">
-                  <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;">You can access</p>
-                  <ul style="margin:0;padding-left:16px;font-size:14px;color:#166534;line-height:1.9;">
-                    <li>Resources for your assigned session${data.sessions.length > 1 ? 's' : ''}</li>
-                    <li>Discussions with fellows</li>
-                    <li>Cohort chat channels</li>
-                  </ul>
-                </div>
-              </td>
-              <td width="50%" style="padding-left:8px;vertical-align:top;">
-                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;">
-                  <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.5px;">Not available</p>
-                  <ul style="margin:0;padding-left:16px;font-size:14px;color:#991b1b;line-height:1.9;">
-                    <li>Admin or management tools</li>
-                    <li>Other sessions' content</li>
-                    <li>Attendance or points management</li>
-                  </ul>
-                </div>
-              </td>
-            </tr>
-          </table>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;">
+            <ul style="margin:0;padding-left:18px;font-size:14px;color:#166534;line-height:1.9;">
+              <li>Resources for your assigned session${data.sessions.length > 1 ? 's' : ''}</li>
+              <li>Discussions with fellows</li>
+              <li>Cohort chat channels</li>
+            </ul>
+          </div>
         </td></tr>
 
         <!-- ACCESS WINDOW -->
@@ -1057,15 +1066,15 @@ export class EmailService {
               </tr>
               <tr>
                 <td style="font-size:14px;color:#64748b;padding-bottom:10px;">Email</td>
-                <td style="font-size:14px;color:#0f172a;font-weight:600;padding-bottom:10px;">${data.email}</td>
+                <td style="font-size:14px;color:#0f172a;font-weight:600;padding-bottom:10px;">${safeEmail}</td>
               </tr>
               <tr>
                 <td style="font-size:14px;color:#64748b;">Password</td>
-                <td style="font-size:14px;font-family:monospace;background:#e2e8f0;padding:4px 10px;border-radius:6px;color:#0f172a;font-weight:700;">${data.password}</td>
+                <td style="font-size:14px;font-family:monospace;background:#e2e8f0;padding:4px 10px;border-radius:6px;color:#0f172a;font-weight:700;">${safePassword}</td>
               </tr>
             </table>
           </div>
-          <p style="margin:12px 0 0;font-size:13px;color:#64748b;">For security, you will be asked to change your password on first login.</p>
+          <p style="margin:12px 0 0;font-size:13px;color:#64748b;"><strong>Password note:</strong> Passwords are case-sensitive — copy and paste carefully. For security, you will be asked to change your password on first login.</p>
         </td></tr>
 
         <!-- CTA -->
@@ -1096,9 +1105,8 @@ export class EmailService {
     to: string,
     data: GuestAccessExpiryReminderEmailData,
   ): Promise<void> {
-    const loginUrl = process.env.FRONTEND_URL
-      ? `${process.env.FRONTEND_URL}/login`
-      : 'https://launchpadatlas.vercel.app/login';
+    const base = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const loginUrl = `${base.replace(/\/$/, '')}/login`;
     const year = new Date().getFullYear();
 
     const expiryFormatted = data.guestAccessExpiresAt.toLocaleDateString(
@@ -1128,7 +1136,7 @@ export class EmailService {
 
         <!-- BODY -->
         <tr><td style="padding:40px 48px;">
-          <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.7;">Hi <strong>${data.firstName}</strong>,</p>
+          <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.7;">Hi <strong>${this.escapeHtml(data.firstName)}</strong>,</p>
           <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.7;">This is a reminder that your guest facilitator access to ATLAS expires <strong>tomorrow, ${expiryFormatted}</strong>.</p>
           <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.7;">After this date, your account will be automatically locked and you will no longer be able to log in. If you need continued access beyond tomorrow, please contact your programme administrator as soon as possible.</p>
           <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:20px 24px;margin-bottom:32px;">

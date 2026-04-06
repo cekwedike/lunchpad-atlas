@@ -118,6 +118,7 @@ describe('EmailService', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         role: 'FELLOW',
+        password: 'TempPass_2026!',
       };
 
       await service.sendAccountCreatedEmail('jane@example.com', data);
@@ -137,6 +138,7 @@ describe('EmailService', () => {
         lastName: 'Jones',
         email: 'bob@example.com',
         role: 'FACILITATOR',
+        password: 'TempPass_2026!',
       };
 
       await service.sendAccountCreatedEmail('bob@example.com', data);

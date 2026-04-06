@@ -89,6 +89,7 @@ export class AuthService {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        password: dto.password,
       }).catch((err) => console.error('Failed to send account-created email:', err));
 
       return this.generateTokens(user);
@@ -114,6 +115,14 @@ export class AuthService {
 
     if (user.isSuspended) {
       throw new UnauthorizedException('Account suspended');
+    }
+
+    if (
+      user.role === 'GUEST_FACILITATOR' &&
+      user.guestAccessExpiresAt &&
+      new Date() > user.guestAccessExpiresAt
+    ) {
+      throw new UnauthorizedException('Your guest facilitator access has expired');
     }
 
     await this.prisma.user.update({
@@ -211,11 +220,24 @@ export class AuthService {
     // Verify user still exists and is active
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, role: true, isSuspended: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isSuspended: true,
+        guestAccessExpiresAt: true,
+      },
     });
     if (!user) throw new UnauthorizedException('User not found');
     if (user.isSuspended) {
       throw new UnauthorizedException('Account suspended');
+    }
+    if (
+      user.role === 'GUEST_FACILITATOR' &&
+      user.guestAccessExpiresAt &&
+      new Date() > user.guestAccessExpiresAt
+    ) {
+      throw new UnauthorizedException('Your guest facilitator access has expired');
     }
 
     const accessPayload = { sub: user.id, email: user.email, role: user.role };
