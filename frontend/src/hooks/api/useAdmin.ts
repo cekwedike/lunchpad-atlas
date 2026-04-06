@@ -236,6 +236,33 @@ export function useAdminUsers(
   });
 }
 
+// Fellows missing welcome email (admin)
+export function useMissingWelcomeEmailUsers(cohortId?: string, options?: { enabled?: boolean }) {
+  const sessionReady = useAuthSessionReady();
+  const params = new URLSearchParams();
+  if (cohortId) params.append('cohortId', cohortId);
+  const queryString = params.toString();
+
+  return useQuery({
+    queryKey: ['admin-missing-welcome-email', cohortId],
+    queryFn: async () => {
+      return apiClient.get<any>(`/admin/users/missing-welcome-email${queryString ? `?${queryString}` : ''}`);
+    },
+    enabled: sessionReady && (options?.enabled ?? true),
+  });
+}
+
+export function useBulkResendWelcomeEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userIds: string[]) => apiClient.post('/admin/users/bulk/resend-welcome-email', { userIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-missing-welcome-email'] });
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
 // Get sessions for a cohort
 export function useSessions(cohortId?: string) {
   const sessionReady = useAuthSessionReady();

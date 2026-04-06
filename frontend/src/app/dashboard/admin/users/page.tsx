@@ -20,7 +20,7 @@ import {
   Eye, EyeOff, Loader2, CheckCircle, XCircle, Award, BookOpen, Ban, ShieldCheck, UserCheck
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useSessions, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser, useCreateGuestFacilitator, useExtendGuestAccess } from "@/hooks/api/useAdmin";
+import { useAdminUsers, useCreateUser, useUpdateUserRole, useDeleteUser, useCohorts, useSessions, useUpdateUserCohort, useUpdateUserFacilitator, useUpdateUserDetails, useSuspendUser, useUnsuspendUser, useCreateGuestFacilitator, useExtendGuestAccess, useMissingWelcomeEmailUsers, useBulkResendWelcomeEmail } from "@/hooks/api/useAdmin";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -43,7 +43,10 @@ export default function AdminUsersPage() {
   const unsuspendUser = useUnsuspendUser();
   const createGuestFacilitator = useCreateGuestFacilitator();
   const extendGuestAccess = useExtendGuestAccess();
+  const bulkResendWelcomeEmail = useBulkResendWelcomeEmail();
   const [searchQuery, setSearchQuery] = useState("");
+  const [welcomeCohortId, setWelcomeCohortId] = useState<string>("");
+  const [selectedWelcomeUserIds, setSelectedWelcomeUserIds] = useState<string[]>([]);
   /** `datetime-local` value for guest facilitator access window (admin extend). */
   const [guestAccessExpiryInput, setGuestAccessExpiryInput] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -62,6 +65,10 @@ export default function AdminUsersPage() {
   const users = usersResponse?.users || [];
   const totalUsers = usersResponse?.pagination?.total || 0;
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
+
+  const { data: missingWelcomeData, isLoading: missingWelcomeLoading, refetch: refetchMissingWelcome } =
+    useMissingWelcomeEmailUsers(welcomeCohortId || undefined);
+  const missingWelcomeUsers = missingWelcomeData?.users || [];
 
   // Form state for add/edit user
   const [formData, setFormData] = useState({
@@ -483,6 +490,125 @@ export default function AdminUsersPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Welcome email resend (minimal UI) */}
+        <Card className="bg-white border-gray-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="text-base">Send Welcome Email</CardTitle>
+                <CardDescription>
+                  Select fellows who missed the cohort welcome email, then send it.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={welcomeCohortId}
+                  onChange={(e) => {
+                    setWelcomeCohortId(e.target.value);
+                    setSelectedWelcomeUserIds([]);
+                  }}
+                  className="h-9 rounded-md border border-gray-300 bg-gray-50 px-3 text-sm text-gray-900"
+                >
+                  <option value="">All cohorts</option>
+                  {cohorts.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  className="h-9 border-gray-300"
+                  onClick={() => refetchMissingWelcome()}
+                  type="button"
+                  disabled={missingWelcomeLoading}
+                >
+                  {missingWelcomeLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading</> : "Refresh list"}
+                </Button>
+                <Button
+                  className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
+                  type="button"
+                  disabled={selectedWelcomeUserIds.length === 0 || bulkResendWelcomeEmail.isPending}
+                  onClick={async () => {
+                    try {
+                      const res: any = await bulkResendWelcomeEmail.mutateAsync(selectedWelcomeUserIds);
+                      toast.success("Welcome email sent", {
+                        description: `Sent: ${res?.sent ?? 0}, Failed: ${res?.failed ?? 0}`,
+                      });
+                      setSelectedWelcomeUserIds([]);
+                      refetchMissingWelcome();
+                    } catch (err: any) {
+                      toast.error("Failed to send welcome email", { description: err?.message || "Try again" });
+                    }
+                  }}
+                >
+                  {bulkResendWelcomeEmail.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</> : `Send to ${selectedWelcomeUserIds.length}`}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {missingWelcomeUsers.length === 0 ? (
+              <div className="text-sm text-gray-600">
+                {missingWelcomeLoading ? "Loading..." : "No fellows found (or everyone is already welcomed)."}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm text-gray-700">
+                    <span className="font-medium">{missingWelcomeUsers.length}</span> fellow{missingWelcomeUsers.length !== 1 ? "s" : ""} missing welcome
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedWelcomeUserIds.length > 0 && selectedWelcomeUserIds.length === missingWelcomeUsers.length}
+                        onChange={(e) => {
+                          setSelectedWelcomeUserIds(e.target.checked ? missingWelcomeUsers.map((u: any) => u.id) : []);
+                        }}
+                      />
+                      Select all
+                    </label>
+                    <Button
+                      variant="outline"
+                      className="h-8 border-gray-300"
+                      type="button"
+                      onClick={() => setSelectedWelcomeUserIds([])}
+                      disabled={selectedWelcomeUserIds.length === 0}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200">
+                  {missingWelcomeUsers.map((u: any) => {
+                    const checked = selectedWelcomeUserIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setSelectedWelcomeUserIds((prev) => {
+                                if (e.target.checked) return Array.from(new Set([...prev, u.id]));
+                                return prev.filter((id) => id !== u.id);
+                              });
+                            }}
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{u.firstName} {u.lastName}</div>
+                            <div className="text-xs text-gray-600">{u.email} {u.cohort?.name ? `• ${u.cohort.name}` : ""}</div>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Search Bar */}
         <Card className="bg-white border-gray-200 shadow-sm">

@@ -333,6 +333,13 @@ export class AdminController {
     return this.adminUserService.getUserActivity(userId, limit ? +limit : 50);
   }
 
+  @Get('users/missing-welcome-email')
+  @ApiOperation({ summary: 'List fellows missing the cohort welcome email' })
+  @ApiQuery({ name: 'cohortId', required: false, description: 'Filter by cohort ID' })
+  getFellowsMissingWelcomeEmail(@Query('cohortId') cohortId?: string) {
+    return this.adminUserService.getFellowsMissingWelcomeEmail(cohortId);
+  }
+
   @Patch('users/:id')
   @ApiOperation({ summary: 'Update user name, email, or password' })
   @ApiParam({ name: 'id', description: 'User ID' })
@@ -438,6 +445,19 @@ export class AdminController {
   @ApiOperation({ summary: 'Reset a user\'s password (generates temporary password)' })
   resetUserPassword(@Param('id') userId: string, @Request() req) {
     return this.adminUserService.resetUserPassword(userId, req.user.id);
+  }
+
+  @Post('users/:id/resend-welcome-email')
+  @ApiOperation({ summary: 'Resend cohort welcome email to a fellow' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  resendWelcomeEmail(@Param('id') userId: string, @Request() req) {
+    return this.adminUserService.resendWelcomeEmail(userId, req.user.id);
+  }
+
+  @Post('users/bulk/resend-welcome-email')
+  @ApiOperation({ summary: 'Bulk resend cohort welcome email to fellows' })
+  bulkResendWelcomeEmail(@Body() body: { userIds: string[] }, @Request() req) {
+    return this.adminUserService.bulkResendWelcomeEmail(body.userIds, req.user.id);
   }
 
   @Post('users/guest-facilitator')

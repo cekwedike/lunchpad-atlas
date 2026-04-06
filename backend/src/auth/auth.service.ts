@@ -58,12 +58,14 @@ export class AuthService {
 
         // Compute the monthly points cap based on the assigned cohort's duration.
         let monthlyPointsCap: number | undefined;
+        let cohortForWelcome: { name: string; startDate: Date } | null = null;
         if (cohortId) {
           const cohort = await this.prisma.cohort.findUnique({
             where: { id: cohortId },
-            select: { startDate: true, endDate: true },
+            select: { name: true, startDate: true, endDate: true },
           });
           if (cohort) {
+            cohortForWelcome = { name: cohort.name, startDate: cohort.startDate };
             const months = getCohortDurationMonths(cohort.startDate, cohort.endDate);
             monthlyPointsCap = getMonthlyCapForDuration(months);
           }
@@ -83,7 +85,7 @@ export class AuthService {
 
       await this.notificationsService.notifyAdminsUserRegistered(user.id);
 
-      // Send welcome email with login credentials (fire-and-forget)
+      // Account email with login credentials (fire-and-forget)
       this.emailService.sendAccountCreatedEmail(user.email, {
         firstName: user.firstName,
         lastName: user.lastName,
@@ -91,6 +93,18 @@ export class AuthService {
         role: user.role,
         password: dto.password,
       }).catch((err) => console.error('Failed to send account-created email:', err));
+
+      // Cohort narrative welcome — same as admin `updateUserCohort`; registration assigns cohort in one step so this must run here too.
+      if (user.role === 'FELLOW' && cohortForWelcome) {
+        this.emailService
+          .sendWelcomeEmail(user.email, {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            cohortName: cohortForWelcome.name,
+            startDate: cohortForWelcome.startDate,
+          })
+          .catch((err) => console.error('Failed to send welcome email:', err));
+      }
 
       return this.generateTokens(user);
     } catch (error) {

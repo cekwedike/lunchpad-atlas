@@ -1,326 +1,317 @@
-# ATLAS - Accelerating Talent for Leadership & Success
+# ATLAS
 
-> **THRiVE Hub LaunchPad Fellowship Platform**  
-> Empowering African Youth For Global Opportunities
+**Accelerating Talent for Leadership & Success**
 
-ATLAS is a gamified Learning Management System designed for the THRiVE Hub LaunchPad Fellowship - a 4-month intensive program preparing young African professionals to compete in the global job market.
+ATLAS is the official **gamified learning platform** for the **THRiVE Hub LaunchPad Fellowship**—a structured program that prepares young African professionals to compete in the global job market. It is not a generic content library: it is a cohort-based system built to centralize curriculum, enforce meaningful engagement (not just “clicks”), surface participation to facilitators and admins, and make progress visible through points, achievements, and monthly leaderboards.
 
-## 🎯 Platform Overview
+This repository contains the full-stack application (Next.js frontend, NestJS API, PostgreSQL/Prisma, real-time features). Product vision and extended specs also live under [`docs/`](docs/).
 
-ATLAS transforms traditional learning into an engaging, accountable, and measurable experience through:
-- **Resource Locking System**: Content unlocks 8 days before each session
-- **Anti-Skimming Validation**: Deep engagement tracking (scroll depth, watch time, minimum thresholds)
-- **Gamification Engine**: Points, achievements, and monthly leaderboards
-- **Social Learning**: Discussion threads, peer comments, cohort chat
-- **Live Quizzes**: Kahoot-style assessments with real-time rankings
-- **Session Analytics**: AI-assisted engagement analysis for facilitators and admins
+---
 
-## 🏗️ Architecture
+## What ATLAS Is For
 
-### Tech Stack
+| Goal | How ATLAS supports it |
+|------|------------------------|
+| **One place for fellowship learning** | Session-scoped articles and videos, unlock rules, and progress tracking |
+| **Depth over speed** | Anti-skimming rules (scroll/watch thresholds), engagement quality scoring, penalties for repeat low-engagement patterns |
+| **Accountability & healthy competition** | Monthly leaderboards, cohort-scoped visibility, achievements |
+| **Community learning** | Resource and session discussions, comments, cohort chat |
+| **Assessment** | Async quizzes (passing score, time bonus, multipliers) and facilitator-run **live** quizzes |
+| **Program intelligence** | Engagement events, optional AI-assisted discussion quality scoring, session analytics tooling for staff |
 
-**Frontend**
-- Next.js 16 (App Router) + `src/proxy.ts` route protection
-- TypeScript
-- TanStack Query (data fetching)
-- Zustand (state management)
-- Tailwind CSS + Shadcn UI
-- Radix UI components
-- API calls default to same-origin `/api/proxy` with HttpOnly auth cookies (see `frontend/src/app/api/`)
+**Design principle (carried through product docs and code):** points reward **meaningful** participation. The system is built to discourage skimming, spam, and point-farming.
 
-**Backend**
-- NestJS (TypeScript)
-- PostgreSQL (primary database)
-- Prisma ORM
-- JWT authentication + RBAC
-- Google Gemini for session analytics, discussion scoring, and admin AI helpers
+---
 
-**AI Services** (`ai-services/`)
-- **Planned / documentation only** in this repository — there is no Python service implementation here yet. In-app AI features use Gemini from the Nest backend.
+## Fellowship Context (Typical Cohort)
 
-**Deployment** (see [DEPLOYMENT.md](DEPLOYMENT.md))
-- Frontend: Vercel
-- Backend: Render (Dockerfile at repository root)
-- Database: Neon (or any managed PostgreSQL)
+Figures below match published curriculum and README context for **Cohort 4 (2026)**; always confirm dates with your cohort announcement.
 
-**Other directories**
-- `shared/` — TypeScript curriculum data consumed by the backend via relative imports (not a published npm package).
-- `legacy/` — Older stack kept for reference only; it is not the active application.
+- **Duration:** Four months (e.g. April–July 2026).
+- **Live sessions:** Saturdays, **2:00 PM–4:30 PM** (2.5 hours); **16** Saturday sessions in the curriculum design.
+- **Curriculum:** Organized by **monthly themes** (e.g. foundations, career clarity, visibility/growth, sustainability/innovation), with storytelling sessions in the plan.
+- **Resources:** Curated articles and videos tied to sessions (the codebase and seeds model many resources; exact counts are content-managed).
 
-## 🎓 Program Structure
+**Roles on the platform**
 
-- **Duration**: 4 months (April - July 2026)
-- **Sessions**: 16 Saturday sessions (2:00 PM - 4:30 PM)
-- **Resources**: 91 curated articles and videos
-- **Roles**: Fellow (learner), Facilitator (session leader), Admin (system operator)
+- **Fellow** — Learner; earns points and appears on the cohort leaderboard (subject to rules below).
+- **Facilitator** — Session/cohort operations: early resource access, cohort-scoped analytics, point adjustments **for their cohort**, manual unlocks where allowed.
+- **Admin** — Full cohort, user, content, quiz, and audit capabilities; org-wide visibility.
+- **Guest facilitator** — Read-oriented access to assigned sessions (e.g. preview); **does not earn points** for resource completion.
 
-### Monthly Themes
-1. **Month 1**: Foundations for Professional Excellence
-2. **Month 2**: Career Clarity & Modern Work Skills
-3. **Month 3**: Visibility, Opportunity & Career Growth
-4. **Month 4**: Sustainability, Innovation & Future Readiness
+---
 
-## ✨ Key Features
+## Core Fellow Experience
 
-### For Fellows (Learners)
-- **Smart Resource Unlocking**: Resources become available 8 days before each session
-- **Progress Tracking**: Monitor completion status, time spent, and learning milestones
-- **Gamification**: Earn points for deep engagement (30 pts core, 15 pts optional)
-- **Real-time Leaderboards**: Monthly rankings with historical access
-- **Achievements & Badges**: Consistency Star, Deep Diver, Discussion Leader, Quiz Master
-- **Social Learning**: Discussion threads with mandatory participation, peer comments
-- **Live Quizzes**: Time-bound Kahoot-style assessments with bonus multipliers
-- **Cohort Chat**: Global and session-specific channels for collaboration
+### Learning resources
 
-### For Facilitators
-- **Early Access**: Preview session resources before they unlock
-- **Engagement Analytics**: View anonymized participation trends and drop-off points
-- **Session Insights**: AI-powered analysis of live session engagement
+- Resources belong to **sessions** (and thus to a **cohort**).
+- **Unlocking:** A resource becomes available when `now >= session.unlockDate`. If admins create a session with a **scheduled date** but no explicit unlock date, the backend **defaults unlock to 5 days before** that scheduled date (see `backend` session creation logic). *(Older concept notes sometimes say “8 days”; the **implemented** default is five unless staff set a custom `unlockDate`.)*
+- Once unlocked, content typically stays available for the rest of the fellowship for that cohort’s timeline.
+- **Completion** is gated by engagement metrics (see **How fellows earn points — resources**).
 
-### For Admins
-- **Cohort Management**: Create cohorts, schedule sessions, assign facilitators
-- **Resource Control**: Upload content, configure unlock dates, manage resource states
-- **Quiz Creation**: Build assessments with custom multipliers and time windows
-- **Manual Scoring**: Award/adjust points, allocate session engagement scores
-- **Anti-Gaming Tools**: Flag suspicious behavior, reduce points for skimming
-- **Analytics Dashboard**: Track cohort health, completion rates, participation patterns
-- **Audit Logs**: Full transparency on all admin actions
+### Discussions and chat
 
-## 🎮 Gamification System
+- **Discussions** can be tied to a resource and/or session; prompts encourage reflection on materials.
+- **Comments** on others’ threads are part of the social layer and feed into leaderboard “activity” signals.
+- **Cohort chat** supports asynchronous community conversation (counts toward leaderboard bonuses—see below).
 
-### Points Structure
-- **Core Resources**: 30 points (must meet 80% scroll/85% watch + 70% time threshold)
-- **Optional Resources**: 15 points (same thresholds)
-- **Discussion Posts**: 20 points (≥100 words, original)
-- **Discussion Replies**: 10 points (max 3 per resource)
-- **Quizzes**: 10 points per correct answer + time bonus
-- **Session Engagement**: 10-30 points (admin/AI-scored)
-- **Chat Participation**: 2-5 points (daily cap: 10 points)
+### Quizzes
 
-### Achievements
-- **Consistency Star** (50 pts): Complete all core resources in a month
-- **Deep Diver** (30 pts): Complete all optional resources in a month
-- **Discussion Leader** (40 pts): 5+ quality discussions in a month
-- **Quiz Master** (25 pts): Top 3 in a live quiz
-- **Monthly Champion** (100 pts): #1 on leaderboard
+- **Standard quizzes:** Configurable passing score, time limit, point value, optional **multiplier**, and optional **max attempts**. Points are awarded on the **first passing attempt**; retries reduce the multiplier geometrically (half each attempt).
+- **MEGA quizzes:** Special type that awards **tiered rank-based points** among passing submissions (see points section).
+- **Live quizzes:** Facilitator-driven, real-time sessions; final **rank** determines large tiered point awards (same tier scale as MEGA in code).
 
-### Anti-Skimming Protection
-- Minimum time requirements (70% of estimated duration)
-- Scroll depth tracking for articles (≥80%)
-- Watch completion tracking for videos (≥85%)
-- Abnormal pattern detection (>3 resources <50% time → 50% point reduction)
-- Duplicate discussion content flagging
+### Notifications and digests
 
-## 📁 Project Structure
+- Email and in-app notifications exist for engagement nudges, quizzes, and weekly digest eligibility (see backend `notifications`, `email`, `cron` modules).
 
-```
-career-resources-hub/
-├── frontend/              # Next.js application (to be built)
-│   ├── app/              # App Router pages
-│   ├── components/       # React components
-│   ├── lib/              # Utilities, API client
-│   ├── hooks/            # Custom React hooks
-│   └── stores/           # Zustand state management
-├── backend/              # NestJS API (to be built)
-│   ├── src/
-│   │   ├── auth/         # Authentication module
-│   │   ├── users/        # User management
-│   │   ├── cohorts/      # Cohort & session management
-│   │   ├── resources/    # Resource management & locking
-│   │   ├── gamification/ # Points, achievements, leaderboards
-│   │   ├── discussions/  # Discussion threads & comments
-│   │   ├── quizzes/      # Quiz system
-│   │   ├── chat/         # Chat system
-│   │   ├── analytics/    # Event tracking & analytics
-│   │   └── admin/        # Admin tools
-│   └── prisma/           # Database schema & migrations
-├── ai-services/          # Python microservices (to be built)
-│   ├── session-analyzer/ # Session engagement analysis
-│   ├── discussion-quality/ # Discussion quality evaluator
-│   └── skimming-detector/ # Pattern detection
-├── shared/               # Shared TypeScript types (to be built)
-├── docs/                 # Platform documentation
-│   ├── atlas.md          # Core concept document
-│   ├── prd.md            # Product requirements
-│   ├── curriculum.md     # Fellowship curriculum
-│   └── *.md              # Technical specifications
-└── legacy/               # Original simple website (archived)
-```
+---
 
-## 📋 Prerequisites
+## How Fellows Get Awarded Points
 
-### Development Environment
-- **Node.js**: v18 or higher (v20 recommended for Docker parity)
-- **pnpm**: v8 or higher (monorepo installs)
-- **PostgreSQL**: v14 or higher (see [docker-compose.yml](docker-compose.yml) — host port **5433**)
+All point grants are recorded in an **immutable points log** (`PointsLog`). Fellows also have a **monthly point balance** and a **monthly cap**; if an award would exceed the cap, **no points** are granted for that action (completion may still succeed).
 
-### Required Services
-- PostgreSQL database
-- `GEMINI_API_KEY` (optional but required for AI-backed features in Nest)
+### Monthly point cap (cohort-duration-aware)
 
-## 🛠️ Development Setup
+The **maximum points a fellow can earn per calendar month** depends on **cohort length** (from cohort `startDate` / `endDate`). Implemented caps (see `backend/src/common/gamification.utils.ts`):
 
-### 1. Clone the Repository
+| Cohort length | Monthly cap | Approximate total target over cohort |
+|---------------|-------------|--------------------------------------|
+| 1 month | 10,000 | 10,000 |
+| 2 months | 11,000 | 22,000 |
+| 3 months | 15,000 | 45,000 |
+| 4 months | 20,000 | 80,000 |
+| 5 months | 24,000 | 120,000 |
+| 6+ months | 26,667 | 160,000 |
+
+The cap is applied when **logging** points (resources, quizzes, discussions, achievements, admin adjustments—each module enforces it consistently).
+
+---
+
+### 1. Resources (articles & videos)
+
+**Base points** come from each resource’s `pointValue`. **Defaults when staff create resources:** **100** for **core**, **50** for **optional** deep-dives (admin API can override).
+
+**To mark a resource complete and receive points, the fellow must:**
+
+1. **Start engagement** so the system tracks progress (no “complete” without a progress record).
+2. **Meet type-specific minimums at completion time:**
+   - **Articles:** **≥ 80%** scroll depth.
+   - **Videos:** **≥ 85%** watch completion.
+3. **Engagement quality (0.0–1.0)** is computed from scroll/watch depth and time relative to estimated length; it feeds a **quality bonus** on completion.
+
+**Bonuses and penalties on the base `pointValue`:**
+
+- **Quality bonus:** Up to **+20%** of base: `floor(pointValue × engagementQuality × 0.2)`.
+- **Timeliness bonus** (relative to **session unlock date**):  
+  - Complete within **3** days of unlock: **+10%** of base (floored).  
+  - Within **4** days: **+5%** of base.  
+  - After that: **no** timeliness bonus.
+- **Anti-skimming penalty:** If the user is classified as a **repeat skimmer** (among the last 10 completed resources, **≥3** completions where time spent was **below half** of the resource’s minimum time threshold), **all resource points are halved** (after quality and timeliness bonuses). A warning notification may be sent.
+
+**Tracked engagement (for quality and skimming detection):**
+
+- Time spent is compared to **70% of estimated duration** for a “minimum threshold met” flag during tracking; engagement quality blends depth and time.
+- Video **playback** behavior (speed, pauses, seeks) can reduce engagement quality via the enhanced engagement helper (e.g. very high playback speed reduces quality).
+
+**Guest facilitators** cannot complete resources for points.
+
+---
+
+### 2. Discussions
+
+**Creating a discussion post**
+
+- Content must be at least **100 words** (HTML stripped before counting).
+- **5 points** for an approved post **only after** the fellow has **commented on someone else’s discussion** (peer engagement). Until then, points are **withheld**; when the fellow later engages a peer, **earlier withheld posts can be awarded retroactively**.
+- Fellows are limited to **5 discussions per resource** and **5 per session** (staff can delete threads to free slots).
+
+**Commenting**
+
+- **2 points** per qualifying reply, **maximum 3 point-earning comments per resource** (additional comments are allowed but earn no points).
+- Comments on discussions **not** tied to a resource still earn points (no per-resource cap).
+
+**AI quality score (when enabled/triggered)**
+
+- Discussions (and comments) can be scored **0–100**; the system can log **`DISCUSSION_QUALITY_SCORE` / `COMMENT_QUALITY_SCORE`** events for **up to that many points** per scored item (replacing prior score logs for that item). This is separate from the flat **+5 / +2** discussion points and rewards **thoughtful** writing when staff run scoring.
+
+**Thought Leader achievement:** requires **7** discussions with **quality score ≥ 70** (see achievements list below).
+
+---
+
+### 3. Async quizzes (non-live)
+
+On **first successful pass** (first time passing, not first attempt number):
+
+- **Base:** `quiz.pointValue` if score ≥ `passingScore`, else **0**.
+- **Multiplier:** `quiz.multiplier` (default 1) applied to base.
+- **Time bonus** (if `timeTaken` is within the quiz time limit):  
+  - Finish in **&lt; 50%** of limit: **+20%** of `pointValue` (rounded).  
+  - **&lt; 75%** of limit: **+10%** of `pointValue`.
+- **Retry penalty:** Attempt *n* multiplies the **total** (base × multiplier + time bonus) by **1 / 2^(n−1)**. **Points are only awarded on the first passing submission**—re-passing does not re-award.
+
+**MEGA quiz:** Passing submissions get **rank-based** points (competition among scores): **3000 / 2000 / 1000 / 500** (ranks 4–7) / **200** (rank 8+), with cap bypass for the award path as implemented.
+
+---
+
+### 4. Live quizzes
+
+When a live quiz **completes**, **final rank** among participants sets **tiered points** (same band as MEGA): **3000, 2000, 1000, 500, 200** by rank. During play, in-room scoring uses question points and **streak bonuses** on correct answers (see `live-quiz` service).
+
+**Quiz Master achievement:** finish **top 3** in a **live** quiz session at least once.
+
+---
+
+### 5. Leaderboard display bonuses (not all in `PointsLog` as separate events)
+
+The **monthly leaderboard** sorts fellows by:
+
+**Total = Base points + Chat bonus + Activity streak bonus**
+
+- **Base points:** Sum of **`PointsLog`** for that **calendar month** (resources, quizzes, discussions, achievements, admin adjustments, live quiz awards, quality scores, etc.).
+- **Chat bonus:**  
+  - **+30** if **combined** chat messages **+** discussion comments in the month **≥ 50**.  
+  - **Plus** a **chat-day streak** bonus using the same tier table as activity streak (see below).
+- **Activity streak bonus:** Consecutive **calendar days** (through month end) with **any** activity: points-log events, chat messages, or discussion comments. Tiers: **7→+10, 14→+15, 21→+20, 28→+25** points.
+
+**Tie-break:** Higher **base points** wins.
+
+So: **chat and streak bonuses affect rank** even though they are **not** always mirrored as separate point log lines—plan for leaderboard holistically.
+
+---
+
+### 6. Achievements
+
+Achievements are defined in code and synced to the database on boot (`backend/src/achievements/achievements.service.ts`). Unlocking an achievement grants its **`pointValue`** (subject to monthly cap).
+
+**Examples of criteria:**
+
+- **Milestones:** First resource, N resources completed, N quizzes passed, perfect scores, live quiz participation counts.
+- **Social:** Discussion and comment counts; **Social Butterfly** (15 posts + 15 comments); **Thought Leader** (7 AI-scored discussions ≥ 70).
+- **Combos:** e.g. **Triple Threat** — 30 resources, 12 quizzes, 12 discussions.
+- **Leaderboard / points:** **Point Starter** through **The GOAT** use **total points earned since cohort start**, with thresholds **scaled** by cohort duration (targets in `gamification.utils.ts`). Display names mention example numbers for a **4-month (80k target)** cohort; shorter/longer cohorts scale.
+- **Monthly Champion:** **#1** on the monthly leaderboard; **Top 10 Finisher:** rank ≤ 10.
+- **Consistency Star:** **100%** of **core** resources for sessions **scheduled in the current calendar month** completed.
+- **Deep Diver:** **100%** of **optional** resources in a **session** completed.
+
+Full names, descriptions, and point values are in `ACHIEVEMENT_DEFINITIONS` in the achievements service (60+ entries).
+
+---
+
+### 7. Manual adjustments
+
+- **Admins** can add or subtract points for any user (audit-logged).
+- **Facilitators** can adjust points **only for fellows in cohorts they facilitate**.
+
+Use cases: live session participation, corrections, recognition—**subject to the same monthly cap** unless business rules specify otherwise.
+
+---
+
+### 8. Point event types (audit trail)
+
+| Event type | Typical meaning |
+|------------|-----------------|
+| `RESOURCE_COMPLETE` | Resource completed with bonuses/penalties |
+| `QUIZ_SUBMIT` | Async quiz, MEGA quiz, or live quiz completion |
+| `DISCUSSION_POST` / discussion comments | Social points |
+| `DISCUSSION_QUALITY_SCORE` / `COMMENT_QUALITY_SCORE` | AI quality points |
+| `ACHIEVEMENT_UNLOCK` | Achievement bonus |
+| `ADMIN_ADJUSTMENT` | Staff change |
+
+---
+
+## Anti-Gaming and Fair Play (Summary)
+
+- Monthly **hard cap** on earnable points.
+- Resource completion **requires** demonstrated scroll/watch depth; **repeat skimming** halves resource points.
+- Discussion **word minimum**, **peer engagement** rule for post points, **3 comments per resource** cap for comment points.
+- **Suspension** and admin tooling can restrict accounts.
+- Achievements and leaderboard tiers are **cohort-aware** so multi-month programs stay fair.
+
+---
+
+## Tech Stack (Abbreviated)
+
+| Layer | Stack |
+|-------|--------|
+| Frontend | Next.js (App Router), TypeScript, TanStack Query, Zustand, Tailwind, shadcn/ui; BFF auth via `frontend/src/app/api/` |
+| Backend | NestJS, Prisma, PostgreSQL, JWT + RBAC, WebSockets for chat/quizzes/notifications |
+| AI | Google Gemini (backend) for discussion scoring and analytics helpers; `ai-services/` Python folder is **design-only** in-repo |
+
+**Deployment:** See [`DEPLOYMENT.md`](DEPLOYMENT.md) (e.g. Vercel + Render + managed Postgres).
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- **Node.js** 18+ (20 recommended)
+- **pnpm** 8+
+- **PostgreSQL** 14+ (Docker Compose exposes **5433** on the host—see [`docker-compose.yml`](docker-compose.yml))
+
+### Setup
+
 ```bash
 git clone https://github.com/cekwedike/lunchpad-atlas.git
 cd lunchpad-atlas
 ```
 
-### 2. Set Up Environment Variables
+1. Copy `backend/.env.example` → `backend/.env` (set `DATABASE_URL` and `DIRECT_URL`).
+2. Copy `frontend/.env.example` → `frontend/.env.local` (**same `JWT_SECRET`** as backend for cookie verification).
 
-Copy [backend/.env.example](backend/.env.example) to `backend/.env` and adjust URLs. Prisma requires both `DATABASE_URL` and `DIRECT_URL` (see example file).
-
-**Frontend** — copy [frontend/.env.example](frontend/.env.example) to `frontend/.env.local`. Use the **same** `JWT_SECRET` as the backend so `src/proxy.ts` can verify session cookies.
-
-### 3. Database Setup
 ```bash
-# From repo root — Postgres on localhost:5433 (see docker-compose.yml)
 docker compose up -d
-
-# Run database migrations (from /backend)
 cd backend
+pnpm install
 pnpm prisma migrate dev
-pnpm prisma db seed  # Load curriculum data
-```
+pnpm prisma db seed
+pnpm start:dev   # API e.g. http://localhost:4000
 
-### 4. Install Dependencies
-
-**Backend**
-```bash
-cd backend
+cd ../frontend
 pnpm install
+pnpm dev         # http://localhost:3000
 ```
 
-**Frontend**
-```bash
-cd frontend
-pnpm install
-```
+**Useful URLs (local):**
 
-### 5. Run Development Servers
+- Fellow dashboard: `http://localhost:3000/dashboard/fellow`
+- Admin: `http://localhost:3000/dashboard/admin`
+- API docs: `http://localhost:4000/api/docs`
 
-**Terminal 1: Backend API**
-```bash
-cd backend
-pnpm start:dev  # Runs on http://localhost:4000
-```
-
-**Terminal 2: Frontend**
-```bash
-cd frontend
-pnpm dev  # Runs on http://localhost:3000
-```
-
-### 6. Access the Platform
-- **Fellow Dashboard**: http://localhost:3000/dashboard/fellow
-- **Admin Dashboard**: http://localhost:3000/dashboard/admin
-- **Facilitator Dashboard**: http://localhost:3000/dashboard/facilitator
-- **API Documentation**: http://localhost:4000/api/docs
-
-## 🚀 Deployment
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for Vercel + Render + Neon. The production Docker image is built from the **repository root** [Dockerfile](Dockerfile) (`docker compose` / Render `dockerContext: .`).
-
-### Package managers
-- **Local monorepo**: pnpm workspaces (`frontend`, `backend`).
-- **Docker image**: `npm ci` with [backend/package-lock.json](backend/package-lock.json) for reproducible production installs.
-
-### Database
-- **Production PostgreSQL**: AWS RDS, Neon, or Supabase
-- **Production Redis**: Upstash or Redis Cloud
-
-## 📊 Database Schema
-
-The platform uses PostgreSQL with 14+ tables:
-- `users` - User accounts with role-based access
-- `cohorts` - Fellowship cohorts with state management
-- `sessions` - Saturday learning sessions
-- `resources` - Articles/videos with unlock logic
-- `resource_progress` - Engagement tracking per user
-- `discussions` & `discussion_comments` - Social learning
-- `points_log` - Immutable point transaction history
-- `achievements` & `user_achievements` - Badge system
-- `monthly_leaderboards` & `leaderboard_entries` - Rankings
-- `quizzes`, `quiz_questions`, `quiz_responses` - Assessment system
-- `engagement_events` - Complete event stream for analytics
-- `session_analytics` - AI-generated session insights
-- `admin_audit_logs` - Full audit trail
-
-See [docs/launch_pad_platform_data_model_database_schema.md](docs/launch_pad_platform_data_model_database_schema.md) for complete schema.
-
-## 📚 Documentation
-
-- **[ATLAS Core Concept](docs/atlas.md)** - Platform vision and key features
-- **[Product Requirements](docs/prd.md)** - Complete feature specifications
-- **[System Architecture](docs/launch_pad_platform_system_architecture_tech_stack.md)** - Technical design
-- **[Database Schema](docs/launch_pad_platform_data_model_database_schema.md)** - Data model
-- **[Gamification Rules](docs/launch_pad_platform_gamification_scoring_rules.md)** - Points and achievements
-- **[User Journeys](docs/launch_pad_platform_user_journeys_state_flows.md)** - Role-based flows
-- **[API Specification](docs/launch_pad_platform_api_specification.md)** - Endpoint contracts
-- **[Roles & Permissions](docs/launch_pad_platform_roles_permissions.md)** - Access control
-- **[Analytics & AI](docs/launch_pad_platform_analytics_ai_behavior.md)** - Event tracking and AI
-- **[Non-Functional Requirements](docs/launch_pad_platform_non_functional_requirements.md)** - Performance, security
-- **[Curriculum](docs/curriculum.md)** - Fellowship program structure
-
-## 🧪 Testing
+### Testing
 
 ```bash
-# Backend unit tests
-cd backend
-pnpm test
-
-# Backend e2e tests
-pnpm test:e2e
-
-# Frontend component tests
-cd frontend
-pnpm test
-
-# End-to-end tests
-pnpm test:e2e
+cd backend && pnpm test && pnpm test:e2e
+cd ../frontend && pnpm test
 ```
-
-## 🤝 Contributing
-
-This is a private project for the THRiVE Hub LaunchPad Fellowship. For questions or support, contact the THRiVE Hub team.
-
-## 📄 License
-
-Proprietary - THRiVE Hub © 2026
-
-## 🔗 Resources
-
-- **THRiVE Hub**: [thrivehub.africa](https://thrivehub.africa)
-- **LaunchPad Fellowship**: More information about the program
-- **Platform Status**: Coming April 2026
-
-## 🛡️ Security & Privacy
-
-- All passwords hashed with bcrypt
-- JWT authentication with refresh tokens
-- Role-based access control (RBAC) enforced server-side
-- HTTPS enforced in production
-- Audit logs for all admin actions
-- No biometric or sentiment profiling
-- Fellows can view their own engagement data
-
-## 🎯 Current Status
-
-**Phase**: Platform Development  
-**Launch Date**: April 11, 2026 (Cohort 4 Start)  
-**Current Version**: 2.0.0-alpha (Complete rebuild)
-
-### Development Roadmap
-- ✅ Complete documentation and requirements
-- ✅ GitHub repository setup
-- 🚧 Monorepo structure creation
-- 🚧 Backend API development
-- 🚧 Frontend dashboard development
-- 🚧 AI services integration
-- ⏳ Testing & QA
-- ⏳ Production deployment
-- ⏳ Cohort 4 onboarding
 
 ---
 
-**Built with ❤️ for the next generation of African talent**
+## Further Documentation
+
+| Document | Contents |
+|----------|----------|
+| [`docs/atlas.md`](docs/atlas.md) | Original concept: vision, features, “Fellow of the Month,” etc. |
+| [`docs/launch_pad_platform_gamification_scoring_rules.md`](docs/launch_pad_platform_gamification_scoring_rules.md) | Authoritative scoring spec (align with code for any drift) |
+| [`docs/prd.md`](docs/prd.md) | Product requirements |
+| [`docs/curriculum.md`](docs/curriculum.md) | Cohort 4 curriculum narrative and session themes |
+| [`docs/launch_pad_platform_roles_permissions.md`](docs/launch_pad_platform_roles_permissions.md) | RBAC |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Production deployment |
+
+---
+
+## Security & Privacy (High Level)
+
+Passwords hashed (bcrypt), HTTPS in production, server-side RBAC, audit logs for privileged actions, HttpOnly cookies for session handling on the frontend BFF. See [`docs/SECURITY.md`](docs/SECURITY.md).
+
+---
+
+## License
+
+Proprietary — THRiVE Hub © 2026
+
+---
+
+**THRiVE Hub:** [thrivehub.africa](https://thrivehub.africa)

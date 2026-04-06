@@ -196,7 +196,7 @@ export default function LeaderboardPage() {
                   {lastUpdatedLabel}
                 </span>
                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500">
-                  {selectedCohortId ? 'Cohort locked' : 'Select cohort'}
+                  {selectedCohortId ? 'Cohort selected' : 'Select cohort'}
                 </span>
               </div>
             </div>

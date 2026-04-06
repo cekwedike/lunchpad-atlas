@@ -869,6 +869,107 @@ export class AdminUserService {
     };
   }
 
+  /**
+   * Resend cohort welcome email to an existing fellow.
+   * Useful when users were created/assigned before welcome sending existed.
+   */
+  async resendWelcomeEmail(userId: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, cohortId: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== UserRole.FELLOW) {
+      throw new BadRequestException('Welcome email can only be sent to fellows');
+    }
+    if (!user.cohortId) {
+      throw new BadRequestException('User is not assigned to a cohort');
+    }
+
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: user.cohortId },
+      select: { name: true, startDate: true },
+    });
+    if (!cohort) {
+      throw new NotFoundException('Cohort not found');
+    }
+
+    const sent = await this.emailService.sendWelcomeEmail(user.email, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      cohortName: cohort.name,
+      startDate: cohort.startDate,
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'WELCOME_EMAIL_RESENT',
+        entityType: 'User',
+        entityId: userId,
+        changes: { email: user.email, cohortId: user.cohortId, cohortName: cohort.name, sent },
+      },
+    });
+
+    return { userId, sent };
+  }
+
+  async getFellowsMissingWelcomeEmail(cohortId?: string) {
+    const fellows = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.FELLOW,
+        cohortId: cohortId ?? { not: null },
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        cohortId: true,
+        cohort: { select: { name: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    const ids = fellows.map((u) => u.id);
+    if (ids.length === 0) return { users: [] };
+
+    const logs = await this.prisma.adminAuditLog.findMany({
+      where: {
+        entityType: 'User',
+        entityId: { in: ids },
+        action: { in: ['WELCOME_EMAIL_SENT', 'WELCOME_EMAIL_RESENT'] },
+      },
+      select: { entityId: true },
+    });
+    const welcomed = new Set(logs.map((l) => l.entityId).filter(Boolean) as string[]);
+
+    const missing = fellows.filter((u) => !welcomed.has(u.id));
+    return { users: missing };
+  }
+
+  async bulkResendWelcomeEmail(userIds: string[], adminId: string) {
+    const uniqueIds = Array.from(new Set((userIds || []).filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('userIds is required');
+    }
+
+    const results: Array<{ userId: string; sent: boolean }> = [];
+    for (const userId of uniqueIds) {
+      // Sequential to avoid hammering SMTP provider
+      const r = await this.resendWelcomeEmail(userId, adminId);
+      results.push(r);
+    }
+
+    const sentCount = results.filter((r) => r.sent).length;
+    return {
+      requested: uniqueIds.length,
+      sent: sentCount,
+      failed: uniqueIds.length - sentCount,
+      results,
+    };
+  }
+
   // ==================== GUEST FACILITATOR MANAGEMENT ====================
 
   /**
