@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   IOS_PWA_PROFILE_NOTE,
+  IOS_VIBRATION_IN_BROWSER_NOTE,
   isLikelyIOS,
   isStandalonePwa,
 } from "@/lib/pwa-platform";
@@ -281,7 +282,7 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
           />
         </div>
 
-        {/* Vibration row — only on devices that support it */}
+        {/* Vibration row — only on devices that expose the API */}
         {supportsVibration && (
           <div className="flex items-center justify-between px-4 py-3.5 gap-4">
             <div className="flex items-start gap-3 min-w-0">
@@ -289,6 +290,9 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900">Vibration</p>
                 <p className="text-xs text-gray-500 mt-0.5">Vibrate the device on new notifications.</p>
+                {isLikelyIOS() && (
+                  <p className="text-xs text-amber-800/90 mt-1.5 leading-snug">{IOS_VIBRATION_IN_BROWSER_NOTE}</p>
+                )}
               </div>
             </div>
             <Switch
@@ -296,6 +300,16 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
               onCheckedChange={updateVibration}
               aria-label="Vibration"
             />
+          </div>
+        )}
+
+        {/* iOS Safari often omits vibrate() — explain why the toggle may be missing */}
+        {isLikelyIOS() && !supportsVibration && (
+          <div className="px-4 py-3.5">
+            <p className="text-sm font-medium text-gray-900">Vibration</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Not available in this browser on iOS. {IOS_VIBRATION_IN_BROWSER_NOTE}
+            </p>
           </div>
         )}
 

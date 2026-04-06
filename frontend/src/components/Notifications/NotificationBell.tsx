@@ -49,10 +49,10 @@ export function NotificationBell({ userId, userRole }: NotificationBellProps) {
           className={`relative ${connectionIssue ? 'ring-2 ring-amber-400/70 ring-offset-2' : ''}`}
           title={
             connectionIssue
-              ? `${connectionIssue} You may still see updates when you open this menu.`
+              ? `${connectionIssue} Live notification sounds are paused until you reconnect. You may still see updates when you open this menu.`
               : undefined
           }
-          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}${connectionIssue ? ', live updates limited' : ''}`}
+          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}${connectionIssue ? ', live updates and chimes paused until reconnect' : ''}`}
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (

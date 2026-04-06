@@ -99,7 +99,7 @@ export function usePushNotifications() {
           msg.includes('Registration failed') ||
           msg.includes('AbortError');
         const hint = isPushServiceError
-          ? ' This is often caused by a VPN, firewall, ad-blocker, or browser extension blocking the push service. Try disabling extensions or switching networks.'
+          ? ' This is often caused by a VPN, firewall, or tools that block the push service. Brave and other privacy browsers may need Shields lowered for this site (lion icon) or “Allow” for notifications. Ad-blockers and extensions can block it too—try disabling them or using Chrome for comparison.'
           : '';
         const err = `Browser push subscription failed: ${msg}${hint}`;
         setSubscribeError(err);

@@ -12,6 +12,7 @@ import { PushNotificationPrompt } from './PushNotificationPrompt';
 import { OfflineBanner } from './OfflineBanner';
 import { UpdateBanner } from './UpdateBanner';
 import { useAuthStore } from '@/stores/authStore';
+import { installNotificationAudioUnlock } from '@/lib/notification-tone';
 
 const persister = createAsyncStoragePersister({
   storage: idbStorage,
@@ -30,6 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    installNotificationAudioUnlock();
   }, []);
 
   return (

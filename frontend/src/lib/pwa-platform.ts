@@ -32,3 +32,7 @@ export const IOS_ADD_TO_HOME_SHORT =
 /** Longer note for settings / banners (mentions push requirements on newer iOS). */
 export const IOS_PWA_PROFILE_NOTE =
   'On iPhone and iPad, add ATLAS to your Home Screen (Share → Add to Home Screen) for the best experience. Push alerts from the browser tab are limited; on iOS 16.4 or later, after installing to the Home Screen you can turn on push in Profile.';
+
+/** In-browser vibration is often missing on iOS Safari even when the Vibration API exists elsewhere. */
+export const IOS_VIBRATION_IN_BROWSER_NOTE =
+  'Vibration may be unavailable in Safari; add ATLAS to the Home Screen for push alerts.';
