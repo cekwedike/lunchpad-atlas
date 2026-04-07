@@ -42,6 +42,7 @@ interface Achievement {
   pointValue: number;
   criteria: Record<string, any>;
   unlockedByCount: number;
+  unlockedBy?: Array<{ id: string; firstName: string; lastName: string }>;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -278,8 +279,51 @@ function EditAchievementDialog({
   );
 }
 
+function UnlockedByDialog({
+  achievement,
+  onClose,
+}: {
+  achievement: Achievement;
+  onClose: () => void;
+}) {
+  const unlockedBy = achievement.unlockedBy ?? [];
+  const title = achievement.name;
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Unlocked by</DialogTitle>
+          <DialogDescription>
+            {title} · {unlockedBy.length} fellow{unlockedBy.length !== 1 ? "s" : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        {unlockedBy.length === 0 ? (
+          <div className="py-8 text-sm text-gray-500">No fellows have unlocked this yet.</div>
+        ) : (
+          <div className="rounded-md border border-gray-200 divide-y divide-gray-100">
+            {unlockedBy.map((u) => {
+              const name = [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || "Unnamed fellow";
+              return (
+                <div key={u.id} className="px-3 py-2 text-sm text-gray-800">
+                  {name}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminAchievementsPage() {
   const [editingAchievement, setEditingAchievement] = useState<Achievement | null>(null);
+  const [viewingUnlockedBy, setViewingUnlockedBy] = useState<Achievement | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
 
   const { data: achievements = [], isLoading } = useQuery<Achievement[]>({
@@ -371,10 +415,15 @@ export default function AdminAchievementsPage() {
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-amber-600">+{achievement.pointValue} pts bonus</span>
-                    <span className="flex items-center gap-1 text-gray-500">
+                    <button
+                      type="button"
+                      onClick={() => setViewingUnlockedBy(achievement)}
+                      className="flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors"
+                      title="View fellows who unlocked this"
+                    >
                       <Users className="h-3 w-3" />
                       {achievement.unlockedByCount} unlock{achievement.unlockedByCount !== 1 ? "s" : ""}
-                    </span>
+                    </button>
                   </div>
 
                   {(() => {
@@ -403,6 +452,13 @@ export default function AdminAchievementsPage() {
           <EditAchievementDialog
             achievement={editingAchievement}
             onClose={() => setEditingAchievement(null)}
+          />
+        )}
+
+        {viewingUnlockedBy && (
+          <UnlockedByDialog
+            achievement={viewingUnlockedBy}
+            onClose={() => setViewingUnlockedBy(null)}
           />
         )}
       </div>

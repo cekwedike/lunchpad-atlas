@@ -1721,18 +1721,23 @@ Rules:
         },
       },
     });
-    return achievements.map((a) => ({
-      unlockedBy: a.userAchievements
-        .map((ua) => ua.user)
+    return achievements.map((a) => {
+      const { userAchievements, ...achievement } = a as any;
+      const unlockedBy = (userAchievements ?? [])
+        .map((ua: any) => ua.user)
         .filter(Boolean)
-        .map((u) => ({
+        .map((u: any) => ({
           id: u.id,
           firstName: u.firstName,
           lastName: u.lastName,
-        })),
-      ...a,
-      unlockedByCount: a.userAchievements.length,
-    }));
+        }));
+
+      return {
+        ...achievement,
+        unlockedBy,
+        unlockedByCount: unlockedBy.length,
+      };
+    });
   }
 
   async updateAchievement(
