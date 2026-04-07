@@ -410,60 +410,60 @@ function ChatRoomContent() {
   return (
     <DashboardLayout fullBleedContent>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        {/* Top bar — stacks on narrow screens */}
-        <div className="flex min-w-0 shrink-0 flex-col gap-2 border-b border-slate-200/70 bg-slate-50/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
-            <Button
-              variant="ghost"
-              onClick={() => router.push('/dashboard/discussions')}
-              className="h-10 w-full touch-manipulation justify-start gap-2 rounded-xl text-slate-700 hover:bg-white/80 sm:h-9 sm:w-auto"
-            >
-              <ArrowLeft className="h-4 w-4 shrink-0" />
-              <span className="truncate">Back to Discussions</span>
-            </Button>
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-slate-600">
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-3 py-1.5 shadow-sm backdrop-blur-sm">
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${
-                    tokenMissing || reconnectExhausted
-                      ? 'bg-amber-500'
+        {/* Sticky glass “dynamic island” — nav + room title stay visible while the page scrolls */}
+        <div className="sticky top-0 z-40 shrink-0">
+          <div className="border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
+            <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
+              <Button
+                variant="ghost"
+                onClick={() => router.push('/dashboard/discussions')}
+                className="h-10 w-full touch-manipulation justify-start gap-2 rounded-xl text-slate-700 hover:bg-white/80 sm:h-9 sm:w-auto"
+              >
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                <span className="truncate">Back to Discussions</span>
+              </Button>
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-slate-600">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-3 py-1.5 shadow-sm backdrop-blur-md">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      tokenMissing || reconnectExhausted
+                        ? 'bg-amber-500'
+                        : isConnected
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-400 animate-pulse'
+                    }`}
+                  />
+                  <span className="font-medium">
+                    {tokenMissing || reconnectExhausted
+                      ? 'Could not connect'
                       : isConnected
-                        ? 'bg-emerald-500'
-                        : 'bg-slate-400 animate-pulse'
-                  }`}
-                />
-                <span className="font-medium">
-                  {tokenMissing || reconnectExhausted
-                    ? 'Could not connect'
-                    : isConnected
-                      ? 'Live'
-                      : 'Reconnecting…'}
-                </span>
-                {(tokenMissing || reconnectExhausted) && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 touch-manipulation px-2 text-xs"
-                    onClick={() => window.location.reload()}
-                  >
-                    Refresh
-                  </Button>
+                        ? 'Live'
+                        : 'Reconnecting…'}
+                  </span>
+                  {(tokenMissing || reconnectExhausted) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 touch-manipulation px-2 text-xs"
+                      onClick={() => window.location.reload()}
+                    >
+                      Refresh
+                    </Button>
+                  )}
+                </div>
+                {(tokenMissing || reconnectExhausted) && lastError && (
+                  <span className="max-w-full text-right text-[11px] leading-snug text-amber-800 sm:max-w-[240px]">
+                    {lastError}
+                  </span>
                 )}
               </div>
-              {(tokenMissing || reconnectExhausted) && lastError && (
-                <span className="max-w-full text-right text-[11px] leading-snug text-amber-800 sm:max-w-[240px]">
-                  {lastError}
-                </span>
-              )}
             </div>
-        </div>
 
-        {/* Chat room: full main column, no floating card */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <header className="shrink-0 border-b border-slate-200/60 bg-white px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
+            <header className="px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20 ring-1 ring-white/20">
                     <MessageCircle className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -494,21 +494,24 @@ function ChatRoomContent() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-9 touch-manipulation rounded-xl border-slate-200/90"
+                      className="h-9 touch-manipulation rounded-xl border-slate-200/90 bg-white/70 backdrop-blur-sm"
                       onClick={() => toggleChannelLock.mutate(mainChannel.id)}
                       disabled={toggleChannelLock.isPending}
                     >
                       {mainChannel.isLocked ? "Unlock" : "Lock"}
                     </Button>
                   )}
-                  <div className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
+                  <div className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm backdrop-blur-sm">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
                     <Users className="h-3.5 w-3.5 text-slate-500" />
                   </div>
                 </div>
               </div>
             </header>
+          </div>
+        </div>
 
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <ScrollArea className="min-h-0 min-w-0 flex-1 bg-slate-50/95 [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
               <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-2.5 py-2.5 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (

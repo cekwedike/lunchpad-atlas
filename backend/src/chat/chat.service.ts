@@ -8,6 +8,7 @@ import { CreateChannelDto } from './dto/create-channel.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { ChannelType } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { getChatMentionRegExp } from './mention-regex';
 
 @Injectable()
 export class ChatService {
@@ -506,10 +507,9 @@ export class ChatService {
   }
 
   private extractMentionCandidates(content: string): string[] {
-    // @FirstName LastName or @FirstNameLastName; normalizeMentionToken strips spaces for lookup.
+    // @FirstName LastName or @FirstNameLastName — same rules as frontend chat-mentions.ts
+    const re = getChatMentionRegExp();
     const out: string[] = [];
-    const re =
-      /@([A-Za-z][A-Za-z0-9_.-]*(?:\s+[A-Za-z][A-Za-z0-9_.-]*)*)/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
       out.push(m[1]);
