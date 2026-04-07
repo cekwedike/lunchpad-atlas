@@ -145,17 +145,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       });
 
+      const parentId = (message as { parentMessageId?: string | null }).parentMessageId;
+      const parentMessage = parentId
+        ? await this.chatService['prisma'].chatMessage.findFirst({
+            where: { id: parentId, isDeleted: false },
+            select: {
+              id: true,
+              channelId: true,
+              content: true,
+              createdAt: true,
+              user: {
+                select: { id: true, firstName: true, lastName: true, role: true },
+              },
+            },
+          })
+        : null;
+
       // Broadcast message to all users in the channel
       this.server.to(`channel:${data.channelId}`).emit('new_message', {
         id: message.id,
         channelId: message.channelId,
         userId: message.userId,
-        parentMessageId: (message as any).parentMessageId ?? null,
+        parentMessageId: parentId ?? null,
         content: message.content,
         createdAt: message.createdAt,
         reactions: [],
         mentionUserIds: [],
-        parentMessage: null,
+        parentMessage,
         user,
       });
 

@@ -355,10 +355,11 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout>
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col bg-gradient-to-b from-slate-100/80 via-white to-slate-50/90 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 sm:pt-2">
+      {/* Bleed past layout padding; px matches breakpoints so left/right stay even */}
+      <div className="-mx-4 flex min-h-0 w-full min-w-0 flex-1 flex-col bg-gradient-to-b from-slate-100/90 via-white to-slate-50/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="mx-auto flex h-[calc(100dvh-5.5rem)] min-h-0 w-full min-w-0 max-w-6xl flex-col sm:h-[calc(100vh-4.5rem)]">
           {/* Top bar — stacks on narrow screens */}
-          <div className="mb-2 flex min-w-0 shrink-0 flex-col gap-2 sm:mb-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-3 flex min-w-0 shrink-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
             <Button
               variant="ghost"
               onClick={() => router.push('/dashboard/discussions')}
@@ -406,8 +407,8 @@ function ChatRoomContent() {
           </div>
 
           {/* Chat Card */}
-          <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border-slate-200/70 bg-white/95 shadow-xl shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04] backdrop-blur-sm">
-            <CardHeader className="shrink-0 space-y-0 border-b border-slate-200/60 bg-gradient-to-br from-white via-slate-50/40 to-white px-3 py-3.5 sm:px-5 sm:py-4">
+          <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border-slate-200/60 bg-white shadow-[0_8px_40px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.05] sm:rounded-3xl">
+            <CardHeader className="shrink-0 space-y-0 border-b border-slate-200/50 bg-gradient-to-br from-slate-50/80 via-white to-white px-4 py-3.5 sm:px-5 sm:py-4">
               <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                   <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20">
@@ -456,8 +457,8 @@ function ChatRoomContent() {
               </CardTitle>
             </CardHeader>
 
-            <ScrollArea className="min-h-0 min-w-0 flex-1 bg-[linear-gradient(180deg,rgb(248_250_252/0.9)_0%,rgb(255_255_255/0.6)_40%,rgb(248_250_252/0.95)_100%)] [&_[data-radix-scroll-area-viewport]]:min-w-0">
-              <div className="min-w-0 max-w-full space-y-3 overflow-x-hidden px-3 py-4 sm:space-y-4 sm:px-5 sm:py-5">
+            <ScrollArea className="min-h-0 min-w-0 flex-1 bg-[linear-gradient(180deg,rgb(241_245_249/0.85)_0%,rgb(255_255_255/0.5)_35%,rgb(248_250_252/0.98)_100%)] [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
+              <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-3 py-3 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
                     const isOwnMessage = message.userId === profile?.id;
@@ -471,29 +472,30 @@ function ChatRoomContent() {
                         ref={(el) => { messageRefs.current[message.id] = el; }}
                         id={`msg-${message.id}`}
                       >
+                        {/* Row: no w-max — percentage max-widths break on mobile WebKit inside shrink-to-fit rows */}
                         <div
-                          className={`flex w-max max-w-full min-w-0 items-end gap-2.5 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`flex min-w-0 max-w-[min(100%,20.5rem)] items-end gap-2 sm:max-w-[min(100%,24rem)] md:max-w-[min(100%,28rem)] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
                         >
-                          <Avatar className="h-9 w-9 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
+                          <Avatar className="h-8 w-8 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
                             <div
-                              className={`flex h-full w-full items-center justify-center text-[11px] font-semibold text-white sm:text-xs ${isOwnMessage ? 'bg-gradient-to-br from-blue-600 to-indigo-600' : 'bg-gradient-to-br from-violet-600 to-fuchsia-600'}`}
+                              className={`flex h-full w-full items-center justify-center text-[10px] font-semibold text-white sm:text-xs ${isOwnMessage ? 'bg-gradient-to-br from-blue-600 to-indigo-600' : 'bg-gradient-to-br from-violet-600 to-fuchsia-600'}`}
                             >
                               {message.user?.firstName?.[0]}
                               {message.user?.lastName?.[0]}
                             </div>
                           </Avatar>
                           <div
-                            className={`flex min-w-0 max-w-[min(100%,20rem)] flex-col sm:max-w-[min(100%,24rem)] md:max-w-[min(100%,28rem)] ${isOwnMessage ? 'items-end' : 'items-start'}`}
+                            className={`flex min-w-0 flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}
                           >
                             <div
-                              className={`w-full min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 shadow-sm sm:px-4 sm:py-3 ${
+                              className={`w-full min-w-0 rounded-2xl px-3 py-2.5 shadow-sm sm:px-4 sm:py-3 ${
                                 isOwnMessage
                                   ? 'rounded-br-md bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-900/15'
-                                  : 'rounded-bl-md border border-slate-200/80 bg-white/95 text-slate-900 shadow-sm ring-1 ring-slate-900/[0.04]'
+                                  : 'rounded-bl-md border border-slate-200/80 bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/[0.04]'
                               }`}
                             >
-                              <div className="mb-1.5 flex flex-wrap items-center gap-1.5 gap-y-0.5">
-                                <span className={`text-xs font-semibold ${isOwnMessage ? 'text-white/95' : 'text-slate-800'}`}>
+                              <div className="mb-1 flex flex-wrap items-center gap-1.5 gap-y-0.5">
+                                <span className={`text-[11px] font-semibold tracking-tight sm:text-xs ${isOwnMessage ? 'text-white/95' : 'text-slate-800'}`}>
                                   {displayName}
                                 </span>
                                 {message.user?.role && (
@@ -506,14 +508,16 @@ function ChatRoomContent() {
                                 <button
                                   type="button"
                                   onClick={() => jumpToMessage(message.parentMessage!.id)}
-                                  className={`mb-2 w-full min-w-0 rounded-xl border px-2.5 py-2 text-left text-xs touch-manipulation ${
-                                    isOwnMessage ? 'border-white/25 bg-white/10' : 'border-slate-200/90 bg-slate-50/90'
+                                  className={`mb-2 w-full min-w-0 rounded-lg border-l-[3px] px-2.5 py-2 text-left text-[11px] leading-snug touch-manipulation sm:text-xs ${
+                                    isOwnMessage
+                                      ? 'border-white/70 bg-black/15 text-white/95'
+                                      : 'border-blue-500/80 bg-slate-100/95 text-slate-800'
                                   }`}
                                 >
-                                  <div className="truncate opacity-90">
+                                  <div className="font-medium opacity-95">
                                     Replying to {message.parentMessage.user ? getDisplayName(message.parentMessage.user) : 'Unknown'}
                                   </div>
-                                  <div className="truncate opacity-80">
+                                  <div className="mt-0.5 line-clamp-3 break-words [overflow-wrap:anywhere] opacity-90">
                                     {message.parentMessage.content}
                                   </div>
                                 </button>
@@ -646,7 +650,7 @@ function ChatRoomContent() {
               </div>
             </ScrollArea>
 
-            <div className="shrink-0 border-t border-slate-200/80 bg-gradient-to-t from-slate-50/80 to-white px-3 py-3 sm:px-5 sm:py-4">
+            <div className="shrink-0 border-t border-slate-200/70 bg-gradient-to-t from-slate-50/90 to-white px-4 py-3 sm:px-5 sm:py-4">
               {mainChannel?.isLocked && !canManageChats && (
                 <div className="mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 text-xs leading-relaxed text-amber-900 shadow-sm">
                   This chat room is locked for announcements. You can read messages but cannot post.
