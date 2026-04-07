@@ -145,7 +145,20 @@ export function useChannelMessages(channelId: string | undefined, limit = 50) {
       return messages.reverse();
     },
     enabled: !!channelId && sessionReady,
-    refetchInterval: !!channelId && sessionReady ? 5000 : false,
+    // Avoid thundering herd on 5xx (the backend being down would otherwise spam console + proxy).
+    retry: (failureCount, error: any) => {
+      const status = typeof error?.statusCode === 'number' ? error.statusCode : undefined;
+      if (status && status >= 500) return false;
+      return failureCount < 2;
+    },
+    refetchInterval: (q) => {
+      // Stop polling when backend is returning 5xx.
+      const status = typeof (q.state.error as any)?.statusCode === 'number'
+        ? (q.state.error as any).statusCode
+        : undefined;
+      if (status && status >= 500) return false;
+      return !!channelId && sessionReady ? 5000 : false;
+    },
   });
 }
 

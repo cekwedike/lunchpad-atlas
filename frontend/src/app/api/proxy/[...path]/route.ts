@@ -123,6 +123,34 @@ async function proxyToBackend(
   outHeaders.set('Vary', 'Cookie');
 
   outHeaders.set('x-atlas-proxy-access', access ? 'present' : 'absent');
+
+  // If upstream is failing and did not return JSON, return a small JSON payload so the UI
+  // can surface something more actionable than "Internal server error".
+  const upstreamContentType = upstream.headers.get('content-type') || '';
+  const upstreamIsJson = upstreamContentType.toLowerCase().includes('application/json');
+  if (upstream.status >= 500 && !upstreamIsJson) {
+    let snippet = '';
+    try {
+      const text = await upstream.text();
+      snippet = text.slice(0, 800);
+    } catch {
+      snippet = '';
+    }
+    return NextResponse.json(
+      {
+        statusCode: upstream.status,
+        message: 'Upstream API error',
+        hint:
+          'The backend service is responding with an error. Check backend logs (often DB connection / missing env).',
+        upstream: {
+          host: apiHost,
+          path: path.join('/'),
+          bodySnippet: snippet || undefined,
+        },
+      },
+      { status: upstream.status, headers: NO_STORE_HEADERS },
+    );
+  }
   if (process.env.ATLAS_AUTH_DEBUG === 'true') {
     try {
       outHeaders.set('x-atlas-api-host', new URL(base).hostname);
