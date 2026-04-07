@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { ApiClientError } from "@/lib/api-client";
 import type { ChatMember, ChatMessage } from "@/types/chat";
 import { getChatMentionRegex } from "@/lib/chat-mentions";
-import { ChatReactionGlyph } from "@/lib/chat-reactions";
+import { ChatReactionGlyph, reactionLabelForStored } from "@/lib/chat-reactions";
 import { cn } from "@/lib/utils";
 
 const ChatReaction3DPicker = dynamic(
@@ -641,7 +641,8 @@ function ChatRoomContent() {
                                         : 'border-slate-200/90 bg-white text-slate-800 shadow-sm'
                                     } ${r.reactedByMe ? 'ring-1 ring-blue-400/50' : ''}`}
                                     disabled={toggleReaction.isPending}
-                                    title={r.emoji}
+                                    title={reactionLabelForStored(r.emoji)}
+                                    aria-label={`${reactionLabelForStored(r.emoji)} · ${r.count}`}
                                   >
                                     <ChatReactionGlyph
                                       storedKey={r.emoji}

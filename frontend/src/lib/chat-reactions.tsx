@@ -138,12 +138,18 @@ const idSet = new Set(CHAT_REACTION_OPTIONS.map((o) => o.id));
 export function canonicalReactionId(stored: string): ChatReactionId {
   const t = stored.trim();
   if (LEGACY_EMOJI_TO_ID[t]) return LEGACY_EMOJI_TO_ID[t];
-  if (idSet.has(t as ChatReactionId)) return t as ChatReactionId;
+  const lower = t.toLowerCase();
+  if (idSet.has(lower as ChatReactionId)) return lower as ChatReactionId;
   return "like";
 }
 
 export function reactionOptionById(id: ChatReactionId) {
   return CHAT_REACTION_OPTIONS.find((o) => o.id === id) ?? CHAT_REACTION_OPTIONS[0];
+}
+
+/** Human-readable label for tooltips / a11y from raw stored reaction key. */
+export function reactionLabelForStored(stored: string): string {
+  return reactionOptionById(canonicalReactionId(stored)).label;
 }
 
 export function ChatReactionGlyph({
@@ -158,18 +164,20 @@ export function ChatReactionGlyph({
   size?: number;
 }) {
   const id = canonicalReactionId(storedKey);
-  const { Icon, tintOwn, tintOther } = reactionOptionById(id);
+  const { tintOwn, tintOther } = reactionOptionById(id);
+  const emoji = CHAT_REACTION_EMOJI[id];
   return (
-    <Icon
+    <span
       className={cn(
-        "shrink-0 drop-shadow-sm",
+        "inline-flex shrink-0 select-none items-center justify-center leading-none drop-shadow-sm",
         isOwnMessage ? tintOwn : tintOther,
         className,
       )}
-      strokeWidth={2.25}
-      width={size}
-      height={size}
+      style={{ fontSize: `max(12px, ${Math.round(size * 1.35)}px)` }}
+      role="img"
       aria-hidden
-    />
+    >
+      {emoji}
+    </span>
   );
 }
