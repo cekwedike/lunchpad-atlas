@@ -140,7 +140,9 @@ describe('LeaderboardService', () => {
 
       // User should have base points + streak bonus (streak >= 7 = +10)
       expect(result.data[0].basePoints).toBe(100);
-      expect(result.data[0].points).toBeGreaterThanOrEqual(100);
+      expect(result.data[0].streak).toBe(8);
+      expect(result.data[0].streakBonus).toBe(10);
+      expect(result.data[0].points).toBe(110);
     });
 
     it('should require cohortId for facilitators', async () => {

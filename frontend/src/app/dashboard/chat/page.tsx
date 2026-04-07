@@ -16,7 +16,7 @@ import {
   Users,
   MessageCircle,
   Reply,
-  SmilePlus,
+  Sparkles,
   Eye,
 } from "lucide-react";
 import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead, useChatMembers, useToggleMessageReaction } from "@/hooks/api/useChat";
@@ -27,8 +27,9 @@ import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/l
 import { toast } from "sonner";
 import { ApiClientError } from "@/lib/api-client";
 import type { ChatMember, ChatMessage } from "@/types/chat";
-
-const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👏", "✅", "💯"] as const;
+import { getChatMentionRegex } from "@/lib/chat-mentions";
+import { CHAT_REACTION_OPTIONS, ChatReactionGlyph } from "@/lib/chat-reactions";
+import { cn } from "@/lib/utils";
 
 export default function ChatRoomPage() {
   return (
@@ -248,11 +249,11 @@ function ChatRoomContent() {
    * so different people can have distinct colors without clashing.
    */
   const mentionStyleForToken = useCallback((rawToken: string) => {
-    const token = rawToken.toLowerCase();
-    const isEveryone = token === "everyone" || token === "all";
+    const compact = rawToken.toLowerCase().replace(/\s+/g, "");
+    const isEveryone = compact === "everyone" || compact === "all";
 
     const hue = 220; // single scheme
-    const shadeIndex = hashString(token) % 6; // 0..5
+    const shadeIndex = hashString(compact) % 6; // 0..5
     const lightnessSteps = [92, 88, 84, 80, 76, 72];
     const lightness = isEveryone ? 84 : lightnessSteps[shadeIndex];
     const fgLightness = isEveryone ? 28 : 24;
@@ -266,7 +267,7 @@ function ChatRoomContent() {
   }, [hashString]);
 
   const mentionTokensInComposer = (() => {
-    const re = /@([A-Za-z][A-Za-z0-9_.-]{1,32})/g;
+    const re = getChatMentionRegex();
     const out = new Set<string>();
     let m: RegExpExecArray | null;
     while ((m = re.exec(chatMessage)) !== null) out.add(m[1]);
@@ -275,7 +276,7 @@ function ChatRoomContent() {
 
   const renderMentions = useCallback((content: string) => {
     const parts: React.ReactNode[] = [];
-    const re = /@([A-Za-z][A-Za-z0-9_.-]{1,32})/g;
+    const re = getChatMentionRegex();
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = re.exec(content)) !== null) {
@@ -307,29 +308,42 @@ function ChatRoomContent() {
       return;
     }
     const after = value.slice(atIndex + 1);
-    if (!after || /\s/.test(after)) {
+    const lineAfter = after.split("\n")[0];
+    if (lineAfter === "") {
+      setMentionQuery("");
+      setMentionOpen(true);
+      return;
+    }
+    if (lineAfter[0] === " ") {
       setMentionOpen(false);
       setMentionQuery(null);
       return;
     }
-    setMentionQuery(after);
+    const segment = lineAfter.split(/[,;]/)[0].trim();
+    setMentionQuery(segment);
     setMentionOpen(true);
   };
 
   const filteredMentions = (() => {
-    if (!mentionOpen || !mentionQuery) return [];
+    if (!mentionOpen || mentionQuery === null) return [];
 
     const q = mentionQuery.toLowerCase();
-    const base = (chatMembers as ChatMember[])
-      .map((m) => ({ ...m, displayName: getDisplayName(m) }))
-      .filter((m) => m.displayName.toLowerCase().includes(q));
+    const base = (chatMembers as ChatMember[]).map((m) => ({
+      ...m,
+      displayName: getDisplayName(m),
+    }));
+    const filtered =
+      q === ""
+        ? base.slice(0, 8)
+        : base.filter((m) => m.displayName.toLowerCase().includes(q));
 
-    const includeEveryone = 'everyone'.includes(q) || 'all'.includes(q);
+    const includeEveryone =
+      q === "" || "everyone".includes(q) || "all".includes(q);
     const special = includeEveryone
       ? [{ id: '__everyone__', firstName: 'everyone', lastName: '', role: '', displayName: 'everyone' } as any]
       : [];
 
-    return [...special, ...base].slice(0, 6);
+    return [...special, ...filtered].slice(0, 8);
   })();
 
   const applyMention = (member: ChatMember) => {
@@ -345,8 +359,7 @@ function ChatRoomContent() {
     const displayName = getDisplayName(member);
     const atIndex = chatMessage.lastIndexOf('@');
     if (atIndex < 0) return;
-    // Backend currently matches @FirstNameLastName (no spaces) by default.
-    const token = displayName.replace(/\s+/g, '');
+    const token = displayName.replace(/\s+/g, " ").trim();
     const next = `${chatMessage.slice(0, atIndex)}@${token} `;
     setChatMessage(next);
     setMentionOpen(false);
@@ -355,7 +368,11 @@ function ChatRoomContent() {
 
   const handleToggleReaction = async (message: ChatMessage, emoji: string) => {
     try {
-      await toggleReaction.mutateAsync({ messageId: message.id, emoji, channelId: message.channelId });
+      await toggleReaction.mutateAsync({
+        messageId: message.id,
+        emoji,
+        channelId: message.channelId,
+      });
       setReactionPickerFor(null);
     } catch (error) {
       const description =
@@ -567,22 +584,43 @@ function ChatRoomContent() {
                                       className={`h-9 min-h-9 touch-manipulation rounded-lg px-2.5 text-xs sm:h-8 ${isOwnMessage ? 'text-white/90 hover:bg-white/15 hover:text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                                       disabled={toggleReaction.isPending}
                                     >
-                                      <SmilePlus className="mr-1 h-3.5 w-3.5" />
+                                      <Sparkles className="mr-1 h-3.5 w-3.5 opacity-90" />
                                       React
                                     </Button>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-auto rounded-2xl border-slate-200/80 p-2 shadow-lg" align="start" side="top">
-                                    <div className="flex max-w-[min(100vw-2rem,240px)] flex-wrap gap-1">
-                                      {QUICK_REACTION_EMOJIS.map((emoji) => (
+                                  <PopoverContent
+                                    className="w-auto rounded-2xl border-slate-200/80 bg-gradient-to-b from-slate-50 to-white p-2.5 shadow-xl"
+                                    align="start"
+                                    side="top"
+                                  >
+                                    <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                      Pick a reaction
+                                    </p>
+                                    <div className="grid max-w-[min(100vw-2rem,260px)] grid-cols-4 gap-2">
+                                      {CHAT_REACTION_OPTIONS.map((opt) => (
                                         <button
-                                          key={emoji}
+                                          key={opt.id}
                                           type="button"
-                                          className="touch-manipulation rounded-xl p-2 text-xl leading-none transition-colors hover:bg-slate-100 active:bg-slate-200"
-                                          onClick={() => void handleToggleReaction(message, emoji)}
+                                          className={cn(
+                                            "group relative touch-manipulation rounded-2xl bg-gradient-to-br p-2.5 shadow-[0_6px_0_0_rgba(15,23,42,0.12)] transition-all duration-200",
+                                            "hover:scale-110 hover:-translate-y-1 hover:shadow-[0_10px_0_0_rgba(15,23,42,0.1)] active:scale-95 active:translate-y-0 active:shadow-[0_4px_0_0_rgba(15,23,42,0.15)]",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60",
+                                            opt.accent,
+                                          )}
+                                          onClick={() =>
+                                            void handleToggleReaction(message, opt.id)
+                                          }
                                           disabled={toggleReaction.isPending}
-                                          title={`React with ${emoji}`}
+                                          title={opt.label}
                                         >
-                                          {emoji}
+                                          <opt.Icon
+                                            className={cn(
+                                              "mx-auto h-5 w-5 transition-transform duration-300 group-hover:animate-[pulse_0.8s_ease-in-out_infinite]",
+                                              opt.iconClass,
+                                            )}
+                                            strokeWidth={2.2}
+                                            aria-hidden
+                                          />
                                         </button>
                                       ))}
                                     </div>
@@ -593,12 +631,20 @@ function ChatRoomContent() {
                                     key={r.emoji}
                                     type="button"
                                     onClick={() => void handleToggleReaction(message, r.emoji)}
-                                    className={`touch-manipulation rounded-full border px-2.5 py-1 text-xs sm:px-2 ${
-                                      isOwnMessage ? 'border-white/35 bg-white/15' : 'border-slate-200/90 bg-slate-50/90'
-                                    } ${r.reactedByMe ? 'font-semibold ring-1 ring-blue-400/40' : ''}`}
+                                    className={`inline-flex touch-manipulation items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium sm:px-2.5 ${
+                                      isOwnMessage
+                                        ? 'border-white/35 bg-white/15 text-white/95'
+                                        : 'border-slate-200/90 bg-white text-slate-800 shadow-sm'
+                                    } ${r.reactedByMe ? 'ring-1 ring-blue-400/50' : ''}`}
                                     disabled={toggleReaction.isPending}
+                                    title={r.emoji}
                                   >
-                                    {r.emoji} {r.count}
+                                    <ChatReactionGlyph
+                                      storedKey={r.emoji}
+                                      isOwnMessage={isOwnMessage}
+                                      size={14}
+                                    />
+                                    <span className="tabular-nums">{r.count}</span>
                                   </button>
                                 ))}
                               </div>

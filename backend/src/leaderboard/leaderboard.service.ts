@@ -52,21 +52,17 @@ export class LeaderboardService {
     return true;
   }
 
-  private calculateConsecutiveStreak(days: Set<string>, referenceDate: Date) {
+  /**
+   * Consecutive calendar days with activity, counting backward from the user's
+   * most recent active day in `days` (YYYY-MM-DD keys).
+   *
+   * Previously this compared that day to the month `endDate`, which is almost
+   * always wrong (e.g. last activity on the 7th vs reference the 30th → 0 streak).
+   */
+  private calculateConsecutiveStreak(days: Set<string>) {
     if (days.size === 0) return 0;
 
     const sortedDays = Array.from(days).sort().reverse();
-    const reference = new Date(referenceDate);
-    reference.setHours(0, 0, 0, 0);
-    const referenceStr = reference.toISOString().split('T')[0];
-
-    const yesterday = new Date(reference);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    if (sortedDays[0] !== referenceStr && sortedDays[0] !== yesterdayStr) {
-      return 0;
-    }
 
     let streak = 0;
     let expectedDate = new Date(sortedDays[0]);
@@ -312,7 +308,6 @@ export class LeaderboardService {
       const chatCount = chatCounts.get(user.id) || 0;
       const chatStreak = this.calculateConsecutiveStreak(
         chatDays.get(user.id) || new Set(),
-        endDate,
       );
       const chatBonus =
         this.calculateChatCountBonus(chatCount) +
@@ -320,7 +315,6 @@ export class LeaderboardService {
 
       const activityStreak = this.calculateConsecutiveStreak(
         activityDays.get(user.id) || new Set(),
-        endDate,
       );
       const streakBonus = this.calculateStreakBonus(activityStreak);
 
@@ -532,7 +526,6 @@ export class LeaderboardService {
       const chatCount = chatCounts.get(entry.id) || 0;
       const chatStreak = this.calculateConsecutiveStreak(
         chatDays.get(entry.id) || new Set(),
-        endDate,
       );
       const chatBonus =
         this.calculateChatCountBonus(chatCount) +
@@ -540,7 +533,6 @@ export class LeaderboardService {
 
       const activityStreak = this.calculateConsecutiveStreak(
         activityDays.get(entry.id) || new Set(),
-        endDate,
       );
       const streakBonus = this.calculateStreakBonus(activityStreak);
 

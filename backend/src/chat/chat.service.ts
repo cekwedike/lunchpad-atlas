@@ -506,10 +506,10 @@ export class ChatService {
   }
 
   private extractMentionCandidates(content: string): string[] {
-    // Keep it intentionally conservative: @token must start with a letter.
-    // We will normalize and match against cohort/channel member names.
+    // @FirstName LastName or @FirstNameLastName; normalizeMentionToken strips spaces for lookup.
     const out: string[] = [];
-    const re = /@([A-Za-z][A-Za-z0-9_.-]{1,32})/g;
+    const re =
+      /@([A-Za-z][A-Za-z0-9_.-]*(?:\s+[A-Za-z][A-Za-z0-9_.-]*)*)/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
       out.push(m[1]);
