@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { TourGuide } from '@/components/tour/TourGuide';
 import { SetupChecklist } from '@/components/SetupChecklist';
 import { useAuthStore } from '@/stores/authStore';
+import { usePlatformTimePing } from '@/hooks/usePlatformTimePing';
 import { ShieldOff, KeyRound, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -167,6 +168,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useAuthStore();
   const isSuspended = user?.isSuspended === true;
   const mustChangePassword = user?.mustChangePassword === true;
+
+  usePlatformTimePing(!isSuspended);
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">

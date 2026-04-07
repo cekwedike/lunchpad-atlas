@@ -522,6 +522,9 @@ export default function AdminUsersPage() {
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Cohort</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Points</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Time on platform (dashboard heartbeat)">
+                      App time (min)
+                    </th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Active</th>
                     <th className="text-right py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -592,6 +595,13 @@ export default function AdminUsersPage() {
                         ) : (
                           <span className="text-sm text-gray-500">N/A</span>
                         )}
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-gray-700 tabular-nums">
+                          {typeof user.statistics?.totalPlatformTimeMinutes === "number"
+                            ? user.statistics.totalPlatformTimeMinutes
+                            : "—"}
+                        </span>
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-sm text-gray-600">

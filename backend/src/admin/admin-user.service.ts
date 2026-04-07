@@ -143,6 +143,17 @@ export class AdminUserService {
       : [];
     const pointsMap = new Map(pointsSums.map((p) => [p.userId, p._sum.points ?? 0]));
 
+    const platformSums = userIds.length > 0
+      ? await this.prisma.platformTimeDaily.groupBy({
+          by: ['userId'],
+          where: { userId: { in: userIds } },
+          _sum: { seconds: true },
+        })
+      : [];
+    const platformMap = new Map(
+      platformSums.map((p) => [p.userId, p._sum.seconds ?? 0]),
+    );
+
     const activeThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
 
     const usersWithStatus = users.map((user) => {
@@ -166,6 +177,7 @@ export class AdminUserService {
         isActive,
         statistics: {
           totalPoints: pointsMap.get(user.id) ?? 0,
+          totalPlatformTimeMinutes: Math.round((platformMap.get(user.id) ?? 0) / 60),
         },
       };
     });
@@ -634,6 +646,7 @@ export class AdminUserService {
       totalQuizzes,
       averageQuizScore,
       totalTimeSpent,
+      platformTimeAgg,
     ] = await Promise.all([
       this.prisma.resourceProgress.count({
         where: {
@@ -665,6 +678,10 @@ export class AdminUserService {
           timeSpent: true,
         },
       }),
+      this.prisma.platformTimeDaily.aggregate({
+        where: { userId },
+        _sum: { seconds: true },
+      }),
     ]);
 
     return {
@@ -683,6 +700,9 @@ export class AdminUserService {
         : 0,
       totalTimeSpentMinutes: totalTimeSpent._sum.timeSpent
         ? Math.round(totalTimeSpent._sum.timeSpent / 60)
+        : 0,
+      totalPlatformTimeMinutes: platformTimeAgg._sum.seconds
+        ? Math.round(platformTimeAgg._sum.seconds / 60)
         : 0,
     };
   }

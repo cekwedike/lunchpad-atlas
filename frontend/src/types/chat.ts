@@ -52,6 +52,10 @@ export interface ChatMessage {
   }>;
 
   mentionUserIds?: string[];
+
+  /** Users (except author) who have read this message */
+  readBy?: Array<{ id: string; firstName: string; lastName: string }>;
+  readByCount?: number;
 }
 
 export interface CreateChannelDto {

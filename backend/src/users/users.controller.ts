@@ -65,4 +65,11 @@ export class UsersController {
   getMyGuestSessions(@Request() req) {
     return this.usersService.getGuestSessions(req.user.id);
   }
+
+  @Post('me/platform-time')
+  @ApiOperation({ summary: 'Record active time on the platform (heartbeat, seconds)' })
+  recordPlatformTime(@Request() req, @Body() body: { seconds?: number }) {
+    const s = typeof body?.seconds === 'number' ? body.seconds : 0;
+    return this.usersService.recordPlatformTimeSeconds(req.user.id, s);
+  }
 }

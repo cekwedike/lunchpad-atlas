@@ -10,6 +10,7 @@ import {
   Request,
   Patch,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
@@ -202,7 +203,15 @@ export class ChatController {
   }
 
   @Patch('channels/:id/read')
-  markChannelRead(@Param('id') channelId: string, @Request() req) {
-    return this.chatService.markChannelRead(channelId, req.user.id);
+  markChannelRead(
+    @Param('id') channelId: string,
+    @Body() body: { messageIds?: string[] } | undefined,
+    @Request() req,
+  ) {
+    const ids = body?.messageIds;
+    if (ids !== undefined && (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string'))) {
+      throw new BadRequestException('messageIds must be an array of strings');
+    }
+    return this.chatService.markChannelRead(channelId, req.user.id, ids);
   }
 }

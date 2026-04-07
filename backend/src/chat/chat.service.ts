@@ -624,7 +624,7 @@ export class ChatService {
     const reactionModel = (this.prisma as any).chatMessageReaction;
     const mentionModel = (this.prisma as any).chatMessageMention;
 
-    const [reactions, mentions, parents] = await Promise.all([
+    const [reactions, mentions, parents, messageReads] = await Promise.all([
       reactionModel?.findMany
         ? reactionModel.findMany({
             where: { messageId: { in: messageIds } },
@@ -649,6 +649,13 @@ export class ChatService {
             },
           })
         : Promise.resolve([]),
+      this.prisma.chatMessageRead.findMany({
+        where: { messageId: { in: messageIds } },
+        select: {
+          messageId: true,
+          user: { select: { id: true, firstName: true, lastName: true } },
+        },
+      }),
     ]);
 
     const reactionsByMessage = new Map<
@@ -674,6 +681,16 @@ export class ChatService {
       parents.map((p) => [p.id, p] as const),
     );
 
+    const readersByMessage = new Map<
+      string,
+      Array<{ id: string; firstName: string; lastName: string }>
+    >();
+    for (const r of messageReads) {
+      const arr = readersByMessage.get(r.messageId) ?? [];
+      arr.push(r.user);
+      readersByMessage.set(r.messageId, arr);
+    }
+
     return messages.map((m: any) => {
       const byEmoji = reactionsByMessage.get(m.id) ?? new Map();
       const reactionSummary = Array.from(byEmoji.values()).map((e) => ({
@@ -682,11 +699,18 @@ export class ChatService {
         reactedByMe: e.userIds.has(userId),
       }));
 
+      const allReaders = readersByMessage.get(m.id) ?? [];
+      const othersWhoRead = allReaders.filter((u) => u.id !== m.userId);
+      const readBy = othersWhoRead.slice(0, 20);
+      const readByCount = othersWhoRead.length;
+
       return {
         ...m,
         reactions: reactionSummary,
         mentionUserIds: mentionsByMessage.get(m.id) ?? [],
         parentMessage: m.parentMessageId ? parentById.get(m.parentMessageId) ?? null : null,
+        readBy,
+        readByCount,
       };
     });
   }
@@ -1022,12 +1046,29 @@ export class ChatService {
     return channel;
   }
 
-  async markChannelRead(channelId: string, userId: string) {
+  async markChannelRead(channelId: string, userId: string, messageIds?: string[]) {
+    await this.assertCanAccessChannel(channelId, userId);
+
     await this.prisma.channelMember.upsert({
       where: { channelId_userId: { channelId, userId } },
       create: { channelId, userId, lastReadAt: new Date() },
       update: { lastReadAt: new Date() },
     });
+
+    if (messageIds?.length) {
+      const unique = [...new Set(messageIds)].slice(0, 200);
+      const valid = await this.prisma.chatMessage.findMany({
+        where: { channelId, id: { in: unique }, isDeleted: false },
+        select: { id: true },
+      });
+      if (valid.length > 0) {
+        await this.prisma.chatMessageRead.createMany({
+          data: valid.map((row) => ({ messageId: row.id, userId })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
     return { ok: true };
   }
 

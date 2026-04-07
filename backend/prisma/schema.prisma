@@ -130,9 +130,11 @@ model User {
   attendance         Attendance[]
   chatMessages       ChatMessage[]
   chatMessageReactions ChatMessageReaction[]
+  chatMessageReads   ChatMessageRead[]
   chatMentionsReceived ChatMessageMention[] @relation("ChatMentionedUser")
   chatMentionsMade     ChatMessageMention[] @relation("ChatMentionedByUser")
   channelMemberships ChannelMember[]
+  platformTimeDaily  PlatformTimeDaily[]
   pushSubscriptions  PushSubscription[]
   feedback           Feedback[]
   guestSessions      GuestSession[]
@@ -699,6 +701,7 @@ model ChatMessage {
   replies       ChatMessage[] @relation("ChatMessageReplies")
   reactions     ChatMessageReaction[]
   mentions      ChatMessageMention[]
+  reads         ChatMessageRead[]
 
   @@index([channelId])
   @@index([userId])
@@ -739,6 +742,35 @@ model ChatMessageMention {
   @@index([mentionedUserId])
   @@index([mentionedByUserId])
   @@map("chat_message_mentions")
+}
+
+model ChatMessageRead {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("chat_message_reads")
+}
+
+/// Aggregated active time on the platform (UTC calendar day). Updated by session heartbeat.
+model PlatformTimeDaily {
+  id      String   @id @default(uuid())
+  userId  String
+  day     DateTime @db.Date
+  seconds Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([userId])
+  @@map("platform_time_daily")
 }
 
 // ==================== NOTIFICATIONS ====================

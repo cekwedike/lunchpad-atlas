@@ -224,4 +224,20 @@ export class UsersService {
       orderBy: { session: { scheduledDate: 'asc' } },
     });
   }
+
+  /** Heartbeat: accumulate active seconds per UTC day (capped per request for abuse resistance). */
+  async recordPlatformTimeSeconds(userId: string, seconds: number) {
+    const add = Math.min(120, Math.max(0, Math.floor(seconds)));
+    if (add === 0) return { ok: true as const, added: 0 };
+    const now = new Date();
+    const day = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    await this.prisma.platformTimeDaily.upsert({
+      where: { userId_day: { userId, day } },
+      create: { userId, day, seconds: add },
+      update: { seconds: { increment: add } },
+    });
+    return { ok: true as const, added: add };
+  }
 }

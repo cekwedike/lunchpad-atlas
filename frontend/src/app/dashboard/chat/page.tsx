@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft,
   Send,
@@ -17,6 +18,8 @@ import {
   Reply,
   SmilePlus,
 } from "lucide-react";
+
+const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👏", "✅", "💯"] as const;
 import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead, useChatMembers, useToggleMessageReaction } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useChatSocket } from "@/hooks/useChatSocket";
@@ -42,6 +45,7 @@ function ChatRoomContent() {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const queryClient = useQueryClient();
@@ -145,13 +149,19 @@ function ChatRoomContent() {
     onChannelLockUpdated: handleChannelLockUpdated,
   });
 
-  // Mark DM channel as read when opened
+  const messageIdsKey = messages?.map((m) => m.id).join(",") ?? "";
+
+  // Mark visible messages as read (read receipts / seen-by)
   useEffect(() => {
-    if (mainChannel?.id && isDmChannel) {
-      markChannelRead.mutate(mainChannel.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainChannel?.id, isDmChannel]);
+    if (!mainChannel?.id || !messageIdsKey || isAdminDmObserver) return;
+    const ids = messages!.map((m) => m.id);
+    const t = window.setTimeout(() => {
+      markChannelRead.mutate({ channelId: mainChannel.id, messageIds: ids });
+    }, 1500);
+    return () => clearTimeout(t);
+    // markChannelRead.mutate is stable from useMutation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainChannel?.id, messageIdsKey, isAdminDmObserver, messages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -332,6 +342,7 @@ function ChatRoomContent() {
   const handleToggleReaction = async (message: ChatMessage, emoji: string) => {
     try {
       await toggleReaction.mutateAsync({ messageId: message.id, emoji, channelId: message.channelId });
+      setReactionPickerFor(null);
     } catch (error) {
       const description =
         error instanceof ApiClientError
@@ -500,17 +511,41 @@ function ChatRoomContent() {
                                   <Reply className="h-3.5 w-3.5 mr-1" />
                                   Reply
                                 </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
-                                  onClick={() => void handleToggleReaction(message, '👍')}
-                                  disabled={toggleReaction.isPending}
+                                <Popover
+                                  open={reactionPickerFor === message.id}
+                                  onOpenChange={(open) =>
+                                    setReactionPickerFor(open ? message.id : null)
+                                  }
                                 >
-                                  <SmilePlus className="h-3.5 w-3.5 mr-1" />
-                                  React
-                                </Button>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
+                                      disabled={toggleReaction.isPending}
+                                    >
+                                      <SmilePlus className="h-3.5 w-3.5 mr-1" />
+                                      React
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-2" align="start" side="top">
+                                    <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                      {QUICK_REACTION_EMOJIS.map((emoji) => (
+                                        <button
+                                          key={emoji}
+                                          type="button"
+                                          className="text-xl leading-none p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                                          onClick={() => void handleToggleReaction(message, emoji)}
+                                          disabled={toggleReaction.isPending}
+                                          title={`React with ${emoji}`}
+                                        >
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
                                 {(message.reactions || []).map((r) => (
                                   <button
                                     key={r.emoji}
@@ -526,9 +561,30 @@ function ChatRoomContent() {
                                 ))}
                               </div>
                             </div>
-                            <span className="text-xs text-gray-500 mt-1">
-                              {formatLocalTimestamp(message.createdAt)}
-                            </span>
+                            <div className={`mt-1 flex flex-col gap-0.5 ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                              <span className="text-xs text-gray-500">
+                                {formatLocalTimestamp(message.createdAt)}
+                              </span>
+                              {(message.readByCount ?? 0) > 0 && (
+                                <span
+                                  className="text-[11px] text-gray-500 max-w-[min(100%,280px)]"
+                                  title={
+                                    message.readBy
+                                      ?.map((u) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ''}`)
+                                      .join(", ") ?? ""
+                                  }
+                                >
+                                  Seen by{" "}
+                                  {message.readBy
+                                    ?.slice(0, 6)
+                                    .map((u) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ""}`)
+                                    .join(", ")}
+                                  {(message.readByCount ?? 0) > 6
+                                    ? ` +${(message.readByCount ?? 0) - 6} more`
+                                    : ""}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

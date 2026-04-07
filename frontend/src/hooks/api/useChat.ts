@@ -259,7 +259,9 @@ export function useAdminDirectChannels(enabled: boolean) {
 
 export function useMarkChannelRead() {
   return useMutation({
-    mutationFn: (channelId: string) =>
-      apiClient.patch(`/chat/channels/${channelId}/read`),
+    mutationFn: (input: { channelId: string; messageIds?: string[] }) =>
+      apiClient.patch(`/chat/channels/${input.channelId}/read`, {
+        messageIds: input.messageIds,
+      }),
   });
 }
