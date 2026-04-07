@@ -1712,12 +1712,26 @@ Rules:
     const achievements = await this.prisma.achievement.findMany({
       orderBy: [{ type: 'asc' }, { pointValue: 'asc' }],
       include: {
-        _count: { select: { userAchievements: true } },
+        userAchievements: {
+          where: { user: { role: 'FELLOW' } },
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { unlockedAt: 'desc' },
+        },
       },
     });
     return achievements.map((a) => ({
+      unlockedBy: a.userAchievements
+        .map((ua) => ua.user)
+        .filter(Boolean)
+        .map((u) => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+        })),
       ...a,
-      unlockedByCount: a._count.userAchievements,
+      unlockedByCount: a.userAchievements.length,
     }));
   }
 
