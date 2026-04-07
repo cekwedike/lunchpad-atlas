@@ -17,9 +17,8 @@ import {
   MessageCircle,
   Reply,
   SmilePlus,
+  Eye,
 } from "lucide-react";
-
-const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👏", "✅", "💯"] as const;
 import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead, useChatMembers, useToggleMessageReaction } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useChatSocket } from "@/hooks/useChatSocket";
@@ -28,6 +27,8 @@ import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/l
 import { toast } from "sonner";
 import { ApiClientError } from "@/lib/api-client";
 import type { ChatMember, ChatMessage } from "@/types/chat";
+
+const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👏", "✅", "💯"] as const;
 
 export default function ChatRoomPage() {
   return (
@@ -354,30 +355,30 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-4rem)] bg-gray-50 p-2 sm:p-4 lg:p-6">
-        <div className="max-w-4xl mx-auto h-full flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col bg-gradient-to-b from-slate-100/80 via-white to-slate-50/90 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 sm:pt-2">
+        <div className="mx-auto flex h-[calc(100dvh-5.5rem)] min-h-0 w-full min-w-0 max-w-6xl flex-col sm:h-[calc(100vh-4.5rem)]">
+          {/* Top bar — stacks on narrow screens */}
+          <div className="mb-2 flex min-w-0 shrink-0 flex-col gap-2 sm:mb-3 sm:flex-row sm:items-center sm:justify-between">
             <Button
               variant="ghost"
               onClick={() => router.push('/dashboard/discussions')}
-              className="gap-2"
+              className="h-10 w-full touch-manipulation justify-start gap-2 rounded-xl text-slate-700 hover:bg-white/80 sm:h-9 sm:w-auto"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Discussions
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span className="truncate">Back to Discussions</span>
             </Button>
-            <div className="flex flex-col items-end gap-1 text-xs sm:flex-row sm:items-center sm:gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-slate-600">
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-3 py-1.5 shadow-sm backdrop-blur-sm">
                 <span
-                  className={`h-2 w-2 rounded-full shrink-0 ${
+                  className={`h-2 w-2 shrink-0 rounded-full ${
                     tokenMissing || reconnectExhausted
                       ? 'bg-amber-500'
                       : isConnected
-                        ? 'bg-green-500'
-                        : 'bg-gray-400 animate-pulse'
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-400 animate-pulse'
                   }`}
                 />
-                <span className="text-gray-600 text-right sm:text-left">
+                <span className="font-medium">
                   {tokenMissing || reconnectExhausted
                     ? 'Could not connect'
                     : isConnected
@@ -389,7 +390,7 @@ function ChatRoomContent() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 text-xs"
+                    className="h-7 touch-manipulation px-2 text-xs"
                     onClick={() => window.location.reload()}
                   >
                     Refresh
@@ -397,7 +398,7 @@ function ChatRoomContent() {
                 )}
               </div>
               {(tokenMissing || reconnectExhausted) && lastError && (
-                <span className="text-amber-800 max-w-[220px] text-right leading-snug">
+                <span className="max-w-full text-right text-[11px] leading-snug text-amber-800 sm:max-w-[240px]">
                   {lastError}
                 </span>
               )}
@@ -405,32 +406,34 @@ function ChatRoomContent() {
           </div>
 
           {/* Chat Card */}
-          <Card className="flex-1 flex flex-col overflow-hidden bg-white shadow-sm">
-            <CardHeader className="pb-3 border-b bg-blue-50 flex-shrink-0">
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-6 w-6 text-blue-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="font-semibold text-lg">
+          <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border-slate-200/70 bg-white/95 shadow-xl shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.04] backdrop-blur-sm">
+            <CardHeader className="shrink-0 space-y-0 border-b border-slate-200/60 bg-gradient-to-br from-white via-slate-50/40 to-white px-3 py-3.5 sm:px-5 sm:py-4">
+              <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20">
+                    <MessageCircle className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-base font-semibold tracking-tight text-slate-900 sm:text-lg">
                         {isDmChannel ? (mainChannel?.description || 'Private Conversation') : cohortChatName}
-                      </div>
+                      </span>
                       {isDmChannel && (
-                        <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs">
+                        <Badge className="shrink-0 border-purple-200/80 bg-purple-50 text-purple-700 text-xs">
                           Private
                         </Badge>
                       )}
                     </div>
                     {!isDmChannel && mainChannel?.description && (
-                      <div className="text-xs text-gray-600 font-normal">
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-600 sm:text-sm">
                         {mainChannel.description}
-                      </div>
+                      </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                   {mainChannel?.isLocked && (
-                    <Badge className="bg-amber-100 text-amber-700 border border-amber-200">
+                    <Badge className="border-amber-200/90 bg-amber-50 text-amber-900">
                       Locked
                     </Badge>
                   )}
@@ -438,20 +441,23 @@ function ChatRoomContent() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-9 touch-manipulation rounded-xl border-slate-200/90"
                       onClick={() => toggleChannelLock.mutate(mainChannel.id)}
                       disabled={toggleChannelLock.isPending}
                     >
                       {mainChannel.isLocked ? "Unlock" : "Lock"}
                     </Button>
                   )}
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <Users className="h-4 w-4 ml-1" />
+                  <div className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
+                    <Users className="h-3.5 w-3.5 text-slate-500" />
+                  </div>
                 </div>
               </CardTitle>
             </CardHeader>
-            
-            <ScrollArea className="flex-1 p-4 bg-gray-50">
-              <div className="space-y-4">
+
+            <ScrollArea className="min-h-0 min-w-0 flex-1 bg-[linear-gradient(180deg,rgb(248_250_252/0.9)_0%,rgb(255_255_255/0.6)_40%,rgb(248_250_252/0.95)_100%)] [&_[data-radix-scroll-area-viewport]]:min-w-0">
+              <div className="min-w-0 max-w-full space-y-3 overflow-x-hidden px-3 py-4 sm:space-y-4 sm:px-5 sm:py-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
                     const isOwnMessage = message.userId === profile?.id;
@@ -461,24 +467,37 @@ function ChatRoomContent() {
                     return (
                       <div
                         key={message.id}
-                        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                        className={`flex w-full min-w-0 max-w-full ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                         ref={(el) => { messageRefs.current[message.id] = el; }}
                         id={`msg-${message.id}`}
                       >
-                        <div className={`flex items-start gap-2 max-w-[80%] ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
-                          <Avatar className="h-8 w-8 flex-shrink-0">
-                            <div className={`h-full w-full ${isOwnMessage ? 'bg-blue-600' : 'bg-purple-600'} flex items-center justify-center text-white text-sm font-medium`}>
-                              {message.user?.firstName?.[0]}{message.user?.lastName?.[0]}
+                        <div
+                          className={`flex w-max max-w-full min-w-0 items-end gap-2.5 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                        >
+                          <Avatar className="h-9 w-9 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
+                            <div
+                              className={`flex h-full w-full items-center justify-center text-[11px] font-semibold text-white sm:text-xs ${isOwnMessage ? 'bg-gradient-to-br from-blue-600 to-indigo-600' : 'bg-gradient-to-br from-violet-600 to-fuchsia-600'}`}
+                            >
+                              {message.user?.firstName?.[0]}
+                              {message.user?.lastName?.[0]}
                             </div>
                           </Avatar>
-                          <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
-                            <div className={`rounded-lg px-4 py-2 ${isOwnMessage ? 'bg-blue-600 text-white' : 'bg-white border'}`}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-xs font-semibold ${isOwnMessage ? 'text-white/90' : 'text-gray-700'}`}>
+                          <div
+                            className={`flex min-w-0 max-w-[min(100%,20rem)] flex-col sm:max-w-[min(100%,24rem)] md:max-w-[min(100%,28rem)] ${isOwnMessage ? 'items-end' : 'items-start'}`}
+                          >
+                            <div
+                              className={`w-full min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 shadow-sm sm:px-4 sm:py-3 ${
+                                isOwnMessage
+                                  ? 'rounded-br-md bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-900/15'
+                                  : 'rounded-bl-md border border-slate-200/80 bg-white/95 text-slate-900 shadow-sm ring-1 ring-slate-900/[0.04]'
+                              }`}
+                            >
+                              <div className="mb-1.5 flex flex-wrap items-center gap-1.5 gap-y-0.5">
+                                <span className={`text-xs font-semibold ${isOwnMessage ? 'text-white/95' : 'text-slate-800'}`}>
                                   {displayName}
                                 </span>
                                 {message.user?.role && (
-                                  <Badge className={`text-xs ${getRoleBadgeColor(message.user.role)}`}>
+                                  <Badge className={`text-[10px] sm:text-xs ${getRoleBadgeColor(message.user.role)}`}>
                                     {getRoleDisplayName(message.user.role)}
                                   </Badge>
                                 )}
@@ -487,8 +506,8 @@ function ChatRoomContent() {
                                 <button
                                   type="button"
                                   onClick={() => jumpToMessage(message.parentMessage!.id)}
-                                  className={`mb-2 w-full rounded-md border px-2 py-1 text-left text-xs ${
-                                    isOwnMessage ? 'border-white/30 bg-white/10' : 'border-gray-200 bg-gray-50'
+                                  className={`mb-2 w-full min-w-0 rounded-xl border px-2.5 py-2 text-left text-xs touch-manipulation ${
+                                    isOwnMessage ? 'border-white/25 bg-white/10' : 'border-slate-200/90 bg-slate-50/90'
                                   }`}
                                 >
                                   <div className="truncate opacity-90">
@@ -499,16 +518,22 @@ function ChatRoomContent() {
                                   </div>
                                 </button>
                               )}
-                              <p className="text-sm whitespace-pre-wrap break-words">{renderMentions(message.content)}</p>
-                              <div className={`mt-2 flex flex-wrap items-center gap-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                              <p
+                                className={`text-[15px] leading-relaxed break-words [overflow-wrap:anywhere] whitespace-pre-wrap sm:text-sm ${isOwnMessage ? 'text-white' : 'text-slate-800'}`}
+                              >
+                                {renderMentions(message.content)}
+                              </p>
+                              <div
+                                className={`mt-2.5 flex min-w-0 flex-wrap items-center gap-1.5 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                              >
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
+                                  className={`h-9 min-h-9 touch-manipulation rounded-lg px-2.5 text-xs sm:h-8 ${isOwnMessage ? 'text-white/90 hover:bg-white/15 hover:text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                                   onClick={() => setReplyTo(message)}
                                 >
-                                  <Reply className="h-3.5 w-3.5 mr-1" />
+                                  <Reply className="mr-1 h-3.5 w-3.5" />
                                   Reply
                                 </Button>
                                 <Popover
@@ -522,20 +547,20 @@ function ChatRoomContent() {
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
+                                      className={`h-9 min-h-9 touch-manipulation rounded-lg px-2.5 text-xs sm:h-8 ${isOwnMessage ? 'text-white/90 hover:bg-white/15 hover:text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                                       disabled={toggleReaction.isPending}
                                     >
-                                      <SmilePlus className="h-3.5 w-3.5 mr-1" />
+                                      <SmilePlus className="mr-1 h-3.5 w-3.5" />
                                       React
                                     </Button>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-2" align="start" side="top">
-                                    <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                  <PopoverContent className="w-auto rounded-2xl border-slate-200/80 p-2 shadow-lg" align="start" side="top">
+                                    <div className="flex max-w-[min(100vw-2rem,240px)] flex-wrap gap-1">
                                       {QUICK_REACTION_EMOJIS.map((emoji) => (
                                         <button
                                           key={emoji}
                                           type="button"
-                                          className="text-xl leading-none p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                                          className="touch-manipulation rounded-xl p-2 text-xl leading-none transition-colors hover:bg-slate-100 active:bg-slate-200"
                                           onClick={() => void handleToggleReaction(message, emoji)}
                                           disabled={toggleReaction.isPending}
                                           title={`React with ${emoji}`}
@@ -551,9 +576,9 @@ function ChatRoomContent() {
                                     key={r.emoji}
                                     type="button"
                                     onClick={() => void handleToggleReaction(message, r.emoji)}
-                                    className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${
-                                      isOwnMessage ? 'border-white/30 bg-white/10' : 'border-gray-200 bg-white'
-                                    } ${r.reactedByMe ? 'font-semibold' : ''}`}
+                                    className={`touch-manipulation rounded-full border px-2.5 py-1 text-xs sm:px-2 ${
+                                      isOwnMessage ? 'border-white/35 bg-white/15' : 'border-slate-200/90 bg-slate-50/90'
+                                    } ${r.reactedByMe ? 'font-semibold ring-1 ring-blue-400/40' : ''}`}
                                     disabled={toggleReaction.isPending}
                                   >
                                     {r.emoji} {r.count}
@@ -561,28 +586,44 @@ function ChatRoomContent() {
                                 ))}
                               </div>
                             </div>
-                            <div className={`mt-1 flex flex-col gap-0.5 ${isOwnMessage ? 'items-end' : 'items-start'}`}>
-                              <span className="text-xs text-gray-500">
+                            <div className={`mt-1.5 flex max-w-full min-w-0 flex-col gap-1 ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                              <time
+                                className="text-[10px] tabular-nums text-slate-500 sm:text-xs"
+                                dateTime={new Date(message.createdAt).toISOString()}
+                              >
                                 {formatLocalTimestamp(message.createdAt)}
-                              </span>
+                              </time>
                               {(message.readByCount ?? 0) > 0 && (
-                                <span
-                                  className="text-[11px] text-gray-500 max-w-[min(100%,280px)]"
-                                  title={
-                                    message.readBy
-                                      ?.map((u) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ''}`)
-                                      .join(", ") ?? ""
-                                  }
-                                >
-                                  Seen by{" "}
-                                  {message.readBy
-                                    ?.slice(0, 6)
-                                    .map((u) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ""}`)
-                                    .join(", ")}
-                                  {(message.readByCount ?? 0) > 6
-                                    ? ` +${(message.readByCount ?? 0) - 6} more`
-                                    : ""}
-                                </span>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border border-slate-200/90 bg-white py-1 pl-2 pr-2.5 text-left text-[10px] text-slate-600 shadow-sm touch-manipulation transition-colors hover:bg-slate-50 active:bg-slate-100 sm:text-xs"
+                                    >
+                                      <Eye className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                                      <span className="truncate">
+                                        {message.readByCount} read
+                                      </span>
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    className="w-[min(calc(100vw-2rem),18rem)] p-3 text-sm"
+                                    align={isOwnMessage ? 'end' : 'start'}
+                                    side="top"
+                                  >
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                      Seen by
+                                    </p>
+                                    <ul className="max-h-48 space-y-1.5 overflow-y-auto text-sm text-slate-800">
+                                      {message.readBy?.map((u) => (
+                                        <li key={u.id} className="leading-snug">
+                                          {u.firstName}
+                                          {u.lastName ? ` ${u.lastName}` : ''}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </PopoverContent>
+                                </Popover>
                               )}
                             </div>
                           </div>
@@ -591,38 +632,42 @@ function ChatRoomContent() {
                     );
                   })
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>No messages yet</p>
-                    <p className="text-sm mt-2">Start the conversation!</p>
+                  <div className="flex min-w-0 flex-col items-center justify-center px-4 py-16 text-center text-slate-500">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200/80 text-slate-500 shadow-inner ring-1 ring-white/60">
+                      <MessageCircle className="h-8 w-8" />
+                    </div>
+                    <p className="font-semibold text-slate-800">No messages yet</p>
+                    <p className="mt-1 max-w-xs text-sm leading-relaxed text-slate-500">
+                      Start the conversation — your cohort will see it here.
+                    </p>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
-            <div className="border-t p-4 bg-white flex-shrink-0">
+            <div className="shrink-0 border-t border-slate-200/80 bg-gradient-to-t from-slate-50/80 to-white px-3 py-3 sm:px-5 sm:py-4">
               {mainChannel?.isLocked && !canManageChats && (
-                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 text-xs leading-relaxed text-amber-900 shadow-sm">
                   This chat room is locked for announcements. You can read messages but cannot post.
                 </div>
               )}
               {isAdminDmObserver && (
-                <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                <div className="mb-3 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
                   This is a private conversation. You can view but not participate.
                 </div>
               )}
               {replyTo && (
-                <div className="mb-3 flex items-start justify-between gap-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                <div className="mb-3 flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-blue-100/90 bg-blue-50/95 px-3 py-2.5 text-xs text-blue-950 shadow-sm">
                   <div className="min-w-0">
                     <div className="font-semibold">Replying to {replyTo.user ? getDisplayName(replyTo.user) : 'Unknown'}</div>
-                    <div className="truncate text-blue-800/90">{replyTo.content}</div>
+                    <div className="truncate text-blue-900/80">{replyTo.content}</div>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2"
+                    className="h-8 shrink-0 touch-manipulation px-2"
                     onClick={() => setReplyTo(null)}
                   >
                     Cancel
@@ -630,7 +675,7 @@ function ChatRoomContent() {
                 </div>
               )}
               {mentionTokensInComposer.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-1.5">
+                <div className="mb-2 flex min-w-0 flex-wrap gap-1.5">
                   {mentionTokensInComposer.map((t) => (
                     <span
                       key={t}
@@ -642,27 +687,27 @@ function ChatRoomContent() {
                   ))}
                 </div>
               )}
-              <div className="flex items-end gap-2">
-                <div className="relative flex-1">
+              <div className="flex min-w-0 items-end gap-2">
+                <div className="relative min-w-0 flex-1">
                   <Input
                     placeholder="Type a message..."
                     value={chatMessage}
                     onChange={(e) => handleMessageInputChange(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    className="w-full"
+                    className="min-h-12 rounded-2xl border-slate-200/90 bg-white/90 px-4 text-base shadow-inner ring-1 ring-slate-900/[0.04] placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500/30 sm:min-h-11 sm:text-sm"
                     disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
                   />
                   {filteredMentions.length > 0 && (
-                    <div className="absolute bottom-12 left-0 z-20 w-full overflow-hidden rounded-md border bg-white shadow-md">
+                    <div className="absolute bottom-[calc(100%+0.5rem)] left-0 z-20 max-h-[min(40vh,16rem)] w-full min-w-0 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/95 shadow-xl shadow-slate-900/10 backdrop-blur-sm">
                       {filteredMentions.map((m) => (
                         <button
                           key={m.id}
                           type="button"
-                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
+                          className="flex w-full touch-manipulation items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-slate-50 active:bg-slate-100"
                           onClick={() => applyMention(m)}
                         >
                           <span className="truncate font-medium">{m.displayName}</span>
-                          <span className="ml-2 shrink-0 text-xs text-gray-500">{m.role}</span>
+                          <span className="ml-2 shrink-0 text-xs text-slate-500">{m.role}</span>
                         </button>
                       ))}
                     </div>
@@ -672,7 +717,8 @@ function ChatRoomContent() {
                   size="icon"
                   onClick={handleSendMessage}
                   disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="h-12 w-12 shrink-0 touch-manipulation rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20 transition hover:from-blue-500 hover:to-indigo-600 disabled:opacity-60 sm:h-11 sm:w-11"
+                  aria-label="Send message"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
