@@ -211,6 +211,40 @@ function ChatRoomContent() {
   }, []);
 
   const renderMentions = useCallback((content: string) => {
+    const hashString = (s: string) => {
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    };
+
+    /**
+     * Single cohesive color scheme (blue/indigo), with deterministic per-token shades
+     * so different people can have distinct colors without clashing.
+     */
+    const mentionStyleForToken = (rawToken: string) => {
+      const token = rawToken.toLowerCase();
+      const isEveryone = token === "everyone" || token === "all";
+
+      // Per-person shades within one scheme
+      const hue = 220; // blue-ish (single scheme)
+      const shadeIndex = hashString(token) % 6; // 0..5
+      const lightnessSteps = [92, 88, 84, 80, 76, 72]; // lighter -> darker
+      const lightness = isEveryone ? 84 : lightnessSteps[shadeIndex];
+
+      // Foreground slightly darker for contrast; bump for @everyone.
+      const fgLightness = isEveryone ? 28 : 24;
+      const borderLightness = isEveryone ? 68 : 70;
+
+      return {
+        backgroundColor: `hsl(${hue} 90% ${lightness}%)`,
+        color: `hsl(${hue} 45% ${fgLightness}%)`,
+        borderColor: `hsl(${hue} 70% ${borderLightness}%)`,
+      } as React.CSSProperties;
+    };
+
     const parts: React.ReactNode[] = [];
     const re = /@([A-Za-z][A-Za-z0-9_.-]{1,32})/g;
     let lastIndex = 0;
@@ -220,9 +254,13 @@ function ChatRoomContent() {
       const end = re.lastIndex;
       if (start > lastIndex) parts.push(content.slice(lastIndex, start));
       parts.push(
-        <span key={`${start}-${end}`} className="font-semibold underline underline-offset-2">
+        <span
+          key={`${start}-${end}`}
+          className="inline-flex items-center rounded-md border px-1.5 py-0.5 font-semibold"
+          style={mentionStyleForToken(match[1])}
+        >
           {match[0]}
-        </span>
+        </span>,
       );
       lastIndex = end;
     }
