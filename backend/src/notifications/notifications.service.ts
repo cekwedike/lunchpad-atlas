@@ -157,6 +157,12 @@ export class NotificationsService {
     return this.configService.get('EMAIL_NOTIFICATIONS_ENABLED') === 'true';
   }
 
+  private coerceParam(value: unknown): string | undefined {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    return undefined;
+  }
+
   private buildActionUrl(data?: any): string | undefined {
     const baseUrl = this.configService.get(
       'FRONTEND_URL',
@@ -165,15 +171,22 @@ export class NotificationsService {
 
     if (!data) return undefined;
 
-    if (data.channelId)
-      return `${baseUrl}/dashboard/chat?channelId=${data.channelId}`;
-    if (data.discussionId)
-      return `${baseUrl}/dashboard/discussions/${data.discussionId}`;
-    if (data.resourceId) return `${baseUrl}/resources/${data.resourceId}`;
+    const channelId = this.coerceParam(data.channelId);
+    if (channelId)
+      return `${baseUrl}/dashboard/chat?channelId=${encodeURIComponent(channelId)}`;
+    const discussionId = this.coerceParam(data.discussionId);
+    if (discussionId)
+      return `${baseUrl}/dashboard/discussions/${encodeURIComponent(discussionId)}`;
+    const resourceId = this.coerceParam(data.resourceId);
+    if (resourceId)
+      return `${baseUrl}/resources/${encodeURIComponent(resourceId)}`;
     if (data.sessionId) return `${baseUrl}/dashboard/attendance`;
-    if (data.liveQuizId)
-      return `${baseUrl}/dashboard/live-quiz/${data.liveQuizId}`;
-    if (data.quizId) return `${baseUrl}/quiz/${data.quizId}`;
+    const liveQuizId = this.coerceParam(data.liveQuizId);
+    if (liveQuizId)
+      return `${baseUrl}/dashboard/live-quiz/${encodeURIComponent(liveQuizId)}`;
+    const quizId = this.coerceParam(data.quizId);
+    if (quizId)
+      return `${baseUrl}/quiz/${encodeURIComponent(quizId)}`;
 
     return undefined;
   }
@@ -190,15 +203,20 @@ export class NotificationsService {
     if (data.changedUserId) return '/dashboard/admin/users';
     if (data.feedbackId) return '/dashboard/admin/feedback';
     if (data.fellowId && data.achievementId) return '/dashboard/admin/users';
-    if (data.channelId)
-      return `/dashboard/chat?channelId=${encodeURIComponent(String(data.channelId))}`;
-    if (data.discussionId)
-      return `/dashboard/discussions/${encodeURIComponent(String(data.discussionId))}`;
-    if (data.resourceId) return `/resources/${encodeURIComponent(String(data.resourceId))}`;
+    const channelId = this.coerceParam(data.channelId);
+    if (channelId)
+      return `/dashboard/chat?channelId=${encodeURIComponent(channelId)}`;
+    const discussionId = this.coerceParam(data.discussionId);
+    if (discussionId)
+      return `/dashboard/discussions/${encodeURIComponent(discussionId)}`;
+    const resourceId = this.coerceParam(data.resourceId);
+    if (resourceId) return `/resources/${encodeURIComponent(resourceId)}`;
     if (data.sessionId) return '/dashboard/attendance';
-    if (data.liveQuizId)
-      return `/dashboard/live-quiz/${encodeURIComponent(String(data.liveQuizId))}`;
-    if (data.quizId) return `/quiz/${encodeURIComponent(String(data.quizId))}`;
+    const liveQuizId = this.coerceParam(data.liveQuizId);
+    if (liveQuizId)
+      return `/dashboard/live-quiz/${encodeURIComponent(liveQuizId)}`;
+    const quizId = this.coerceParam(data.quizId);
+    if (quizId) return `/quiz/${encodeURIComponent(quizId)}`;
     if (data.achievementId) return '/achievements';
     return undefined;
   }
@@ -225,7 +243,7 @@ export class NotificationsService {
         try {
           out[k] = JSON.stringify(v);
         } catch {
-          out[k] = String(v);
+          out[k] = '[unserializable]';
         }
       }
     }

@@ -610,15 +610,22 @@ export class ChatService {
       new Set(messages.map((m: any) => m.parentMessageId).filter(Boolean)),
     ) as string[];
 
+    const reactionModel = (this.prisma as any).chatMessageReaction;
+    const mentionModel = (this.prisma as any).chatMessageMention;
+
     const [reactions, mentions, parents] = await Promise.all([
-      (this.prisma as any).chatMessageReaction.findMany({
-        where: { messageId: { in: messageIds } },
-        select: { messageId: true, userId: true, emoji: true },
-      }),
-      (this.prisma as any).chatMessageMention.findMany({
-        where: { messageId: { in: messageIds } },
-        select: { messageId: true, mentionedUserId: true },
-      }),
+      reactionModel?.findMany
+        ? reactionModel.findMany({
+            where: { messageId: { in: messageIds } },
+            select: { messageId: true, userId: true, emoji: true },
+          })
+        : Promise.resolve([]),
+      mentionModel?.findMany
+        ? mentionModel.findMany({
+            where: { messageId: { in: messageIds } },
+            select: { messageId: true, mentionedUserId: true },
+          })
+        : Promise.resolve([]),
       parentIds.length
         ? this.prisma.chatMessage.findMany({
             where: { id: { in: parentIds }, isDeleted: false },
@@ -723,20 +730,25 @@ export class ChatService {
 
     await this.assertCanAccessChannel(message.channelId, userId);
 
-    const existing = await (this.prisma as any).chatMessageReaction.findFirst({
+    const reactionModel = (this.prisma as any).chatMessageReaction;
+    if (!reactionModel?.findFirst || !reactionModel?.create || !reactionModel?.delete) {
+      throw new ForbiddenException('Reactions are not available on this server yet');
+    }
+
+    const existing = await reactionModel.findFirst({
       where: { messageId, userId, emoji },
       select: { id: true },
     });
 
     if (existing) {
-      await (this.prisma as any).chatMessageReaction.delete({ where: { id: existing.id } });
+      await reactionModel.delete({ where: { id: existing.id } });
     } else {
-      await (this.prisma as any).chatMessageReaction.create({
+      await reactionModel.create({
         data: { messageId, userId, emoji },
       });
     }
 
-    const reactions = await (this.prisma as any).chatMessageReaction.findMany({
+    const reactions = await reactionModel.findMany({
       where: { messageId },
       select: { emoji: true, userId: true },
     });
@@ -774,11 +786,16 @@ export class ChatService {
 
     await this.assertCanAccessChannel(message.channelId, userId);
 
-    await (this.prisma as any).chatMessageReaction.deleteMany({
+    const reactionModel = (this.prisma as any).chatMessageReaction;
+    if (!reactionModel?.deleteMany || !reactionModel?.findMany) {
+      throw new ForbiddenException('Reactions are not available on this server yet');
+    }
+
+    await reactionModel.deleteMany({
       where: { messageId, userId, emoji },
     });
 
-    const reactions = await (this.prisma as any).chatMessageReaction.findMany({
+    const reactions = await reactionModel.findMany({
       where: { messageId },
       select: { emoji: true, userId: true },
     });
@@ -1007,6 +1024,8 @@ export class ChatService {
     cohortId: string,
     excludeUserId: string,
   ): Promise<string[]> {
+    const cohortFacilitatorModel = (this.prisma as any).cohortFacilitator;
+
     const [members, facilitators] = await Promise.all([
       this.prisma.user.findMany({
         where: {
@@ -1019,10 +1038,14 @@ export class ChatService {
         },
         select: { id: true },
       }),
-      (this.prisma as any).cohortFacilitator.findMany({
-        where: { cohortId },
-        select: { userId: true },
-      }),
+      // If Prisma client hasn't been regenerated after migrations, this model may be missing at runtime.
+      // We fall back to an empty list so chat sending never 500s.
+      cohortFacilitatorModel?.findMany
+        ? cohortFacilitatorModel.findMany({
+            where: { cohortId },
+            select: { userId: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     const recipientIds = new Set<string>([
