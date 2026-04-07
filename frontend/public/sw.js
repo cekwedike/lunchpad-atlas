@@ -9,7 +9,7 @@
  *    our old "networkFirst" fallback returned Response.error() and broke /login + refresh auth.
  */
 
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const CACHE_NAME = `atlas-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline';
 
@@ -179,53 +179,55 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   const notifData = event.notification.data ?? {};
+  const scopeBase = self.registration?.scope || `${self.location.origin}/`;
+
   let path = '/dashboard';
+  if (typeof notifData.url === 'string' && notifData.url.startsWith('/')) {
+    path = notifData.url;
+  } else if (notifData.newUserId || notifData.changedUserId) {
+    path = '/dashboard/admin/users';
+  } else if (notifData.feedbackId) {
+    path = '/dashboard/admin/feedback';
+  } else if (notifData.fellowId && notifData.achievementId) {
+    path = '/dashboard/admin/users';
+  } else if (notifData.channelId) {
+    path = `/dashboard/chat?channelId=${encodeURIComponent(String(notifData.channelId))}`;
+  } else if (notifData.discussionId) {
+    path = `/dashboard/discussions/${encodeURIComponent(String(notifData.discussionId))}`;
+  } else if (notifData.resourceId) {
+    path = `/resources/${encodeURIComponent(String(notifData.resourceId))}`;
+  } else if (notifData.liveQuizId) {
+    path = `/dashboard/live-quiz/${encodeURIComponent(String(notifData.liveQuizId))}`;
+  } else if (notifData.quizId) {
+    path = `/quiz/${encodeURIComponent(String(notifData.quizId))}`;
+  } else if (notifData.achievementId) {
+    path = '/achievements';
+  }
 
-  if (notifData.channelId) path = `/dashboard/chat?channelId=${notifData.channelId}`;
-  else if (notifData.discussionId) path = `/dashboard/discussions/${notifData.discussionId}`;
-  else if (notifData.resourceId) path = `/resources/${notifData.resourceId}`;
-  else if (notifData.liveQuizId) path = `/dashboard/live-quiz/${notifData.liveQuizId}`;
-  else if (notifData.quizId) path = `/quiz/${notifData.quizId}`;
-
-  const targetUrl = new URL(path, self.location.origin).href;
+  const targetUrl = new URL(path, scopeBase).href;
+  const scopeOrigin = new URL(scopeBase).origin;
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const openOrNavigate = (client) => {
-        if (new URL(client.url).origin !== self.location.origin || !('focus' in client)) {
-          return null;
-        }
-        const afterFocus = () => {
-          if (
-            'navigate' in client &&
-            typeof client.navigate === 'function'
-          ) {
-            try {
-              const result = client.navigate(targetUrl);
-              if (result !== undefined && typeof result.then === 'function') {
-                return result.catch(() => self.clients.openWindow(targetUrl));
-              }
-              return result ?? self.clients.openWindow(targetUrl);
-            } catch {
-              return self.clients.openWindow(targetUrl);
-            }
-          }
-          return self.clients.openWindow(targetUrl);
-        };
-        const focused = client.focus();
-        return focused !== undefined && typeof focused.then === 'function'
-          ? focused.then(afterFocus)
-          : Promise.resolve().then(afterFocus);
-      };
+    (async () => {
+      const clientList = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
 
       for (const client of clientList) {
-        const p = openOrNavigate(client);
-        if (p) return p;
+        try {
+          if (new URL(client.url).origin !== scopeOrigin) continue;
+          client.postMessage({ type: 'NOTIF_NAVIGATE', href: targetUrl });
+          await client.focus();
+          return;
+        } catch {
+          continue;
+        }
       }
 
       if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
+        await self.clients.openWindow(targetUrl);
       }
-    }),
+    })(),
   );
 });

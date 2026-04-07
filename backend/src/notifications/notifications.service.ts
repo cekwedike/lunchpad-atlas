@@ -36,8 +36,14 @@ export interface CreateNotificationDto {
   data?: any;
 }
 
+/** Per user+channel: max one cohort chat notification every N ms (in-app + push + email). */
+const CHAT_MESSAGE_NOTIFY_THROTTLE_MS = 12 * 60 * 1000;
+
 @Injectable()
 export class NotificationsService {
+  /** `${userId}:${channelId}` → last notification time */
+  private readonly chatMessageThrottleLast = new Map<string, number>();
+
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
@@ -65,13 +71,15 @@ export class NotificationsService {
       return recentDuplicate;
     }
 
+    const data = this.mergeDataWithInternalUrl(dto.data);
+
     const notification = await this.prisma.notification.create({
       data: {
         userId: dto.userId,
         type: dto.type,
         title: dto.title,
         message: dto.message,
-        data: dto.data || {},
+        data: data || {},
       },
     });
 
@@ -79,7 +87,8 @@ export class NotificationsService {
     const unreadCount = await this.getUnreadCount(dto.userId);
     this.notificationsGateway.sendUnreadCountUpdate(dto.userId, unreadCount);
 
-    this.sendNotificationEmail(dto).catch((error) => {
+    const dtoForSideEffects: CreateNotificationDto = { ...dto, data };
+    this.sendNotificationEmail(dtoForSideEffects).catch((error) => {
       console.error('Failed to send notification email:', error);
     });
 
@@ -87,7 +96,7 @@ export class NotificationsService {
       .sendPushToUser(dto.userId, {
         title: dto.title,
         body: dto.message,
-        data: dto.data,
+        data: this.serializePushData(data),
       })
       .catch((error) => {
         console.error('Failed to send push notification:', error);
@@ -97,8 +106,13 @@ export class NotificationsService {
   }
 
   async createBulkNotifications(notifications: CreateNotificationDto[]) {
+    const enriched = notifications.map((n) => ({
+      ...n,
+      data: this.mergeDataWithInternalUrl(n.data),
+    }));
+
     const result = await this.prisma.notification.createMany({
-      data: notifications.map((n) => ({
+      data: enriched.map((n) => ({
         userId: n.userId,
         type: n.type,
         title: n.title,
@@ -107,7 +121,7 @@ export class NotificationsService {
       })),
     });
 
-    const grouped = notifications.reduce<
+    const grouped = enriched.reduce<
       Record<string, CreateNotificationDto[]>
     >((acc, item) => {
       if (!acc[item.userId]) acc[item.userId] = [];
@@ -128,11 +142,11 @@ export class NotificationsService {
       }),
     );
 
-    this.sendBulkNotificationEmails(notifications).catch((error) => {
+    this.sendBulkNotificationEmails(enriched).catch((error) => {
       console.error('Failed to send bulk notification emails:', error);
     });
 
-    this.sendBulkPushNotifications(notifications).catch((error) => {
+    this.sendBulkPushNotifications(enriched).catch((error) => {
       console.error('Failed to send bulk push notifications:', error);
     });
 
@@ -162,6 +176,60 @@ export class NotificationsService {
     if (data.quizId) return `${baseUrl}/quiz/${data.quizId}`;
 
     return undefined;
+  }
+
+  /**
+   * In-app path for PWA / router (leading slash). Keeps push + notification clicks on valid same-origin routes.
+   */
+  private buildNotificationPath(data?: Record<string, unknown>): string | undefined {
+    if (!data) return undefined;
+    if (typeof data.url === 'string' && data.url.startsWith('/')) {
+      return data.url;
+    }
+    if (data.newUserId) return '/dashboard/admin/users';
+    if (data.changedUserId) return '/dashboard/admin/users';
+    if (data.feedbackId) return '/dashboard/admin/feedback';
+    if (data.fellowId && data.achievementId) return '/dashboard/admin/users';
+    if (data.channelId)
+      return `/dashboard/chat?channelId=${encodeURIComponent(String(data.channelId))}`;
+    if (data.discussionId)
+      return `/dashboard/discussions/${encodeURIComponent(String(data.discussionId))}`;
+    if (data.resourceId) return `/resources/${encodeURIComponent(String(data.resourceId))}`;
+    if (data.sessionId) return '/dashboard/attendance';
+    if (data.liveQuizId)
+      return `/dashboard/live-quiz/${encodeURIComponent(String(data.liveQuizId))}`;
+    if (data.quizId) return `/quiz/${encodeURIComponent(String(data.quizId))}`;
+    if (data.achievementId) return '/achievements';
+    return undefined;
+  }
+
+  private mergeDataWithInternalUrl(data?: Record<string, unknown>): Record<string, unknown> {
+    const base = { ...(data || {}) } as Record<string, unknown>;
+    const path = this.buildNotificationPath(base);
+    if (path && base.url === undefined) {
+      base.url = path;
+    }
+    return base;
+  }
+
+  /** Some mobile Web Push runtimes handle notification `data` better as string values. */
+  private serializePushData(data: Record<string, unknown>): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(data || {})) {
+      if (v === undefined || v === null) continue;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        out[k] = String(v);
+      } else if (v instanceof Date) {
+        out[k] = v.toISOString();
+      } else {
+        try {
+          out[k] = JSON.stringify(v);
+        } catch {
+          out[k] = String(v);
+        }
+      }
+    }
+    return out;
   }
 
   private async sendNotificationEmail(dto: CreateNotificationDto) {
@@ -295,7 +363,7 @@ export class NotificationsService {
         this.pushService.sendPushToUser(n.userId, {
           title: n.title,
           body: n.message,
-          data: n.data,
+          data: this.serializePushData((n.data || {}) as Record<string, unknown>),
         }),
       ),
     );
@@ -537,7 +605,30 @@ export class NotificationsService {
     messagePreview: string,
     channelId: string,
   ) {
-    const notifications = userIds.map((userId) => ({
+    const now = Date.now();
+    const filteredUserIds = userIds.filter((userId) => {
+      const key = `${userId}:${channelId}`;
+      const last = this.chatMessageThrottleLast.get(key) ?? 0;
+      if (now - last < CHAT_MESSAGE_NOTIFY_THROTTLE_MS) return false;
+      return true;
+    });
+
+    for (const userId of filteredUserIds) {
+      this.chatMessageThrottleLast.set(`${userId}:${channelId}`, now);
+    }
+
+    if (this.chatMessageThrottleLast.size > 5000) {
+      const cutoff = now - CHAT_MESSAGE_NOTIFY_THROTTLE_MS * 2;
+      for (const [k, t] of this.chatMessageThrottleLast) {
+        if (t < cutoff) this.chatMessageThrottleLast.delete(k);
+      }
+    }
+
+    if (filteredUserIds.length === 0) {
+      return { count: 0 };
+    }
+
+    const notifications = filteredUserIds.map((userId) => ({
       userId,
       type: 'SYSTEM_ALERT' as NotificationType,
       title: `New message in ${channelName}`,

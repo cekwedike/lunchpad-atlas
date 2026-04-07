@@ -660,8 +660,12 @@ export class ChatService {
     const [members, facilitators] = await Promise.all([
       this.prisma.user.findMany({
         where: {
-          OR: [{ role: 'ADMIN' }, { cohortId }],
           id: { not: excludeUserId },
+          OR: [
+            { role: 'FELLOW', cohortId },
+            { role: 'FACILITATOR', cohortId },
+            { role: 'GUEST_FACILITATOR', cohortId },
+          ],
         },
         select: { id: true },
       }),

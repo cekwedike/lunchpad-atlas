@@ -7,7 +7,8 @@ import { SaveSubscriptionDto } from './dto/save-subscription.dto';
 export interface PushPayload {
   title: string;
   body: string;
-  data?: Record<string, unknown>;
+  /** Prefer string values for mobile Web Push compatibility. */
+  data?: Record<string, string>;
 }
 
 @Injectable()

@@ -162,13 +162,18 @@ export default function NotificationsPage() {
   };
 
   const getNotificationUrl = (notification: Notification) => {
-    if (notification.data?.url) return notification.data.url as string;
-    if (notification.data?.channelId) return `/dashboard/chat?channelId=${notification.data.channelId}`;
-    if (notification.data?.discussionId) return `/dashboard/discussions/${notification.data.discussionId}`;
-    if (notification.data?.resourceId) return `/resources/${notification.data.resourceId}`;
-    if (notification.data?.sessionId) return `/dashboard/attendance`;
-    if (notification.data?.liveQuizId) return `/dashboard/live-quiz/${notification.data.liveQuizId}`;
-    if (notification.data?.quizId) return `/quiz/${notification.data.quizId}`;
+    const d = notification.data;
+    if (d?.url && typeof d.url === 'string') return d.url;
+    if (d?.newUserId || d?.changedUserId) return '/dashboard/admin/users';
+    if (d?.feedbackId) return '/dashboard/admin/feedback';
+    if (d?.fellowId && d?.achievementId) return '/dashboard/admin/users';
+    if (d?.channelId) return `/dashboard/chat?channelId=${encodeURIComponent(String(d.channelId))}`;
+    if (d?.discussionId) return `/dashboard/discussions/${encodeURIComponent(String(d.discussionId))}`;
+    if (d?.resourceId) return `/resources/${encodeURIComponent(String(d.resourceId))}`;
+    if (d?.sessionId) return '/dashboard/attendance';
+    if (d?.liveQuizId) return `/dashboard/live-quiz/${encodeURIComponent(String(d.liveQuizId))}`;
+    if (d?.quizId) return `/quiz/${encodeURIComponent(String(d.quizId))}`;
+    if (d?.achievementId) return '/achievements';
     return null;
   };
 

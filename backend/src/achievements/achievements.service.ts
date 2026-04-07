@@ -346,37 +346,41 @@ export class AchievementsService implements OnApplicationBootstrap {
       });
 
       if (fellow) {
-        const staffWhereClause = fellow.cohortId
-          ? {
-              OR: [
-                { role: 'ADMIN' as const },
-                { role: 'FACILITATOR' as const, cohortId: fellow.cohortId },
-              ],
-            }
-          : { role: 'ADMIN' as const };
+        // Staff alerts only for higher-value achievements to avoid spam (fellow still gets notifyAchievementEarned above).
+        const STAFF_ACHIEVEMENT_MIN_POINTS = 50;
+        if (achievement.pointValue >= STAFF_ACHIEVEMENT_MIN_POINTS) {
+          const staffWhereClause = fellow.cohortId
+            ? {
+                OR: [
+                  { role: 'ADMIN' as const },
+                  { role: 'FACILITATOR' as const, cohortId: fellow.cohortId },
+                ],
+              }
+            : { role: 'ADMIN' as const };
 
-        const staff = await this.prisma.user.findMany({
-          where: staffWhereClause,
-          select: { id: true },
-        });
+          const staff = await this.prisma.user.findMany({
+            where: staffWhereClause,
+            select: { id: true },
+          });
 
-        const fellowName = [fellow.firstName, fellow.lastName].filter(Boolean).join(' ') || 'A fellow';
-        await Promise.all(
-          staff.map((s) =>
-            this.notificationsService.createNotification({
-              userId: s.id,
-              type: 'ACHIEVEMENT_EARNED',
-              title: 'Achievement Unlocked by Fellow',
-              message: `${fellowName} just earned the "${achievement.name}" achievement!`,
-              data: {
-                achievementId: achievement.id,
-                achievementName: achievement.name,
-                fellowId: userId,
-                fellowName,
-              },
-            }),
-          ),
-        );
+          const fellowName = [fellow.firstName, fellow.lastName].filter(Boolean).join(' ') || 'A fellow';
+          await Promise.all(
+            staff.map((s) =>
+              this.notificationsService.createNotification({
+                userId: s.id,
+                type: 'ACHIEVEMENT_EARNED',
+                title: 'Achievement Unlocked by Fellow',
+                message: `${fellowName} just earned the "${achievement.name}" achievement!`,
+                data: {
+                  achievementId: achievement.id,
+                  achievementName: achievement.name,
+                  fellowId: userId,
+                  fellowName,
+                },
+              }),
+            ),
+          );
+        }
       }
 
       awardedAchievements.push(achievement);
