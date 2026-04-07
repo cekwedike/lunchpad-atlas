@@ -5,6 +5,7 @@ export class ChatMessageEntity implements ChatMessage {
   channelId: string;
   userId: string;
   content: string;
+  parentMessageId: string | null;
   isDeleted: boolean;
   isFlagged: boolean;
   createdAt: Date;

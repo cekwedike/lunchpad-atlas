@@ -646,7 +646,9 @@ export class ChatService {
       mentionsByMessage.set(m.messageId, arr);
     }
 
-    const parentById = new Map(parents.map((p) => [p.id, p]));
+    const parentById = new Map<string, (typeof parents)[number]>(
+      parents.map((p) => [p.id, p] as const),
+    );
 
     return messages.map((m: any) => {
       const byEmoji = reactionsByMessage.get(m.id) ?? new Map();
@@ -675,6 +677,31 @@ export class ChatService {
     }));
   }
 
+  private async assertCanAccessChannel(channelId: string, userId: string) {
+    const channel = await this.getChannelById(channelId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { cohortId: true, role: true },
+    });
+
+    if (!user) throw new ForbiddenException('User not found');
+
+    if (channel.type === ChannelType.DIRECT_MESSAGE) {
+      const participants = this.extractDmParticipants(channel.name);
+      if (!participants) throw new ForbiddenException('Invalid DM channel');
+      if (user.role !== 'ADMIN' && !participants.includes(userId)) {
+        throw new ForbiddenException(
+          'You do not have access to this private conversation',
+        );
+      }
+      return;
+    }
+
+    if (user.role !== 'ADMIN' && user.cohortId !== channel.cohortId) {
+      throw new ForbiddenException('You do not have access to this channel');
+    }
+  }
+
   async toggleMessageReaction(messageId: string, userId: string, emoji: string) {
     if (!emoji || typeof emoji !== 'string') {
       throw new ForbiddenException('Emoji is required');
@@ -688,8 +715,7 @@ export class ChatService {
     });
     if (!message || message.isDeleted) throw new NotFoundException('Message not found');
 
-    // Access control: must be able to read the channel
-    await this.getChannelMessages(message.channelId, userId, 1);
+    await this.assertCanAccessChannel(message.channelId, userId);
 
     const existing = await (this.prisma as any).chatMessageReaction.findFirst({
       where: { messageId, userId, emoji },
@@ -740,8 +766,7 @@ export class ChatService {
     });
     if (!message || message.isDeleted) throw new NotFoundException('Message not found');
 
-    // Access control: must be able to read the channel
-    await this.getChannelMessages(message.channelId, userId, 1);
+    await this.assertCanAccessChannel(message.channelId, userId);
 
     await (this.prisma as any).chatMessageReaction.deleteMany({
       where: { messageId, userId, emoji },

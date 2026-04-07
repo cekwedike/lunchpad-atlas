@@ -268,6 +268,18 @@ function ChatRoomContent() {
     setMentionQuery(null);
   };
 
+  const handleToggleReaction = async (message: ChatMessage, emoji: string) => {
+    try {
+      await toggleReaction.mutateAsync({ messageId: message.id, emoji, channelId: message.channelId });
+    } catch (error) {
+      const description =
+        error instanceof ApiClientError
+          ? error.message
+          : "Something went wrong reacting to that message.";
+      toast.error("Reaction failed", { description });
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-4rem)] bg-gray-50 p-2 sm:p-4 lg:p-6">
@@ -432,7 +444,7 @@ function ChatRoomContent() {
                                   variant="ghost"
                                   size="sm"
                                   className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
-                                  onClick={() => toggleReaction.mutate({ messageId: message.id, emoji: '👍', channelId: message.channelId })}
+                                  onClick={() => void handleToggleReaction(message, '👍')}
                                   disabled={toggleReaction.isPending}
                                 >
                                   <SmilePlus className="h-3.5 w-3.5 mr-1" />
@@ -442,7 +454,7 @@ function ChatRoomContent() {
                                   <button
                                     key={r.emoji}
                                     type="button"
-                                    onClick={() => toggleReaction.mutate({ messageId: message.id, emoji: r.emoji, channelId: message.channelId })}
+                                    onClick={() => void handleToggleReaction(message, r.emoji)}
                                     className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${
                                       isOwnMessage ? 'border-white/30 bg-white/10' : 'border-gray-200 bg-white'
                                     } ${r.reactedByMe ? 'font-semibold' : ''}`}
