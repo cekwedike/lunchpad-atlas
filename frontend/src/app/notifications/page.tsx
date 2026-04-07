@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import type { LucideIcon } from 'lucide-react';
 import {
   Bell,
   BookOpen,
@@ -46,7 +47,7 @@ import { useNotificationsSocket } from '@/hooks/useNotificationsSocket';
 import { Notification, NotificationType } from '@/types/notification';
 import { formatLocalTimestamp } from '@/lib/date-utils';
 
-const notificationIcons: Record<NotificationType, React.ElementType> = {
+const notificationIcons: Record<NotificationType, LucideIcon> = {
   [NotificationType.RESOURCE_UNLOCK]: BookOpen,
   [NotificationType.QUIZ_REMINDER]: AlertCircle,
   [NotificationType.INCOMPLETE_RESOURCE]: AlertCircle,

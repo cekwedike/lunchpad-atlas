@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, type ComponentProps } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   User, Settings, FileText, MessageSquare,
@@ -72,7 +72,7 @@ function PasswordInput({ label, error, defaultShow = false, ...props }: { label:
       <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
       <div className="relative">
         <Input
-          {...props}
+          {...(props as ComponentProps<typeof Input>)}
           type={show ? "text" : "password"}
           className="pr-10"
         />

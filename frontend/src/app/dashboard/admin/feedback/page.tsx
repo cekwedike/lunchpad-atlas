@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ import {
 } from '@/hooks/api/useFeedback';
 import { formatLocalTimestamp } from '@/lib/date-utils';
 
-const TYPE_CONFIG: Record<FeedbackType, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+const TYPE_CONFIG: Record<FeedbackType, { label: string; icon: LucideIcon; color: string; bg: string }> = {
   SUGGESTION: { label: 'Suggestion', icon: Lightbulb, color: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-200' },
   BUG_REPORT: { label: 'Bug Report', icon: Bug, color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
   CONCERN: { label: 'Concern', icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },

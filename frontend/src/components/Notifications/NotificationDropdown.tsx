@@ -1,4 +1,5 @@
 import { useRouter } from 'next/navigation';
+import type { LucideIcon } from 'lucide-react';
 import {
   Bell,
   BookOpen,
@@ -38,7 +39,7 @@ interface NotificationDropdownProps {
   onClose: () => void;
 }
 
-const notificationIcons: Record<NotificationType, React.ElementType> = {
+const notificationIcons: Record<NotificationType, LucideIcon> = {
   [NotificationType.RESOURCE_UNLOCK]: BookOpen,
   [NotificationType.QUIZ_REMINDER]: AlertCircle,
   [NotificationType.INCOMPLETE_RESOURCE]: AlertCircle,

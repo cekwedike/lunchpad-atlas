@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import type { LucideIcon } from 'lucide-react';
 import {
   MessageSquare,
   Lightbulb,
@@ -31,14 +32,14 @@ import {
 import { useMyFeedback, useSubmitFeedback, useDeleteFeedback, FeedbackType, FeedbackStatus } from '@/hooks/api/useFeedback';
 import { formatLocalTimestamp } from '@/lib/date-utils';
 
-const TYPE_CONFIG: Record<FeedbackType, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+const TYPE_CONFIG: Record<FeedbackType, { label: string; icon: LucideIcon; color: string; bg: string }> = {
   SUGGESTION: { label: 'Suggestion', icon: Lightbulb, color: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-200' },
   BUG_REPORT: { label: 'Bug Report', icon: Bug, color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
   CONCERN: { label: 'Concern', icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },
   GENERAL: { label: 'General', icon: MessageSquare, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' },
 };
 
-const STATUS_CONFIG: Record<FeedbackStatus, { label: string; icon: React.ElementType; color: string }> = {
+const STATUS_CONFIG: Record<FeedbackStatus, { label: string; icon: LucideIcon; color: string }> = {
   PENDING: { label: 'Pending', icon: Clock, color: 'text-gray-500' },
   REVIEWED: { label: 'Reviewed', icon: Clock, color: 'text-blue-600' },
   ACCEPTED: { label: 'Accepted', icon: CheckCircle2, color: 'text-emerald-600' },

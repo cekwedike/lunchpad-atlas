@@ -14,6 +14,8 @@ import { toast } from '@/lib/toast';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  /** Skip max-width/padding so a child page (e.g. chat) can use the full main column edge-to-edge. */
+  fullBleedContent?: boolean;
 }
 
 function SuspensionOverlay({ reason }: { reason?: string | null }) {
@@ -164,7 +166,7 @@ function ForcePasswordChangeOverlay() {
   );
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, fullBleedContent = false }: DashboardLayoutProps) {
   const { user } = useAuthStore();
   const isSuspended = user?.isSuspended === true;
   const mustChangePassword = user?.mustChangePassword === true;
@@ -174,13 +176,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <Navbar />
-      <div className="flex">
+      <div className="flex min-h-0 min-w-0">
         <Sidebar />
-        <main className={`flex-1 min-w-0 overflow-x-hidden min-h-[calc(100vh-4rem)] ${isSuspended ? 'pointer-events-none select-none' : ''}`}>
-          <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 space-y-4">
-            {!isSuspended && <SetupChecklist />}
-            {children}
-          </div>
+        <main
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden min-h-[calc(100vh-4rem)] ${isSuspended ? 'pointer-events-none select-none' : ''}`}
+        >
+          {fullBleedContent ? (
+            <>
+              {!isSuspended && (
+                <div className="shrink-0 border-b border-slate-200/60 bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8">
+                  <SetupChecklist />
+                </div>
+              )}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
+            </>
+          ) : (
+            <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6 lg:p-8">
+              {!isSuspended && <SetupChecklist />}
+              {children}
+            </div>
+          )}
         </main>
       </div>
       <TourGuide />

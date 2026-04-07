@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useState, useEffect, useRef, useCallback } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
@@ -28,12 +28,36 @@ import { toast } from "sonner";
 import { ApiClientError } from "@/lib/api-client";
 import type { ChatMember, ChatMessage } from "@/types/chat";
 import { getChatMentionRegex } from "@/lib/chat-mentions";
-import { CHAT_REACTION_OPTIONS, ChatReactionGlyph } from "@/lib/chat-reactions";
+import { ChatReactionGlyph } from "@/lib/chat-reactions";
 import { cn } from "@/lib/utils";
+
+const ChatReaction3DPicker = dynamic(
+  () =>
+    import("@/components/Chat/ChatReaction3DPicker").then(
+      (m) => m.ChatReaction3DPicker,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="h-[220px] w-[min(100vw-2rem,280px)] animate-pulse rounded-2xl bg-slate-100 ring-1 ring-slate-200/80"
+        aria-hidden
+      />
+    ),
+  },
+);
 
 export default function ChatRoomPage() {
   return (
-    <Suspense fallback={<DashboardLayout><div className="flex items-center justify-center h-[calc(100vh-4rem)]"><p className="text-gray-500">Loading chat...</p></div></DashboardLayout>}>
+    <Suspense
+      fallback={
+        <DashboardLayout fullBleedContent>
+          <div className="flex flex-1 items-center justify-center min-h-[50vh]">
+            <p className="text-gray-500">Loading chat...</p>
+          </div>
+        </DashboardLayout>
+      }
+    >
       <ChatRoomContent />
     </Suspense>
   );
@@ -287,7 +311,7 @@ function ChatRoomContent() {
         <span
           key={`${start}-${end}`}
           className="inline-flex items-center rounded-md border px-1.5 py-0.5 font-semibold"
-          style={mentionStyleForToken(match[1])}
+          style={mentionStyleForToken(match[1]) as CSSProperties}
         >
           {match[0]}
         </span>,
@@ -384,12 +408,10 @@ function ChatRoomContent() {
   };
 
   return (
-    <DashboardLayout>
-      {/* Bleed past layout padding; slightly tighter horizontal padding on small phones */}
-      <div className="-mx-4 flex min-h-0 w-full min-w-0 flex-1 flex-col bg-gradient-to-b from-slate-100/90 via-white to-slate-50/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 sm:-mx-6 sm:px-6 sm:pt-2 lg:-mx-8 lg:px-8">
-        <div className="mx-auto flex h-[calc(100dvh-5.5rem)] min-h-0 w-full min-w-0 max-w-6xl flex-col sm:h-[calc(100vh-4.5rem)]">
-          {/* Top bar — stacks on narrow screens */}
-          <div className="mb-3 flex min-w-0 shrink-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+    <DashboardLayout fullBleedContent>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        {/* Top bar — stacks on narrow screens */}
+        <div className="flex min-w-0 shrink-0 flex-col gap-2 border-b border-slate-200/70 bg-slate-50/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
             <Button
               variant="ghost"
               onClick={() => router.push('/dashboard/discussions')}
@@ -434,12 +456,12 @@ function ChatRoomContent() {
                 </span>
               )}
             </div>
-          </div>
+        </div>
 
-          {/* Chat Card */}
-          <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border-slate-200/60 bg-white shadow-[0_8px_40px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.05] sm:rounded-3xl">
-            <CardHeader className="shrink-0 space-y-0 border-b border-slate-200/50 bg-gradient-to-br from-slate-50/80 via-white to-white px-4 py-3.5 sm:px-5 sm:py-4">
-              <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        {/* Chat room: full main column, no floating card */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <header className="shrink-0 border-b border-slate-200/60 bg-white px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                   <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20">
                     <MessageCircle className="h-5 w-5" />
@@ -484,10 +506,10 @@ function ChatRoomContent() {
                     <Users className="h-3.5 w-3.5 text-slate-500" />
                   </div>
                 </div>
-              </CardTitle>
-            </CardHeader>
+              </div>
+            </header>
 
-            <ScrollArea className="min-h-0 min-w-0 flex-1 bg-[linear-gradient(180deg,rgb(241_245_249/0.85)_0%,rgb(255_255_255/0.5)_35%,rgb(248_250_252/0.98)_100%)] [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
+            <ScrollArea className="min-h-0 min-w-0 flex-1 bg-slate-50/95 [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
               <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-2.5 py-2.5 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
@@ -504,7 +526,7 @@ function ChatRoomContent() {
                       >
                         {/* Row: no w-max — percentage max-widths break on mobile WebKit inside shrink-to-fit rows */}
                         <div
-                          className={`flex min-w-0 max-w-[min(100%,calc(100vw-3.25rem))] items-end gap-1.5 sm:max-w-[min(100%,24rem)] sm:gap-2.5 md:max-w-[min(100%,28rem)] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`flex min-w-0 max-w-[min(100%,calc(100vw-2.5rem))] items-end gap-1.5 sm:max-w-[min(100%,26rem)] sm:gap-2.5 md:max-w-[min(100%,30rem)] lg:max-w-[min(100%,36rem)] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
                         >
                           <Avatar className="h-7 w-7 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
                             <div
@@ -589,41 +611,23 @@ function ChatRoomContent() {
                                     </Button>
                                   </PopoverTrigger>
                                   <PopoverContent
-                                    className="w-auto rounded-2xl border-slate-200/80 bg-gradient-to-b from-slate-50 to-white p-2.5 shadow-xl"
+                                    className="w-[min(100vw-2rem,300px)] rounded-2xl border-slate-200/80 bg-white p-2.5 shadow-xl"
                                     align="start"
                                     side="top"
                                   >
-                                    <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                      Pick a reaction
+                                    <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                      Tap a 3D reaction
                                     </p>
-                                    <div className="grid max-w-[min(100vw-2rem,260px)] grid-cols-4 gap-2">
-                                      {CHAT_REACTION_OPTIONS.map((opt) => (
-                                        <button
-                                          key={opt.id}
-                                          type="button"
-                                          className={cn(
-                                            "group relative touch-manipulation rounded-2xl bg-gradient-to-br p-2.5 shadow-[0_6px_0_0_rgba(15,23,42,0.12)] transition-all duration-200",
-                                            "hover:scale-110 hover:-translate-y-1 hover:shadow-[0_10px_0_0_rgba(15,23,42,0.1)] active:scale-95 active:translate-y-0 active:shadow-[0_4px_0_0_rgba(15,23,42,0.15)]",
-                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60",
-                                            opt.accent,
-                                          )}
-                                          onClick={() =>
-                                            void handleToggleReaction(message, opt.id)
-                                          }
-                                          disabled={toggleReaction.isPending}
-                                          title={opt.label}
-                                        >
-                                          <opt.Icon
-                                            className={cn(
-                                              "mx-auto h-5 w-5 transition-transform duration-300 group-hover:animate-[pulse_0.8s_ease-in-out_infinite]",
-                                              opt.iconClass,
-                                            )}
-                                            strokeWidth={2.2}
-                                            aria-hidden
-                                          />
-                                        </button>
-                                      ))}
-                                    </div>
+                                    <ChatReaction3DPicker
+                                      disabled={toggleReaction.isPending}
+                                      onSelect={(id) => {
+                                        setReactionPickerFor(null);
+                                        void handleToggleReaction(message, id);
+                                      }}
+                                    />
+                                    <p className="mt-1.5 px-0.5 text-center text-[10px] leading-snug text-slate-400">
+                                      Like · Love · Laugh · Fire · Celebrate · Hype · Agree · Top
+                                    </p>
                                   </PopoverContent>
                                 </Popover>
                                 {(message.reactions || []).map((r) => (
@@ -709,7 +713,7 @@ function ChatRoomContent() {
               </div>
             </ScrollArea>
 
-            <div className="shrink-0 border-t border-slate-200/70 bg-gradient-to-t from-slate-50/90 to-white px-3 py-2.5 sm:px-5 sm:py-4">
+            <div className="shrink-0 border-t border-slate-200/70 bg-white px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
               {mainChannel?.isLocked && !canManageChats && (
                 <div className="mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 text-xs leading-relaxed text-amber-900 shadow-sm">
                   This chat room is locked for announcements. You can read messages but cannot post.
@@ -743,7 +747,7 @@ function ChatRoomContent() {
                     <span
                       key={t}
                       className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold"
-                      style={mentionStyleForToken(t)}
+                      style={mentionStyleForToken(t) as CSSProperties}
                     >
                       @{t}
                     </span>
@@ -796,7 +800,6 @@ function ChatRoomContent() {
                 {" to send · Enter alone for a new line"}
               </p>
             </div>
-          </Card>
         </div>
       </div>
     </DashboardLayout>
