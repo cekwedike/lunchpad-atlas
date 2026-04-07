@@ -249,14 +249,32 @@ function ChatRoomContent() {
     setMentionOpen(true);
   };
 
-  const filteredMentions = mentionOpen && mentionQuery
-    ? (chatMembers as ChatMember[])
-        .map((m) => ({ ...m, displayName: getDisplayName(m) }))
-        .filter((m) => m.displayName.toLowerCase().includes(mentionQuery.toLowerCase()))
-        .slice(0, 6)
-    : [];
+  const filteredMentions = (() => {
+    if (!mentionOpen || !mentionQuery) return [];
+
+    const q = mentionQuery.toLowerCase();
+    const base = (chatMembers as ChatMember[])
+      .map((m) => ({ ...m, displayName: getDisplayName(m) }))
+      .filter((m) => m.displayName.toLowerCase().includes(q));
+
+    const includeEveryone = 'everyone'.includes(q) || 'all'.includes(q);
+    const special = includeEveryone
+      ? [{ id: '__everyone__', firstName: 'everyone', lastName: '', role: '', displayName: 'everyone' } as any]
+      : [];
+
+    return [...special, ...base].slice(0, 6);
+  })();
 
   const applyMention = (member: ChatMember) => {
+    if ((member as any).id === '__everyone__') {
+      const atIndex = chatMessage.lastIndexOf('@');
+      if (atIndex < 0) return;
+      const next = `${chatMessage.slice(0, atIndex)}@everyone `;
+      setChatMessage(next);
+      setMentionOpen(false);
+      setMentionQuery(null);
+      return;
+    }
     const displayName = getDisplayName(member);
     const atIndex = chatMessage.lastIndexOf('@');
     if (atIndex < 0) return;

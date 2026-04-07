@@ -441,6 +441,12 @@ export class ChatService {
     const mentionedUsers = new Map<string, { id: string; firstName: string; lastName: string }>();
     for (const raw of candidates) {
       const key = this.normalizeMentionToken(raw);
+      if (key === 'all' || key === 'everyone') {
+        for (const u of mentionable) {
+          if (u.id !== message.userId) mentionedUsers.set(u.id, u);
+        }
+        continue;
+      }
       const match = mentionableByKey.get(key);
       if (match) mentionedUsers.set(match.id, match);
     }
