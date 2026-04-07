@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,7 @@ function ChatRoomContent() {
   const [mentionOpen, setMentionOpen] = useState(false);
   const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const queryClient = useQueryClient();
 
@@ -203,10 +204,22 @@ function ChatRoomContent() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const syncComposerHeight = useCallback(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const max = Math.min(220, typeof window !== "undefined" ? window.innerHeight * 0.38 : 220);
+    el.style.height = `${Math.min(max, Math.max(44, el.scrollHeight))}px`;
+  }, []);
+
+  useEffect(() => {
+    syncComposerHeight();
+  }, [chatMessage, syncComposerHeight]);
+
+  const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      handleSendMessage();
+      void handleSendMessage();
     }
   };
 
@@ -355,8 +368,8 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout>
-      {/* Bleed past layout padding; px matches breakpoints so left/right stay even */}
-      <div className="-mx-4 flex min-h-0 w-full min-w-0 flex-1 flex-col bg-gradient-to-b from-slate-100/90 via-white to-slate-50/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      {/* Bleed past layout padding; slightly tighter horizontal padding on small phones */}
+      <div className="-mx-4 flex min-h-0 w-full min-w-0 flex-1 flex-col bg-gradient-to-b from-slate-100/90 via-white to-slate-50/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 sm:-mx-6 sm:px-6 sm:pt-2 lg:-mx-8 lg:px-8">
         <div className="mx-auto flex h-[calc(100dvh-5.5rem)] min-h-0 w-full min-w-0 max-w-6xl flex-col sm:h-[calc(100vh-4.5rem)]">
           {/* Top bar — stacks on narrow screens */}
           <div className="mb-3 flex min-w-0 shrink-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -458,7 +471,7 @@ function ChatRoomContent() {
             </CardHeader>
 
             <ScrollArea className="min-h-0 min-w-0 flex-1 bg-[linear-gradient(180deg,rgb(241_245_249/0.85)_0%,rgb(255_255_255/0.5)_35%,rgb(248_250_252/0.98)_100%)] [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
-              <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-3 py-3 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
+              <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-2.5 py-2.5 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
                     const isOwnMessage = message.userId === profile?.id;
@@ -474,9 +487,9 @@ function ChatRoomContent() {
                       >
                         {/* Row: no w-max — percentage max-widths break on mobile WebKit inside shrink-to-fit rows */}
                         <div
-                          className={`flex min-w-0 max-w-[min(100%,20.5rem)] items-end gap-2 sm:max-w-[min(100%,24rem)] md:max-w-[min(100%,28rem)] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`flex min-w-0 max-w-[min(100%,calc(100vw-3.25rem))] items-end gap-1.5 sm:max-w-[min(100%,24rem)] sm:gap-2.5 md:max-w-[min(100%,28rem)] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
                         >
-                          <Avatar className="h-8 w-8 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
+                          <Avatar className="h-7 w-7 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
                             <div
                               className={`flex h-full w-full items-center justify-center text-[10px] font-semibold text-white sm:text-xs ${isOwnMessage ? 'bg-gradient-to-br from-blue-600 to-indigo-600' : 'bg-gradient-to-br from-violet-600 to-fuchsia-600'}`}
                             >
@@ -650,7 +663,7 @@ function ChatRoomContent() {
               </div>
             </ScrollArea>
 
-            <div className="shrink-0 border-t border-slate-200/70 bg-gradient-to-t from-slate-50/90 to-white px-4 py-3 sm:px-5 sm:py-4">
+            <div className="shrink-0 border-t border-slate-200/70 bg-gradient-to-t from-slate-50/90 to-white px-3 py-2.5 sm:px-5 sm:py-4">
               {mainChannel?.isLocked && !canManageChats && (
                 <div className="mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 text-xs leading-relaxed text-amber-900 shadow-sm">
                   This chat room is locked for announcements. You can read messages but cannot post.
@@ -665,7 +678,7 @@ function ChatRoomContent() {
                 <div className="mb-3 flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-blue-100/90 bg-blue-50/95 px-3 py-2.5 text-xs text-blue-950 shadow-sm">
                   <div className="min-w-0">
                     <div className="font-semibold">Replying to {replyTo.user ? getDisplayName(replyTo.user) : 'Unknown'}</div>
-                    <div className="truncate text-blue-900/80">{replyTo.content}</div>
+                    <div className="line-clamp-3 whitespace-pre-wrap break-words text-blue-900/80">{replyTo.content}</div>
                   </div>
                   <Button
                     type="button"
@@ -693,12 +706,15 @@ function ChatRoomContent() {
               )}
               <div className="flex min-w-0 items-end gap-2">
                 <div className="relative min-w-0 flex-1">
-                  <Input
-                    placeholder="Type a message..."
+                  <Textarea
+                    ref={composerRef}
+                    placeholder="Write a message…"
                     value={chatMessage}
                     onChange={(e) => handleMessageInputChange(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="min-h-12 rounded-2xl border-slate-200/90 bg-white/90 px-4 text-base shadow-inner ring-1 ring-slate-900/[0.04] placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500/30 sm:min-h-11 sm:text-sm"
+                    onKeyDown={handleComposerKeyDown}
+                    rows={1}
+                    aria-label="Message composer"
+                    className="min-h-[44px] max-h-[min(220px,38vh)] resize-none overflow-y-auto rounded-2xl border-slate-200/90 bg-white/90 px-3.5 py-2.5 text-base leading-relaxed shadow-inner ring-1 ring-slate-900/[0.04] placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500/30 sm:min-h-[44px] sm:px-4 sm:py-3 sm:text-sm"
                     disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
                   />
                   {filteredMentions.length > 0 && (
@@ -719,14 +735,20 @@ function ChatRoomContent() {
                 </div>
                 <Button
                   size="icon"
-                  onClick={handleSendMessage}
+                  onClick={() => void handleSendMessage()}
                   disabled={!chatMessage.trim() || !mainChannel || sendMessage.isPending || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
-                  className="h-12 w-12 shrink-0 touch-manipulation rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20 transition hover:from-blue-500 hover:to-indigo-600 disabled:opacity-60 sm:h-11 sm:w-11"
+                  className="h-11 w-11 shrink-0 touch-manipulation self-end rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20 transition hover:from-blue-500 hover:to-indigo-600 disabled:opacity-60 sm:h-11 sm:w-11"
                   aria-label="Send message"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+              <p className="mt-2 hidden text-center text-[11px] text-slate-400 sm:block">
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-sans text-[10px]">Ctrl</kbd>
+                {" + "}
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-sans text-[10px]">Enter</kbd>
+                {" to send · Enter alone for a new line"}
+              </p>
             </div>
           </Card>
         </div>
