@@ -44,14 +44,6 @@
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli"
-    ],
-    "overrides": {
-      "csstype": "3.2.3"
-    }
-  },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@radix-ui/react-avatar": "^1.1.11",
