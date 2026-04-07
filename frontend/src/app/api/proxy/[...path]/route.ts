@@ -124,6 +124,13 @@ async function proxyToBackend(
 
   outHeaders.set('x-atlas-proxy-access', access ? 'present' : 'absent');
 
+  let apiHost = '';
+  try {
+    apiHost = new URL(base).hostname;
+  } catch {
+    apiHost = 'invalid';
+  }
+
   // If upstream is failing and did not return JSON, return a small JSON payload so the UI
   // can surface something more actionable than "Internal server error".
   const upstreamContentType = upstream.headers.get('content-type') || '';
@@ -162,13 +169,6 @@ async function proxyToBackend(
       outHeaders.set('x-atlas-access-len', String(access.length));
     }
     outHeaders.set('x-atlas-target-path', path.join('/'));
-  }
-
-  let apiHost = '';
-  try {
-    apiHost = new URL(base).hostname;
-  } catch {
-    apiHost = 'invalid';
   }
 
   if (process.env.ATLAS_AUTH_DEBUG === 'true') {
