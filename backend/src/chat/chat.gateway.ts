@@ -150,8 +150,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         id: message.id,
         channelId: message.channelId,
         userId: message.userId,
+        parentMessageId: (message as any).parentMessageId ?? null,
         content: message.content,
         createdAt: message.createdAt,
+        reactions: [],
+        mentionUserIds: [],
+        parentMessage: null,
         user,
       });
 
@@ -252,6 +256,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       channelId,
       cohortId,
       isLocked,
+    });
+  }
+
+  emitMessageReactionsUpdated(
+    channelId: string,
+    messageId: string,
+    reactions: Array<{ emoji: string; count: number; reactedByMe?: boolean }>,
+  ) {
+    this.server.to(`channel:${channelId}`).emit('message_reactions_updated', {
+      channelId,
+      messageId,
+      reactions,
     });
   }
 }

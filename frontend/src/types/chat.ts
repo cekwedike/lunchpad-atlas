@@ -19,6 +19,7 @@ export interface ChatMessage {
   id: string;
   channelId: string;
   userId: string;
+  parentMessageId?: string | null;
   content: string;
   isDeleted: boolean;
   isFlagged: boolean;
@@ -30,6 +31,27 @@ export interface ChatMessage {
     lastName: string;
     role: string;
   };
+
+  parentMessage?: {
+    id: string;
+    channelId: string;
+    content: string;
+    createdAt: Date;
+    user?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+    };
+  } | null;
+
+  reactions?: Array<{
+    emoji: string;
+    count: number;
+    reactedByMe: boolean;
+  }>;
+
+  mentionUserIds?: string[];
 }
 
 export interface CreateChannelDto {
@@ -42,5 +64,13 @@ export interface CreateChannelDto {
 
 export interface SendMessageDto {
   channelId: string;
+  parentMessageId?: string;
   content: string;
+}
+
+export interface ChatMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: string;
 }

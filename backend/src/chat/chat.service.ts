@@ -320,11 +320,25 @@ export class ChatService {
       );
     }
 
+    if (createMessageDto.parentMessageId) {
+      const parent = await this.prisma.chatMessage.findUnique({
+        where: { id: createMessageDto.parentMessageId },
+        select: { id: true, channelId: true, isDeleted: true },
+      });
+      if (!parent || parent.isDeleted) {
+        throw new NotFoundException('Parent message not found');
+      }
+      if (parent.channelId !== createMessageDto.channelId) {
+        throw new ForbiddenException('Cannot reply across channels');
+      }
+    }
+
     // Create message
     const message = await this.prisma.chatMessage.create({
       data: {
         channelId: createMessageDto.channelId,
         userId,
+        parentMessageId: createMessageDto.parentMessageId ?? null,
         content: createMessageDto.content,
       },
       include: {
@@ -340,6 +354,13 @@ export class ChatService {
         },
       },
     });
+
+    // Mentions + notifications will be handled after schema migration.
+    // We keep this logic in-place but guarded via `as any` so the backend still typechecks
+    // even if Prisma client hasn't been regenerated yet.
+    await this.handleMentionsAfterMessageCreated(message, createMessageDto.content).catch(
+      () => undefined,
+    );
 
     // Log engagement event
     await this.prisma.engagementEvent.create({
@@ -401,6 +422,132 @@ export class ChatService {
     return message;
   }
 
+  private async handleMentionsAfterMessageCreated(
+    message: { id: string; channelId: string; userId: string },
+    content: string,
+  ) {
+    const candidates = this.extractMentionCandidates(content);
+    if (candidates.length === 0) return;
+
+    // Resolve mention tokens to actual users allowed in this channel
+    const mentionable = await this.getMentionableUsersForChannel(
+      message.channelId,
+      message.userId,
+    );
+    const mentionableByKey = new Map(
+      mentionable.map((u) => [this.normalizeMentionKey(u), u]),
+    );
+
+    const mentionedUsers = new Map<string, { id: string; firstName: string; lastName: string }>();
+    for (const raw of candidates) {
+      const key = this.normalizeMentionToken(raw);
+      const match = mentionableByKey.get(key);
+      if (match) mentionedUsers.set(match.id, match);
+    }
+    if (mentionedUsers.size === 0) return;
+
+    const rows = Array.from(mentionedUsers.keys()).map((mentionedUserId) => ({
+      messageId: message.id,
+      mentionedUserId,
+      mentionedByUserId: message.userId,
+    }));
+
+    await (this.prisma as any).chatMessageMention.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+
+    // Create one notification per mentioned user (exclude self)
+    const recipients = Array.from(mentionedUsers.keys()).filter(
+      (id) => id !== message.userId,
+    );
+    if (recipients.length === 0) return;
+
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: message.channelId },
+      select: { id: true, name: true, cohortId: true, type: true },
+    });
+    const sender = await this.prisma.user.findUnique({
+      where: { id: message.userId },
+      select: { firstName: true, lastName: true },
+    });
+    const senderName =
+      `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim() || 'Someone';
+    const preview =
+      content.length > 120 ? `${content.slice(0, 117)}...` : content;
+    const channelName = channel?.name || 'chat';
+
+    await this.notificationsService.createBulkNotifications(
+      recipients.map((userId) => ({
+        userId,
+        type: 'CHAT_MENTION' as any,
+        title: `You were mentioned in ${channelName}`,
+        message: `${senderName}: ${preview}`,
+        data: { channelId: message.channelId, messageId: message.id },
+      })),
+    );
+  }
+
+  private extractMentionCandidates(content: string): string[] {
+    // Keep it intentionally conservative: @token must start with a letter.
+    // We will normalize and match against cohort/channel member names.
+    const out: string[] = [];
+    const re = /@([A-Za-z][A-Za-z0-9_.-]{1,32})/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      out.push(m[1]);
+    }
+    return Array.from(new Set(out));
+  }
+
+  private normalizeMentionToken(token: string): string {
+    return token.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+  }
+
+  private normalizeMentionKey(user: { firstName?: string | null; lastName?: string | null }): string {
+    const first = (user.firstName || '').trim();
+    const last = (user.lastName || '').trim();
+    return `${first}${last}`.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+  }
+
+  private async getMentionableUsersForChannel(channelId: string, requesterId: string) {
+    const channel = await this.getChannelById(channelId);
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { id: true, role: true, cohortId: true },
+    });
+    if (!requester) throw new ForbiddenException('User not found');
+
+    if (channel.type === ChannelType.DIRECT_MESSAGE) {
+      const participants = this.extractDmParticipants(channel.name);
+      if (!participants || !participants.includes(requesterId)) {
+        // Admin DM observer should not be able to mention participants (they can't send anyway)
+        throw new ForbiddenException('You do not have access to this conversation');
+      }
+      return this.prisma.user.findMany({
+        where: { id: { in: participants } },
+        select: { id: true, firstName: true, lastName: true, role: true },
+      });
+    }
+
+    if (requester.role !== 'ADMIN' && requester.cohortId !== channel.cohortId) {
+      throw new ForbiddenException('You do not have access to this channel');
+    }
+
+    // Mentionable users: cohort fellows + facilitators + guest facilitators + admins
+    return this.prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'ADMIN' },
+          { cohortId: channel.cohortId, role: 'FELLOW' },
+          { cohortId: channel.cohortId, role: 'FACILITATOR' },
+          { cohortId: channel.cohortId, role: 'GUEST_FACILITATOR' },
+        ],
+      },
+      select: { id: true, firstName: true, lastName: true, role: true },
+    });
+  }
+
   async getChannelMessages(
     channelId: string,
     userId: string,
@@ -439,7 +586,7 @@ export class ChatService {
       };
     }
 
-    return this.prisma.chatMessage.findMany({
+    const messages = await this.prisma.chatMessage.findMany({
       where: whereConditions,
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -449,6 +596,178 @@ export class ChatService {
         },
       },
     });
+
+    if (messages.length === 0) return messages as any;
+
+    const messageIds = messages.map((m) => m.id);
+    const parentIds = Array.from(
+      new Set(messages.map((m: any) => m.parentMessageId).filter(Boolean)),
+    ) as string[];
+
+    const [reactions, mentions, parents] = await Promise.all([
+      (this.prisma as any).chatMessageReaction.findMany({
+        where: { messageId: { in: messageIds } },
+        select: { messageId: true, userId: true, emoji: true },
+      }),
+      (this.prisma as any).chatMessageMention.findMany({
+        where: { messageId: { in: messageIds } },
+        select: { messageId: true, mentionedUserId: true },
+      }),
+      parentIds.length
+        ? this.prisma.chatMessage.findMany({
+            where: { id: { in: parentIds }, isDeleted: false },
+            select: {
+              id: true,
+              channelId: true,
+              content: true,
+              createdAt: true,
+              user: { select: { id: true, firstName: true, lastName: true, role: true } },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const reactionsByMessage = new Map<
+      string,
+      Map<string, { emoji: string; userIds: Set<string> }>
+    >();
+    for (const r of reactions || []) {
+      const byEmoji = reactionsByMessage.get(r.messageId) ?? new Map();
+      const entry = byEmoji.get(r.emoji) ?? { emoji: r.emoji, userIds: new Set<string>() };
+      entry.userIds.add(r.userId);
+      byEmoji.set(r.emoji, entry);
+      reactionsByMessage.set(r.messageId, byEmoji);
+    }
+
+    const mentionsByMessage = new Map<string, string[]>();
+    for (const m of mentions || []) {
+      const arr = mentionsByMessage.get(m.messageId) ?? [];
+      arr.push(m.mentionedUserId);
+      mentionsByMessage.set(m.messageId, arr);
+    }
+
+    const parentById = new Map(parents.map((p) => [p.id, p]));
+
+    return messages.map((m: any) => {
+      const byEmoji = reactionsByMessage.get(m.id) ?? new Map();
+      const reactionSummary = Array.from(byEmoji.values()).map((e) => ({
+        emoji: e.emoji,
+        count: e.userIds.size,
+        reactedByMe: e.userIds.has(userId),
+      }));
+
+      return {
+        ...m,
+        reactions: reactionSummary,
+        mentionUserIds: mentionsByMessage.get(m.id) ?? [],
+        parentMessage: m.parentMessageId ? parentById.get(m.parentMessageId) ?? null : null,
+      };
+    });
+  }
+
+  async getChannelMembers(channelId: string, requesterId: string) {
+    const members = await this.getMentionableUsersForChannel(channelId, requesterId);
+    return members.map((m) => ({
+      id: m.id,
+      firstName: m.firstName,
+      lastName: m.lastName,
+      role: m.role,
+    }));
+  }
+
+  async toggleMessageReaction(messageId: string, userId: string, emoji: string) {
+    if (!emoji || typeof emoji !== 'string') {
+      throw new ForbiddenException('Emoji is required');
+    }
+    emoji = emoji.trim();
+    if (!emoji) throw new ForbiddenException('Emoji is required');
+
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, channelId: true, isDeleted: true },
+    });
+    if (!message || message.isDeleted) throw new NotFoundException('Message not found');
+
+    // Access control: must be able to read the channel
+    await this.getChannelMessages(message.channelId, userId, 1);
+
+    const existing = await (this.prisma as any).chatMessageReaction.findFirst({
+      where: { messageId, userId, emoji },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await (this.prisma as any).chatMessageReaction.delete({ where: { id: existing.id } });
+    } else {
+      await (this.prisma as any).chatMessageReaction.create({
+        data: { messageId, userId, emoji },
+      });
+    }
+
+    const reactions = await (this.prisma as any).chatMessageReaction.findMany({
+      where: { messageId },
+      select: { emoji: true, userId: true },
+    });
+
+    const byEmoji = new Map<string, Set<string>>();
+    for (const r of reactions) {
+      const set = byEmoji.get(r.emoji) ?? new Set<string>();
+      set.add(r.userId);
+      byEmoji.set(r.emoji, set);
+    }
+
+    return {
+      channelId: message.channelId,
+      messageId,
+      reactions: Array.from(byEmoji.entries()).map(([e, users]) => ({
+        emoji: e,
+        count: users.size,
+        reactedByMe: users.has(userId),
+      })),
+    };
+  }
+
+  async removeMessageReaction(messageId: string, userId: string, emoji: string) {
+    if (!emoji || typeof emoji !== 'string') {
+      throw new ForbiddenException('Emoji is required');
+    }
+    emoji = emoji.trim();
+    if (!emoji) throw new ForbiddenException('Emoji is required');
+
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, channelId: true, isDeleted: true },
+    });
+    if (!message || message.isDeleted) throw new NotFoundException('Message not found');
+
+    // Access control: must be able to read the channel
+    await this.getChannelMessages(message.channelId, userId, 1);
+
+    await (this.prisma as any).chatMessageReaction.deleteMany({
+      where: { messageId, userId, emoji },
+    });
+
+    const reactions = await (this.prisma as any).chatMessageReaction.findMany({
+      where: { messageId },
+      select: { emoji: true, userId: true },
+    });
+
+    const byEmoji = new Map<string, Set<string>>();
+    for (const r of reactions) {
+      const set = byEmoji.get(r.emoji) ?? new Set<string>();
+      set.add(r.userId);
+      byEmoji.set(r.emoji, set);
+    }
+
+    return {
+      channelId: message.channelId,
+      messageId,
+      reactions: Array.from(byEmoji.entries()).map(([e, users]) => ({
+        emoji: e,
+        count: users.size,
+        reactedByMe: users.has(userId),
+      })),
+    };
   }
 
   async toggleChannelLock(channelId: string, userId: string) {

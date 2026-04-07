@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Channel, ChatMessage, CreateChannelDto, SendMessageDto } from '@/types/chat';
+import type { Channel, ChatMember, ChatMessage, CreateChannelDto, SendMessageDto } from '@/types/chat';
 import { apiClient } from '@/lib/api-client';
 import { useAuthSessionReady } from '@/hooks/useAuthSessionReady';
 
@@ -163,6 +163,36 @@ export function useSendMessage() {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channels', 'all'] });
       queryClient.invalidateQueries({ queryKey: ['channels', 'by-id', variables.channelId] });
+    },
+  });
+}
+
+export function useChatMembers(channelId: string | undefined) {
+  const sessionReady = useAuthSessionReady();
+  return useQuery<ChatMember[]>({
+    queryKey: ['chat-members', channelId],
+    queryFn: async () => {
+      if (!channelId) throw new Error('Channel ID required');
+      const members = await apiClient.get<ChatMember[]>(`/chat/members/${channelId}`);
+      return Array.isArray(members) ? members : [];
+    },
+    enabled: !!channelId && sessionReady,
+    staleTime: 30_000,
+  });
+}
+
+export function useToggleMessageReaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { messageId: string; emoji: string; channelId: string }) => {
+      return apiClient.post<{ channelId: string; messageId: string; reactions: any[] }>(
+        `/chat/messages/${params.messageId}/reactions`,
+        { emoji: params.emoji },
+      );
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', result.channelId] });
     },
   });
 }

@@ -139,6 +139,39 @@ export class ChatController {
     return this.chatService.deleteMessage(messageId, req.user.id);
   }
 
+  @Get('members/:channelId')
+  getChannelMembers(@Param('channelId') channelId: string, @Request() req: any) {
+    return this.chatService.getChannelMembers(channelId, req.user.id);
+  }
+
+  @Post('messages/:messageId/reactions')
+  reactToMessage(
+    @Param('messageId') messageId: string,
+    @Body() body: { emoji: string },
+    @Request() req: any,
+  ) {
+    return this.chatService
+      .toggleMessageReaction(messageId, req.user.id, body?.emoji)
+      .then((result) => {
+        this.chatGateway.emitMessageReactionsUpdated(result.channelId, result.messageId, result.reactions);
+        return result;
+      });
+  }
+
+  @Delete('messages/:messageId/reactions')
+  removeReaction(
+    @Param('messageId') messageId: string,
+    @Body() body: { emoji: string },
+    @Request() req: any,
+  ) {
+    return this.chatService
+      .removeMessageReaction(messageId, req.user.id, body?.emoji)
+      .then((result) => {
+        this.chatGateway.emitMessageReactionsUpdated(result.channelId, result.messageId, result.reactions);
+        return result;
+      });
+  }
+
   @Patch('messages/:messageId/flag')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   flagMessage(@Param('messageId') messageId: string, @Request() req: any) {

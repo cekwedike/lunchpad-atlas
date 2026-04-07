@@ -318,10 +318,44 @@ export class AnalyticsExportService {
         : 0;
 
     const allEntries = cohort.leaderboards[0]?.entries ?? [];
-    const totalPointsAwarded = allEntries.reduce(
-      (sum, e) => sum + (e.totalPoints ?? 0),
-      0,
-    );
+    const fellowIds = cohort.fellows.filter((f) => f.role === 'FELLOW').map((f) => f.id);
+
+    // Prefer leaderboard snapshot if available; otherwise fall back to points logs so analytics works
+    // even when leaderboard rows haven't been generated yet.
+    let topPerformers: Array<{ rank: number; name: string; totalPoints: number }> = [];
+    let totalPointsAwarded = 0;
+
+    if (allEntries.length > 0) {
+      totalPointsAwarded = allEntries.reduce(
+        (sum, e) => sum + (e.totalPoints ?? 0),
+        0,
+      );
+      topPerformers = allEntries.slice(0, 5).map((e: any) => ({
+        rank: e.rank,
+        name: `${e.user.firstName} ${e.user.lastName}`,
+        totalPoints: e.totalPoints ?? 0,
+      }));
+    } else if (fellowIds.length > 0) {
+      const pointsByUser = await this.prisma.pointsLog.groupBy({
+        by: ['userId'],
+        where: { userId: { in: fellowIds } },
+        _sum: { points: true },
+        orderBy: { _sum: { points: 'desc' } },
+        take: 5,
+      });
+      const ids = pointsByUser.map((p) => p.userId);
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      const nameMap = new Map(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
+      topPerformers = pointsByUser.map((p, idx) => ({
+        rank: idx + 1,
+        name: nameMap.get(p.userId) || 'Unknown',
+        totalPoints: p._sum.points ?? 0,
+      }));
+      totalPointsAwarded = pointsByUser.reduce((sum, p) => sum + (p._sum.points ?? 0), 0);
+    }
 
     // Per-session engagement for trend visualisation
     const sessionEngagement = cohort.sessions.map((s) => ({
@@ -348,12 +382,7 @@ export class AnalyticsExportService {
         overallCompletionRate: completionRate.toFixed(2) + '%',
         totalPointsAwarded,
       },
-      topPerformers:
-        allEntries.slice(0, 5).map((e: any) => ({
-          rank: e.rank,
-          name: `${e.user.firstName} ${e.user.lastName}`,
-          totalPoints: e.totalPoints,
-        })) || [],
+      topPerformers,
       sessionEngagement,
     };
   }

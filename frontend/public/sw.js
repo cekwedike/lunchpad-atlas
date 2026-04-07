@@ -143,8 +143,8 @@ self.addEventListener('push', (event) => {
 
       const options = {
         body: data.body,
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-192x192.png',
+        icon: '/icons/notification-icon-96.png',
+        badge: '/icons/notification-badge-96.png',
         data: data.data ?? {},
         vibrate,
         silent,

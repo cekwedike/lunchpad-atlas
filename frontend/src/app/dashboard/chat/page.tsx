@@ -14,15 +14,17 @@ import {
   Send,
   Users,
   MessageCircle,
+  Reply,
+  SmilePlus,
 } from "lucide-react";
-import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead, useChatMembers, useToggleMessageReaction } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 import { ApiClientError } from "@/lib/api-client";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMember, ChatMessage } from "@/types/chat";
 
 export default function ChatRoomPage() {
   return (
@@ -37,7 +39,11 @@ function ChatRoomContent() {
   const searchParams = useSearchParams();
   const { data: profile } = useProfile();
   const [chatMessage, setChatMessage] = useState("");
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionOpen, setMentionOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const queryClient = useQueryClient();
 
   const isAdmin = profile?.role === 'ADMIN';
@@ -61,6 +67,8 @@ function ChatRoomContent() {
   const sendMessage = useSendMessage();
   const toggleChannelLock = useToggleChannelLock();
   const markChannelRead = useMarkChannelRead();
+  const toggleReaction = useToggleMessageReaction();
+  const { data: chatMembers = [] } = useChatMembers(mainChannel?.id);
 
   const handleSocketNewMessage = useCallback((message: ChatMessage) => {
     if (!mainChannel?.id || message.channelId !== mainChannel.id) return;
@@ -119,11 +127,20 @@ function ChatRoomContent() {
     });
   }, [cohortId, queryClient]);
 
+  const handleSocketReactionsUpdated = useCallback((data: { channelId: string; messageId: string; reactions: any[] }) => {
+    if (!mainChannel?.id || data.channelId !== mainChannel.id) return;
+    queryClient.setQueryData<ChatMessage[]>(['messages', mainChannel.id, 50], (current) => {
+      if (!current) return current;
+      return current.map((m) => (m.id === data.messageId ? { ...m, reactions: data.reactions } : m));
+    });
+  }, [mainChannel?.id, queryClient]);
+
   const { isConnected, lastError, tokenMissing, reconnectExhausted } = useChatSocket({
     userId: profile?.id || "",
     channelId: mainChannel?.id,
     onNewMessage: handleSocketNewMessage,
     onMessageDeleted: handleSocketMessageDeleted,
+    onMessageReactionsUpdated: handleSocketReactionsUpdated,
     onChannelDeleted: handleChannelDeleted,
     onChannelLockUpdated: handleChannelLockUpdated,
   });
@@ -157,9 +174,13 @@ function ChatRoomContent() {
     try {
       await sendMessage.mutateAsync({ 
         channelId: mainChannel.id, 
-        content: chatMessage 
+        parentMessageId: replyTo?.id || undefined,
+        content: chatMessage,
       });
       setChatMessage("");
+      setReplyTo(null);
+      setMentionOpen(false);
+      setMentionQuery(null);
       setTimeout(() => refetchMessages(), 500);
       toast.success("Message sent!");
     } catch (error) {
@@ -176,6 +197,75 @@ function ChatRoomContent() {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const jumpToMessage = useCallback((messageId: string) => {
+    const el = messageRefs.current[messageId] || document.getElementById(`msg-${messageId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const getDisplayName = useCallback((member: { firstName?: string; lastName?: string }) => {
+    const first = member.firstName || '';
+    const last = member.lastName || '';
+    return `${first}${last ? ` ${last}` : ''}`.trim() || 'Unknown';
+  }, []);
+
+  const renderMentions = useCallback((content: string) => {
+    const parts: React.ReactNode[] = [];
+    const re = /@([A-Za-z][A-Za-z0-9_.-]{1,32})/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(content)) !== null) {
+      const start = match.index;
+      const end = re.lastIndex;
+      if (start > lastIndex) parts.push(content.slice(lastIndex, start));
+      parts.push(
+        <span key={`${start}-${end}`} className="font-semibold underline underline-offset-2">
+          {match[0]}
+        </span>
+      );
+      lastIndex = end;
+    }
+    if (lastIndex < content.length) parts.push(content.slice(lastIndex));
+    return parts;
+  }, []);
+
+  const handleMessageInputChange = (value: string) => {
+    setChatMessage(value);
+
+    const atIndex = value.lastIndexOf('@');
+    if (atIndex < 0) {
+      setMentionOpen(false);
+      setMentionQuery(null);
+      return;
+    }
+    const after = value.slice(atIndex + 1);
+    if (!after || /\s/.test(after)) {
+      setMentionOpen(false);
+      setMentionQuery(null);
+      return;
+    }
+    setMentionQuery(after);
+    setMentionOpen(true);
+  };
+
+  const filteredMentions = mentionOpen && mentionQuery
+    ? (chatMembers as ChatMember[])
+        .map((m) => ({ ...m, displayName: getDisplayName(m) }))
+        .filter((m) => m.displayName.toLowerCase().includes(mentionQuery.toLowerCase()))
+        .slice(0, 6)
+    : [];
+
+  const applyMention = (member: ChatMember) => {
+    const displayName = getDisplayName(member);
+    const atIndex = chatMessage.lastIndexOf('@');
+    if (atIndex < 0) return;
+    // Backend currently matches @FirstNameLastName (no spaces) by default.
+    const token = displayName.replace(/\s+/g, '');
+    const next = `${chatMessage.slice(0, atIndex)}@${token} `;
+    setChatMessage(next);
+    setMentionOpen(false);
+    setMentionQuery(null);
   };
 
   return (
@@ -288,6 +378,8 @@ function ChatRoomContent() {
                       <div
                         key={message.id}
                         className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                        ref={(el) => { messageRefs.current[message.id] = el; }}
+                        id={`msg-${message.id}`}
                       >
                         <div className={`flex items-start gap-2 max-w-[80%] ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
                           <Avatar className="h-8 w-8 flex-shrink-0">
@@ -307,7 +399,59 @@ function ChatRoomContent() {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                              {message.parentMessage && (
+                                <button
+                                  type="button"
+                                  onClick={() => jumpToMessage(message.parentMessage!.id)}
+                                  className={`mb-2 w-full rounded-md border px-2 py-1 text-left text-xs ${
+                                    isOwnMessage ? 'border-white/30 bg-white/10' : 'border-gray-200 bg-gray-50'
+                                  }`}
+                                >
+                                  <div className="truncate opacity-90">
+                                    Replying to {message.parentMessage.user ? getDisplayName(message.parentMessage.user) : 'Unknown'}
+                                  </div>
+                                  <div className="truncate opacity-80">
+                                    {message.parentMessage.content}
+                                  </div>
+                                </button>
+                              )}
+                              <p className="text-sm whitespace-pre-wrap break-words">{renderMentions(message.content)}</p>
+                              <div className={`mt-2 flex flex-wrap items-center gap-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
+                                  onClick={() => setReplyTo(message)}
+                                >
+                                  <Reply className="h-3.5 w-3.5 mr-1" />
+                                  Reply
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-7 px-2 text-xs ${isOwnMessage ? 'text-white/80 hover:text-white hover:bg-white/10' : ''}`}
+                                  onClick={() => toggleReaction.mutate({ messageId: message.id, emoji: '👍', channelId: message.channelId })}
+                                  disabled={toggleReaction.isPending}
+                                >
+                                  <SmilePlus className="h-3.5 w-3.5 mr-1" />
+                                  React
+                                </Button>
+                                {(message.reactions || []).map((r) => (
+                                  <button
+                                    key={r.emoji}
+                                    type="button"
+                                    onClick={() => toggleReaction.mutate({ messageId: message.id, emoji: r.emoji, channelId: message.channelId })}
+                                    className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${
+                                      isOwnMessage ? 'border-white/30 bg-white/10' : 'border-gray-200 bg-white'
+                                    } ${r.reactedByMe ? 'font-semibold' : ''}`}
+                                    disabled={toggleReaction.isPending}
+                                  >
+                                    {r.emoji} {r.count}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                             <span className="text-xs text-gray-500 mt-1">
                               {formatLocalTimestamp(message.createdAt)}
@@ -339,15 +483,49 @@ function ChatRoomContent() {
                   This is a private conversation. You can view but not participate.
                 </div>
               )}
+              {replyTo && (
+                <div className="mb-3 flex items-start justify-between gap-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                  <div className="min-w-0">
+                    <div className="font-semibold">Replying to {replyTo.user ? getDisplayName(replyTo.user) : 'Unknown'}</div>
+                    <div className="truncate text-blue-800/90">{replyTo.content}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setReplyTo(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
               <div className="flex items-end gap-2">
-                <Input
-                  placeholder="Type a message..."
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="flex-1"
-                  disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
-                />
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Type a message..."
+                    value={chatMessage}
+                    onChange={(e) => handleMessageInputChange(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    className="w-full"
+                    disabled={!mainChannel || (mainChannel.isLocked && !canManageChats) || isAdminDmObserver}
+                  />
+                  {filteredMentions.length > 0 && (
+                    <div className="absolute bottom-12 left-0 z-20 w-full overflow-hidden rounded-md border bg-white shadow-md">
+                      {filteredMentions.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
+                          onClick={() => applyMention(m)}
+                        >
+                          <span className="truncate font-medium">{m.displayName}</span>
+                          <span className="ml-2 shrink-0 text-xs text-gray-500">{m.role}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Button
                   size="icon"
                   onClick={handleSendMessage}

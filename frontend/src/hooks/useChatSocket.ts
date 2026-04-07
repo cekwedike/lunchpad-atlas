@@ -10,6 +10,7 @@ interface UseChatSocketOptions {
   channelId?: string;
   onNewMessage?: (message: any) => void;
   onMessageDeleted?: (data: { messageId: string; channelId: string }) => void;
+  onMessageReactionsUpdated?: (data: { channelId: string; messageId: string; reactions: any[] }) => void;
   onChannelDeleted?: (data: { channelId: string; cohortId?: string }) => void;
   onChannelLockUpdated?: (data: { channelId: string; cohortId?: string; isLocked: boolean }) => void;
   onUserTyping?: (data: { userId: string; channelId: string }) => void;
@@ -32,6 +33,7 @@ export function useChatSocket(options: UseChatSocketOptions) {
     channelId,
     onNewMessage,
     onMessageDeleted,
+    onMessageReactionsUpdated,
     onChannelDeleted,
     onChannelLockUpdated,
     onUserTyping,
@@ -40,12 +42,14 @@ export function useChatSocket(options: UseChatSocketOptions) {
 
   const onNewMessageRef = useRef(onNewMessage);
   const onMessageDeletedRef = useRef(onMessageDeleted);
+  const onMessageReactionsUpdatedRef = useRef(onMessageReactionsUpdated);
   const onChannelDeletedRef = useRef(onChannelDeleted);
   const onChannelLockUpdatedRef = useRef(onChannelLockUpdated);
   const onUserTypingRef = useRef(onUserTyping);
   const onUserStoppedTypingRef = useRef(onUserStoppedTyping);
   onNewMessageRef.current = onNewMessage;
   onMessageDeletedRef.current = onMessageDeleted;
+  onMessageReactionsUpdatedRef.current = onMessageReactionsUpdated;
   onChannelDeletedRef.current = onChannelDeleted;
   onChannelLockUpdatedRef.current = onChannelLockUpdated;
   onUserTypingRef.current = onUserTyping;
@@ -137,6 +141,8 @@ export function useChatSocket(options: UseChatSocketOptions) {
       if (nm) socket.on('new_message', nm);
       const md = onMessageDeletedRef.current;
       if (md) socket.on('message_deleted', md);
+      const mru = onMessageReactionsUpdatedRef.current;
+      if (mru) socket.on('message_reactions_updated', mru);
       const cd = onChannelDeletedRef.current;
       if (cd) socket.on('channel_deleted', cd);
       const cl = onChannelLockUpdatedRef.current;
