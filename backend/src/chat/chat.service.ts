@@ -358,26 +358,35 @@ export class ChatService {
     // Mentions + notifications will be handled after schema migration.
     // We keep this logic in-place but guarded via `as any` so the backend still typechecks
     // even if Prisma client hasn't been regenerated yet.
-    await this.handleMentionsAfterMessageCreated(message, createMessageDto.content).catch(
-      () => undefined,
+    // Side effects should never block message sending.
+    // If any downstream table/service is missing or misconfigured, we still return the message.
+    const sideEffects: Array<Promise<unknown>> = [];
+
+    sideEffects.push(
+      this.handleMentionsAfterMessageCreated(message, createMessageDto.content).catch(
+        () => undefined,
+      ),
     );
 
-    // Log engagement event
-    await this.prisma.engagementEvent.create({
-      data: {
-        userId,
-        eventType: 'CHAT_MESSAGE',
-        metadata: {
-          channelId: createMessageDto.channelId,
-          messageId: message.id,
-        },
-      },
-    });
+    sideEffects.push(
+      this.prisma.engagementEvent
+        .create({
+          data: {
+            userId,
+            eventType: 'CHAT_MESSAGE',
+            metadata: {
+              channelId: createMessageDto.channelId,
+              messageId: message.id,
+            },
+          },
+        })
+        .catch(() => undefined),
+    );
 
     // Award chat engagement points (2-5 pts per message, 10pt daily cap)
     // Don't award points in DMs — only public/cohort channels
     if (channel.type !== ChannelType.DIRECT_MESSAGE) {
-      await this.awardChatPoints(userId, createMessageDto.content).catch(() => undefined);
+      sideEffects.push(this.awardChatPoints(userId, createMessageDto.content).catch(() => undefined));
     }
 
     const senderName =
@@ -394,30 +403,32 @@ export class ChatService {
       if (participants) {
         const otherParticipantId = participants.find((id) => id !== userId);
         if (otherParticipantId) {
-          await this.notificationsService.notifyDirectMessage(
-            otherParticipantId,
-            senderName,
-            preview,
-            message.channel.id,
+          sideEffects.push(
+            this.notificationsService
+              .notifyDirectMessage(otherParticipantId, senderName, preview, message.channel.id)
+              .catch(() => undefined),
           );
         }
       }
     } else {
-      const recipients = await this.getChatNotificationRecipients(
-        message.channel.cohortId,
-        userId,
+      sideEffects.push(
+        this.getChatNotificationRecipients(message.channel.cohortId, userId)
+          .then((recipients) => {
+            if (recipients.length === 0) return;
+            return this.notificationsService.notifyBulkChatMessage(
+              recipients,
+              senderName,
+              message.channel.name,
+              preview,
+              message.channel.id,
+            );
+          })
+          .catch(() => undefined),
       );
-
-      if (recipients.length > 0) {
-        await this.notificationsService.notifyBulkChatMessage(
-          recipients,
-          senderName,
-          message.channel.name,
-          preview,
-          message.channel.id,
-        );
-      }
     }
+
+    // Fire and forget (but keep it awaited so errors are swallowed deterministically).
+    await Promise.allSettled(sideEffects);
 
     return message;
   }
