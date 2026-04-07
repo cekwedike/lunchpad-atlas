@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { PushService } from '../push/push.service';
@@ -79,7 +79,7 @@ export class NotificationsService {
         type: dto.type,
         title: dto.title,
         message: dto.message,
-        data: data || {},
+        data: (data || {}) as Prisma.InputJsonValue,
       },
     });
 
@@ -117,7 +117,7 @@ export class NotificationsService {
         type: n.type,
         title: n.title,
         message: n.message,
-        data: n.data || {},
+        data: (n.data || {}) as Prisma.InputJsonValue,
       })),
     });
 

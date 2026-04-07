@@ -30,6 +30,7 @@ import {
 } from '@/hooks/api/useNotifications';
 import { Notification, NotificationType } from '@/types/notification';
 import { formatLocalTimestamp } from '@/lib/date-utils';
+import { useEffect, useMemo } from 'react';
 
 interface NotificationDropdownProps {
   userId: string;
@@ -120,6 +121,33 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  const sortedNotifications = useMemo(() => {
+    return [...notifications].sort((a, b) => {
+      if (a.isRead !== b.isRead) return a.isRead ? 1 : -1; // unread first
+      const at = new Date(a.createdAt as any).getTime();
+      const bt = new Date(b.createdAt as any).getTime();
+      return (Number.isFinite(bt) ? bt : 0) - (Number.isFinite(at) ? at : 0);
+    });
+  }, [notifications]);
+
+  useEffect(() => {
+    // Mobile UX: open the dropdown twice in a row to mark all as read.
+    // We approximate "twice in a row" as 2 opens within 15s.
+    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)')?.matches;
+    if (!isMobile) return;
+    if (unreadCount === 0) return;
+
+    const key = 'atlas_notif_dropdown_last_open_at';
+    const now = Date.now();
+    const last = Number(sessionStorage.getItem(key) || '0');
+    sessionStorage.setItem(key, String(now));
+
+    if (last > 0 && now - last <= 15000) {
+      markAllAsReadMutation.mutate(userId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleMarkAsRead = (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     markAsReadMutation.mutate(notificationId);
@@ -201,7 +229,7 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
 
       {/* Notifications List */}
       <ScrollArea className="flex-1">
-        {notifications.length === 0 ? (
+        {sortedNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center p-4">
             <Bell className="h-12 w-12 text-muted-foreground/50 mb-2" />
             <p className="text-sm text-muted-foreground">No notifications</p>
@@ -211,7 +239,7 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
           </div>
         ) : (
           <div className="divide-y">
-            {notifications.map((notification) => {
+            {sortedNotifications.map((notification) => {
               const Icon = notificationIcons[notification.type] ?? Bell;
               const iconColor = notificationColors[notification.type] ?? 'text-gray-400';
               

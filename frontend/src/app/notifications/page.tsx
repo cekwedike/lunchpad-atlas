@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -140,6 +140,14 @@ export default function NotificationsPage() {
 
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const sortedNotifications = useMemo(() => {
+    return [...notifications].sort((a, b) => {
+      if (a.isRead !== b.isRead) return a.isRead ? 1 : -1; // unread first
+      const at = new Date(a.createdAt as any).getTime();
+      const bt = new Date(b.createdAt as any).getTime();
+      return (Number.isFinite(bt) ? bt : 0) - (Number.isFinite(at) ? at : 0);
+    });
+  }, [notifications]);
 
   const handleMarkAsRead = (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -240,7 +248,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="divide-y">
-            {notifications.map((notification) => {
+            {sortedNotifications.map((notification) => {
               const Icon = notificationIcons[notification.type] ?? Bell;
               const iconColor = notificationColors[notification.type] ?? 'text-gray-400';
 
