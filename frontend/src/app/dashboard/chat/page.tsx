@@ -616,7 +616,7 @@ function ChatRoomContent() {
                                     side="top"
                                   >
                                     <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                      Tap a 3D reaction
+                                      Tap an emoji
                                     </p>
                                     <ChatReaction3DPicker
                                       disabled={toggleReaction.isPending}

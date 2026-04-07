@@ -109,16 +109,28 @@ export const CHAT_REACTION_OPTIONS: ReadonlyArray<{
   },
 ];
 
+/** Unicode shown in 3D picker and aligned with legacy stored emoji. */
+export const CHAT_REACTION_EMOJI: Record<ChatReactionId, string> = {
+  like: "👍",
+  love: "❤️",
+  laugh: "😂",
+  fire: "🔥",
+  celebrate: "🎉",
+  hype: "👏",
+  agree: "✅",
+  star: "💯",
+};
+
 /** Legacy rows still store emoji — map to the same icon + canonical id for new toggles. */
 const LEGACY_EMOJI_TO_ID: Record<string, ChatReactionId> = {
-  "👍": "like",
-  "❤️": "love",
-  "😂": "laugh",
-  "🔥": "fire",
-  "🎉": "celebrate",
-  "👏": "hype",
-  "✅": "agree",
-  "💯": "star",
+  [CHAT_REACTION_EMOJI.like]: "like",
+  [CHAT_REACTION_EMOJI.love]: "love",
+  [CHAT_REACTION_EMOJI.laugh]: "laugh",
+  [CHAT_REACTION_EMOJI.fire]: "fire",
+  [CHAT_REACTION_EMOJI.celebrate]: "celebrate",
+  [CHAT_REACTION_EMOJI.hype]: "hype",
+  [CHAT_REACTION_EMOJI.agree]: "agree",
+  [CHAT_REACTION_EMOJI.star]: "star",
 };
 
 const idSet = new Set(CHAT_REACTION_OPTIONS.map((o) => o.id));

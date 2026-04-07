@@ -1,33 +1,15 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useState, type MouseEvent } from "react";
 import { Canvas } from "@react-three/fiber";
-import {
-  Float,
-  Environment,
-  ContactShadows,
-  RoundedBox,
-  Sphere,
-  Torus,
-  Cone,
-  Cylinder,
-  Octahedron,
-  Icosahedron,
-} from "@react-three/drei";
+import { Float, Environment, Billboard, Html } from "@react-three/drei";
 import type { ChatReactionId } from "@/lib/chat-reactions";
-import { CHAT_REACTION_OPTIONS } from "@/lib/chat-reactions";
+import {
+  CHAT_REACTION_EMOJI,
+  CHAT_REACTION_OPTIONS,
+  reactionOptionById,
+} from "@/lib/chat-reactions";
 import { cn } from "@/lib/utils";
-
-const COLORS: Record<ChatReactionId, string> = {
-  like: "#38bdf8",
-  love: "#fb7185",
-  laugh: "#fbbf24",
-  fire: "#f97316",
-  celebrate: "#a78bfa",
-  hype: "#22d3ee",
-  agree: "#34d399",
-  star: "#f59e0b",
-};
 
 /** 4×2 grid in scene units */
 const POSITIONS: [number, number, number][] = [
@@ -41,26 +23,7 @@ const POSITIONS: [number, number, number][] = [
   [1.38, -0.78, 0],
 ];
 
-function Mat({
-  color,
-  metalness = 0.55,
-  roughness = 0.28,
-}: {
-  color: string;
-  metalness?: number;
-  roughness?: number;
-}) {
-  return (
-    <meshStandardMaterial
-      color={color}
-      metalness={metalness}
-      roughness={roughness}
-      envMapIntensity={1.15}
-    />
-  );
-}
-
-function ReactionShape({
+function ReactionEmoji3D({
   id,
   position,
   onPick,
@@ -69,69 +32,45 @@ function ReactionShape({
   position: [number, number, number];
   onPick: (id: ChatReactionId) => void;
 }) {
-  const color = COLORS[id];
+  const emoji = CHAT_REACTION_EMOJI[id];
   const [hover, setHover] = useState(false);
   const pick = useCallback(
-    (e: { stopPropagation: () => void }) => {
+    (e: MouseEvent) => {
       e.stopPropagation();
       onPick(id);
     },
     [id, onPick],
   );
 
-  const scale = hover ? 1.18 : 1;
-  const common = {
-    onClick: pick,
-    onPointerOver: () => setHover(true),
-    onPointerOut: () => setHover(false),
-    castShadow: true,
-    receiveShadow: true,
-    scale,
-  } as const;
+  const scale = hover ? 1.14 : 1;
 
   return (
-    <Float speed={2.2} rotationIntensity={0.55} floatIntensity={0.55}>
-      <group position={position}>
-        {id === "like" && (
-          <RoundedBox args={[0.44, 0.52, 0.2]} radius={0.09} smoothness={5} {...common}>
-            <Mat color={color} />
-          </RoundedBox>
-        )}
-        {id === "love" && (
-          <Sphere args={[0.34, 32, 32]} {...common}>
-            <Mat color={color} metalness={0.45} roughness={0.22} />
-          </Sphere>
-        )}
-        {id === "laugh" && (
-          <Torus args={[0.3, 0.12, 18, 48]} {...common} rotation={[Math.PI / 5, 0, 0]}>
-            <Mat color={color} />
-          </Torus>
-        )}
-        {id === "fire" && (
-          <Cone args={[0.34, 0.62, 14]} {...common}>
-            <Mat color={color} metalness={0.35} roughness={0.4} />
-          </Cone>
-        )}
-        {id === "celebrate" && (
-          <Cylinder args={[0.24, 0.28, 0.52, 20]} {...common}>
-            <Mat color={color} />
-          </Cylinder>
-        )}
-        {id === "hype" && (
-          <Octahedron args={[0.38, 0]} {...common}>
-            <Mat color={color} metalness={0.65} roughness={0.2} />
-          </Octahedron>
-        )}
-        {id === "agree" && (
-          <RoundedBox args={[0.48, 0.36, 0.14]} radius={0.06} smoothness={4} {...common}>
-            <Mat color={color} />
-          </RoundedBox>
-        )}
-        {id === "star" && (
-          <Icosahedron args={[0.36, 0]} {...common}>
-            <Mat color={color} metalness={0.7} roughness={0.18} />
-          </Icosahedron>
-        )}
+    <Float speed={2.2} rotationIntensity={0.35} floatIntensity={0.45}>
+      <group position={position} scale={scale}>
+        <Billboard follow>
+          <Html
+            transform
+            center
+            distanceFactor={7}
+            style={{ pointerEvents: "auto" }}
+            zIndexRange={[100, 0]}
+          >
+            <button
+              type="button"
+              aria-label={reactionOptionById(id).label}
+              onClick={pick}
+              onPointerEnter={() => setHover(true)}
+              onPointerLeave={() => setHover(false)}
+              className={cn(
+                "flex h-[3.25rem] w-[3.25rem] select-none items-center justify-center rounded-2xl border border-white/70 bg-white/95 text-[2.35rem] shadow-md ring-1 ring-slate-200/80 transition",
+                "hover:scale-105 hover:shadow-lg hover:ring-slate-300/90 active:scale-95",
+                hover && "scale-105 shadow-lg ring-blue-300/60",
+              )}
+            >
+              <span className="leading-none drop-shadow-sm">{emoji}</span>
+            </button>
+          </Html>
+        </Billboard>
       </group>
     </Float>
   );
@@ -141,28 +80,14 @@ function Scene({ onSelect }: { onSelect: (id: ChatReactionId) => void }) {
   return (
     <>
       <color attach="background" args={["transparent"]} />
-      <ambientLight intensity={0.45} />
-      <directionalLight position={[5, 8, 6]} intensity={1.05} castShadow />
-      <directionalLight position={[-5, 3, -4]} intensity={0.35} color="#c4d4ff" />
-      <spotLight
-        position={[0, 6, 2]}
-        angle={0.55}
-        penumbra={0.85}
-        intensity={0.55}
-        color="#fff8e7"
-      />
+      <ambientLight intensity={0.65} />
+      <directionalLight position={[5, 8, 6]} intensity={0.95} />
+      <directionalLight position={[-4, 2, -3]} intensity={0.35} color="#dbeafe" />
       <Suspense fallback={null}>
-        <Environment preset="studio" environmentIntensity={0.85} />
+        <Environment preset="studio" environmentIntensity={0.55} />
       </Suspense>
-      <ContactShadows
-        position={[0, -1.28, 0]}
-        opacity={0.45}
-        scale={16}
-        blur={2.2}
-        far={5}
-      />
       {CHAT_REACTION_OPTIONS.map((opt, i) => (
-        <ReactionShape
+        <ReactionEmoji3D
           key={opt.id}
           id={opt.id}
           position={POSITIONS[i]!}
@@ -191,7 +116,6 @@ export function ChatReaction3DPicker({
       )}
     >
       <Canvas
-        shadows
         camera={{ position: [0, 0, 5.2], fov: 42, near: 0.1, far: 40 }}
         gl={{
           alpha: true,
