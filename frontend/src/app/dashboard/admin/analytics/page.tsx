@@ -42,6 +42,8 @@ function StatCard({
 export default function AdminAnalyticsPage() {
   const [selectedCohortId, setSelectedCohortId] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [appTimeQuery, setAppTimeQuery] = useState("");
+  const [appTimeSort, setAppTimeSort] = useState<"desc" | "asc">("desc");
 
   const { data: cohortsData } = useCohorts();
   const { data: metrics, isLoading: metricsLoading } = useAdminMetrics();
@@ -60,6 +62,8 @@ export default function AdminAnalyticsPage() {
 
   const summary = rawSummary as any;
   const stats = summary?.statistics;
+  const appTimePerFellow: Array<{ userId: string; name: string; hours: number; seconds: number }> =
+    summary?.appTimePerFellow ?? [];
   const topPerformers: Array<{ rank: number; name: string; totalPoints: number }> =
     summary?.topPerformers ?? [];
   const sessionEngagement: Array<{
@@ -82,6 +86,17 @@ export default function AdminAnalyticsPage() {
     selectedSessionId,
   );
   const matrix = matrixRaw as any;
+
+  const filteredAppTime = appTimePerFellow
+    .filter((row) => {
+      const q = appTimeQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        row.name.toLowerCase().includes(q) ||
+        String(row.userId).toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (appTimeSort === "desc" ? b.hours - a.hours : a.hours - b.hours));
 
   return (
     <DashboardLayout>
@@ -228,8 +243,8 @@ export default function AdminAnalyticsPage() {
                     />
                     <StatCard
                       title="App Time"
-                      value={stats?.totalAppTimeHours ? `${stats.totalAppTimeHours.toLocaleString()} hrs` : "—"}
-                      sub="Total in cohort (this month)"
+                      value={Number.isFinite(stats?.avgAppTimeHoursPerFellow) ? `${stats.avgAppTimeHoursPerFellow} hrs` : "—"}
+                      sub="Avg per fellow (this month)"
                       icon={TrendingUp}
                       color="bg-slate-600"
                     />
@@ -320,6 +335,74 @@ export default function AdminAnalyticsPage() {
               </Card>
             </div>
 
+            {/* ── App Time per Fellow ── */}
+            <Card className="bg-white border-gray-200 shadow-sm">
+              <CardHeader className="border-b border-gray-100 pb-3">
+                <CardTitle className="text-base font-semibold text-gray-900">App time per fellow</CardTitle>
+                <CardDescription className="text-gray-500 text-sm">
+                  Active time tracked this month (hours)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4">
+                {summaryLoading ? (
+                  <Skeleton className="h-32 w-full rounded-lg" />
+                ) : appTimePerFellow.length === 0 ? (
+                  <div className="text-sm text-gray-500">No app time data yet.</div>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <input
+                        className="w-full sm:w-80 p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
+                        placeholder="Search fellow name…"
+                        value={appTimeQuery}
+                        onChange={(e) => setAppTimeQuery(e.target.value)}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAppTimeSort((s) => (s === "desc" ? "asc" : "desc"))}
+                        className="w-full sm:w-auto"
+                      >
+                        Sort: {appTimeSort === "desc" ? "High → Low" : "Low → High"}
+                      </Button>
+                      <Badge className="bg-gray-50 text-gray-700 border-gray-200 w-fit">
+                        {filteredAppTime.length} fellows
+                      </Badge>
+                    </div>
+
+                    <div className="w-full overflow-x-auto border border-gray-200 rounded-lg">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left px-3 py-2 border-b border-gray-200">Fellow</th>
+                            <th className="text-right px-3 py-2 border-b border-gray-200">Hours</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAppTime.slice(0, 50).map((row) => (
+                            <tr key={row.userId} className="odd:bg-white even:bg-gray-50">
+                              <td className="px-3 py-2 border-b border-gray-200">
+                                <div className="font-medium text-gray-900">{row.name}</div>
+                                <div className="text-xs text-gray-500 truncate">{row.userId}</div>
+                              </td>
+                              <td className="px-3 py-2 border-b border-gray-200 text-right font-semibold text-gray-900 tabular-nums">
+                                {row.hours.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {filteredAppTime.length > 50 && (
+                      <div className="text-xs text-gray-500">
+                        Showing first 50 rows. Refine search to narrow results.
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             {/* ── Resource Completion Matrix ── */}
             <Card className="bg-white border-gray-200 shadow-sm">
               <CardHeader className="border-b border-gray-100 pb-3">
@@ -345,6 +428,12 @@ export default function AdminAnalyticsPage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {!summaryLoading && appTimePerFellow.length > 0 && (
+                  <div className="text-xs text-gray-500">
+                    App time is tracked per fellow; see cohort average above.
                   </div>
                 )}
 

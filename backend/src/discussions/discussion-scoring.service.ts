@@ -30,7 +30,7 @@ export class DiscussionScoringService {
 
   private getModel() {
     const modelName =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
+      this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
     return this.genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -39,6 +39,55 @@ export class DiscussionScoringService {
         topP: 0.9,
       },
     });
+  }
+
+  private getFallbackModels(): string[] {
+    const raw = this.configService.get<string>('GEMINI_MODEL_FALLBACKS') || '';
+    const list = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // Reasonable defaults for free tier reliability (ordered).
+    const defaults = ['gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+    return list.length ? list : defaults;
+  }
+
+  private async generateWithRetry(prompt: string) {
+    const primary =
+      this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+    const candidates = [primary, ...this.getFallbackModels()].filter(
+      (v, i, a) => a.indexOf(v) === i,
+    );
+
+    let lastErr: unknown = null;
+    for (const modelName of candidates) {
+      const model = this.genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+          topP: 0.9,
+        },
+      });
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await model.generateContent(prompt);
+        } catch (err) {
+          lastErr = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          // Retry on common free-tier transient failures
+          const retryable =
+            /503|429|resource has been exhausted|temporarily unavailable|overloaded/i.test(
+              msg,
+            );
+          if (!retryable) break;
+          const backoffMs = 600 * Math.pow(2, attempt);
+          await new Promise((r) => setTimeout(r, backoffMs));
+        }
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error('Gemini analysis failed');
   }
 
   private clampScore(value: number, min: number, max: number) {
@@ -162,7 +211,14 @@ export class DiscussionScoringService {
       throw new Error('Gemini API key not configured');
     }
 
-    const model = this.getModel();
+    // TOON-style compact rubric block (token efficient vs verbose JSON schema prose)
+    const rubric = `rubric:
+  dims[3]{depth,relevance,constructiveness}
+  scale 0..10(int)
+  score = round((depth*0.35+relevance*0.35+constructiveness*0.30)*10)
+  badges{HighQuality:"score>=80 & depth>=8",Insightful:"score>=70 & constructiveness>=8",Helpful:"score>=60 & relevance>=7"}
+output:
+  {depth:int,relevance:int,constructiveness:int,insights[str],suggestions[str],badge[HighQuality|Insightful|Helpful|null]}`;
 
     const prompt = `You are a rubric-based reviewer for a career development learning platform.
 Analyze the discussion post and provide actionable, specific feedback.
@@ -173,33 +229,14 @@ Title: ${title}
 Content: ${content}
 ${resourceContext ? `Learning Context: ${resourceContext}` : ''}
 
-Evaluate on these criteria (0-10 scale each):
-1) Depth: How thorough and detailed is the discussion?
-2) Relevance: How well does it relate to the learning topic?
-3) Constructiveness: Does it add value, ask good questions, or spark meaningful conversation?
-
-Return ONLY JSON with this shape:
-{
-  "depth": <number 0-10>,
-  "relevance": <number 0-10>,
-  "constructiveness": <number 0-10>,
-  "insights": ["<2-4 concise strengths, complete sentences>"],
-  "suggestions": ["<2-4 actionable improvements, complete sentences>"],
-  "badge": <"High Quality" | "Insightful" | "Helpful" | null>
-}
-
-Badge criteria:
-- "High Quality": Score >= 80, depth >= 8
-- "Insightful": Score >= 70, constructiveness >= 8
-- "Helpful": Score >= 60, relevance >= 7
-- null: Below threshold
+${rubric}
 
 Return integer values 1-10 unless the content is empty (then use 0).
 Avoid scores below 4 if the post is on-topic and clear.
 Do not include markdown or extra text.`;
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await this.generateWithRetry(prompt);
       const text = result.response.text();
       let analysis = this.parseAnalysisPayload(text, 100);
       const normalizedContent = content.replace(/\s+/g, ' ').trim();
@@ -225,7 +262,13 @@ Do not include markdown or extra text.`;
       throw new Error('Gemini API key not configured');
     }
 
-    const model = this.getModel();
+    const rubric = `rubric:
+  dims[3]{depth,relevance,constructiveness}
+  scale 0..10(int)
+  score = round((depth*0.35+relevance*0.35+constructiveness*0.30)*5)
+  badges{HighQuality:"score>=40 & depth>=8",Insightful:"score>=35 & constructiveness>=8",Helpful:"score>=30 & relevance>=7"}
+output:
+  {depth:int,relevance:int,constructiveness:int,insights[str],suggestions[str],badge[HighQuality|Insightful|Helpful|null]}`;
 
     const prompt = `You are a rubric-based reviewer for a career development learning platform.
 Analyze the comment and provide actionable, specific feedback.
@@ -236,33 +279,14 @@ ${discussionContext ? `Discussion Context: ${discussionContext}` : ''}
 ${learningContext ? `Learning Context: ${learningContext}` : ''}
 Comment: ${content}
 
-Evaluate on these criteria (0-10 scale each):
-1) Depth: How thoughtful and detailed is the comment?
-2) Relevance: How well does it respond to the discussion topic?
-3) Constructiveness: Does it add value, insight, or helpful questions?
-
-Return ONLY JSON with this shape:
-{
-  "depth": <number 0-10>,
-  "relevance": <number 0-10>,
-  "constructiveness": <number 0-10>,
-  "insights": ["<2-4 concise strengths, complete sentences>"],
-  "suggestions": ["<2-4 actionable improvements, complete sentences>"],
-  "badge": <"High Quality" | "Insightful" | "Helpful" | null>
-}
-
-Badge criteria:
-- "High Quality": Score >= 80, depth >= 8
-- "Insightful": Score >= 70, constructiveness >= 8
-- "Helpful": Score >= 60, relevance >= 7
-- null: Below threshold
+${rubric}
 
 Return integer values 1-10 unless the content is empty (then use 0).
 Avoid scores below 3 if the comment is on-topic and clear.
 Do not include markdown or extra text.`;
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await this.generateWithRetry(prompt);
       const text = result.response.text();
       let analysis = this.parseAnalysisPayload(text, 50);
       const normalizedContent = content.replace(/\s+/g, ' ').trim();

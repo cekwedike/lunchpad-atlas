@@ -328,6 +328,7 @@ export class AnalyticsExportService {
     let topPerformers: Array<{ rank: number; name: string; totalPoints: number }> = [];
     let totalPointsAwarded = 0;
     let totalAppTimeSeconds = 0;
+    let appTimePerFellow: Array<{ userId: string; name: string; hours: number; seconds: number }> = [];
 
     if (fellowIds.length > 0) {
       const appTimeAgg = await (this.prisma as any).platformTimeDaily.aggregate({
@@ -338,6 +339,31 @@ export class AnalyticsExportService {
         _sum: { seconds: true },
       });
       totalAppTimeSeconds = appTimeAgg?._sum?.seconds ?? 0;
+
+      const appTimeByUser = await (this.prisma as any).platformTimeDaily.groupBy({
+        by: ['userId'],
+        where: {
+          userId: { in: fellowIds },
+          day: { gte: monthStart, lte: monthEnd },
+        },
+        _sum: { seconds: true },
+      });
+
+      const fellowNames = new Map(
+        cohort.fellows
+          .filter((f) => f.role === 'FELLOW')
+          .map((f) => [f.id, `${f.firstName} ${f.lastName}`.trim()] as const),
+      );
+
+      const secondsMap = new Map<string, number>(
+        (appTimeByUser || []).map((r: any) => [r.userId, r._sum?.seconds ?? 0]),
+      );
+
+      appTimePerFellow = fellowIds.map((id) => {
+        const seconds = secondsMap.get(id) ?? 0;
+        const hours = Number((seconds / 3600).toFixed(2));
+        return { userId: id, name: fellowNames.get(id) || 'Unknown', hours, seconds };
+      });
 
       const pointsAll = await this.prisma.pointsLog.groupBy({
         by: ['userId'],
@@ -378,6 +404,11 @@ export class AnalyticsExportService {
         startDate: cohort.startDate,
         endDate: cohort.endDate,
         state: cohort.state,
+        sessions: cohort.sessions.map((s) => ({
+          id: s.id,
+          sessionNumber: s.sessionNumber,
+          title: s.title,
+        })),
       },
       statistics: {
         totalFellows,
@@ -390,7 +421,10 @@ export class AnalyticsExportService {
         totalPointsAwarded,
         totalAppTimeSeconds,
         totalAppTimeHours: Number((totalAppTimeSeconds / 3600).toFixed(2)),
+        avgAppTimeHoursPerFellow:
+          totalFellows > 0 ? Number(((totalAppTimeSeconds / 3600) / totalFellows).toFixed(2)) : 0,
       },
+      appTimePerFellow,
       topPerformers,
       sessionEngagement,
     };
