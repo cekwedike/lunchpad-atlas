@@ -101,7 +101,7 @@ export default function AdminAnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 px-0 sm:px-0">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -113,7 +113,7 @@ export default function AdminAnalyticsPage() {
         {/* ── Platform-wide stats ── */}
         <div>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Platform Overview</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {metricsLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i} className="bg-white border-gray-200 shadow-sm">
@@ -522,11 +522,11 @@ export default function AdminAnalyticsPage() {
                       .filter((s) => s.engagementScore !== null)
                       .map((s) => (
                         <div key={s.sessionNumber} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-gray-700 font-medium truncate max-w-[60%]">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs">
+                            <span className="text-gray-700 font-medium truncate sm:max-w-[60%]">
                               S{s.sessionNumber}: {s.title}
                             </span>
-                            <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-3 shrink-0 flex-wrap">
                               <span className="text-gray-500">
                                 Participation: <span className="font-semibold text-gray-700">{s.participationRate ?? "—"}%</span>
                               </span>
