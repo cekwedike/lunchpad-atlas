@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -345,6 +345,99 @@ describe('ChatService', () => {
       expect(mockPrismaService.chatMessage.update).toHaveBeenCalledWith({
         where: { id: 'msg-1' },
         data: { isDeleted: true },
+      });
+    });
+  });
+
+  describe('updateMessage', () => {
+    it('should throw NotFoundException when message not found', async () => {
+      mockPrismaService.chatMessage.findUnique.mockResolvedValue(null);
+      await expect(service.updateMessage('msg-1', 'user-1', 'hi')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException on empty content', async () => {
+      await expect(service.updateMessage('msg-1', 'user-1', '   ')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when message is deleted', async () => {
+      mockPrismaService.chatMessage.findUnique.mockResolvedValue({
+        id: 'msg-1',
+        userId: 'user-1',
+        isDeleted: true,
+        channel: {
+          id: 'ch-1',
+          cohortId: 'cohort-1',
+          type: ChannelType.COHORT_WIDE,
+          isLocked: false,
+          name: 'General',
+        },
+      });
+      await expect(service.updateMessage('msg-1', 'user-1', 'hi')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw ForbiddenException when non-author non-moderator tries to edit', async () => {
+      mockPrismaService.chatMessage.findUnique.mockResolvedValue({
+        id: 'msg-1',
+        userId: 'other-user',
+        isDeleted: false,
+        channel: {
+          id: 'ch-1',
+          cohortId: 'cohort-1',
+          type: ChannelType.COHORT_WIDE,
+          isLocked: false,
+          name: 'General',
+        },
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
+
+      await expect(service.updateMessage('msg-1', 'user-1', 'hi')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should update message content for author', async () => {
+      mockPrismaService.chatMessage.findUnique.mockResolvedValue({
+        id: 'msg-1',
+        userId: 'user-1',
+        isDeleted: false,
+        channel: {
+          id: 'ch-1',
+          cohortId: 'cohort-1',
+          type: ChannelType.COHORT_WIDE,
+          isLocked: false,
+          name: 'General',
+        },
+      });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'FELLOW',
+        cohortId: 'cohort-1',
+      });
+      mockPrismaService.chatMessage.update.mockResolvedValue({
+        id: 'msg-1',
+        channelId: 'ch-1',
+        userId: 'user-1',
+        content: 'Updated',
+      });
+
+      await service.updateMessage('msg-1', 'user-1', ' Updated ');
+
+      expect(mockPrismaService.chatMessage.update).toHaveBeenCalledWith({
+        where: { id: 'msg-1' },
+        data: { content: 'Updated' },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, role: true } },
+        },
       });
     });
   });

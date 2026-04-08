@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -1037,6 +1038,71 @@ export class ChatService {
     return this.prisma.chatMessage.update({
       where: { id: messageId },
       data: { isDeleted: true },
+    });
+  }
+
+  async updateMessage(messageId: string, userId: string, content: string) {
+    const nextContent = (content ?? '').trim();
+    if (!nextContent) {
+      throw new BadRequestException('Message content cannot be empty');
+    }
+
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id: messageId },
+      include: {
+        channel: { select: { id: true, cohortId: true, type: true, isLocked: true, name: true } },
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException(`Message with ID ${messageId} not found`);
+    }
+
+    if (message.isDeleted) {
+      throw new BadRequestException('Cannot edit a deleted message');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, cohortId: true },
+    });
+
+    if (!user) {
+      throw new ForbiddenException('User not authenticated');
+    }
+
+    // DM check: only participants can edit messages; admins cannot edit in DMs unless they are participants
+    if (message.channel.type === ChannelType.DIRECT_MESSAGE) {
+      const participants = this.extractDmParticipants(message.channel.name);
+      if (!participants || !participants.includes(userId)) {
+        throw new ForbiddenException('You are not a participant in this private conversation');
+      }
+    } else {
+      if (user.role !== 'ADMIN' && user.cohortId !== message.channel.cohortId) {
+        throw new ForbiddenException('You do not have access to this channel');
+      }
+    }
+
+    const canModerate = user.role === 'ADMIN' || user.role === 'FACILITATOR' || user.role === 'GUEST_FACILITATOR';
+    if (message.userId !== userId && !canModerate) {
+      throw new ForbiddenException('You do not have permission to edit this message');
+    }
+
+    if (
+      message.channel.isLocked &&
+      user.role !== 'ADMIN' &&
+      user.role !== 'FACILITATOR' &&
+      user.role !== 'GUEST_FACILITATOR'
+    ) {
+      throw new ForbiddenException('This chat room is locked for announcements only');
+    }
+
+    return this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: { content: nextContent },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, role: true } },
+      },
     });
   }
 

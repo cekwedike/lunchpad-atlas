@@ -16,6 +16,7 @@ import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -148,6 +149,24 @@ export class ChatController {
   @Delete('messages/:messageId')
   deleteMessage(@Param('messageId') messageId: string, @Request() req: any) {
     return this.chatService.deleteMessage(messageId, req.user.id);
+  }
+
+  @Patch('messages/:messageId')
+  updateMessage(
+    @Param('messageId') messageId: string,
+    @Body() body: UpdateMessageDto,
+    @Request() req: any,
+  ) {
+    return this.chatService.updateMessage(messageId, req.user.id, body?.content).then((msg) => {
+      this.chatGateway.emitMessageUpdated(msg.channelId, {
+        id: msg.id,
+        channelId: msg.channelId,
+        userId: msg.userId,
+        content: msg.content,
+        updatedAt: msg.updatedAt,
+      });
+      return msg;
+    });
   }
 
   @Get('members/:channelId')

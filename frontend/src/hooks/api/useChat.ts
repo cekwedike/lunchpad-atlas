@@ -237,6 +237,21 @@ export function useDeleteMessage() {
   });
 }
 
+export function useEditMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { messageId: string; content: string }) => {
+      return apiClient.patch<ChatMessage>(`/chat/messages/${input.messageId}`, {
+        content: input.content,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+}
+
 export function useFlagMessage() {
   const queryClient = useQueryClient();
 
