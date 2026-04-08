@@ -29,12 +29,22 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+interface CohortFacilitatorUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  isFacilitator: boolean;
+}
+
 interface Cohort {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
   state: string;
+  facilitators?: Array<{ cohortId: string; userId: string; user: CohortFacilitatorUser }>;
   _count?: {
     fellows: number;
     sessions: number;

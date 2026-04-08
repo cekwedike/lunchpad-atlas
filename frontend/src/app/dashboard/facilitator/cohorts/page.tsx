@@ -1,23 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  // dialogs moved to cohort details page
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Users, Calendar, Loader2, RefreshCw, Ban, ShieldCheck } from "lucide-react";
+import { Users, Calendar, Loader2 } from "lucide-react";
 import { useCohorts } from "@/hooks/api/useAdmin";
-import { useFacilitatorSuspendFellow, useFacilitatorUnsuspendFellow } from "@/hooks/api/useFacilitator";
-import { useOpenDM } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
-import { toast } from "sonner";
 import { format } from "date-fns";
 
 interface Cohort {
@@ -36,8 +26,6 @@ export default function FacilitatorCohortsPage() {
   const { data: profile } = useProfile();
   const { data: cohortsData, isLoading } = useCohorts();
 
-  const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
-
   const cohorts: Cohort[] = Array.isArray(cohortsData) ? cohortsData : [];
 
   // Show cohorts where this facilitator is the assigned facilitator OR is a cohort member
@@ -55,12 +43,6 @@ export default function FacilitatorCohortsPage() {
       case "ARCHIVED": return "bg-gray-100 text-gray-800 border-gray-200";
       default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
-  };
-
-  const getRoleBadge = (role: string) => {
-    if (role === "FACILITATOR") return <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">Facilitator</Badge>;
-    if (role === "FELLOW") return <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Fellow</Badge>;
-    return null;
   };
 
   return (
