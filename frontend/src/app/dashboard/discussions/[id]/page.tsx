@@ -41,6 +41,7 @@ import { toast } from "sonner";
 import type { CommentReactionType } from "@/types/api";
 import { apiClient } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
+import { linkifyText } from "@/lib/linkify";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -355,6 +356,23 @@ export default function DiscussionDetailPage() {
     return acc;
   }, {});
 
+  const renderLinkified = (content: string) =>
+    linkifyText(content).map((part, idx) =>
+      part.kind === "link" ? (
+        <a
+          key={`${part.href}-${idx}`}
+          href={part.href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-blue-600 hover:text-blue-700 hover:underline break-all"
+        >
+          {part.text}
+        </a>
+      ) : (
+        <span key={`${idx}-${part.text.slice(0, 8)}`}>{part.text}</span>
+      ),
+    );
+
   const renderComment = (comment: any, depth: number = 0) => {
     const isOwnComment = comment.userId === profile?.id;
     const canDelete = isOwnComment || canModerateDiscussion;
@@ -395,7 +413,9 @@ export default function DiscussionDetailPage() {
                 {formatLocalTimestamp(comment.createdAt)}
               </span>
             </div>
-            <p className="text-gray-700 break-words">{comment.content}</p>
+            <p className="text-gray-700 break-words whitespace-pre-wrap">
+              {renderLinkified(comment.content)}
+            </p>
 
             {showCommentQuality && (
               <div className="mt-2 space-y-2 text-xs text-gray-600">
@@ -654,7 +674,9 @@ export default function DiscussionDetailPage() {
                 )}
               </div>
 
-              <p className="text-gray-700 whitespace-pre-wrap">{discussion.content}</p>
+              <p className="text-gray-700 whitespace-pre-wrap break-words">
+                {renderLinkified(discussion.content)}
+              </p>
 
               {canViewDiscussionQuality && (
                 <div className="rounded-lg border bg-slate-50 p-4 space-y-3">

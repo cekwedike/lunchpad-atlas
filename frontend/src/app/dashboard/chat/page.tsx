@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft,
@@ -19,7 +20,7 @@ import {
   Sparkles,
   Eye,
 } from "lucide-react";
-import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead, useChatMembers, useToggleMessageReaction } from "@/hooks/api/useChat";
+import { useAllChannels, useCohortChannels, useChannelMessages, useSendMessage, useChannelById, useToggleChannelLock, useMarkChannelRead, useChatMembers, useToggleMessageReaction, useLinkPreview } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ import type { ChatMember, ChatMessage } from "@/types/chat";
 import { getChatMentionRegex } from "@/lib/chat-mentions";
 import { ChatReactionGlyph, reactionLabelForStored } from "@/lib/chat-reactions";
 import { cn } from "@/lib/utils";
+import { firstUrl, linkifyText } from "@/lib/linkify";
 
 const ChatReaction3DPicker = dynamic(
   () =>
@@ -322,6 +324,132 @@ function ChatRoomContent() {
     return parts;
   }, [mentionStyleForToken]);
 
+  const renderLinkifiedMentions = useCallback(
+    (content: string, isOwnMessage: boolean) =>
+      linkifyText(content).map((part, idx) =>
+        part.kind === "link" ? (
+          <a
+            key={`${part.href}-${idx}`}
+            href={part.href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={cn(
+              "underline underline-offset-2 break-all",
+              isOwnMessage
+                ? "text-white/95 decoration-white/60 hover:text-white"
+                : "text-blue-700 decoration-blue-200 hover:text-blue-800",
+            )}
+          >
+            {part.text}
+          </a>
+        ) : (
+          <span key={`${idx}-${part.text.slice(0, 8)}`}>{renderMentions(part.text)}</span>
+        ),
+      ),
+    [renderMentions],
+  );
+
+  function MessageBody({
+    content,
+    isOwnMessage,
+  }: {
+    content: string;
+    isOwnMessage: boolean;
+  }) {
+    const url = firstUrl(content);
+    const { data: preview } = useLinkPreview(url || undefined);
+
+    return (
+      <>
+        <p
+          className={`text-[15px] leading-relaxed break-words [overflow-wrap:anywhere] whitespace-pre-wrap sm:text-sm ${
+            isOwnMessage ? "text-white" : "text-slate-800"
+          }`}
+        >
+          {renderLinkifiedMentions(content, isOwnMessage)}
+        </p>
+
+        {preview && (preview.title || preview.description || preview.image) && (
+          <a
+            href={preview.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="block mt-3"
+          >
+            <Card
+              className={cn(
+                "overflow-hidden border transition-colors",
+                isOwnMessage
+                  ? "border-white/20 bg-white/10 hover:border-white/30"
+                  : "border-slate-200 hover:border-slate-300 bg-white",
+              )}
+            >
+              <div className="flex gap-3">
+                {preview.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={preview.image}
+                    alt=""
+                    className={cn(
+                      "w-24 h-24 object-cover shrink-0",
+                      isOwnMessage ? "bg-white/10" : "bg-slate-100",
+                    )}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <div className="p-3 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 min-w-0">
+                    {preview.siteName && (
+                      <Badge
+                        className={cn(
+                          "text-[10px] shrink-0",
+                          isOwnMessage
+                            ? "border-white/20 bg-white/10 text-white/90"
+                            : "bg-gray-50 text-gray-700 border-gray-200",
+                        )}
+                      >
+                        {preview.siteName}
+                      </Badge>
+                    )}
+                    <span
+                      className={cn(
+                        "text-[10px] truncate",
+                        isOwnMessage ? "text-white/75" : "text-slate-500",
+                      )}
+                    >
+                      {preview.url}
+                    </span>
+                  </div>
+                  {preview.title && (
+                    <div
+                      className={cn(
+                        "text-sm font-semibold line-clamp-2",
+                        isOwnMessage ? "text-white" : "text-slate-900",
+                      )}
+                    >
+                      {preview.title}
+                    </div>
+                  )}
+                  {preview.description && (
+                    <div
+                      className={cn(
+                        "text-xs mt-1 line-clamp-2",
+                        isOwnMessage ? "text-white/80" : "text-slate-600",
+                      )}
+                    >
+                      {preview.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </a>
+        )}
+      </>
+    );
+  }
+
   const handleMessageInputChange = (value: string) => {
     setChatMessage(value);
 
@@ -573,15 +701,13 @@ function ChatRoomContent() {
                                     Replying to {message.parentMessage.user ? getDisplayName(message.parentMessage.user) : 'Unknown'}
                                   </div>
                                   <div className="mt-0.5 line-clamp-3 break-words [overflow-wrap:anywhere] opacity-90">
-                                    {message.parentMessage.content}
+                                    <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                                      {renderLinkifiedMentions(message.parentMessage.content, isOwnMessage)}
+                                    </span>
                                   </div>
                                 </button>
                               )}
-                              <p
-                                className={`text-[15px] leading-relaxed break-words [overflow-wrap:anywhere] whitespace-pre-wrap sm:text-sm ${isOwnMessage ? 'text-white' : 'text-slate-800'}`}
-                              >
-                                {renderMentions(message.content)}
-                              </p>
+                              <MessageBody content={message.content} isOwnMessage={isOwnMessage} />
                               <div
                                 className={`mt-2.5 flex min-w-0 flex-wrap items-center gap-1.5 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                               >
