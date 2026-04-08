@@ -45,13 +45,23 @@ export default function LeaderboardPage() {
   const canViewLeaderboard = isFellow || isAdmin || isFacilitator;
   const normalizedFellowSearch = debouncedFellowSearch.trim();
   const shouldSearchFellows = canAdjustPoints && normalizedFellowSearch.length >= 2;
-  const { data: cohortsData } = useCohorts(isAdmin);
+  // Cohorts endpoint is role-aware; don't disable it for facilitators.
+  const { data: cohortsData } = useCohorts(true);
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
-  const availableCohorts = isAdmin
-    ? cohorts
-    : isFacilitator
-      ? (profile?.facilitatedCohorts || [])
-      : [];
+  const availableCohorts = (() => {
+    if (isAdmin) return cohorts;
+    if (!isFacilitator) return [];
+
+    // Prefer profile-provided cohorts if present, otherwise derive from cohorts list.
+    const fromProfile = (profile as any)?.facilitatedCohorts;
+    if (Array.isArray(fromProfile) && fromProfile.length > 0) return fromProfile;
+
+    return cohorts.filter((c: any) => {
+      if (c.facilitatorId && c.facilitatorId === profile?.id) return true;
+      const facilitators = c.facilitators ?? [];
+      return Array.isArray(facilitators) && facilitators.some((f: any) => f.userId === profile?.id || f.id === profile?.id);
+    });
+  })();
   const { data: fellowsData, isLoading: fellowsLoading } = useAdminUsers(
     shouldSearchFellows
       ? {

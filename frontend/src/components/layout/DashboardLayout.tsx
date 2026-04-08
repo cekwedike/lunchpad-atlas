@@ -191,7 +191,7 @@ export function DashboardLayout({ children, fullBleedContent = false }: Dashboar
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
             </>
           ) : (
-            <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto w-full min-w-0 max-w-7xl space-y-4 overflow-x-hidden p-4 sm:p-6 lg:p-8">
               {!isSuspended && <SetupChecklist />}
               {children}
             </div>

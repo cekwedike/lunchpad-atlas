@@ -267,7 +267,7 @@ export function Sidebar() {
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-[55] bg-slate-900/50 backdrop-blur-sm md:hidden"
           onClick={toggleSidebar}
         />
       )}
@@ -275,7 +275,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] border-r border-slate-200 bg-white shadow-lg transition-all duration-300 ease-in-out',
+          'fixed left-0 top-16 z-[60] h-[calc(100vh-4rem)] border-r border-slate-200 bg-white shadow-lg transition-all duration-300 ease-in-out',
           isCollapsed ? 'w-20' : 'w-72',
           // below md: drawer toggle; md+: always visible
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'

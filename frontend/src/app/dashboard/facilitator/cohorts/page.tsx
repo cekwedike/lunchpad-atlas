@@ -8,18 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  // dialogs moved to cohort details page
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Calendar, Loader2, RefreshCw, Ban, ShieldCheck } from "lucide-react";
-import { useCohorts, useCohortMembers } from "@/hooks/api/useAdmin";
+import { useCohorts } from "@/hooks/api/useAdmin";
 import { useFacilitatorSuspendFellow, useFacilitatorUnsuspendFellow } from "@/hooks/api/useFacilitator";
 import { useOpenDM } from "@/hooks/api/useChat";
 import { useProfile } from "@/hooks/api/useProfile";
@@ -39,21 +33,10 @@ interface Cohort {
 
 export default function FacilitatorCohortsPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   const { data: cohortsData, isLoading } = useCohorts();
-  const openDM = useOpenDM();
 
   const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
-  const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
-  const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
-  const [isUnsuspendDialogOpen, setIsUnsuspendDialogOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<any | null>(null);
-  const [suspendPreset, setSuspendPreset] = useState("");
-  const [suspendReason, setSuspendReason] = useState("");
-
-  const suspendFellow = useFacilitatorSuspendFellow(selectedCohort?.id ?? "");
-  const unsuspendFellow = useFacilitatorUnsuspendFellow(selectedCohort?.id ?? "");
 
   const cohorts: Cohort[] = Array.isArray(cohortsData) ? cohortsData : [];
 
@@ -62,10 +45,6 @@ export default function FacilitatorCohortsPage() {
     (cohort) =>
       cohort.facilitatorId === profile?.id ||
       cohort.id === profile?.cohortId
-  );
-
-  const { data: cohortMembers = [], isLoading: membersLoading } = useCohortMembers(
-    selectedCohort && isMembersDialogOpen ? selectedCohort.id : undefined
   );
 
   const getStateColor = (state: string) => {
@@ -82,15 +61,6 @@ export default function FacilitatorCohortsPage() {
     if (role === "FACILITATOR") return <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">Facilitator</Badge>;
     if (role === "FELLOW") return <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Fellow</Badge>;
     return null;
-  };
-
-  const handleMessage = async (targetUserId: string) => {
-    try {
-      const channel = await openDM.mutateAsync(targetUserId);
-      router.push(`/dashboard/chat?channelId=${channel.id}`);
-    } catch {
-      toast.error("Could not open conversation");
-    }
   };
 
   return (
@@ -133,7 +103,12 @@ export default function FacilitatorCohortsPage() {
                     <span>{cohort._count?.fellows ?? 0} {cohort._count?.fellows === 1 ? "Fellow" : "Fellows"}</span>
                   </div>
                   <div className="pt-2 border-t border-gray-100">
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => { setSelectedCohort(cohort); setIsMembersDialogOpen(true); }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => router.push(`/dashboard/facilitator/cohorts/${cohort.id}`)}
+                    >
                       <Users className="h-4 w-4 mr-2" /> View Members
                     </Button>
                   </div>
@@ -142,191 +117,6 @@ export default function FacilitatorCohortsPage() {
             ))}
           </div>
         )}
-
-        {/* Suspend Fellow Dialog */}
-        <Dialog open={isSuspendDialogOpen} onOpenChange={setIsSuspendDialogOpen}>
-          <DialogContent className="sm:max-w-[450px]">
-            <DialogHeader>
-              <DialogTitle>Suspend Fellow</DialogTitle>
-              <DialogDescription>
-                Suspend <strong>{selectedMember?.firstName} {selectedMember?.lastName}</strong>. They will lose access until unsuspended.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Reason (select or type)</Label>
-                <select
-                  value={suspendPreset}
-                  onChange={(e) => { setSuspendPreset(e.target.value); setSuspendReason(""); }}
-                  className="flex h-10 w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">Select a preset reason...</option>
-                  <option value="Violation of community guidelines">Violation of community guidelines</option>
-                  <option value="Academic dishonesty">Academic dishonesty</option>
-                  <option value="Inappropriate behavior">Inappropriate behavior</option>
-                  <option value="Repeated policy violations">Repeated policy violations</option>
-                  <option value="Other">Other (specify below)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Custom reason (optional)</Label>
-                <Textarea
-                  placeholder="Additional details..."
-                  value={suspendReason}
-                  onChange={(e) => { setSuspendReason(e.target.value); setSuspendPreset(""); }}
-                  className="resize-none"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setIsSuspendDialogOpen(false)} disabled={suspendFellow.isPending}>
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!selectedMember) return;
-                  const reason = suspendReason.trim() || suspendPreset || undefined;
-                  await suspendFellow.mutateAsync({ fellowId: selectedMember.id, reason });
-                  setIsSuspendDialogOpen(false);
-                }}
-                disabled={suspendFellow.isPending}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
-              >
-                {suspendFellow.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Suspending...</> : <><Ban className="h-4 w-4 mr-2" />Suspend</>}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Unsuspend Fellow Dialog */}
-        <Dialog open={isUnsuspendDialogOpen} onOpenChange={setIsUnsuspendDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Unsuspend Fellow</DialogTitle>
-              <DialogDescription>
-                Restore access for <strong>{selectedMember?.firstName} {selectedMember?.lastName}</strong>. They will be able to log in immediately.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setIsUnsuspendDialogOpen(false)} disabled={unsuspendFellow.isPending}>
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!selectedMember) return;
-                  await unsuspendFellow.mutateAsync(selectedMember.id);
-                  setIsUnsuspendDialogOpen(false);
-                }}
-                disabled={unsuspendFellow.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {unsuspendFellow.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Unsuspending...</> : <><ShieldCheck className="h-4 w-4 mr-2" />Unsuspend</>}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* View Members Dialog */}
-        <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
-          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Cohort Members – {selectedCohort?.name}</DialogTitle>
-              <DialogDescription>View fellows and co-facilitators in this cohort.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">
-                  {cohortMembers.length} {cohortMembers.length === 1 ? "member" : "members"}
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ['cohort-members', selectedCohort?.id] })}
-                  className="h-8 px-2 text-gray-500 hover:text-gray-700"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                  Refresh
-                </Button>
-              </div>
-
-              {membersLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                </div>
-              ) : cohortMembers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No members found in this cohort.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {cohortMembers.map((member: any) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                          <span className="text-sm font-semibold text-blue-600">
-                            {member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-gray-900">{member.firstName} {member.lastName}</p>
-                            {getRoleBadge(member.role)}
-                          </div>
-                          <p className="text-sm text-gray-500">{member.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {member.currentMonthPoints > 0 && (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                            {member.currentMonthPoints} pts
-                          </Badge>
-                        )}
-                        {member.id !== profile?.id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleMessage(member.id)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-xs px-2 h-8"
-                          >
-                            Private Message
-                          </Button>
-                        )}
-                        {member.role === "FELLOW" && member.id !== profile?.id && (
-                          member.isSuspended ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => { setSelectedMember(member); setIsUnsuspendDialogOpen(true); }}
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 text-xs px-2 h-8"
-                              title="Unsuspend fellow"
-                            >
-                              <ShieldCheck className="h-4 w-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => { setSelectedMember(member); setSuspendPreset(""); setSuspendReason(""); setIsSuspendDialogOpen(true); }}
-                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 text-xs px-2 h-8"
-                              title="Suspend fellow"
-                            >
-                              <Ban className="h-4 w-4" />
-                            </Button>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsMembersDialogOpen(false)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </DashboardLayout>
   );
