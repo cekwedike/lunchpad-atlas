@@ -259,7 +259,9 @@ export class DiscussionsService {
     });
 
     // Get user's cohortId if not provided
-    let cohortId = dto.cohortId || user?.cohortId || '';
+    // Fellows must always post within their own cohort; do not trust client-provided cohortId.
+    let cohortId =
+      userRole === 'FELLOW' ? user?.cohortId || '' : dto.cohortId || user?.cohortId || '';
 
     if (
       (userRole === 'FACILITATOR' || userRole === 'GUEST_FACILITATOR') &&
@@ -327,10 +329,17 @@ export class DiscussionsService {
         },
       });
 
-      if (!resource || resource.session?.cohortId !== cohortId) {
+      if (!resource || !resource.session?.cohortId) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      // Always anchor cohortId to the resource's cohort to avoid stale client cohort selection.
+      // Fellows must belong to the same cohort as the resource.
+      if (userRole === 'FELLOW' && user?.cohortId && resource.session.cohortId !== user.cohortId) {
         throw new NotFoundException('Resource not found for this cohort');
       }
 
+      cohortId = resource.session.cohortId;
       resourceId = resource.id;
       sessionId = resource.sessionId;
 
@@ -362,10 +371,16 @@ export class DiscussionsService {
         select: { id: true, cohortId: true },
       });
 
-      if (!session || session.cohortId !== cohortId) {
+      if (!session || !session.cohortId) {
+        throw new NotFoundException('Session not found');
+      }
+
+      // Anchor cohortId to the session's cohort; fellows must belong to it.
+      if (userRole === 'FELLOW' && user?.cohortId && session.cohortId !== user.cohortId) {
         throw new NotFoundException('Session not found for this cohort');
       }
 
+      cohortId = session.cohortId;
       sessionId = session.id;
 
       // Fellows are limited to 5 discussions per session (admins/facilitators are exempt)

@@ -124,7 +124,8 @@ function NewDiscussionContent() {
         cohortId,
         topicType,
         sessionId: topicType === 'SESSION' ? selectedOption?.value : undefined,
-        resourceId: topicType === 'RESOURCE' ? selectedOption?.value : resourceId,
+        // For resource discussions launched from a resource, always send that resourceId.
+        resourceId: topicType === 'RESOURCE' ? (resourceId || selectedOption?.value) : undefined,
       });
       
       toast.success(result?.isApproved === false ? "Discussion submitted for approval" : "Discussion created!");

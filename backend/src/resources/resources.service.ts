@@ -297,8 +297,12 @@ export class ResourcesService {
     // Validate engagement thresholds before allowing completion
     if (existingProgress) {
       const validationErrors: string[] = [];
+      const requirements: string[] = [];
 
       // For articles: scrollDepth must be >= 80%
+      if (resource.type === 'ARTICLE') {
+        requirements.push('Scroll at least 80% of the article');
+      }
       if (resource.type === 'ARTICLE' && existingProgress.scrollDepth < 80) {
         validationErrors.push(
           `Article requires 80% scroll depth. Current: ${existingProgress.scrollDepth}%`,
@@ -306,6 +310,9 @@ export class ResourcesService {
       }
 
       // For videos: watchPercentage must be >= 85%
+      if (resource.type === 'VIDEO') {
+        requirements.push('Watch at least 85% of the video');
+      }
       if (resource.type === 'VIDEO' && existingProgress.watchPercentage < 85) {
         validationErrors.push(
           `Video requires 85% watch completion. Current: ${existingProgress.watchPercentage}%`,
@@ -315,16 +322,33 @@ export class ResourcesService {
       // If validation fails, throw error with specific feedback
       if (validationErrors.length > 0) {
         throw new ForbiddenException({
-          message: 'Insufficient engagement to complete resource',
-          errors: validationErrors,
-          hint: 'Please engage more thoroughly with the content before marking complete',
+          message: 'Cannot mark this resource as complete yet',
+          errors: [
+            ...(requirements.length > 0 ? [`Requirements: ${requirements.join(' • ')}`] : []),
+            ...validationErrors,
+          ],
+          hint:
+            'Keep reading/watching until you meet the requirement, then try again. If you believe this is wrong, refresh the page and continue engaging for a bit before retrying.',
         });
       }
     } else {
       // No progress tracked yet - user tried to mark complete without engaging
-      throw new ForbiddenException(
-        'Must engage with resource before completing. Start reading/watching to track your progress.',
-      );
+      const requirements =
+        resource.type === 'ARTICLE'
+          ? ['Open the article and scroll (aim for 80%+)']
+          : resource.type === 'VIDEO'
+            ? ['Start the video and watch (aim for 85%+)']
+            : ['Open the resource and spend time engaging with it'];
+
+      throw new ForbiddenException({
+        message: 'Cannot mark this resource as complete yet',
+        errors: [
+          'No engagement has been tracked for this resource yet.',
+          `Next steps: ${requirements.join(' • ')}`,
+        ],
+        hint:
+          'After you start engaging, the app will track your progress automatically. Then you can mark it complete.',
+      });
     }
 
     const alreadyCompleted = existingProgress.state === 'COMPLETED';
