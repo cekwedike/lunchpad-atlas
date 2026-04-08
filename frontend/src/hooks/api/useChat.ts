@@ -180,6 +180,20 @@ export function useSendMessage() {
   });
 }
 
+export function useLinkPreview(url: string | undefined) {
+  const sessionReady = useAuthSessionReady();
+  return useQuery<any>({
+    queryKey: ['chat-link-preview', url],
+    queryFn: async () => {
+      if (!url) throw new Error('url required');
+      return apiClient.get(`/chat/link-preview?url=${encodeURIComponent(url)}`);
+    },
+    enabled: !!url && sessionReady,
+    staleTime: 6 * 60 * 60 * 1000,
+    retry: 0,
+  });
+}
+
 export function useChatMembers(channelId: string | undefined) {
   const sessionReady = useAuthSessionReady();
   return useQuery<ChatMember[]>({

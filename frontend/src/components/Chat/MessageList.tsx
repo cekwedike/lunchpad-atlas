@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, Trash2, Flag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useChannelMessages, useDeleteMessage, useFlagMessage } from '@/hooks/api/useChat';
+import { useChannelMessages, useDeleteMessage, useFlagMessage, useLinkPreview } from '@/hooks/api/useChat';
 import type { ChatMessage } from '@/types/chat';
 import { Button } from '../ui/button';
 import {
@@ -12,6 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { firstUrl, linkifyText } from '@/lib/linkify';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
 
 interface MessageListProps {
   channelId: string;
@@ -93,6 +96,8 @@ interface MessageItemProps {
 
 function MessageItem({ message, isOwnMessage, canModerate, onDelete, onFlag }: MessageItemProps) {
   const [showActions, setShowActions] = useState(false);
+  const url = firstUrl(message.content);
+  const { data: preview } = useLinkPreview(url || undefined);
 
   if (message.isDeleted) {
     return (
@@ -125,7 +130,69 @@ function MessageItem({ message, isOwnMessage, canModerate, onDelete, onFlag }: M
               <span className="text-xs text-yellow-600">⚠️ Flagged</span>
             )}
           </div>
-          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          <p className="text-sm whitespace-pre-wrap break-words">
+            {linkifyText(message.content).map((part, idx) =>
+              part.kind === 'link' ? (
+                <a
+                  key={idx}
+                  href={part.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-blue-600 hover:underline break-all"
+                >
+                  {part.text}
+                </a>
+              ) : (
+                <span key={idx}>{part.text}</span>
+              ),
+            )}
+          </p>
+
+          {preview && (preview.title || preview.description || preview.image) && (
+            <a
+              href={preview.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="block mt-3"
+            >
+              <Card className="border-gray-200 hover:border-gray-300 transition-colors overflow-hidden">
+                <div className="flex gap-3">
+                  {preview.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={preview.image}
+                      alt=""
+                      className="w-24 h-24 object-cover bg-gray-100 shrink-0"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <div className="p-3 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {preview.siteName && (
+                        <Badge className="bg-gray-50 text-gray-700 border-gray-200 text-[10px]">
+                          {preview.siteName}
+                        </Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        {preview.url}
+                      </span>
+                    </div>
+                    {preview.title && (
+                      <div className="text-sm font-semibold text-gray-900 line-clamp-2">
+                        {preview.title}
+                      </div>
+                    )}
+                    {preview.description && (
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-2">
+                        {preview.description}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </a>
+          )}
         </div>
 
         {showActions && (isOwnMessage || canModerate) && (

@@ -10,6 +10,7 @@ import { ChannelType } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { getChatMentionRegExp } from './mention-regex';
 import { PointsService } from '../gamification/points.service';
+import { buildPreviewFromHtml, type LinkPreview } from './link-preview.util';
 
 @Injectable()
 export class ChatService {
@@ -18,6 +19,81 @@ export class ChatService {
     private notificationsService: NotificationsService,
     private pointsService: PointsService,
   ) {}
+
+  private readonly linkPreviewCache = new Map<string, { at: number; preview: LinkPreview }>();
+  private readonly LINK_PREVIEW_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+  /** Block SSRF: HTTPS only, no loopback or RFC1918 literal hosts. */
+  private isBlockedFetchHost(hostname: string): boolean {
+    const h = hostname.toLowerCase();
+    if (h === 'localhost' || h.endsWith('.localhost')) return true;
+    const oct = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+    if (!oct) return false;
+    const p = oct.slice(1, 5).map((x) => parseInt(x, 10));
+    if (p.some((n) => n > 255)) return true;
+    const [a, b] = p;
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    return false;
+  }
+
+  async getLinkPreview(rawUrl: string): Promise<LinkPreview | null> {
+    let url: URL;
+    try {
+      url = new URL(rawUrl);
+    } catch {
+      return null;
+    }
+    if (url.protocol !== 'https:') return null;
+    if (this.isBlockedFetchHost(url.hostname)) return null;
+
+    const cacheKey = url.toString();
+    const cached = this.linkPreviewCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now - cached.at < this.LINK_PREVIEW_TTL_MS) {
+      return cached.preview;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    try {
+      const resp = await fetch(cacheKey, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'ATLAS-LinkPreview/1.0',
+          Accept: 'text/html,application/xhtml+xml',
+        },
+      });
+
+      if (!resp.ok) return null;
+      const contentType = resp.headers.get('content-type') || '';
+      if (!/text\/html|application\/xhtml\+xml/i.test(contentType)) return null;
+
+      const text = await resp.text();
+      const preview = buildPreviewFromHtml(cacheKey, text);
+
+      // Simple cache bound
+      this.linkPreviewCache.set(cacheKey, { at: now, preview });
+      if (this.linkPreviewCache.size > 2000) {
+        // remove oldest ~10%
+        const entries = Array.from(this.linkPreviewCache.entries()).sort((a, b) => a[1].at - b[1].at);
+        for (const [k] of entries.slice(0, Math.ceil(entries.length * 0.1))) {
+          this.linkPreviewCache.delete(k);
+        }
+      }
+
+      return preview;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 
   /** Award 2–5 chat points per message with a 10pt daily cap */
   private async awardChatPoints(userId: string, content: string): Promise<void> {

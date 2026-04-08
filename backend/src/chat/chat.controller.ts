@@ -119,6 +119,16 @@ export class ChatController {
     return this.chatService.createMessage(createMessageDto, req.user.id);
   }
 
+  @Get('link-preview')
+  async getLinkPreview(
+    @Query('url') url: string | undefined,
+    @Request() req: any,
+  ) {
+    if (!url) throw new BadRequestException('url is required');
+    // Any authenticated user may request previews; backend applies SSRF protections + caching.
+    return this.chatService.getLinkPreview(url);
+  }
+
   @Get('messages/:channelId')
   getChannelMessages(
     @Param('channelId') channelId: string,
