@@ -21,6 +21,11 @@ interface ResourceSummaryResult {
 export class DiscussionScoringService {
   private genAI: GoogleGenerativeAI;
 
+  /** Retired / invalid model IDs that return 404 on v1beta generateContent — never use. */
+  private static readonly BLOCKED_MODEL_IDS = new Set([
+    'gemini-1.5-flash-8b',
+  ]);
+
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY')?.trim();
     if (apiKey) {
@@ -28,18 +33,35 @@ export class DiscussionScoringService {
     }
   }
 
+  /** Drop blocked IDs; return null if nothing usable. */
+  private sanitizeModelId(raw: string | undefined): string | null {
+    const id = raw?.trim();
+    if (!id) return null;
+    if (DiscussionScoringService.BLOCKED_MODEL_IDS.has(id)) {
+      return null;
+    }
+    return id;
+  }
+
+  private defaultPrimaryModel(): string {
+    return 'gemini-2.5-flash';
+  }
+
   /** Primary + fallbacks, deduped — must match what `generateWithRetry` uses. */
   private getModelCandidates(): string[] {
     const primary =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
-    return [primary, ...this.getFallbackModels()].filter(
-      (v, i, a) => a.indexOf(v) === i,
-    );
+      this.sanitizeModelId(
+        this.configService.get<string>('GEMINI_MODEL') || this.defaultPrimaryModel(),
+      ) ?? this.defaultPrimaryModel();
+    const fallbacks = this.getFallbackModels().filter((m) => m !== primary);
+    return [primary, ...fallbacks].filter((v, i, a) => a.indexOf(v) === i);
   }
 
   private getModel() {
     const modelName =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
+      this.sanitizeModelId(
+        this.configService.get<string>('GEMINI_MODEL') || this.defaultPrimaryModel(),
+      ) ?? this.defaultPrimaryModel();
     return this.genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -50,15 +72,20 @@ export class DiscussionScoringService {
     });
   }
 
+  /**
+   * Env list is merged with safe defaults (deduped) so a bad or stale
+   * GEMINI_MODEL_FALLBACKS value cannot wipe working fallbacks.
+   * Blocked/retired IDs are always stripped.
+   */
   private getFallbackModels(): string[] {
     const raw = this.configService.get<string>('GEMINI_MODEL_FALLBACKS') || '';
-    const list = raw
+    const fromEnv = raw
       .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    // Do not use retired IDs (e.g. gemini-1.5-flash-8b returns 404 on v1beta).
-    const defaults = ['gemini-1.5-flash'];
-    return list.length ? list : defaults;
+      .map((s) => this.sanitizeModelId(s))
+      .filter((x): x is string => x !== null);
+    const safeDefaults = ['gemini-1.5-flash'];
+    const merged = [...fromEnv, ...safeDefaults];
+    return merged.filter((v, i, a) => a.indexOf(v) === i);
   }
 
   private async generateWithRetry(prompt: string) {

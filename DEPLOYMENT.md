@@ -49,8 +49,11 @@
    | `JWT_EXPIRATION` | `15m` |
    | `JWT_REFRESH_EXPIRATION` | `7d` |
    | `FRONTEND_URL` | *(your Vercel URL, set after Step 3)* |
-   | `GEMINI_API_KEY` | *(your API key)* |
+   | `GEMINI_API_KEY` | *(your API key from [Google AI Studio](https://aistudio.google.com/apikey))* |
    | `GEMINI_MODEL` | `gemini-2.5-flash` |
+   | `GEMINI_MODEL_FALLBACKS` | *(optional)* `gemini-1.5-flash` — do **not** use `gemini-1.5-flash-8b` (retired; returns 404). |
+
+   **Important:** Discussion scoring and session analytics call Gemini from the **Render backend**, not from Vercel. Setting `GEMINI_*` only on Vercel will **not** fix AI features until the same variables are set on **atlas-backend** (Render) and the service is redeployed.
    | `EMAIL_HOST` | `smtp.gmail.com` |
    | `EMAIL_PORT` | `587` |
    | `EMAIL_USER` | *(your email)* |
