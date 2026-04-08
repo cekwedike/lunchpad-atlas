@@ -39,9 +39,9 @@ export class SessionAnalyticsService {
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY');
+    const apiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
     const modelName =
-      this.config.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+      this.config.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
 
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);

@@ -17,6 +17,7 @@ import {
   Send,
   Trash2,
   MoreVertical,
+  Loader2,
 } from "lucide-react";
 import {
   useDiscussion,
@@ -337,6 +338,12 @@ export default function DiscussionDetailPage() {
   const canModerateDiscussion = isAdmin || isFacilitator;
   const isFellowDiscussion = discussion?.user?.role === "FELLOW";
   const canScoreQuality = canModerateDiscussion && discussion?.isApproved && isFellowDiscussion;
+
+  const isScoringComment = (commentId: string) =>
+    scoreCommentQuality.isPending && scoreCommentQuality.variables === commentId;
+  const isTogglingCommentScoreShare = (commentId: string) =>
+    toggleCommentQualityVisibility.isPending &&
+    toggleCommentQualityVisibility.variables === commentId;
   const canApproveDiscussion = canModerateDiscussion && discussion?.isApproved === false;
   const canViewDiscussionQuality =
     isFellowDiscussion && (canModerateDiscussion || discussion?.isQualityVisible);
@@ -478,20 +485,35 @@ export default function DiscussionDetailPage() {
                 <button
                   type="button"
                   onClick={() => handleScoreCommentQuality(comment.id)}
-                  className="rounded border border-gray-200 px-2 py-1 text-slate-700 hover:border-gray-300"
+                  disabled={isScoringComment(comment.id)}
+                  className="inline-flex items-center gap-1.5 rounded border border-gray-200 px-2 py-1 text-slate-700 hover:border-gray-300 disabled:opacity-70 disabled:pointer-events-none"
                 >
-                  {comment.qualityScore ? "Rescore comment" : "Score comment"}
+                  {isScoringComment(comment.id) ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+                      <span>Scoring…</span>
+                    </>
+                  ) : (
+                    <span>{comment.qualityScore ? "Rescore comment" : "Score comment"}</span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleToggleCommentQualityVisibility(comment.id)}
                   className={comment.qualityScore
-                    ? 'rounded border border-emerald-200 px-2 py-1 text-emerald-700 hover:border-emerald-300'
+                    ? 'inline-flex items-center gap-1.5 rounded border border-emerald-200 px-2 py-1 text-emerald-700 hover:border-emerald-300 disabled:opacity-70'
                     : 'rounded border border-gray-200 px-2 py-1 text-gray-400 cursor-not-allowed'
                   }
-                  disabled={!comment.qualityScore}
+                  disabled={!comment.qualityScore || isTogglingCommentScoreShare(comment.id)}
                 >
-                  {comment.isQualityVisible ? "Hide score" : "Share score"}
+                  {isTogglingCommentScoreShare(comment.id) ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+                      <span>Updating…</span>
+                    </>
+                  ) : (
+                    <span>{comment.isQualityVisible ? "Hide score" : "Share score"}</span>
+                  )}
                 </button>
               </div>
             )}
@@ -709,9 +731,16 @@ export default function DiscussionDetailPage() {
                             size="sm"
                             onClick={handleScoreQuality}
                             disabled={scoreDiscussionQuality.isPending}
-                            className="shrink-0"
+                            className="shrink-0 gap-2"
                           >
-                            {discussion.qualityScore ? "Rescore" : "Score now"}
+                            {scoreDiscussionQuality.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                                Scoring…
+                              </>
+                            ) : (
+                              <>{discussion.qualityScore ? "Rescore" : "Score now"}</>
+                            )}
                           </Button>
                         )}
                         {canScoreQuality && (
@@ -720,9 +749,16 @@ export default function DiscussionDetailPage() {
                             size="sm"
                             onClick={handleToggleQualityVisibility}
                             disabled={toggleDiscussionQualityVisibility.isPending}
-                            className="shrink-0"
+                            className="shrink-0 gap-2"
                           >
-                            {discussion.isQualityVisible ? "Hide score" : "Share score"}
+                            {toggleDiscussionQualityVisibility.isPending ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                                Updating…
+                              </>
+                            ) : (
+                              <>{discussion.isQualityVisible ? "Hide score" : "Share score"}</>
+                            )}
                           </Button>
                         )}
                         {canApproveDiscussion && (

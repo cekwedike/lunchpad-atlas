@@ -31,7 +31,7 @@ export class DiscussionScoringService {
   /** Primary + fallbacks, deduped — must match what `generateWithRetry` uses. */
   private getModelCandidates(): string[] {
     const primary =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+      this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
     return [primary, ...this.getFallbackModels()].filter(
       (v, i, a) => a.indexOf(v) === i,
     );
@@ -39,7 +39,7 @@ export class DiscussionScoringService {
 
   private getModel() {
     const modelName =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+      this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
     return this.genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -56,8 +56,8 @@ export class DiscussionScoringService {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    // Reasonable defaults for free tier reliability (ordered).
-    const defaults = ['gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+    // Do not use retired IDs (e.g. gemini-1.5-flash-8b returns 404 on v1beta).
+    const defaults = ['gemini-1.5-flash'];
     return list.length ? list : defaults;
   }
 
