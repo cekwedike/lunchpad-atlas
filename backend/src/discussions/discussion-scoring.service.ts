@@ -22,10 +22,19 @@ export class DiscussionScoringService {
   private genAI: GoogleGenerativeAI;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY')?.trim();
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
     }
+  }
+
+  /** Primary + fallbacks, deduped — must match what `generateWithRetry` uses. */
+  private getModelCandidates(): string[] {
+    const primary =
+      this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+    return [primary, ...this.getFallbackModels()].filter(
+      (v, i, a) => a.indexOf(v) === i,
+    );
   }
 
   private getModel() {
@@ -53,11 +62,7 @@ export class DiscussionScoringService {
   }
 
   private async generateWithRetry(prompt: string) {
-    const primary =
-      this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
-    const candidates = [primary, ...this.getFallbackModels()].filter(
-      (v, i, a) => a.indexOf(v) === i,
-    );
+    const candidates = this.getModelCandidates();
 
     let lastErr: unknown = null;
     for (const modelName of candidates) {
@@ -184,22 +189,43 @@ export class DiscussionScoringService {
 
   async getAiStatus(): Promise<{ available: boolean; message?: string }> {
     if (!this.genAI) {
-      return { available: false, message: 'Gemini key missing' };
-    }
-
-    try {
-      const model = this.getModel();
-      await model.generateContent('Return JSON: {"ok": true}');
-      return { available: true };
-    } catch (error) {
-      console.error('Error checking Gemini availability:', error);
-      const modelName =
-        this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
       return {
         available: false,
-        message: `Gemini model not accessible (${modelName})`,
+        message:
+          'GEMINI_API_KEY is empty or whitespace — set it in the backend environment and restart.',
       };
     }
+
+    // Same models as scoring: primary can fail (e.g. wrong name/region) while fallbacks work.
+    const candidates = this.getModelCandidates();
+    let lastErr: unknown = null;
+
+    for (const modelName of candidates) {
+      try {
+        const model = this.genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+            topP: 0.9,
+          },
+        });
+        await model.generateContent('Return JSON: {"ok": true}');
+        return { available: true };
+      } catch (error) {
+        lastErr = error;
+        console.error(`Gemini availability check failed for model ${modelName}:`, error);
+      }
+    }
+
+    const lastMsg =
+      lastErr instanceof Error ? lastErr.message : String(lastErr ?? 'unknown');
+    const short =
+      lastMsg.length > 320 ? `${lastMsg.slice(0, 320)}…` : lastMsg;
+    return {
+      available: false,
+      message: `No working Gemini model in this chain: ${candidates.join(' → ')}. Last error: ${short}`,
+    };
   }
 
   async scoreDiscussion(
