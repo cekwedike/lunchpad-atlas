@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, Max, IsString } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class LeaderboardFilterDto {
@@ -43,4 +43,10 @@ export class LeaderboardAdjustPointsDto {
 
   @IsString()
   description: string;
+
+  /** Admin-only: bypass monthly cap enforcement for this adjustment. */
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  bypassMonthlyCap?: boolean;
 }

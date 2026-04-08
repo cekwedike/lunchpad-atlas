@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { PrismaService } from '../prisma.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('AttendanceService', () => {
   let service: AttendanceService;
@@ -29,11 +30,16 @@ describe('AttendanceService', () => {
     },
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
@@ -71,8 +77,11 @@ describe('AttendanceService', () => {
       mockPrismaService.session.findUnique.mockResolvedValue(mockSession);
       mockPrismaService.attendance.findUnique.mockResolvedValue(null);
       mockPrismaService.attendance.create.mockResolvedValue(mockAttendance);
-      mockPrismaService.pointsLog.create.mockResolvedValue({});
-      mockPrismaService.user.update.mockResolvedValue({});
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
 
       const result = await service.checkIn(userId, sessionId);
 
@@ -114,17 +123,18 @@ describe('AttendanceService', () => {
       mockPrismaService.session.findUnique.mockResolvedValue(mockSession);
       mockPrismaService.attendance.findUnique.mockResolvedValue(null);
       mockPrismaService.attendance.create.mockResolvedValue(mockAttendance);
-      mockPrismaService.pointsLog.create.mockResolvedValue({});
-      mockPrismaService.user.update.mockResolvedValue({});
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
 
       const result = await service.checkIn(userId, sessionId);
 
       expect(result.isLate).toBe(true);
       // Late attendance awards 10 points
-      expect(mockPrismaService.pointsLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ points: 10 }),
-        }),
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ points: 10 }),
       );
     });
 

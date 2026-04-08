@@ -177,6 +177,88 @@ export class SessionAnalyticsController {
     return this.analyticsExportService.generateAnalyticsSummary(cohortId);
   }
 
+  @Get('completion-matrix/:cohortId')
+  @Roles('FACILITATOR', 'ADMIN')
+  @ApiOperation({ summary: 'Get resource completion matrix for a cohort session' })
+  async getCompletionMatrix(
+    @Param('cohortId') cohortId: string,
+    @Query('sessionId') sessionId: string | undefined,
+    @Request() req: { user: { id: string } },
+  ) {
+    await this.sessionAnalyticsService.assertViewerCanAccessCohort(req.user.id, cohortId);
+    if (!sessionId) {
+      throw new BadRequestException('sessionId is required');
+    }
+
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: cohortId },
+      select: {
+        id: true,
+        sessions: { select: { id: true, sessionNumber: true, title: true }, orderBy: { sessionNumber: 'asc' } },
+      },
+    });
+    if (!cohort) throw new BadRequestException('Cohort not found');
+
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, cohortId },
+      select: {
+        id: true,
+        sessionNumber: true,
+        title: true,
+        resources: { select: { id: true, title: true, order: true, isCore: true }, orderBy: { order: 'asc' } },
+      },
+    });
+    if (!session) throw new BadRequestException('Session not found in cohort');
+
+    const fellows = await this.prisma.user.findMany({
+      where: { cohortId, role: 'FELLOW' as any },
+      select: { id: true, firstName: true, lastName: true, email: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    });
+
+    const fellowIds = fellows.map((f) => f.id);
+    const resourceIds = session.resources.map((r) => r.id);
+
+    const progress =
+      fellowIds.length && resourceIds.length
+        ? await this.prisma.resourceProgress.findMany({
+            where: { userId: { in: fellowIds }, resourceId: { in: resourceIds } },
+            select: { userId: true, resourceId: true, state: true, completedAt: true },
+          })
+        : [];
+
+    const progressByKey = new Map<string, (typeof progress)[number]>();
+    for (const p of progress) {
+      progressByKey.set(`${p.userId}:${p.resourceId}`, p);
+    }
+
+    return {
+      cohort: { id: cohort.id, sessions: cohort.sessions },
+      session: { id: session.id, sessionNumber: session.sessionNumber, title: session.title },
+      fellows: fellows.map((f) => ({
+        id: f.id,
+        name: `${f.firstName} ${f.lastName}`.trim(),
+        email: f.email,
+      })),
+      resources: session.resources.map((r) => ({
+        id: r.id,
+        title: r.title,
+        order: r.order,
+        isCore: r.isCore,
+      })),
+      // Dense grid: [fellowIndex][resourceIndex] -> state
+      grid: fellows.map((f) =>
+        session.resources.map((r) => {
+          const row = progressByKey.get(`${f.id}:${r.id}`);
+          return {
+            state: row?.state ?? 'NOT_STARTED',
+            completedAt: row?.completedAt ?? null,
+          };
+        }),
+      ),
+    };
+  }
+
   // Accessible to all authenticated users (no @Roles restriction)
   @Post('/events')
   @Throttle({ default: { limit: 60, ttl: 60000 } })

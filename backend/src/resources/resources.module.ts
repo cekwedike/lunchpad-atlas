@@ -5,9 +5,10 @@ import { EnhancedEngagementService } from './enhanced-engagement.service';
 import { PrismaService } from '../prisma.service';
 import { AchievementsModule } from '../achievements/achievements.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GamificationModule } from '../gamification/gamification.module';
 
 @Module({
-  imports: [AchievementsModule, NotificationsModule],
+  imports: [AchievementsModule, NotificationsModule, GamificationModule],
   providers: [ResourcesService, EnhancedEngagementService, PrismaService],
   controllers: [ResourcesController],
   exports: [EnhancedEngagementService],

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as QRCode from 'qrcode';
+import { PointsService } from '../gamification/points.service';
 
 interface CheckInData {
   latitude?: number;
@@ -41,7 +42,10 @@ interface AttendanceReport {
 
 @Injectable()
 export class AttendanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pointsService: PointsService,
+  ) {}
 
   /**
    * Generate QR code for session check-in
@@ -152,17 +156,11 @@ export class AttendanceService {
 
     // Award 20 points for attending (10 if late)
     const attendPoints = isLate ? 10 : 20;
-    await this.prisma.pointsLog.create({
-      data: {
-        userId,
-        points: attendPoints,
-        eventType: 'SESSION_ATTEND',
-        description: `Attended session: ${attendance.session.title}${isLate ? ' (late)' : ''}`,
-      },
-    });
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { currentMonthPoints: { increment: attendPoints } },
+    await this.pointsService.awardPoints({
+      userId,
+      points: attendPoints,
+      eventType: 'SESSION_ATTEND' as any,
+      description: `Attended session: ${attendance.session.title}${isLate ? ' (late)' : ''}`,
     });
 
     return attendance;

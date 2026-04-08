@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma.service';
 import { DiscussionScoringService } from './discussion-scoring.service';
 import { DiscussionsGateway } from './discussions.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('DiscussionsService', () => {
   let service: DiscussionsService;
@@ -58,6 +59,10 @@ describe('DiscussionsService', () => {
     notifyDiscussionReply: jest.fn(),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -66,11 +71,18 @@ describe('DiscussionsService', () => {
         { provide: DiscussionScoringService, useValue: mockDiscussionScoringService },
         { provide: DiscussionsGateway, useValue: mockDiscussionsGateway },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
     service = module.get<DiscussionsService>(DiscussionsService);
     prisma = module.get<PrismaService>(PrismaService);
+
+    mockPointsService.awardPoints.mockResolvedValue({
+      awarded: true,
+      capped: false,
+      monthResetApplied: false,
+    });
   });
 
   afterEach(() => {

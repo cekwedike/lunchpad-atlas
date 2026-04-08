@@ -4,6 +4,7 @@ import { ChatService } from './chat.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChannelType } from '@prisma/client';
+import { PointsService } from '../gamification/points.service';
 
 describe('ChatService', () => {
   let service: ChatService;
@@ -57,12 +58,17 @@ describe('ChatService', () => {
     notifyChatRoomLockUpdated: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChatService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
@@ -274,9 +280,15 @@ describe('ChatService', () => {
       };
       mockPrismaService.chatMessage.create.mockResolvedValue(mockMessage);
       mockPrismaService.engagementEvent.create.mockResolvedValue({});
-      mockPrismaService.pointsLog.aggregate.mockResolvedValue({ _sum: { points: 0 } });
-      mockPrismaService.pointsLog.create.mockResolvedValue({});
-      mockPrismaService.user.update.mockResolvedValue({});
+      // daily + weekly aggregates
+      mockPrismaService.pointsLog.aggregate
+        .mockResolvedValueOnce({ _sum: { points: 0 } })
+        .mockResolvedValueOnce({ _sum: { points: 0 } });
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
       mockPrismaService.user.findMany.mockResolvedValue([]);
       (mockPrismaService as any).cohortFacilitator = { findMany: jest.fn().mockResolvedValue([]) };
 

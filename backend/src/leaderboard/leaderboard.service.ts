@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { LeaderboardFilterDto, LeaderboardAdjustPointsDto } from './dto/leaderboard.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../gamification/points.service';
 
 /** Resolved cohort visibility for leaderboard lists and rank (privacy). */
 export type LeaderboardCohortScope =
@@ -19,6 +20,7 @@ export class LeaderboardService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private pointsService: PointsService,
   ) {}
 
   private buildMonthRange(year: number, month: number) {
@@ -629,33 +631,19 @@ export class LeaderboardService {
       }
     }
 
-    const now = new Date();
-    const lastReset = user.lastPointReset;
-    const needsReset =
-      !lastReset ||
-      lastReset.getMonth() !== now.getMonth() ||
-      lastReset.getFullYear() !== now.getFullYear();
+    const bypassMonthlyCap =
+      adjustedByRole === 'ADMIN' && dto.bypassMonthlyCap === true;
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        currentMonthPoints: needsReset
-          ? points
-          : { increment: points },
-        lastPointReset: needsReset ? now : undefined,
-      },
-    });
-
-    const log = await this.prisma.pointsLog.create({
-      data: {
-        userId,
-        points,
-        eventType: 'ADMIN_ADJUSTMENT' as any,
-        description,
-        metadata: {
-          adjustedBy: adjustedById,
-        },
-      },
+    const result = await this.pointsService.awardPoints({
+      userId,
+      points,
+      eventType: 'ADMIN_ADJUSTMENT' as any,
+      description,
+      bypassMonthlyCap,
+      metadata: {
+        adjustedBy: adjustedById,
+        bypassMonthlyCap,
+      } as any,
     });
 
     // Notify the fellow about the points adjustment
@@ -677,7 +665,7 @@ export class LeaderboardService {
       // Non-critical
     }
 
-    return { success: true, logId: log.id };
+    return { success: result.awarded, capped: result.capped };
   }
 
   private async calculateStreak(userId: string): Promise<number> {

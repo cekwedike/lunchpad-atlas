@@ -4,6 +4,7 @@ import { ResourcesService } from './resources.service';
 import { PrismaService } from '../prisma.service';
 import { AchievementsService } from '../achievements/achievements.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('ResourcesService', () => {
   let service: ResourcesService;
@@ -38,6 +39,10 @@ describe('ResourcesService', () => {
     createNotification: jest.fn(),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -45,6 +50,7 @@ describe('ResourcesService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AchievementsService, useValue: mockAchievementsService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
@@ -155,6 +161,11 @@ describe('ResourcesService', () => {
         monthlyPointsCap: 1000,
         lastPointReset: new Date(),
       });
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
       mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
 
       const qualityBonus = Math.floor(
@@ -166,13 +177,13 @@ describe('ResourcesService', () => {
 
       expect(result).toHaveProperty('completedAt');
       expect(result.state).toBe('COMPLETED');
-      expect(mockPrismaService.pointsLog.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
+        expect.objectContaining({
           userId,
           points: totalPoints,
           eventType: 'RESOURCE_COMPLETE',
         }),
-      });
+      );
     });
 
     it('should not award points if already completed', async () => {
@@ -203,7 +214,7 @@ describe('ResourcesService', () => {
 
       await service.markComplete(resourceId, userId);
 
-      expect(mockPrismaService.pointsLog.create).not.toHaveBeenCalled();
+      expect(mockPointsService.awardPoints).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if resource does not exist', async () => {

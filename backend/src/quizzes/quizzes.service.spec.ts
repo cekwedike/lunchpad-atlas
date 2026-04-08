@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { QuizzesService } from './quizzes.service';
 import { PrismaService } from '../prisma.service';
 import { AchievementsService } from '../achievements/achievements.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('QuizzesService', () => {
   let service: QuizzesService;
@@ -41,16 +42,27 @@ describe('QuizzesService', () => {
     checkAndAwardAchievements: jest.fn().mockResolvedValue([]),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QuizzesService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AchievementsService, useValue: mockAchievementsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
     service = module.get<QuizzesService>(QuizzesService);
+
+    mockPointsService.awardPoints.mockResolvedValue({
+      awarded: true,
+      capped: false,
+      monthResetApplied: false,
+    });
   });
 
   afterEach(() => {

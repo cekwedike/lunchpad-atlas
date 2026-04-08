@@ -9,12 +9,14 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { ChannelType } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { getChatMentionRegExp } from './mention-regex';
+import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class ChatService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private pointsService: PointsService,
   ) {}
 
   /** Award 2–5 chat points per message with a 10pt daily cap */
@@ -38,14 +40,40 @@ export class ChatService {
     const remaining = Math.max(0, 10 - usedToday); // 10pt daily cap
     if (remaining <= 0) return;
 
-    const awardPts = Math.min(pts, remaining);
+    // Weekly cap (ISO week): 50 points per user
+    const WEEKLY_CHAT_CAP = 50;
+    const now = new Date();
+    const day = now.getDay(); // 0=Sun..6=Sat
+    // Start of ISO week (Monday). For Sunday (0), go back 6 days.
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - diffToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
 
-    await this.prisma.pointsLog.create({
-      data: { userId, points: awardPts, eventType: 'CHAT_MESSAGE', description: 'Chat engagement' },
+    const weeklyChatPoints = await this.prisma.pointsLog.aggregate({
+      where: {
+        userId,
+        eventType: 'CHAT_MESSAGE',
+        createdAt: { gte: weekStart, lt: weekEnd },
+      },
+      _sum: { points: true },
     });
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { currentMonthPoints: { increment: awardPts } },
+
+    const usedThisWeek = weeklyChatPoints._sum.points ?? 0;
+    const weeklyRemaining = Math.max(0, WEEKLY_CHAT_CAP - usedThisWeek);
+    if (weeklyRemaining <= 0) return;
+
+    const awardPts = Math.min(pts, remaining);
+    const awardPtsCapped = Math.min(awardPts, weeklyRemaining);
+    if (awardPtsCapped <= 0) return;
+
+    await this.pointsService.awardPoints({
+      userId,
+      points: awardPtsCapped,
+      eventType: 'CHAT_MESSAGE' as any,
+      description: 'Chat engagement',
     });
   }
 

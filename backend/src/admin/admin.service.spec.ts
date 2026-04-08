@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from '../chat/chat.service';
 import { SessionAnalyticsService } from '../session-analytics/session-analytics.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -70,6 +71,10 @@ describe('AdminService', () => {
     recordEvent: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -78,6 +83,7 @@ describe('AdminService', () => {
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: ChatService, useValue: mockChatService },
         { provide: SessionAnalyticsService, useValue: mockSessionAnalyticsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 

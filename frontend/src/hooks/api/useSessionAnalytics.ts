@@ -41,6 +41,17 @@ export function useAnalyticsSummary(cohortId: string) {
   });
 }
 
+export function useCompletionMatrix(cohortId: string, sessionId: string) {
+  return useQuery<any>({
+    queryKey: ['completion-matrix', cohortId, sessionId],
+    queryFn: () =>
+      apiClient.get(
+        `/session-analytics/completion-matrix/${cohortId}?sessionId=${encodeURIComponent(sessionId)}`,
+      ),
+    enabled: !!cohortId && !!sessionId,
+  });
+}
+
 // Process session transcript with AI
 export function useProcessSessionTranscript() {
   const queryClient = useQueryClient();

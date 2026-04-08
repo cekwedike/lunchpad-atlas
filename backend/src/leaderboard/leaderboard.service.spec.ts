@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('LeaderboardService', () => {
   let service: LeaderboardService;
@@ -40,12 +41,17 @@ describe('LeaderboardService', () => {
     notifyPointsAdjusted: jest.fn(),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeaderboardService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
@@ -254,20 +260,21 @@ describe('LeaderboardService', () => {
           lastName: 'User',
         });
 
-      mockPrismaService.user.update.mockResolvedValue({});
-      mockPrismaService.pointsLog.create.mockResolvedValue({ id: 'log-1' });
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
       mockNotificationsService.notifyPointsAdjusted.mockResolvedValue(undefined);
 
       const result = await service.adjustPoints(adjustedById, 'ADMIN', dto);
 
-      expect(result).toEqual({ success: true, logId: 'log-1' });
-      expect(mockPrismaService.pointsLog.create).toHaveBeenCalledWith(
+      expect(result).toEqual({ success: true, capped: false });
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'user-1',
-            points: 50,
-            eventType: 'ADMIN_ADJUSTMENT',
-          }),
+          userId: 'user-1',
+          points: 50,
+          eventType: 'ADMIN_ADJUSTMENT',
         }),
       );
     });

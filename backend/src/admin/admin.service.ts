@@ -26,6 +26,7 @@ import {
 } from '../resources/dto/create-resource.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from '../chat/chat.service';
+import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class AdminService {
@@ -34,6 +35,7 @@ export class AdminService {
     private notificationsService: NotificationsService,
     private chatService: ChatService,
     private sessionAnalyticsService: SessionAnalyticsService,
+    private pointsService: PointsService,
   ) {}
 
   // ============ Cohort Management Methods ============
@@ -1561,8 +1563,13 @@ Rules:
 
   async awardSessionPoints(
     sessionId: string,
-    awards: Array<{ userId: string; points: number; reason?: string }>,
-    adminId: string,
+    awards: Array<{
+      userId: string;
+      points: number;
+      reason?: string;
+      bypassMonthlyCap?: boolean;
+    }>,
+    actorUserId: string,
   ) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
@@ -1570,28 +1577,36 @@ Rules:
     });
     if (!session) throw new NotFoundException('Session not found');
 
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorUserId },
+      select: { id: true, role: true },
+    });
+    if (!actor) throw new ForbiddenException('User not found');
+
     const results: Array<{ userId: string; points: number; awarded: boolean }> =
       [];
 
     for (const award of awards) {
       if (award.points <= 0) continue;
       try {
-        await this.prisma.pointsLog.create({
-          data: {
-            userId: award.userId,
-            points: award.points,
-            eventType: 'SESSION_ATTEND',
-            description: award.reason ?? `Session engagement: ${session.title}`,
-          },
+        const bypassMonthlyCap = actor.role === 'ADMIN' && award.bypassMonthlyCap === true;
+
+        const res = await this.pointsService.awardPoints({
+          userId: award.userId,
+          points: award.points,
+          eventType: 'SESSION_ATTEND' as any,
+          description: award.reason ?? `Session engagement: ${session.title}`,
+          bypassMonthlyCap,
+          metadata: {
+            sessionId: session.id,
+            awardedBy: actorUserId,
+          } as any,
         });
-        await this.prisma.user.update({
-          where: { id: award.userId },
-          data: { currentMonthPoints: { increment: award.points } },
-        });
+
         results.push({
           userId: award.userId,
           points: award.points,
-          awarded: true,
+          awarded: res.awarded,
         });
       } catch {
         results.push({
@@ -1604,7 +1619,7 @@ Rules:
 
     await this.prisma.adminAuditLog.create({
       data: {
-        adminId,
+        adminId: actorUserId,
         action: 'SESSION_POINTS_AWARDED',
         entityType: 'Session',
         entityId: sessionId,

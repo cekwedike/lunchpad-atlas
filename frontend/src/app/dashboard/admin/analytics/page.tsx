@@ -10,7 +10,7 @@ import {
   GraduationCap, CheckCircle, Sparkles, Trophy,
 } from "lucide-react";
 import { useCohorts, useAdminMetrics } from "@/hooks/api/useAdmin";
-import { useAnalyticsSummary } from "@/hooks/api/useSessionAnalytics";
+import { useAnalyticsSummary, useCompletionMatrix } from "@/hooks/api/useSessionAnalytics";
 
 function StatCard({
   title, value, sub, icon: Icon, color,
@@ -41,6 +41,7 @@ function StatCard({
 
 export default function AdminAnalyticsPage() {
   const [selectedCohortId, setSelectedCohortId] = useState("");
+  const [selectedSessionId, setSelectedSessionId] = useState("");
 
   const { data: cohortsData } = useCohorts();
   const { data: metrics, isLoading: metricsLoading } = useAdminMetrics();
@@ -67,6 +68,20 @@ export default function AdminAnalyticsPage() {
     engagementScore: number | null;
     participationRate: number | null;
   }> = summary?.sessionEngagement ?? [];
+
+  // Default session selection (for completion matrix)
+  useEffect(() => {
+    const sessions: Array<{ id: string }> = summary?.cohort?.sessions ?? [];
+    if (!selectedSessionId && sessions.length > 0) {
+      setSelectedSessionId(sessions[0].id);
+    }
+  }, [summary?.cohort?.sessions, selectedSessionId]);
+
+  const { data: matrixRaw, isLoading: matrixLoading } = useCompletionMatrix(
+    selectedCohortId,
+    selectedSessionId,
+  );
+  const matrix = matrixRaw as any;
 
   return (
     <DashboardLayout>
@@ -211,6 +226,13 @@ export default function AdminAnalyticsPage() {
                       icon={Award}
                       color="bg-amber-500"
                     />
+                    <StatCard
+                      title="App Time"
+                      value={stats?.totalAppTimeHours ? `${stats.totalAppTimeHours.toLocaleString()} hrs` : "—"}
+                      sub="Total in cohort (this month)"
+                      icon={TrendingUp}
+                      color="bg-slate-600"
+                    />
                   </>
                 )}
               </div>
@@ -230,7 +252,6 @@ export default function AdminAnalyticsPage() {
                   ) : (
                     [
                       { label: "Total Resources", value: stats?.totalResources ?? 0, icon: BookOpen, color: "bg-blue-100 text-blue-600" },
-                      { label: "Completed Resources", value: stats?.completedResources ?? 0, icon: CheckCircle, color: "bg-emerald-100 text-emerald-600" },
                       { label: "Total Sessions", value: stats?.totalSessions ?? 0, icon: Calendar, color: "bg-violet-100 text-violet-600" },
                       { label: "Sessions Analyzed (ATLAS)", value: stats?.sessionsWithAnalytics ?? 0, icon: Sparkles, color: "bg-purple-100 text-purple-600" },
                     ].map(({ label, value, icon: Icon, color }) => (
@@ -298,6 +319,92 @@ export default function AdminAnalyticsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* ── Resource Completion Matrix ── */}
+            <Card className="bg-white border-gray-200 shadow-sm">
+              <CardHeader className="border-b border-gray-100 pb-3">
+                <CardTitle className="text-base font-semibold text-gray-900">Resource Completion Matrix</CardTitle>
+                <CardDescription className="text-gray-500 text-sm">
+                  Per-session view of which fellows completed which resources
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4">
+                {summaryLoading ? (
+                  <Skeleton className="h-10 w-72 rounded-lg" />
+                ) : (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label className="text-sm font-medium text-gray-600 shrink-0">Session</label>
+                    <select
+                      className="w-full sm:w-[28rem] p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
+                      value={selectedSessionId}
+                      onChange={(e) => setSelectedSessionId(e.target.value)}
+                    >
+                      {(summary?.cohort?.sessions ?? []).map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          S{s.sessionNumber}: {s.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {matrixLoading || summaryLoading ? (
+                  <Skeleton className="h-64 w-full rounded-lg" />
+                ) : !matrix?.fellows?.length || !matrix?.resources?.length ? (
+                  <div className="text-sm text-gray-500">No fellows/resources available for this session.</div>
+                ) : (
+                  <div className="w-full overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-max w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="sticky left-0 bg-gray-50 z-10 text-left px-3 py-2 border-b border-gray-200 min-w-[220px]">
+                            Fellow
+                          </th>
+                          {matrix.resources.map((r: any) => (
+                            <th
+                              key={r.id}
+                              className="text-left px-3 py-2 border-b border-gray-200 min-w-[220px]"
+                              title={r.title}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="truncate max-w-[180px]">{r.title}</span>
+                                {r.isCore ? (
+                                  <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px]">Core</Badge>
+                                ) : (
+                                  <Badge className="bg-gray-50 text-gray-600 border-gray-200 text-[10px]">Optional</Badge>
+                                )}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrix.fellows.map((f: any, rowIdx: number) => (
+                          <tr key={f.id} className="odd:bg-white even:bg-gray-50">
+                            <td className="sticky left-0 z-10 bg-inherit px-3 py-2 border-b border-gray-200">
+                              <div className="font-medium text-gray-900">{f.name}</div>
+                              <div className="text-xs text-gray-500">{f.email}</div>
+                            </td>
+                            {matrix.resources.map((r: any, colIdx: number) => {
+                              const cell = matrix.grid?.[rowIdx]?.[colIdx];
+                              const state = cell?.state;
+                              const done = state === "COMPLETED";
+                              return (
+                                <td key={r.id} className="px-3 py-2 border-b border-gray-200">
+                                  <span className={done ? "text-emerald-600 font-semibold" : "text-gray-400"}>
+                                    {done ? "✓ Completed" : "—"}
+                                  </span>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* ── Session Engagement Trend ── */}
             <Card className="bg-white border-gray-200 shadow-sm">

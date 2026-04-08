@@ -14,6 +14,7 @@ import {
 import { DiscussionScoringService } from './discussion-scoring.service';
 import { DiscussionsGateway } from './discussions.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class DiscussionsService {
@@ -22,6 +23,7 @@ export class DiscussionsService {
     private discussionScoring: DiscussionScoringService,
     private discussionsGateway: DiscussionsGateway,
     private notificationsService: NotificationsService,
+    private pointsService: PointsService,
   ) {}
 
   private stripHtmlToText(html: string) {
@@ -179,50 +181,13 @@ export class DiscussionsService {
     eventType: string,
     description: string,
   ): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        currentMonthPoints: true,
-        monthlyPointsCap: true,
-        lastPointReset: true,
-      },
+    const result = await this.pointsService.awardPoints({
+      userId,
+      points,
+      eventType: eventType as any,
+      description,
     });
-
-    if (!user) return false;
-
-    // Check if monthly reset is needed
-    const now = new Date();
-    const lastReset = user.lastPointReset;
-    const needsReset =
-      !lastReset ||
-      lastReset.getMonth() !== now.getMonth() ||
-      lastReset.getFullYear() !== now.getFullYear();
-
-    const currentMonthPoints = needsReset ? 0 : user.currentMonthPoints;
-
-    // Enforce monthly cap
-    if (currentMonthPoints + points > user.monthlyPointsCap) {
-      return false;
-    }
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        currentMonthPoints: needsReset ? points : { increment: points },
-        lastPointReset: needsReset ? now : undefined,
-      },
-    });
-
-    await this.prisma.pointsLog.create({
-      data: {
-        userId,
-        points,
-        eventType: eventType as any,
-        description,
-      },
-    });
-
-    return true;
+    return result.awarded;
   }
 
   private maskDiscussionQuality<T extends { isQualityVisible?: boolean }>(

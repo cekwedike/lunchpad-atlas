@@ -13,6 +13,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { AchievementsService } from '../achievements/achievements.service';
 import { NotificationType, Prisma, UserRole } from '@prisma/client';
+import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class LiveQuizService {
@@ -20,6 +21,7 @@ export class LiveQuizService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private achievementsService: AchievementsService,
+    private pointsService: PointsService,
   ) {}
 
   private async getLiveQuizCohortIds(liveQuizId: string): Promise<string[]> {
@@ -506,14 +508,12 @@ export class LiveQuizService {
             where: { id: participant.id },
             data: { rank },
           }),
-          this.prisma.pointsLog.create({
-            data: {
-              userId: participant.userId,
-              liveQuizId: id,
-              eventType: 'QUIZ_SUBMIT',
-              points: pts,
-              description: `Live Quiz: ${quiz?.title ?? 'Unknown'} - Rank #${rank} (score: ${participant.totalScore} pts)`,
-            },
+          this.pointsService.awardPoints({
+            userId: participant.userId,
+            points: pts,
+            eventType: 'QUIZ_SUBMIT' as any,
+            liveQuizId: id,
+            description: `Live Quiz: ${quiz?.title ?? 'Unknown'} - Rank #${rank} (score: ${participant.totalScore} pts)`,
           }),
         ]);
       }),

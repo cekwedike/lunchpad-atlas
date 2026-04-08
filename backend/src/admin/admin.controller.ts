@@ -192,7 +192,15 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'Session ID' })
   awardSessionPoints(
     @Param('id') sessionId: string,
-    @Body() dto: { awards: Array<{ userId: string; points: number; reason?: string }> },
+    @Body()
+    dto: {
+      awards: Array<{
+        userId: string;
+        points: number;
+        reason?: string;
+        bypassMonthlyCap?: boolean;
+      }>;
+    },
     @Request() req,
   ) {
     return this.adminService.awardSessionPoints(sessionId, dto.awards, req.user.id);

@@ -327,8 +327,18 @@ export class AnalyticsExportService {
 
     let topPerformers: Array<{ rank: number; name: string; totalPoints: number }> = [];
     let totalPointsAwarded = 0;
+    let totalAppTimeSeconds = 0;
 
     if (fellowIds.length > 0) {
+      const appTimeAgg = await (this.prisma as any).platformTimeDaily.aggregate({
+        where: {
+          userId: { in: fellowIds },
+          day: { gte: monthStart, lte: monthEnd },
+        },
+        _sum: { seconds: true },
+      });
+      totalAppTimeSeconds = appTimeAgg?._sum?.seconds ?? 0;
+
       const pointsAll = await this.prisma.pointsLog.groupBy({
         by: ['userId'],
         where: { userId: { in: fellowIds }, createdAt: { gte: monthStart, lte: monthEnd } },
@@ -378,6 +388,8 @@ export class AnalyticsExportService {
         avgEngagementScore: avgEngagement.toFixed(2),
         overallCompletionRate: completionRate.toFixed(2) + '%',
         totalPointsAwarded,
+        totalAppTimeSeconds,
+        totalAppTimeHours: Number((totalAppTimeSeconds / 3600).toFixed(2)),
       },
       topPerformers,
       sessionEngagement,

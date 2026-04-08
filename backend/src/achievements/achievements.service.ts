@@ -7,6 +7,7 @@ import {
   getTotalTargetForDuration,
   getScaledLeaderboardThreshold,
 } from '../common/gamification.utils';
+import { PointsService } from '../gamification/points.service';
 
 const ACHIEVEMENT_DEFINITIONS = [
   // MILESTONE (18)
@@ -80,6 +81,7 @@ export class AchievementsService implements OnApplicationBootstrap {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private pointsService: PointsService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -322,13 +324,12 @@ export class AchievementsService implements OnApplicationBootstrap {
 
       // Log the achievement bonus points
       if (achievement.pointValue > 0) {
-        await this.prisma.pointsLog.create({
-          data: {
-            userId,
-            points: achievement.pointValue,
-            eventType: 'ADMIN_ADJUSTMENT',
-            description: `Achievement unlocked: ${achievement.name}`,
-          },
+        await this.pointsService.awardPoints({
+          userId,
+          points: achievement.pointValue,
+          eventType: 'ADMIN_ADJUSTMENT' as any,
+          description: `Achievement unlocked: ${achievement.name}`,
+          metadata: { achievementId: achievement.id, achievementName: achievement.name } as any,
         });
       }
 

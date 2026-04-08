@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AchievementsService } from './achievements.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PointsService } from '../gamification/points.service';
 
 describe('AchievementsService', () => {
   let service: AchievementsService;
@@ -56,12 +57,17 @@ describe('AchievementsService', () => {
     createNotification: jest.fn(),
   };
 
+  const mockPointsService = {
+    awardPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AchievementsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: PointsService, useValue: mockPointsService },
       ],
     }).compile();
 
@@ -175,7 +181,11 @@ describe('AchievementsService', () => {
       mockPrismaService.session.findMany.mockResolvedValue([]);
       mockPrismaService.resourceProgress.findMany.mockResolvedValue([]);
       mockPrismaService.userAchievement.create.mockResolvedValue({});
-      mockPrismaService.pointsLog.create.mockResolvedValue({});
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
       mockPrismaService.user.findMany.mockResolvedValue([]);
       mockNotificationsService.notifyAchievementEarned.mockResolvedValue(undefined);
 
@@ -241,18 +251,21 @@ describe('AchievementsService', () => {
       mockPrismaService.session.findMany.mockResolvedValue([]);
       mockPrismaService.resourceProgress.findMany.mockResolvedValue([]);
       mockPrismaService.userAchievement.create.mockResolvedValue({});
-      mockPrismaService.pointsLog.create.mockResolvedValue({});
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
       mockPrismaService.user.findMany.mockResolvedValue([]);
       mockNotificationsService.notifyAchievementEarned.mockResolvedValue(undefined);
 
       await service.checkAndAwardAchievements('user-1');
 
-      expect(mockPrismaService.pointsLog.create).toHaveBeenCalledWith(
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'user-1',
-            points: 10,
-          }),
+          userId: 'user-1',
+          points: 10,
+          eventType: 'ADMIN_ADJUSTMENT',
         }),
       );
     });

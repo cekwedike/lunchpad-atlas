@@ -8,9 +8,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ChatModule } from '../chat/chat.module';
 import { SessionAnalyticsModule } from '../session-analytics/session-analytics.module';
 import { EmailModule } from '../email/email.module';
+import { GamificationModule } from '../gamification/gamification.module';
 
 @Module({
-  imports: [NotificationsModule, ChatModule, SessionAnalyticsModule, EmailModule],
+  imports: [NotificationsModule, ChatModule, SessionAnalyticsModule, EmailModule, GamificationModule],
   controllers: [AdminController],
   providers: [AdminService, AdminUserService, GuestFacilitatorScheduler, PrismaService],
   exports: [AdminService, AdminUserService],

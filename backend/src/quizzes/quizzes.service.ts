@@ -8,12 +8,14 @@ import { PrismaService } from '../prisma.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
 import { AchievementsService } from '../achievements/achievements.service';
 import { UserRole } from '@prisma/client';
+import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class QuizzesService {
   constructor(
     private prisma: PrismaService,
     private achievementsService: AchievementsService,
+    private pointsService: PointsService,
   ) {}
 
   private async assertUserCanAccessQuiz(
@@ -85,56 +87,15 @@ export class QuizzesService {
     bypassCap = false,
     quizId?: string,
   ): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        currentMonthPoints: true,
-        monthlyPointsCap: true,
-        lastPointReset: true,
-      },
+    const result = await this.pointsService.awardPoints({
+      userId,
+      points,
+      eventType: eventType as any,
+      description,
+      bypassMonthlyCap: bypassCap,
+      quizId,
     });
-
-    if (!user) return false;
-
-    // Check if monthly reset is needed
-    const now = new Date();
-    const lastReset = user.lastPointReset;
-    const needsReset =
-      !lastReset ||
-      lastReset.getMonth() !== now.getMonth() ||
-      lastReset.getFullYear() !== now.getFullYear();
-
-    let currentMonthPoints = user.currentMonthPoints;
-    if (needsReset) {
-      currentMonthPoints = 0;
-    }
-
-    // Check if user would exceed monthly cap (skipped for mega quiz tiered rewards)
-    if (!bypassCap && currentMonthPoints + points > user.monthlyPointsCap) {
-      return false; // Cap reached, no points awarded
-    }
-
-    // Award points
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        currentMonthPoints: needsReset ? points : { increment: points },
-        lastPointReset: needsReset ? now : undefined,
-      },
-    });
-
-    // Log points
-    await this.prisma.pointsLog.create({
-      data: {
-        userId,
-        points,
-        eventType: eventType as any,
-        description,
-        ...(quizId ? { quizId } : {}),
-      },
-    });
-
-    return true;
+    return result.awarded;
   }
 
   async getMyQuizzes(userId: string) {

@@ -5,9 +5,10 @@ import { PrismaService } from '../prisma.service';
 import { DiscussionScoringService } from './discussion-scoring.service';
 import { DiscussionsGateway } from './discussions.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GamificationModule } from '../gamification/gamification.module';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, GamificationModule],
   providers: [
     DiscussionsService,
     DiscussionScoringService,
