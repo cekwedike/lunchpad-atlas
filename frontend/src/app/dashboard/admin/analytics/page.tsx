@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart3, TrendingUp, Users, BookOpen, Award, Calendar,
@@ -200,9 +201,9 @@ export default function AdminAnalyticsPage() {
                   <span className="ml-2 normal-case font-normal text-gray-400">— {summary.cohort.name}</span>
                 )}
               </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {summaryLoading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_, i) => (
                     <Card key={i} className="bg-white border-gray-200 shadow-sm">
                       <CardContent className="p-5">
                         <Skeleton className="h-4 w-24 mb-2" />

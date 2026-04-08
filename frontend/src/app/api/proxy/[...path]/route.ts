@@ -124,12 +124,13 @@ async function proxyToBackend(
 
   outHeaders.set('x-atlas-proxy-access', access ? 'present' : 'absent');
 
-  let apiHost = '';
-  try {
-    apiHost = new URL(base).hostname;
-  } catch {
-    apiHost = 'invalid';
-  }
+  const apiHost = (() => {
+    try {
+      return new URL(base).hostname;
+    } catch {
+      return 'invalid';
+    }
+  })();
 
   // If upstream is failing and did not return JSON, return a small JSON payload so the UI
   // can surface something more actionable than "Internal server error".
