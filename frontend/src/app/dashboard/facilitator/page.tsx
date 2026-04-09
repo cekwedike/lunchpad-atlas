@@ -90,8 +90,8 @@ export default function FacilitatorDashboard() {
     if (fellow.attentionReason?.startsWith("No activity")) {
       return `Hi ${fellow.name},\n\nI noticed you haven't been active on LaunchPad recently. Just checking in — if there's anything I can help with or any questions you have, feel free to reach out!\n\nLooking forward to seeing you back.`;
     }
-    const pct = fellow.monthlyProgress ?? fellow.progress;
-    return `Hi ${fellow.name},\n\nI wanted to check in on your progress this month. You're currently at ${pct}% of this month's resources — keep going, you're making progress! Feel free to reach out if you have any questions or need support.`;
+    const pct = fellow.sessionProgress ?? fellow.progress;
+    return `Hi ${fellow.name},\n\nI wanted to check in on your progress before the next session. You're currently at ${pct}% of the resources due so far — keep going, you're making progress! Feel free to reach out if you have any questions or need support.`;
   }
 
   async function handleSendMessage() {

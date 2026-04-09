@@ -68,10 +68,43 @@ export function useMarkResourceComplete(resourceId: string) {
       queryClient.invalidateQueries({ queryKey: ['resource', resourceId] });
       queryClient.invalidateQueries({ queryKey: ['resources'] }); // refresh list green checkmarks
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-rank'] });
       toast.success('Resource completed!', 'Points have been awarded');
     },
     onError: (error: any) => {
       toast.error('Failed to mark complete', error.message);
+    },
+  });
+}
+
+/** Article-only: open external link, then leave tab — server awards 30 (core) / 15 (optional) once. */
+export function useCompleteArticleOpen(resourceId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.post<{
+        alreadyCompleted?: boolean;
+        pointsAwarded?: number;
+        cappedMessage?: string | null;
+      }>(`/resources/${resourceId}/complete-article-open`, {}),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['resource-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['resource', resourceId] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-rank'] });
+      if (data?.alreadyCompleted) {
+        toast.success('Already completed', 'This article was already marked complete.');
+      } else {
+        toast.success('Article completed!', 'Points have been awarded');
+      }
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Request failed';
+      toast.error('Could not complete article', message);
     },
   });
 }

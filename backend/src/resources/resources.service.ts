@@ -2,7 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
 import { AchievementsService } from '../achievements/achievements.service';
@@ -283,6 +285,13 @@ export class ResourcesService {
       throw new NotFoundException('Resource not found');
     }
 
+    if (resource.type === 'ARTICLE') {
+      throw new BadRequestException({
+        message:
+          'Articles are completed when you open the link and switch away to read. Use POST /resources/:id/complete-article-open (or refresh the resource page and try again).',
+      });
+    }
+
     // Get current progress to check engagement metrics
     const existingProgress = await this.prisma.resourceProgress.findUnique({
       where: {
@@ -298,16 +307,6 @@ export class ResourcesService {
     if (existingProgress) {
       const validationErrors: string[] = [];
       const requirements: string[] = [];
-
-      // For articles: scrollDepth must be >= 80%
-      if (resource.type === 'ARTICLE') {
-        requirements.push('Scroll at least 80% of the article');
-      }
-      if (resource.type === 'ARTICLE' && existingProgress.scrollDepth < 80) {
-        validationErrors.push(
-          `Article requires 80% scroll depth. Current: ${existingProgress.scrollDepth}%`,
-        );
-      }
 
       // For videos: watchPercentage must be >= 85%
       if (resource.type === 'VIDEO') {
@@ -334,11 +333,9 @@ export class ResourcesService {
     } else {
       // No progress tracked yet - user tried to mark complete without engaging
       const requirements =
-        resource.type === 'ARTICLE'
-          ? ['Open the article and scroll (aim for 80%+)']
-          : resource.type === 'VIDEO'
-            ? ['Start the video and watch (aim for 85%+)']
-            : ['Open the resource and spend time engaging with it'];
+        resource.type === 'VIDEO'
+          ? ['Start the video and watch (aim for 85%+)']
+          : ['Open the resource and spend time engaging with it'];
 
       throw new ForbiddenException({
         message: 'Cannot mark this resource as complete yet',
@@ -427,6 +424,142 @@ export class ResourcesService {
     }
 
     return progress;
+  }
+
+  /**
+   * Article-only: fellow opened the external link and left this tab (signaled by the client).
+   * Awards fixed points once (30 core / 15 optional). Idempotent if already COMPLETED.
+   */
+  async completeArticleOpen(resourceId: string, userId: string) {
+    const userForCheck = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (userForCheck?.role === 'GUEST_FACILITATOR') {
+      throw new ForbiddenException(
+        'Guest facilitators cannot mark resources as complete',
+      );
+    }
+
+    await this.getResourceById(resourceId, userId);
+
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: resourceId },
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+    if (resource.type !== 'ARTICLE') {
+      throw new BadRequestException(
+        'This endpoint is only for ARTICLE resources',
+      );
+    }
+
+    const timeSpentSeconds = Math.max(
+      resource.minimumTimeThreshold,
+      resource.estimatedMinutes * 60,
+    );
+
+    const completionData = {
+      state: 'COMPLETED' as const,
+      completedAt: new Date(),
+      scrollDepth: 100,
+      timeSpent: timeSpentSeconds,
+      minimumThresholdMet: true,
+      engagementQuality: 1,
+    };
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.resourceProgress.findUnique({
+        where: { userId_resourceId: { userId, resourceId } },
+      });
+      if (existing?.state === 'COMPLETED') {
+        return { kind: 'already' as const, progress: existing };
+      }
+
+      const updated = await tx.resourceProgress.updateMany({
+        where: {
+          userId,
+          resourceId,
+          state: { not: 'COMPLETED' },
+        },
+        data: completionData,
+      });
+
+      if (updated.count === 1) {
+        const p = await tx.resourceProgress.findUnique({
+          where: { userId_resourceId: { userId, resourceId } },
+        });
+        return { kind: 'fresh' as const, progress: p! };
+      }
+
+      if (!existing) {
+        try {
+          await tx.resourceProgress.create({
+            data: {
+              userId,
+              resourceId,
+              ...completionData,
+            },
+          });
+          const p = await tx.resourceProgress.findUnique({
+            where: { userId_resourceId: { userId, resourceId } },
+          });
+          return { kind: 'fresh' as const, progress: p! };
+        } catch (e) {
+          if (
+            e instanceof Prisma.PrismaClientKnownRequestError &&
+            e.code === 'P2002'
+          ) {
+            const p = await tx.resourceProgress.findUnique({
+              where: { userId_resourceId: { userId, resourceId } },
+            });
+            if (p?.state === 'COMPLETED') {
+              return { kind: 'already' as const, progress: p };
+            }
+          }
+          throw e;
+        }
+      }
+
+      const again = await tx.resourceProgress.findUnique({
+        where: { userId_resourceId: { userId, resourceId } },
+      });
+      if (again?.state === 'COMPLETED') {
+        return { kind: 'already' as const, progress: again };
+      }
+      throw new ForbiddenException('Could not complete article resource');
+    });
+
+    if (outcome.kind === 'already') {
+      return {
+        alreadyCompleted: true,
+        progress: outcome.progress,
+        pointsAwarded: 0,
+      };
+    }
+
+    const totalPoints = resource.isCore ? 30 : 15;
+    const awarded = await this.awardPoints(
+      userId,
+      totalPoints,
+      'RESOURCE_COMPLETE',
+      `Article opened (external read): ${resource.title}`,
+    );
+
+    const newAchievements =
+      await this.achievementsService.checkAndAwardAchievements(userId);
+
+    return {
+      ...outcome.progress,
+      pointsAwarded: awarded ? totalPoints : 0,
+      cappedMessage: awarded
+        ? null
+        : 'Monthly point cap reached - no points awarded',
+      newAchievements:
+        newAchievements.length > 0 ? newAchievements : undefined,
+    };
   }
 
   /**

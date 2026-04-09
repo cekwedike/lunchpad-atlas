@@ -107,34 +107,53 @@ export class FacilitatorService {
       where: { session: { cohortId } },
     });
 
-    // Monthly resource IDs — resources from sessions scheduled this calendar month
+    // Resources due before the next upcoming session (not calendar month — avoids penalizing
+    // fellows for content in future sessions that have not unlocked yet).
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const sessions = await this.prisma.session.findMany({
+      where: { cohortId },
+      orderBy: { sessionNumber: 'asc' },
+      select: { id: true, sessionNumber: true, scheduledDate: true, title: true },
+    });
+    const nextSession =
+      sessions.find((s) => new Date(s.scheduledDate) >= now) ?? null;
 
-    const monthlyResourceIds = await this.prisma.resource
-      .findMany({
-        where: { session: { cohortId, scheduledDate: { gte: monthStart, lte: monthEnd } } },
-        select: { id: true },
-      })
-      .then((r) => r.map((x) => x.id));
+    let dueBeforeNextSessionResourceIds: string[] = [];
+    if (nextSession) {
+      dueBeforeNextSessionResourceIds = await this.prisma.resource
+        .findMany({
+          where: {
+            session: { cohortId, sessionNumber: { lt: nextSession.sessionNumber } },
+          },
+          select: { id: true },
+        })
+        .then((r) => r.map((x) => x.id));
+    } else {
+      // All cohort sessions are in the past — full catalog is the due set.
+      dueBeforeNextSessionResourceIds = await this.prisma.resource
+        .findMany({
+          where: { session: { cohortId } },
+          select: { id: true },
+        })
+        .then((r) => r.map((x) => x.id));
+    }
 
     const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
 
     // Batch queries to avoid N+1 — one query per metric for all fellows at once
-    const [completionCounts, monthlyCompletionCounts, pointsSums, discussionCounts, quizAvgs] =
+    const [completionCounts, sessionDueCompletionCounts, pointsSums, discussionCounts, quizAvgs] =
       await Promise.all([
         this.prisma.resourceProgress.groupBy({
           by: ['userId'],
           where: { userId: { in: fellowIds }, state: 'COMPLETED' },
           _count: { id: true },
         }),
-        monthlyResourceIds.length > 0
+        dueBeforeNextSessionResourceIds.length > 0
           ? this.prisma.resourceProgress.groupBy({
               by: ['userId'],
               where: {
                 userId: { in: fellowIds },
-                resourceId: { in: monthlyResourceIds },
+                resourceId: { in: dueBeforeNextSessionResourceIds },
                 state: 'COMPLETED',
               },
               _count: { id: true },
@@ -158,7 +177,9 @@ export class FacilitatorService {
       ]);
 
     const completionMap = new Map(completionCounts.map((c) => [c.userId, c._count.id]));
-    const monthlyCompletionMap = new Map(monthlyCompletionCounts.map((c) => [c.userId, c._count.id]));
+    const sessionDueCompletionMap = new Map(
+      sessionDueCompletionCounts.map((c) => [c.userId, c._count.id]),
+    );
     const pointsMap = new Map(pointsSums.map((p) => [p.userId, p._sum.points ?? 0]));
     const discussionMap = new Map(discussionCounts.map((d) => [d.userId, d._count.id]));
     const quizMap = new Map(quizAvgs.map((q) => [q.userId, Math.round(q._avg.score ?? 0)]));
@@ -174,20 +195,27 @@ export class FacilitatorService {
           ? Math.round((resourcesCompleted / totalResources) * 100)
           : 0;
 
-      const monthlyCompleted = monthlyCompletionMap.get(fellow.id) ?? 0;
-      const monthlyProgress =
-        monthlyResourceIds.length > 0
-          ? Math.round((monthlyCompleted / monthlyResourceIds.length) * 100)
-          : null; // null = no sessions scheduled this month yet
+      const sessionDueCompleted = sessionDueCompletionMap.get(fellow.id) ?? 0;
+      const sessionProgress =
+        dueBeforeNextSessionResourceIds.length > 0
+          ? Math.round(
+              (sessionDueCompleted / dueBeforeNextSessionResourceIds.length) * 100,
+            )
+          : null;
 
       const lastActive = fellow.lastLoginAt ?? fellow.createdAt;
       const isInactive = lastActive < fiveDaysAgo;
-      const isBehindSchedule = monthlyProgress !== null && monthlyProgress < 50;
+      const isBehindSchedule = sessionProgress !== null && sessionProgress < 50;
       const needsAttention = isInactive || isBehindSchedule;
+      const nextSessionLabel = nextSession
+        ? `session ${nextSession.sessionNumber}${
+            nextSession.title ? ` (${nextSession.title})` : ''
+          }`
+        : 'the program';
       const attentionReason = isInactive
         ? 'No activity in 5 days'
         : isBehindSchedule
-        ? `Behind on this month's resources (${monthlyProgress}% done)`
+        ? `Behind on resources due before ${nextSessionLabel} (${sessionProgress}% done)`
         : undefined;
 
       return {
@@ -195,7 +223,7 @@ export class FacilitatorService {
         name: `${fellow.firstName} ${fellow.lastName}`.trim(),
         email: fellow.email,
         progress,
-        monthlyProgress,
+        sessionProgress,
         lastActive,
         resourcesCompleted,
         totalPoints,

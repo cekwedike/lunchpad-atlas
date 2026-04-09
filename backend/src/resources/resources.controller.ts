@@ -103,6 +103,15 @@ export class ResourcesController {
     return this.resourcesService.markComplete(id, req.user.id);
   }
 
+  @Post(':id/complete-article-open')
+  @ApiOperation({
+    summary:
+      'Complete an article after opening it externally (client: open link then leave tab)',
+  })
+  completeArticleOpen(@Param('id') id: string, @Request() req) {
+    return this.resourcesService.completeArticleOpen(id, req.user.id);
+  }
+
   @Post(':id/track')
   @ApiOperation({
     summary:

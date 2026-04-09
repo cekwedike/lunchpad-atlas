@@ -105,8 +105,8 @@ export default function FellowDashboard() {
 
   const resourcesCompleted = profile?.resourcesCompleted ?? stats?.resourcesCompleted ?? 0;
   const totalPoints        = profile?.totalPoints        ?? stats?.totalPoints        ?? 0;
-  const currentStreak      = profile?.currentStreak      ?? 0;
-  const longestStreak      = profile?.longestStreak      ?? currentStreak;
+  /** Matches leaderboard streak for the current month (see /leaderboard/rank). */
+  const currentStreak      = rankData?.streak ?? stats?.currentStreak ?? 0;
   const totalResources     = resources.length;
   const completionPct      = totalResources > 0 ? Math.round((resourcesCompleted / totalResources) * 100) : 0;
   const unlockedCount      = (userAchievements as any[]).length;
@@ -117,6 +117,7 @@ export default function FellowDashboard() {
   const totalRankUsers     = rankData?.totalUsers ?? null;
 
   const pageLoading = !_hasHydrated || profileLoading;
+  const streakLoading = pageLoading || rankLoading || statsLoading;
 
   /* Activity breakdown bars — widths relative to the highest value */
   const maxAct = Math.max(resourcesCompleted, quizzesTaken, discussionsPosted, 1);
@@ -224,26 +225,28 @@ export default function FellowDashboard() {
                 <Flame className="h-4 w-4 text-orange-500" />
               </div>
             </div>
-            {pageLoading ? (
+            {streakLoading ? (
               <div className="h-9 w-12 rounded bg-gray-100 animate-pulse mt-3" />
             ) : (
               <p className="text-3xl font-bold text-gray-900 mt-3">{currentStreak}</p>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              {currentStreak === 1 ? "day" : "days"} &middot; best {longestStreak}
+              {currentStreak === 1 ? "day" : "days"} on the leaderboard (this month)
             </p>
             {/* 7-day pip indicator */}
-            <div className="mt-3 flex gap-1">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "h-1.5 flex-1 rounded-full transition-colors",
-                    i < currentStreak ? "bg-orange-400" : "bg-gray-100"
-                  )}
-                />
-              ))}
-            </div>
+            {!streakLoading && (
+              <div className="mt-3 flex gap-1">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "h-1.5 flex-1 rounded-full transition-colors",
+                      i < Math.min(currentStreak, 7) ? "bg-orange-400" : "bg-gray-100"
+                    )}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Achievements */}
@@ -475,7 +478,7 @@ export default function FellowDashboard() {
             )}
 
             {/* Streak card — shown when streak active but no rank yet */}
-            {!rankLoading && myRank === null && currentStreak > 0 && !pageLoading && (
+            {!streakLoading && myRank === null && currentStreak > 0 && !pageLoading && (
               <div className="rounded-2xl bg-white border border-orange-100 shadow-sm p-5">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
@@ -488,7 +491,7 @@ export default function FellowDashboard() {
                     <p className="text-2xl font-bold text-gray-900">{currentStreak} days</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Best streak: {longestStreak} days</p>
+                <p className="text-xs text-gray-500 mt-2">Same streak as the leaderboard (this month)</p>
                 <Button asChild size="sm" className="w-full mt-3 h-8 bg-orange-500 hover:bg-orange-600 text-white text-xs">
                   <Link href="/resources">
                     Keep it going <Zap className="ml-1.5 h-3 w-3" />

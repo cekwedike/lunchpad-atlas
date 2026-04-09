@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ResourcesService } from './resources.service';
 import { PrismaService } from '../prisma.service';
 import { AchievementsService } from '../achievements/achievements.service';
@@ -20,6 +20,8 @@ describe('ResourcesService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
     },
     pointsLog: {
       create: jest.fn(),
@@ -222,6 +224,93 @@ describe('ResourcesService', () => {
 
       await expect(service.markComplete('nonexistent', '123')).rejects.toThrow(
         NotFoundException,
+      );
+    });
+
+    it('should reject ARTICLE via markComplete (use completeArticleOpen instead)', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'FELLOW' });
+      mockPrismaService.resource.findUnique.mockResolvedValue({
+        id: 'res-article',
+        title: 'Article',
+        type: 'ARTICLE',
+        pointValue: 60,
+        estimatedMinutes: 10,
+        session: { unlockDate: new Date() },
+      });
+
+      await expect(service.markComplete('res-article', '123')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('completeArticleOpen', () => {
+    const userId = 'user-1';
+    const resourceId = 'res-article';
+
+    const articleResource = {
+      id: resourceId,
+      title: 'Test Article',
+      type: 'ARTICLE',
+      isCore: true,
+      minimumTimeThreshold: 420,
+      estimatedMinutes: 10,
+    };
+
+    it('returns alreadyCompleted when progress is already COMPLETED', async () => {
+      jest.spyOn(service, 'getResourceById').mockResolvedValue({ state: 'COMPLETED' } as any);
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'FELLOW' });
+      mockPrismaService.resource.findUnique.mockResolvedValue(articleResource);
+
+      mockPrismaService.$transaction.mockImplementation(async (cb: any) =>
+        cb(mockPrismaService),
+      );
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue({
+        state: 'COMPLETED',
+        userId,
+        resourceId,
+      });
+
+      const result = await service.completeArticleOpen(resourceId, userId);
+
+      expect(result).toMatchObject({ alreadyCompleted: true, pointsAwarded: 0 });
+      expect(mockPointsService.awardPoints).not.toHaveBeenCalled();
+    });
+
+    it('awards 30 points for core article on first completion', async () => {
+      jest.spyOn(service, 'getResourceById').mockResolvedValue({ state: 'UNLOCKED' } as any);
+      mockPrismaService.user.findUnique.mockResolvedValue({ role: 'FELLOW' });
+      mockPrismaService.resource.findUnique.mockResolvedValue(articleResource);
+
+      mockPrismaService.$transaction.mockImplementation(async (cb: any) =>
+        cb(mockPrismaService),
+      );
+      mockPrismaService.resourceProgress.findUnique
+        .mockResolvedValueOnce({ state: 'IN_PROGRESS', userId, resourceId })
+        .mockResolvedValueOnce({
+          state: 'COMPLETED',
+          userId,
+          resourceId,
+          id: 'p1',
+        });
+      mockPrismaService.resourceProgress.updateMany.mockResolvedValue({ count: 1 });
+
+      mockPointsService.awardPoints.mockResolvedValue({
+        awarded: true,
+        capped: false,
+        monthResetApplied: false,
+      });
+      mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
+
+      const result = await service.completeArticleOpen(resourceId, userId);
+
+      expect(result.pointsAwarded).toBe(30);
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId,
+          points: 30,
+          eventType: 'RESOURCE_COMPLETE',
+        }),
       );
     });
   });

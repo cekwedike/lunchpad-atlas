@@ -11,7 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { useResource, useMarkResourceComplete, useTrackEngagement } from "@/hooks/api/useResources";
+import {
+  useResource,
+  useMarkResourceComplete,
+  useTrackEngagement,
+  useCompleteArticleOpen,
+} from "@/hooks/api/useResources";
 import { ResourceType } from "@/types/api";
 import {
   getYouTubeVideoId,
@@ -69,7 +74,9 @@ export default function ResourceDetailPage() {
 
   const { data: resource, isLoading, error, refetch } = useResource(resourceId);
   const markCompleteMutation = useMarkResourceComplete(resourceId);
+  const completeArticleOpen = useCompleteArticleOpen(resourceId);
   const trackEngagement = useTrackEngagement(resourceId);
+  const articleLinkOpenedRef = useRef(false);
 
   // ── YouTube / video tracking refs ────────────────────────────────────────
   const watchedMsRef = useRef(0);
@@ -189,15 +196,12 @@ export default function ResourceDetailPage() {
         }
       }
     } else if (resource.type === ResourceType.ARTICLE) {
-      const required = getRequiredReadMs(resource.estimatedDuration);
-      requiredMsRef.current = required;
       articleCompletedRef.current = alreadyDone;
-      accumulatedMsRef.current = alreadyDone ? required : 0;
-      timerStartRef.current = null;
+      articleLinkOpenedRef.current = false;
       setIsArticleComplete(alreadyDone);
-      setArticleStarted(alreadyDone);
+      setArticleStarted(false);
       setReadPct(alreadyDone ? 1 : 0);
-      setElapsedSecs(alreadyDone ? Math.round(required / 1000) : 0);
+      setElapsedSecs(0);
     }
 
     return () => { flushArticleTime(); };
@@ -294,12 +298,11 @@ export default function ResourceDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource?.id]);
 
-  // ── Article / Vimeo: update display every 500ms ───────────────────────────
+  // ── Vimeo (time-based): update display every 500ms (not used for ARTICLE) ─
   useEffect(() => {
     if (!resource) return;
-    const isArticle = resource.type === ResourceType.ARTICLE;
     const isVimeo = resource.type === ResourceType.VIDEO && isVimeoUrl(resource.url ?? "");
-    if (!isArticle && !isVimeo) return;
+    if (!isVimeo) return;
     const id = setInterval(() => {
       if (timerStartRef.current === null) return;
       const total = accumulatedMsRef.current + (performance.now() - timerStartRef.current);
@@ -309,27 +312,46 @@ export default function ResourceDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource?.id]);
 
-  // ── Article / Vimeo: save progress every 15s ─────────────────────────────
+  // ── Vimeo: save progress every 15s ────────────────────────────────────────
   useEffect(() => {
     if (!resource) return;
-    const isArticle = resource.type === ResourceType.ARTICLE;
     const isVimeo = resource.type === ResourceType.VIDEO && isVimeoUrl(resource.url ?? "");
-    if (!isArticle && !isVimeo) return;
+    if (!isVimeo) return;
     const id = setInterval(() => {
       if (articleCompletedRef.current || timerStartRef.current === null) return;
       const total = accumulatedMsRef.current + (performance.now() - timerStartRef.current);
       const pctInt = Math.round(Math.min(1, total / requiredMsRef.current) * 100);
       if (pctInt > 0) {
         trackRef.current.mutate({
-          ...(isArticle ? { scrollDepth: pctInt } : { watchPercentage: pctInt }),
+          watchPercentage: pctInt,
           timeSpent: Math.round(Math.min(total, requiredMsRef.current) / 1000),
-          eventType: isArticle ? "time_update" : "video_progress",
+          eventType: "video_progress",
         });
       }
     }, 15_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource?.id]);
+
+  // ── Article: open link then leave tab → server completes (fixed points) ──
+  useEffect(() => {
+    if (!resource || resource.type !== ResourceType.ARTICLE) return;
+    if (resource.state === "COMPLETED") return;
+
+    const onVis = () => {
+      if (document.visibilityState !== "hidden") return;
+      if (!articleLinkOpenedRef.current || articleCompletedRef.current) return;
+      void completeArticleOpen.mutateAsync().then(() => {
+        articleCompletedRef.current = true;
+        setIsArticleComplete(true);
+        void refetch();
+      });
+    };
+
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-bind when resource identity/state changes
+  }, [resource?.id, resource?.type, resource?.state, completeArticleOpen, refetch]);
 
   // ── Early returns ─────────────────────────────────────────────────────────
   if (error) {
@@ -386,6 +408,8 @@ export default function ResourceDetailPage() {
 
   // ── ARTICLE ───────────────────────────────────────────────────────────────
   if (resource.type === ResourceType.ARTICLE) {
+    const articlePts = resource.isCore !== false ? 30 : 15;
+
     return (
       <DashboardLayout>
         <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -415,15 +439,12 @@ export default function ResourceDetailPage() {
                     <span>{displayMinutes} min read</span>
                   </div>
                 )}
-                {resource.pointsValue !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <Award className="h-4 w-4" />
-                    <span>{resource.pointsValue} points</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1">
+                  <Award className="h-4 w-4" />
+                  <span>{articlePts} points ({resource.isCore === false ? "optional" : "core"})</span>
+                </div>
               </div>
 
-              {/* Reading CTA / completed state */}
               {!isArticleComplete ? (
                 <div className="rounded-xl border bg-gray-50 p-5 space-y-3">
                   <div className="flex items-start gap-3">
@@ -431,42 +452,28 @@ export default function ResourceDetailPage() {
                       <BookOpen className="h-5 w-5 text-blue-600" />
                     </div>
                     <p className="text-sm text-gray-600 leading-relaxed">
-                      Click below to open the article in a new tab. Keep this page open while
-                      you read — your progress is tracked here.
+                      Open the article in a new tab. When you switch away from LaunchPad to read (another tab or app),
+                      we mark it complete automatically — no need to keep this page open.
                     </p>
                   </div>
 
-                  {!articleStarted ? (
-                    <div>
-                      <Button
-                        className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => {
-                          window.open(resource.url, "_blank", "noopener,noreferrer");
-                          timerStartRef.current = performance.now();
-                          setArticleStarted(true);
-                        }}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Start Reading
-                      </Button>
-                      <p className="text-xs text-center text-gray-400 mt-2">
-                        Opens the article in a new tab. Come back here when done.
-                      </p>
-                    </div>
-                  ) : (
-                    <button
-                      className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                  <div>
+                    <Button
+                      className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={() => {
                         window.open(resource.url, "_blank", "noopener,noreferrer");
-                        if (timerStartRef.current === null) {
-                          timerStartRef.current = performance.now();
-                        }
+                        articleLinkOpenedRef.current = true;
+                        setArticleStarted(true);
                       }}
+                      disabled={completeArticleOpen.isPending}
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Open article again
-                    </button>
-                  )}
+                      <ExternalLink className="h-4 w-4" />
+                      Open article
+                    </Button>
+                    <p className="text-xs text-center text-gray-400 mt-2">
+                      Awards {articlePts} points once when you leave this tab after opening the link.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 flex items-center gap-3">
@@ -474,33 +481,6 @@ export default function ResourceDetailPage() {
                   <div>
                     <p className="font-semibold text-emerald-800 text-sm">Article completed!</p>
                     <p className="text-xs text-emerald-600 mt-0.5">Points have been added to your account.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Reading progress bar */}
-              {articleStarted && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">
-                      {isArticleComplete
-                        ? "Read progress"
-                        : remainingSecs > 0
-                        ? `Keep reading — ${Math.floor(remainingSecs / 60)}m ${remainingSecs % 60}s remaining`
-                        : "Almost done..."}
-                    </span>
-                    <span className={cn("font-medium", isArticleComplete ? "text-emerald-600" : "text-gray-600")}>
-                      {readPctDisplay}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        isArticleComplete ? "bg-emerald-500" : "bg-blue-500",
-                      )}
-                      style={{ width: `${readPctDisplay}%` }}
-                    />
                   </div>
                 </div>
               )}
@@ -517,19 +497,6 @@ export default function ResourceDetailPage() {
                   <Button disabled className="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Completed
-                  </Button>
-                ) : readPctDisplay >= 80 ? (
-                  <Button
-                    onClick={() => void finishArticle()}
-                    className="flex-1"
-                    disabled={markCompleteMutation.isPending}
-                  >
-                    {markCompleteMutation.isPending ? "Marking..." : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Mark as Complete
-                      </>
-                    )}
                   </Button>
                 ) : null}
               </div>

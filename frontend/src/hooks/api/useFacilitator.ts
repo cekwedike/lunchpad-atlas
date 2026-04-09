@@ -20,7 +20,8 @@ export interface FellowEngagement {
   name: string;
   email: string;
   progress: number;
-  monthlyProgress: number | null;
+  /** % of resources completed that are due before the cohort's next scheduled session */
+  sessionProgress: number | null;
   lastActive: Date;
   resourcesCompleted: number;
   totalPoints: number;
