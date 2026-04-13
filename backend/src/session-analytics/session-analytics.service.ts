@@ -116,6 +116,55 @@ export class SessionAnalyticsService {
     );
   }
 
+  private coerceScore(value: unknown, fallback = 0): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, Math.min(100, value));
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value.replace('%', '').trim());
+      if (Number.isFinite(parsed)) return Math.max(0, Math.min(100, parsed));
+    }
+    return fallback;
+  }
+
+  private coerceStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+  }
+
+  private normalizeAiAnalysis(analysis: any): AIAnalysisResult {
+    const normalizedInsights = {
+      strengths: this.coerceStringArray(analysis?.insights?.strengths),
+      improvements: this.coerceStringArray(analysis?.insights?.improvements),
+      recommendations: this.coerceStringArray(analysis?.insights?.recommendations),
+    };
+
+    const fellowParticipation: FellowParticipation[] = Array.isArray(
+      analysis?.fellowParticipation,
+    )
+      ? analysis.fellowParticipation.map((f: any) => ({
+          name: typeof f?.name === 'string' ? f.name.trim() : 'Unknown Fellow',
+          participationScore: this.coerceScore(f?.participationScore, 0),
+          contributionSummary:
+            typeof f?.contributionSummary === 'string'
+              ? f.contributionSummary
+              : '',
+          suggestedPoints: Math.round(this.coerceScore(f?.suggestedPoints, 0) / 2),
+        }))
+      : [];
+
+    return {
+      engagementScore: this.coerceScore(analysis?.engagementScore, 0),
+      participationRate: this.coerceScore(analysis?.participationRate, 0),
+      averageAttention: this.coerceScore(analysis?.averageAttention, 0),
+      keyTopics: this.coerceStringArray(analysis?.keyTopics),
+      insights: normalizedInsights,
+      fellowParticipation,
+    };
+  }
+
   private isOnCooldown(modelName: string): boolean {
     const until = this.modelCooldownUntil.get(modelName);
     return typeof until === 'number' && until > Date.now();
@@ -458,19 +507,7 @@ Consider:
     } catch {
       throw new BadGatewayException('AI returned an unparseable response. Try again or shorten the transcript.');
     }
-
-    return {
-      engagementScore: analysis.engagementScore,
-      participationRate: analysis.participationRate,
-      averageAttention: analysis.averageAttention,
-      keyTopics: analysis.keyTopics || [],
-      insights: analysis.insights || {
-        strengths: [],
-        improvements: [],
-        recommendations: [],
-      },
-      fellowParticipation: analysis.fellowParticipation || [],
-    };
+    return this.normalizeAiAnalysis(analysis);
   }
 
   /**

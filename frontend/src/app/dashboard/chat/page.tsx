@@ -542,9 +542,9 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout fullBleedContent showSetupChecklist={false}>
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        {/* Keep header static while only chat messages scroll. */}
-        <div className="z-30 shrink-0">
+      <div className="grid h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        {/* Fixed header row (never scrolls with messages). */}
+        <div className="z-30 row-start-1 row-end-2 shrink-0">
           <div className="border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
             <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
               <Button
@@ -648,8 +648,8 @@ function ChatRoomContent() {
           </div>
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <ScrollArea className="min-h-0 min-w-0 flex-1 bg-slate-50/95 [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
+        <div className="row-start-2 row-end-3 min-h-0 min-w-0 overflow-hidden">
+            <ScrollArea className="h-full min-h-0 min-w-0 bg-slate-50/95 [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
               <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-2.5 py-2.5 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
@@ -852,7 +852,7 @@ function ChatRoomContent() {
               </div>
             </ScrollArea>
 
-            <div className="shrink-0 border-t border-slate-200/70 bg-white px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
+        <div className="row-start-3 row-end-4 shrink-0 border-t border-slate-200/70 bg-white px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
               {mainChannel?.isLocked && !canManageChats && (
                 <div className="mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 text-xs leading-relaxed text-amber-900 shadow-sm">
                   This chat room is locked for announcements. You can read messages but cannot post.
@@ -938,7 +938,6 @@ function ChatRoomContent() {
                 <kbd className="rounded border border-slate-200 bg-slate-50 px-1 py-0.5 font-sans text-[10px]">Enter</kbd>
                 {" to send · Enter alone for a new line"}
               </p>
-            </div>
         </div>
       </div>
     </DashboardLayout>
