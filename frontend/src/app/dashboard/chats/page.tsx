@@ -85,7 +85,7 @@ export default function ChatsPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-[calc(100vh-4rem)] overflow-x-hidden bg-gray-50 p-3 sm:p-5">
+      <div className="min-h-[calc(100vh-4rem)] overflow-x-hidden bg-gray-50 px-3 py-4 sm:p-5">
         <div className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -194,31 +194,33 @@ export default function ChatsPage() {
                   Group Chats
                 </CardTitle>
               </CardHeader>
-              <CardContent className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
-                {loading ? (
-                  <p className="text-sm text-slate-500">Loading chats...</p>
-                ) : groupChats.length === 0 ? (
-                  <p className="text-sm text-slate-500">No group chats available.</p>
-                ) : (
-                  groupChats.map((channel) => (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      onClick={() => router.push(`/dashboard/chat?channelId=${channel.id}`)}
-                      className="flex w-full min-w-0 items-center justify-between overflow-hidden rounded-lg border border-slate-200 px-3 py-2 text-left transition hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {channel.name || channel.cohort?.name || "Cohort chat"}
-                        </p>
-                        <p className="truncate text-xs text-slate-500">
-                          {channel.description || "Open chat room"}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-                    </button>
-                  ))
-                )}
+              <CardContent className="p-3 sm:p-4">
+                <div className="max-h-[45vh] space-y-2 overflow-y-auto">
+                  {loading ? (
+                    <p className="text-sm text-slate-500">Loading chats...</p>
+                  ) : groupChats.length === 0 ? (
+                    <p className="text-sm text-slate-500">No group chats available.</p>
+                  ) : (
+                    groupChats.map((channel) => (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => router.push(`/dashboard/chat?channelId=${channel.id}`)}
+                        className="flex w-full min-w-0 items-center justify-between overflow-hidden rounded-lg border border-slate-200 px-3 py-2 text-left transition hover:bg-slate-50"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900">
+                            {channel.name || channel.cohort?.name || "Cohort chat"}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {channel.description || "Open chat room"}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                      </button>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -229,37 +231,39 @@ export default function ChatsPage() {
                   Private Chats
                 </CardTitle>
               </CardHeader>
-              <CardContent className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
-                {loading ? (
-                  <p className="text-sm text-slate-500">Loading chats...</p>
-                ) : privateChats.length === 0 ? (
-                  <p className="text-sm text-slate-500">No private chats available.</p>
-                ) : (
-                  privateChats.map((channel) => (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      onClick={() => router.push(`/dashboard/chat?channelId=${channel.id}`)}
-                      className="flex w-full min-w-0 items-center justify-between overflow-hidden rounded-lg border border-slate-200 px-3 py-2 text-left transition hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">
-                            {channel.description || "Private conversation"}
+              <CardContent className="p-3 sm:p-4">
+                <div className="max-h-[45vh] space-y-2 overflow-y-auto">
+                  {loading ? (
+                    <p className="text-sm text-slate-500">Loading chats...</p>
+                  ) : privateChats.length === 0 ? (
+                    <p className="text-sm text-slate-500">No private chats available.</p>
+                  ) : (
+                    privateChats.map((channel) => (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => router.push(`/dashboard/chat?channelId=${channel.id}`)}
+                        className="flex w-full min-w-0 items-center justify-between overflow-hidden rounded-lg border border-slate-200 px-3 py-2 text-left transition hover:bg-slate-50"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">
+                              {channel.description || "Private conversation"}
+                            </p>
+                            <Badge className="shrink-0 border-purple-200 bg-purple-50 text-purple-700">
+                              <Lock className="mr-1 h-3 w-3" />
+                              Private
+                            </Badge>
+                          </div>
+                          <p className="truncate text-xs text-slate-500">
+                            {channel.cohort?.name || "Direct message"}
                           </p>
-                          <Badge className="shrink-0 border-purple-200 bg-purple-50 text-purple-700">
-                            <Lock className="mr-1 h-3 w-3" />
-                            Private
-                          </Badge>
                         </div>
-                        <p className="truncate text-xs text-slate-500">
-                          {channel.cohort?.name || "Direct message"}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-                    </button>
-                  ))
-                )}
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                      </button>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

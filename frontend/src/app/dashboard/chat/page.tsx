@@ -553,10 +553,10 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout fullBleedContent showSetupChecklist={false}>
-      <div className="grid h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-x-hidden overflow-y-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+      <div className="grid h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] w-full max-w-full min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-x-clip overflow-y-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {/* Fixed header row (never scrolls with messages). */}
-        <div className="z-30 row-start-1 row-end-2 shrink-0">
-          <div className="overflow-x-hidden border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
+        <div className="z-30 row-start-1 row-end-2 w-full max-w-full shrink-0 overflow-x-clip">
+          <div className="w-full max-w-full overflow-x-clip border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
             <div className="flex min-w-0 max-w-full flex-col gap-2 overflow-x-hidden border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
               <Button
                 variant="ghost"
@@ -604,14 +604,14 @@ function ChatRoomContent() {
               </div>
             </div>
 
-            <header className="max-w-full overflow-x-hidden px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
+            <header className="w-full max-w-full overflow-x-clip px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
+                <div className="flex min-w-0 max-w-full flex-1 items-start gap-3 overflow-x-hidden">
                   <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20 ring-1 ring-white/20">
                     <MessageCircle className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-x-hidden">
                       <span className="truncate text-base font-semibold tracking-tight text-slate-900 sm:text-lg">
                         {mainChannel
                           ? isDmChannel
@@ -659,8 +659,8 @@ function ChatRoomContent() {
           </div>
         </div>
 
-        <div className="row-start-2 row-end-3 min-h-0 min-w-0 overflow-hidden">
-            <div className="h-full min-h-0 min-w-0 overflow-y-auto overflow-x-hidden bg-slate-50/95">
+        <div className="row-start-2 row-end-3 w-full max-w-full min-h-0 min-w-0 overflow-hidden">
+            <div className="h-full min-h-0 w-full max-w-full min-w-0 overflow-y-auto overflow-x-clip bg-slate-50/95">
               <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-2.5 py-2.5 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
@@ -677,7 +677,7 @@ function ChatRoomContent() {
                       >
                         {/* Row: no w-max — percentage max-widths break on mobile WebKit inside shrink-to-fit rows */}
                         <div
-                          className={`flex min-w-0 max-w-full items-end gap-1.5 sm:max-w-[26rem] sm:gap-2.5 md:max-w-[30rem] lg:max-w-[36rem] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`flex min-w-0 w-full max-w-full items-end gap-1.5 sm:w-auto sm:max-w-[26rem] sm:gap-2.5 md:max-w-[30rem] lg:max-w-[36rem] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
                         >
                           <Avatar className="h-7 w-7 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
                             <div
@@ -864,7 +864,7 @@ function ChatRoomContent() {
             </div>
         </div>
 
-        <div className="row-start-3 row-end-4 shrink-0 border-t border-slate-200/70 bg-white px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
+        <div className="row-start-3 row-end-4 w-full max-w-full shrink-0 overflow-x-clip border-t border-slate-200/70 bg-white px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
               {mainChannel?.isLocked && !canManageChats && (
                 <div className="mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 text-xs leading-relaxed text-amber-900 shadow-sm">
                   This chat room is locked for announcements. You can read messages but cannot post.

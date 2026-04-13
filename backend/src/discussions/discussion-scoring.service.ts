@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 interface DiscussionQualityAnalysis {
   score: number; // 0-100
@@ -19,17 +19,35 @@ interface ResourceSummaryResult {
 
 @Injectable()
 export class DiscussionScoringService {
-  private genAI: GoogleGenerativeAI;
+  private openai: OpenAI;
 
-  /** Retired / invalid model IDs that return 404 on v1beta generateContent — never use. */
+  /** Invalid/retired model IDs — never use. */
   private static readonly BLOCKED_MODEL_IDS = new Set([
-    'gemini-1.5-flash-8b',
+    'qwen/qwen2.5-72b-instruct:free',
   ]);
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY')?.trim();
+    const apiKey =
+      this.configService.get<string>('OPENROUTER_API_KEY')?.trim();
     if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.openai = new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey,
+        defaultHeaders: {
+          ...(this.configService.get<string>('OPENROUTER_HTTP_REFERER')
+            ? {
+                'HTTP-Referer':
+                  this.configService.get<string>('OPENROUTER_HTTP_REFERER')!,
+              }
+            : {}),
+          ...(this.configService.get<string>('OPENROUTER_APP_TITLE')
+            ? {
+                'X-OpenRouter-Title':
+                  this.configService.get<string>('OPENROUTER_APP_TITLE')!,
+              }
+            : {}),
+        },
+      });
     }
   }
 
@@ -44,14 +62,15 @@ export class DiscussionScoringService {
   }
 
   private defaultPrimaryModel(): string {
-    return 'gemini-2.5-flash';
+    return 'qwen/qwen3.6-plus';
   }
 
   /** Primary + fallbacks, deduped — must match what `generateWithRetry` uses. */
   private getModelCandidates(): string[] {
     const primary =
       this.sanitizeModelId(
-        this.configService.get<string>('GEMINI_MODEL') || this.defaultPrimaryModel(),
+        this.configService.get<string>('OPENROUTER_MODEL') ||
+          this.defaultPrimaryModel(),
       ) ?? this.defaultPrimaryModel();
     const fallbacks = this.getFallbackModels().filter((m) => m !== primary);
     return [primary, ...fallbacks].filter((v, i, a) => a.indexOf(v) === i);
@@ -60,51 +79,47 @@ export class DiscussionScoringService {
   private getModel() {
     const modelName =
       this.sanitizeModelId(
-        this.configService.get<string>('GEMINI_MODEL') || this.defaultPrimaryModel(),
+        this.configService.get<string>('OPENROUTER_MODEL') ||
+          this.defaultPrimaryModel(),
       ) ?? this.defaultPrimaryModel();
-    return this.genAI.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-        topP: 0.9,
-      },
-    });
+    return modelName;
   }
 
   /**
    * Env list is merged with safe defaults (deduped) so a bad or stale
-   * GEMINI_MODEL_FALLBACKS value cannot wipe working fallbacks.
+   * OPENROUTER_MODEL_FALLBACKS value cannot wipe working fallbacks.
    * Blocked/retired IDs are always stripped.
    */
   private getFallbackModels(): string[] {
-    const raw = this.configService.get<string>('GEMINI_MODEL_FALLBACKS') || '';
+    const raw =
+      this.configService.get<string>('OPENROUTER_MODEL_FALLBACKS') || '';
     const fromEnv = raw
       .split(',')
       .map((s) => this.sanitizeModelId(s))
       .filter((x): x is string => x !== null);
-    const safeDefaults = ['gemini-1.5-flash'];
+    const safeDefaults = ['qwen/qwen3-coder:free', 'anthropic/claude-opus-4.6-fast'];
     const merged = [...fromEnv, ...safeDefaults];
     return merged.filter((v, i, a) => a.indexOf(v) === i);
   }
 
   private async generateWithRetry(prompt: string) {
+    if (!this.openai) {
+      throw new Error('OpenRouter API key not configured');
+    }
     const candidates = this.getModelCandidates();
 
     let lastErr: unknown = null;
     for (const modelName of candidates) {
-      const model = this.genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-          topP: 0.9,
-        },
-      });
-
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          return await model.generateContent(prompt);
+          const completion = await this.openai.chat.completions.create({
+            model: modelName,
+            messages: [{ role: 'user', content: prompt }],
+            reasoning: { enabled: true },
+            temperature: 0.2,
+          });
+          const content = completion.choices?.[0]?.message?.content || '';
+          return { response: { text: () => content } };
         } catch (err) {
           lastErr = err;
           const msg = err instanceof Error ? err.message : String(err);
@@ -119,7 +134,9 @@ export class DiscussionScoringService {
         }
       }
     }
-    throw lastErr instanceof Error ? lastErr : new Error('Gemini analysis failed');
+    throw lastErr instanceof Error
+      ? lastErr
+      : new Error('OpenRouter analysis failed');
   }
 
   private clampScore(value: number, min: number, max: number) {
@@ -215,11 +232,11 @@ export class DiscussionScoringService {
   }
 
   async getAiStatus(): Promise<{ available: boolean; message?: string }> {
-    if (!this.genAI) {
+    if (!this.openai) {
       return {
         available: false,
         message:
-          'GEMINI_API_KEY is empty or whitespace — set it in the backend environment and restart.',
+          'OPENROUTER_API_KEY is empty or whitespace — set it in the backend environment and restart.',
       };
     }
 
@@ -229,19 +246,19 @@ export class DiscussionScoringService {
 
     for (const modelName of candidates) {
       try {
-        const model = this.genAI.getGenerativeModel({
+        await this.openai.chat.completions.create({
           model: modelName,
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-            topP: 0.9,
-          },
+          messages: [{ role: 'user', content: 'Return JSON: {"ok": true}' }],
+          reasoning: { enabled: true },
+          temperature: 0,
         });
-        await model.generateContent('Return JSON: {"ok": true}');
         return { available: true };
       } catch (error) {
         lastErr = error;
-        console.error(`Gemini availability check failed for model ${modelName}:`, error);
+        console.error(
+          `OpenRouter availability check failed for model ${modelName}:`,
+          error,
+        );
       }
     }
 
@@ -251,7 +268,7 @@ export class DiscussionScoringService {
       lastMsg.length > 320 ? `${lastMsg.slice(0, 320)}…` : lastMsg;
     return {
       available: false,
-      message: `No working Gemini model in this chain: ${candidates.join(' → ')}. Last error: ${short}`,
+      message: `No working OpenRouter model in this chain: ${candidates.join(' -> ')}. Last error: ${short}`,
     };
   }
 
@@ -260,8 +277,8 @@ export class DiscussionScoringService {
     content: string,
     resourceContext?: string,
   ): Promise<DiscussionQualityAnalysis> {
-    if (!this.genAI) {
-      throw new Error('Gemini API key not configured');
+    if (!this.openai) {
+      throw new Error('OpenRouter API key not configured');
     }
 
     // TOON-style compact rubric block (token efficient vs verbose JSON schema prose)
@@ -300,7 +317,8 @@ Do not include markdown or extra text.`;
       return analysis;
     } catch (error) {
       console.error('Error scoring discussion:', error);
-      const message = error instanceof Error ? error.message : 'Gemini analysis failed';
+      const message =
+        error instanceof Error ? error.message : 'OpenRouter analysis failed';
       throw new Error(message);
     }
   }
@@ -311,8 +329,8 @@ Do not include markdown or extra text.`;
     discussionContext?: string,
     learningContext?: string,
   ): Promise<DiscussionQualityAnalysis> {
-    if (!this.genAI) {
-      throw new Error('Gemini API key not configured');
+    if (!this.openai) {
+      throw new Error('OpenRouter API key not configured');
     }
 
     const rubric = `rubric:
@@ -350,7 +368,8 @@ Do not include markdown or extra text.`;
       return analysis;
     } catch (error) {
       console.error('Error scoring comment:', error);
-      const message = error instanceof Error ? error.message : 'Gemini analysis failed';
+      const message =
+        error instanceof Error ? error.message : 'OpenRouter analysis failed';
       throw new Error(message);
     }
   }
@@ -360,8 +379,8 @@ Do not include markdown or extra text.`;
     content: string,
     resourceType?: string,
   ): Promise<ResourceSummaryResult> {
-    if (!this.genAI) {
-      throw new Error('Gemini API key not configured');
+    if (!this.openai) {
+      throw new Error('OpenRouter API key not configured');
     }
 
     const model = this.getModel();
@@ -383,8 +402,13 @@ Return ONLY JSON with this shape:
 Do not include markdown or extra text.`;
 
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
+      const completion = await this.openai.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        reasoning: { enabled: true },
+        temperature: 0.2,
+      });
+      const text = completion.choices?.[0]?.message?.content || '';
       const parsed = JSON.parse(text);
       return {
         summary: typeof parsed?.summary === 'string' ? parsed.summary : '',
@@ -394,7 +418,8 @@ Do not include markdown or extra text.`;
       };
     } catch (error) {
       console.error('Error summarizing resource content:', error);
-      const message = error instanceof Error ? error.message : 'Gemini analysis failed';
+      const message =
+        error instanceof Error ? error.message : 'OpenRouter analysis failed';
       throw new Error(message);
     }
   }

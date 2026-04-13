@@ -18,7 +18,7 @@ import {
   CreateQuizDto,
   GenerateAIQuestionsDto,
 } from './dto/admin.dto';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { SessionAnalyticsService } from '../session-analytics/session-analytics.service';
 import {
   CreateResourceDto,
@@ -1461,8 +1461,9 @@ export class AdminService {
   }
 
   async generateAIQuizQuestions(dto: GenerateAIQuestionsDto) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new BadGatewayException('Gemini API key not configured');
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey)
+      throw new BadGatewayException('OpenRouter API key not configured');
 
     // Resolve session IDs — for MEGA (cohortId only), fetch all sessions in cohort
     let sessionIds = dto.sessionIds ?? [];
@@ -1502,10 +1503,17 @@ export class AdminService {
 
     const context = transcriptContext || dto.context;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-      generationConfig: { temperature: 0.7 },
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey,
+      defaultHeaders: {
+        ...(process.env.OPENROUTER_HTTP_REFERER
+          ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+          : {}),
+        ...(process.env.OPENROUTER_APP_TITLE
+          ? { 'X-OpenRouter-Title': process.env.OPENROUTER_APP_TITLE }
+          : {}),
+      },
     });
 
     const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nBase your questions on the following session content:\n${context}` : ''}
@@ -1526,16 +1534,19 @@ Rules:
 - Questions should be directly relevant to the topic/session content above
 - Questions should be clear, unambiguous, and educational`;
 
-    let result: any;
+    let raw = '';
     try {
-      result = await model.generateContent(prompt);
+      const completion = await openai.chat.completions.create({
+        model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
+        messages: [{ role: 'user', content: prompt }],
+        reasoning: { enabled: true },
+      });
+      raw = completion.choices?.[0]?.message?.content || '';
     } catch (err: any) {
       throw new BadGatewayException(
-        `Gemini API error: ${err?.message ?? 'unknown'}`,
+        `OpenRouter API error: ${err?.message ?? 'unknown'}`,
       );
     }
-
-    const raw = result.response.text();
     const stripped = raw
       .replace(/```(?:json)?\s*/gi, '')
       .replace(/```\s*/gi, '')

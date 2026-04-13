@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 
@@ -32,40 +32,39 @@ interface AIAnalysisResult {
 
 @Injectable()
 export class SessionAnalyticsService {
-  private genAI: GoogleGenerativeAI;
   private readonly openRouterApiKey: string | null;
-  private readonly openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  private readonly openRouterClient: OpenAI | null;
   private readonly openRouterReferer: string | null;
   private readonly openRouterTitle: string | null;
   private readonly modelCooldownUntil = new Map<string, number>();
-  private static readonly BLOCKED_MODEL_IDS = new Set(['gemini-1.5-flash-8b']);
   private static readonly BLOCKED_OPENROUTER_MODEL_IDS = new Set([
     'qwen/qwen2.5-72b-instruct:free',
   ]);
-  private static readonly DEFAULT_PRIMARY_MODEL = 'gemini-2.5-flash';
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
     this.openRouterApiKey =
       this.config.get<string>('OPENROUTER_API_KEY')?.trim() || null;
     this.openRouterReferer =
       this.config.get<string>('OPENROUTER_HTTP_REFERER')?.trim() || null;
     this.openRouterTitle =
       this.config.get<string>('OPENROUTER_APP_TITLE')?.trim() || null;
-
-    if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    }
-  }
-
-  private sanitizeModelId(raw: string | undefined): string | null {
-    const id = raw?.trim();
-    if (!id) return null;
-    if (SessionAnalyticsService.BLOCKED_MODEL_IDS.has(id)) return null;
-    return id;
+    this.openRouterClient = this.openRouterApiKey
+      ? new OpenAI({
+          baseURL: 'https://openrouter.ai/api/v1',
+          apiKey: this.openRouterApiKey,
+          defaultHeaders: {
+            ...(this.openRouterReferer
+              ? { 'HTTP-Referer': this.openRouterReferer }
+              : {}),
+            ...(this.openRouterTitle
+              ? { 'X-OpenRouter-Title': this.openRouterTitle }
+              : {}),
+          },
+        })
+      : null;
   }
 
   private sanitizeOpenRouterModelId(raw: string | undefined): string | null {
@@ -75,25 +74,10 @@ export class SessionAnalyticsService {
     return id;
   }
 
-  private getModelCandidates(): string[] {
-    const primary =
-      this.sanitizeModelId(this.config.get<string>('GEMINI_MODEL')) ??
-      SessionAnalyticsService.DEFAULT_PRIMARY_MODEL;
-    const fallbackRaw = this.config.get<string>('GEMINI_MODEL_FALLBACKS') || '';
-    const fallbackFromEnv = fallbackRaw
-      .split(',')
-      .map((s) => this.sanitizeModelId(s))
-      .filter((x): x is string => x !== null);
-    const safeDefaults = ['gemini-2.5-flash-lite', 'gemini-1.5-flash'];
-    return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
-      (value, index, arr) => value && arr.indexOf(value) === index,
-    );
-  }
-
   private getOpenRouterModelCandidates(): string[] {
     const primary =
       this.sanitizeOpenRouterModelId(this.config.get<string>('OPENROUTER_MODEL')) ??
-      'qwen/qwen3-next-80b-a3b-instruct:free';
+      'qwen/qwen3.6-plus';
     const fallbackRaw =
       this.config.get<string>('OPENROUTER_MODEL_FALLBACKS') || '';
     const fallbackFromEnv = fallbackRaw
@@ -101,14 +85,15 @@ export class SessionAnalyticsService {
       .map((s) => this.sanitizeOpenRouterModelId(s))
       .filter((x): x is string => x !== null);
     const safeDefaults = [
-      'qwen/qwen3-32b:free',
+      'qwen/qwen3-coder:free',
+      'anthropic/claude-opus-4.6-fast',
     ];
     return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
       (value, index, arr) => value && arr.indexOf(value) === index,
     );
   }
 
-  private isRetryableGeminiError(err: unknown): boolean {
+  private isRetryableProviderError(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err ?? '');
     return /429|503|rate limit|resource has been exhausted|temporarily unavailable|overloaded/i.test(
       msg,
@@ -173,101 +158,27 @@ export class SessionAnalyticsService {
     this.modelCooldownUntil.set(modelName, Date.now() + ms);
   }
 
-  private async generateContentWithFallback(
-    prompt: string,
-    temperature: number,
-  ): Promise<any> {
-    if (this.openRouterApiKey) {
-      return this.generateContentWithOpenRouterFallback(prompt, temperature);
-    }
-
-    if (!this.genAI) {
-      throw new ServiceUnavailableException(
-        'No AI provider is configured on the backend',
-      );
-    }
-
-    const candidates = this.getModelCandidates();
-    const ordered = [
-      ...candidates.filter((m) => !this.isOnCooldown(m)),
-      ...candidates.filter((m) => this.isOnCooldown(m)),
-    ];
-    let lastError: unknown = null;
-
-    for (const modelName of ordered) {
-      const model = this.genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: { temperature },
-      });
-
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const result = await model.generateContent(prompt);
-          return result;
-        } catch (err) {
-          lastError = err;
-          if (!this.isRetryableGeminiError(err)) break;
-          this.markCooldown(modelName);
-          const backoffMs = 600 * Math.pow(2, attempt);
-          await new Promise((resolve) => setTimeout(resolve, backoffMs));
-        }
-      }
-    }
-
-    const message =
-      lastError instanceof Error ? lastError.message : 'unknown error';
-    throw new BadGatewayException(`Gemini API error: ${message}`);
-  }
-
   private async callOpenRouterChatCompletions(
     model: string,
     prompt: string,
     temperature: number,
   ): Promise<string> {
-    if (!this.openRouterApiKey) {
+    if (!this.openRouterClient) {
       throw new ServiceUnavailableException(
         'OpenRouter is not configured on the backend',
       );
     }
-
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.openRouterApiKey}`,
-      'Content-Type': 'application/json',
-    };
-    if (this.openRouterReferer) {
-      headers['HTTP-Referer'] = this.openRouterReferer;
-    }
-    if (this.openRouterTitle) {
-      headers['X-OpenRouter-Title'] = this.openRouterTitle;
-    }
-
-    const response = await fetch(this.openRouterBaseUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
+    const response = await this.openRouterClient.chat.completions.create({
         model,
-        temperature,
+        reasoning: { enabled: true },
         messages: [{ role: 'user', content: prompt }],
-      }),
+        temperature,
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenRouter ${response.status}: ${text}`);
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string | Array<{ type?: string; text?: string }>;
-        };
-      }>;
-    };
-    const content = data?.choices?.[0]?.message?.content;
+    const content = response?.choices?.[0]?.message?.content;
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
       const joined = content
-        .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+        .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
         .join('')
         .trim();
       if (joined) return joined;
@@ -302,7 +213,7 @@ export class SessionAnalyticsService {
           };
         } catch (err) {
           lastError = err;
-          if (!this.isRetryableGeminiError(err)) break;
+          if (!this.isRetryableProviderError(err)) break;
           this.markCooldown(modelName);
           const backoffMs = 600 * Math.pow(2, attempt);
           await new Promise((resolve) => setTimeout(resolve, backoffMs));
@@ -316,30 +227,21 @@ export class SessionAnalyticsService {
   }
 
   async getAiProviderHealth(): Promise<{
-    activeProvider: 'openrouter' | 'gemini' | 'none';
+    activeProvider: 'openrouter' | 'none';
     openRouterConfigured: boolean;
-    geminiConfigured: boolean;
     openRouterModels: string[];
-    geminiModels: string[];
     probe: { ok: boolean; message: string };
   }> {
-    const activeProvider = this.openRouterApiKey
-      ? 'openrouter'
-      : this.genAI
-      ? 'gemini'
-      : 'none';
+    const activeProvider = this.openRouterApiKey ? 'openrouter' : 'none';
 
     if (activeProvider === 'none') {
       return {
         activeProvider,
         openRouterConfigured: false,
-        geminiConfigured: false,
         openRouterModels: [],
-        geminiModels: [],
         probe: {
           ok: false,
-          message:
-            'No AI provider configured (set OPENROUTER_API_KEY or GEMINI_API_KEY)',
+          message: 'No AI provider configured (set OPENROUTER_API_KEY)',
         },
       };
     }
@@ -354,11 +256,9 @@ export class SessionAnalyticsService {
       return {
         activeProvider,
         openRouterConfigured: Boolean(this.openRouterApiKey),
-        geminiConfigured: Boolean(this.genAI),
         openRouterModels: this.openRouterApiKey
           ? this.getOpenRouterModelCandidates()
           : [],
-        geminiModels: this.genAI ? this.getModelCandidates() : [],
         probe: {
           ok: true,
           message: raw.slice(0, 220),
@@ -369,11 +269,9 @@ export class SessionAnalyticsService {
       return {
         activeProvider,
         openRouterConfigured: Boolean(this.openRouterApiKey),
-        geminiConfigured: Boolean(this.genAI),
         openRouterModels: this.openRouterApiKey
           ? this.getOpenRouterModelCandidates()
           : [],
-        geminiModels: this.genAI ? this.getModelCandidates() : [],
         probe: {
           ok: false,
           message,
@@ -440,9 +338,9 @@ export class SessionAnalyticsService {
     transcript: string,
     fellows: Array<{ id: string; name: string }> = [],
   ): Promise<AIAnalysisResult> {
-    if (!this.genAI && !this.openRouterApiKey) {
+    if (!this.openRouterApiKey) {
       throw new ServiceUnavailableException(
-        'No AI provider is configured on the backend',
+        'OpenRouter is not configured on the backend',
       );
     }
 
@@ -683,9 +581,9 @@ Consider:
   ): Promise<{ reply: string }> {
     await this.assertViewerCanAccessSession(viewerId, sessionId);
 
-    if (!this.genAI && !this.openRouterApiKey) {
+    if (!this.openRouterApiKey) {
       throw new ServiceUnavailableException(
-        'No AI provider is configured on the backend',
+        'OpenRouter is not configured on the backend',
       );
     }
 
@@ -727,7 +625,7 @@ Assistant:`;
   async generateCohortInsights(cohortId: string, viewerId: string) {
     const cohortData = await this.getCohortAnalytics(cohortId, viewerId);
 
-    if ((!this.genAI && !this.openRouterApiKey) || cohortData.analyzedSessions === 0) {
+    if (!this.openRouterApiKey || cohortData.analyzedSessions === 0) {
       return null;
     }
 
