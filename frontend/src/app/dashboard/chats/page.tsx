@@ -25,6 +25,7 @@ export default function ChatsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelDescription, setNewChannelDescription] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [newChannelType, setNewChannelType] = useState<"COHORT_WIDE" | "MONTHLY_THEME" | "SESSION_SPECIFIC">(
     "COHORT_WIDE",
   );
@@ -34,10 +35,19 @@ export default function ChatsPage() {
   const { data: allChannels = [], isLoading: allChannelsLoading } = useAllChannels(isAdmin);
   const { data: directChannels = [], isLoading: directChannelsLoading } = useAdminDirectChannels(!!profile?.id);
 
-  const groupChats = (isAdmin ? allChannels : cohortChannels).filter(
-    (channel) => channel.type !== "DIRECT_MESSAGE" && !channel.isArchived,
-  );
-  const privateChats = directChannels.filter((channel) => !channel.isArchived);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const groupChats = (isAdmin ? allChannels : cohortChannels).filter((channel) => {
+    if (channel.type === "DIRECT_MESSAGE" || channel.isArchived) return false;
+    if (!normalizedQuery) return true;
+    const haystack = `${channel.name || ""} ${channel.description || ""} ${channel.cohort?.name || ""}`.toLowerCase();
+    return haystack.includes(normalizedQuery);
+  });
+  const privateChats = directChannels.filter((channel) => {
+    if (channel.isArchived) return false;
+    if (!normalizedQuery) return true;
+    const haystack = `${channel.name || ""} ${channel.description || ""} ${channel.cohort?.name || ""}`.toLowerCase();
+    return haystack.includes(normalizedQuery);
+  });
   const loading = profileLoading || cohortChannelsLoading || allChannelsLoading || directChannelsLoading;
   const activeCohortId = useMemo(
     () => (isAdmin ? newChannelCohortId : cohortId || ""),
@@ -95,6 +105,20 @@ export default function ChatsPage() {
               </Button>
             )}
           </div>
+
+          <Card className="border-slate-200">
+            <CardContent className="pt-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="chat-search">Search chats</Label>
+                <Input
+                  id="chat-search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by chat name, description, or cohort..."
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {showCreateForm && canCreateChatRooms && (
             <Card className="border-slate-200">

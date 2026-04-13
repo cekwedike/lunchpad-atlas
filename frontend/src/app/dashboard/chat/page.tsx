@@ -471,7 +471,7 @@ function ChatRoomContent() {
       setMentionQuery(null);
       return;
     }
-    const segment = lineAfter.split(/[,;]/)[0].trim();
+    const segment = lineAfter.split(/[\s,;.!?()[\]{}]/)[0].trim();
     setMentionQuery(segment);
     setMentionOpen(true);
   };
@@ -508,7 +508,7 @@ function ChatRoomContent() {
       setMentionQuery(null);
       return;
     }
-    const displayName = getDisplayName(member);
+    const displayName = (member.firstName || getDisplayName(member)).trim();
     const atIndex = chatMessage.lastIndexOf('@');
     if (atIndex < 0) return;
     const token = displayName.replace(/\s+/g, " ").trim();
@@ -537,9 +537,9 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout fullBleedContent>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        {/* Sticky glass “dynamic island” — nav + room title stay visible while the page scrolls */}
-        <div className="sticky top-0 z-30 shrink-0">
+      <div className="flex h-[calc(100dvh-4rem)] min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        {/* Keep header static while only chat messages scroll. */}
+        <div className="z-30 shrink-0">
           <div className="border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
             <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
               <Button
