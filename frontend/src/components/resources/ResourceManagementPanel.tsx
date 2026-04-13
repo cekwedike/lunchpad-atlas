@@ -27,11 +27,10 @@ interface ResourceManagementPanelProps {
 }
 
 function getLockStatus(session: any, resource: any) {
-  const now = new Date();
-  const unlockDate = session?.unlockDate ? new Date(session.unlockDate) : null;
+  const unlockDateValue = session?.unlockDate as string | undefined;
   const scheduledDate = session?.scheduledDate ? new Date(session.scheduledDate) : null;
-  const autoUnlocked = unlockDate ? now >= unlockDate : false;
-  const daysUntilUnlock = unlockDate && !autoUnlocked ? calendarDaysFromToday(unlockDate) : null;
+  const autoUnlocked = unlockDateValue ? calendarDaysFromToday(unlockDateValue) === 0 : false;
+  const daysUntilUnlock = unlockDateValue && !autoUnlocked ? calendarDaysFromToday(unlockDateValue) : null;
 
   // Manual unlock overrides everything
   if (resource?.state === "UNLOCKED") {
@@ -382,12 +381,12 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
                     {monthSessions.map((session: any) => {
                       const sessionResources = resourcesBySession[session.id] || [];
                       const isSessionOpen = expandedSessions.has(session.id);
-                      const unlockDate = session.unlockDate ? new Date(session.unlockDate) : null;
+                      const unlockDateValue = session.unlockDate as string | undefined;
                       const scheduledDate = session.scheduledDate ? new Date(session.scheduledDate) : null;
-                      const now = new Date();
-                      const autoUnlocked = unlockDate ? now >= unlockDate : false;
+                      const autoUnlocked = unlockDateValue ? calendarDaysFromToday(unlockDateValue) === 0 : false;
                       const sessionPassed = scheduledDate ? isPast(scheduledDate) : false;
-                      const daysUntilUnlock = unlockDate && !autoUnlocked ? calendarDaysFromToday(unlockDate) : null;
+                      const daysUntilUnlock =
+                        unlockDateValue && !autoUnlocked ? calendarDaysFromToday(unlockDateValue) : null;
 
                       return (
                         <div key={session.id}>

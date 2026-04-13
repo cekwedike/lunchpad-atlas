@@ -27,7 +27,6 @@ import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { useResource } from "@/hooks/api/useResources";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
-import Link from "next/link";
 import { toast } from "sonner";
 
 export default function DiscussionsPage() {
@@ -132,13 +131,6 @@ function DiscussionsContent() {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button
-                  onClick={() => router.push("/dashboard/chats")}
-                  variant="outline"
-                  className="flex-shrink-0"
-                >
-                  Open Chats
-                </Button>
                 {canCreateDiscussion && (
                   <Button
                     onClick={() =>
@@ -241,9 +233,12 @@ function DiscussionsContent() {
                   const isPendingApproval = discussion.isApproved === false;
 
                   return (
-                    <Link key={discussion.id} href={`/dashboard/discussions/${discussion.id}`}>
-                      <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="p-6">
+                    <Card
+                      key={discussion.id}
+                      className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => router.push(`/dashboard/discussions/${discussion.id}`)}
+                    >
+                      <CardContent className="p-6">
                           <div className="flex items-start gap-4">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2">
@@ -274,6 +269,7 @@ function DiscussionsContent() {
                                     type="button"
                                     onClick={(event) => {
                                       event.preventDefault();
+                                      event.stopPropagation();
                                       approveDiscussion
                                         .mutateAsync(discussion.id)
                                         .then(() => refetchPendingCount())
@@ -298,9 +294,8 @@ function DiscussionsContent() {
                               </div>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
+                      </CardContent>
+                    </Card>
                   );
                 })
               )}

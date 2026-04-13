@@ -544,11 +544,11 @@ function ChatRoomContent() {
             <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
               <Button
                 variant="ghost"
-                onClick={() => router.push('/dashboard/discussions')}
+                onClick={() => router.push('/dashboard/chats')}
                 className="h-10 w-full touch-manipulation justify-start gap-2 rounded-xl text-slate-700 hover:bg-white/80 sm:h-9 sm:w-auto"
               >
                 <ArrowLeft className="h-4 w-4 shrink-0" />
-                <span className="truncate">Back to Discussions</span>
+                <span className="truncate">Back to All Chats</span>
               </Button>
               <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-slate-600">
                 <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-3 py-1.5 shadow-sm backdrop-blur-md">
@@ -597,7 +597,11 @@ function ChatRoomContent() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-base font-semibold tracking-tight text-slate-900 sm:text-lg">
-                        {isDmChannel ? (mainChannel?.description || 'Private Conversation') : cohortChatName}
+                        {mainChannel
+                          ? isDmChannel
+                            ? (mainChannel?.description || 'Private Conversation')
+                            : cohortChatName
+                          : 'Chat Room'}
                       </span>
                       {isDmChannel && (
                         <Badge className="shrink-0 border-purple-200/80 bg-purple-50 text-purple-700 text-xs">

@@ -57,6 +57,17 @@ export class ResourcesService {
     return result.awarded;
   }
 
+  private isUnlockDateReached(unlockDate: Date | string | null | undefined): boolean {
+    if (!unlockDate) return false;
+    const raw = unlockDate instanceof Date ? unlockDate.toISOString() : String(unlockDate);
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+    if (!match) return new Date() >= new Date(raw);
+    const unlockLocalDate = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const today = new Date();
+    const todayLocalDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return todayLocalDate >= unlockLocalDate;
+  }
+
   /**
    * Calculate if a resource is unlocked based on session unlock date
    * Resources unlock 5 days before session scheduled date
@@ -101,8 +112,7 @@ export class ResourcesService {
     }
 
     // Determine whether the resource is currently accessible (unlocked)
-    const now = new Date();
-    const isDateUnlocked = session && now >= new Date(session.unlockDate);
+    const isDateUnlocked = session && this.isUnlockDateReached(session.unlockDate);
     const isAccessible = resourceState === 'UNLOCKED' || isDateUnlocked;
 
     // Check user progress
