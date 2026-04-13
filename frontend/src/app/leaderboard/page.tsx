@@ -16,14 +16,28 @@ import {
   Flame,
   Zap,
   Star,
+  BarChart3,
+  Loader2,
 } from "lucide-react";
-import { useLeaderboard, useLeaderboardRank, useLeaderboardMonths } from "@/hooks/api/useLeaderboard";
+import {
+  useLeaderboard,
+  useLeaderboardRank,
+  useLeaderboardMonths,
+  useLeaderboardFellowBreakdown,
+} from "@/hooks/api/useLeaderboard";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useCohorts, useAdminUsers } from "@/hooks/api/useAdmin";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function LeaderboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<{ month: number; year: number } | null>(null);
@@ -36,6 +50,7 @@ export default function LeaderboardPage() {
   const [debouncedFellowSearch, setDebouncedFellowSearch] = useState("");
   const [selectedFellow, setSelectedFellow] = useState<any | null>(null);
   const [adjustCohortId, setAdjustCohortId] = useState<string | null>(null);
+  const [breakdownUserId, setBreakdownUserId] = useState<string | null>(null);
 
   const { data: profile } = useProfile();
   const isAdmin = profile?.role === 'ADMIN';
@@ -120,6 +135,16 @@ export default function LeaderboardPage() {
   const { data: userRank } = useLeaderboardRank(
     selectedCohortId || undefined,
     selectedMonth || undefined,
+  );
+
+  const {
+    data: breakdown,
+    isLoading: breakdownLoading,
+    error: breakdownError,
+  } = useLeaderboardFellowBreakdown(
+    breakdownUserId,
+    selectedCohortId,
+    selectedMonth,
   );
 
   useEffect(() => {
@@ -509,12 +534,39 @@ export default function LeaderboardPage() {
                 <section className="relative">
                   <div className="mb-4 flex items-center justify-center gap-2 text-sm font-semibold text-slate-600">
                     <Trophy className="h-5 w-5 text-amber-500" />
-                    Top three — the podium
+                    TOP THREE: THE PODIUM
                   </div>
+                  {canAdjustPoints && (
+                    <p className="mb-3 text-center text-xs text-indigo-600/90">
+                      Click a podium card to see that fellow&apos;s points breakdown for this month.
+                    </p>
+                  )}
                   <div className="mx-auto grid max-w-4xl grid-cols-3 items-end gap-3 sm:gap-4">
                     {/* 2nd */}
                     <div className="flex flex-col items-center">
-                      <div className="mb-2 w-full rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-100 to-white p-4 pb-8 text-center shadow-lg transition hover:-translate-y-0.5 sm:p-5">
+                      <div
+                        className={cn(
+                          'mb-2 w-full rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-100 to-white p-4 pb-8 text-center shadow-lg transition hover:-translate-y-0.5 sm:p-5',
+                          canAdjustPoints && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/80',
+                        )}
+                        role={canAdjustPoints ? 'button' : undefined}
+                        tabIndex={canAdjustPoints ? 0 : undefined}
+                        onClick={
+                          canAdjustPoints && topThree[1]?.userId
+                            ? () => setBreakdownUserId(topThree[1].userId)
+                            : undefined
+                        }
+                        onKeyDown={
+                          canAdjustPoints && topThree[1]?.userId
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setBreakdownUserId(topThree[1].userId);
+                                }
+                              }
+                            : undefined
+                        }
+                      >
                         <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">2nd</div>
                         <div className="mx-auto mt-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-600 to-slate-800 text-lg font-bold text-white shadow-inner sm:h-16 sm:w-16 sm:text-xl">
                           {topThree[1]?.userName?.slice(0, 2).toUpperCase() || '?'}
@@ -529,7 +581,29 @@ export default function LeaderboardPage() {
                     </div>
                     {/* 1st */}
                     <div className="z-10 flex flex-col items-center">
-                      <div className="mb-2 w-full rounded-2xl border-2 border-amber-300/80 bg-gradient-to-b from-amber-100 via-amber-50 to-white p-4 pb-10 text-center shadow-xl shadow-amber-200/50 ring-4 ring-amber-200/30 sm:p-6 sm:pb-12">
+                      <div
+                        className={cn(
+                          'mb-2 w-full rounded-2xl border-2 border-amber-300/80 bg-gradient-to-b from-amber-100 via-amber-50 to-white p-4 pb-10 text-center shadow-xl shadow-amber-200/50 ring-4 ring-amber-200/30 sm:p-6 sm:pb-12',
+                          canAdjustPoints && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/90',
+                        )}
+                        role={canAdjustPoints ? 'button' : undefined}
+                        tabIndex={canAdjustPoints ? 0 : undefined}
+                        onClick={
+                          canAdjustPoints && topThree[0]?.userId
+                            ? () => setBreakdownUserId(topThree[0].userId)
+                            : undefined
+                        }
+                        onKeyDown={
+                          canAdjustPoints && topThree[0]?.userId
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setBreakdownUserId(topThree[0].userId);
+                                }
+                              }
+                            : undefined
+                        }
+                      >
                         <Crown className="mx-auto mb-1 h-8 w-8 text-amber-500 drop-shadow-sm" />
                         <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-800">Champion</div>
                         <div className="mx-auto mt-2 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-2xl font-black text-white shadow-lg sm:h-24 sm:w-24 sm:text-3xl">
@@ -544,7 +618,29 @@ export default function LeaderboardPage() {
                     </div>
                     {/* 3rd */}
                     <div className="flex flex-col items-center">
-                      <div className="mb-2 w-full rounded-2xl border border-orange-200/80 bg-gradient-to-b from-orange-50 to-white p-4 pb-6 text-center shadow-md transition hover:-translate-y-0.5 sm:p-5">
+                      <div
+                        className={cn(
+                          'mb-2 w-full rounded-2xl border border-orange-200/80 bg-gradient-to-b from-orange-50 to-white p-4 pb-6 text-center shadow-md transition hover:-translate-y-0.5 sm:p-5',
+                          canAdjustPoints && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80',
+                        )}
+                        role={canAdjustPoints ? 'button' : undefined}
+                        tabIndex={canAdjustPoints ? 0 : undefined}
+                        onClick={
+                          canAdjustPoints && topThree[2]?.userId
+                            ? () => setBreakdownUserId(topThree[2].userId)
+                            : undefined
+                        }
+                        onKeyDown={
+                          canAdjustPoints && topThree[2]?.userId
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setBreakdownUserId(topThree[2].userId);
+                                }
+                              }
+                            : undefined
+                        }
+                      >
                         <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">3rd</div>
                         <div className="mx-auto mt-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-700 text-base font-bold text-white shadow-inner sm:h-14 sm:w-14">
                           {topThree[2]?.userName?.slice(0, 2).toUpperCase() || '?'}
@@ -564,12 +660,18 @@ export default function LeaderboardPage() {
               <section className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <span className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-200" />
-                  Full standings
+                  Full Standings
                   <span className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-200" />
                 </h3>
                 <p className="text-center text-xs text-slate-500">
                   Tie-break order: streak, then base points, then name.
                 </p>
+                {canAdjustPoints && (
+                  <p className="text-center text-xs text-indigo-600/90">
+                    Tip: click any fellow below to see how their monthly total is built (logged points +
+                    bonuses).
+                  </p>
+                )}
                 {rankedList.map((entry) => {
                   const isCurrentUser = entry.userId === profile?.id;
                   const pct = Math.round((entry.points / maxPoints) * 100);
@@ -581,7 +683,27 @@ export default function LeaderboardPage() {
                         isCurrentUser
                           ? 'border-indigo-300 bg-gradient-to-r from-indigo-50/90 to-white ring-2 ring-indigo-200/60'
                           : 'border-slate-200/80 bg-white/90 hover:border-indigo-200/60',
+                        canAdjustPoints && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/80',
                       )}
+                      onClick={
+                        canAdjustPoints
+                          ? () => {
+                              setBreakdownUserId(entry.userId);
+                            }
+                          : undefined
+                      }
+                      role={canAdjustPoints ? 'button' : undefined}
+                      tabIndex={canAdjustPoints ? 0 : undefined}
+                      onKeyDown={
+                        canAdjustPoints
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setBreakdownUserId(entry.userId);
+                              }
+                            }
+                          : undefined
+                      }
                     >
                       <div className="relative p-4 sm:p-5">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -654,6 +776,198 @@ export default function LeaderboardPage() {
             />
           )
         ) : null}
+
+        <Dialog
+          open={!!breakdownUserId}
+          onOpenChange={(open) => {
+            if (!open) setBreakdownUserId(null);
+          }}
+        >
+          <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 pr-8">
+                <BarChart3 className="h-5 w-5 shrink-0 text-indigo-600" />
+                Monthly points breakdown
+              </DialogTitle>
+              <DialogDescription>
+                Logged activity for the same month and cohort as the leaderboard above. Bonuses are computed from
+                chat, comments, and daily activity (not stored as individual log rows).
+              </DialogDescription>
+            </DialogHeader>
+
+            {breakdownLoading && (
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                Loading breakdown…
+              </div>
+            )}
+
+            {breakdownError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                Could not load this breakdown. Try again or check your permissions.
+              </p>
+            )}
+
+            {!breakdownLoading && breakdown && (
+              <div className="space-y-5 text-sm">
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {breakdown.fellow.firstName} {breakdown.fellow.lastName}
+                  </p>
+                  <p className="text-xs text-slate-500">{breakdown.fellow.email}</p>
+                  {breakdown.cohortName && (
+                    <p className="mt-1 text-xs text-slate-600">
+                      Cohort: <span className="font-medium">{breakdown.cohortName}</span>
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs font-medium text-indigo-700">{breakdown.periodLabel}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
+                    <p className="text-lg font-bold tabular-nums text-slate-900">
+                      {breakdown.leaderboard.totalPoints}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">From log</p>
+                    <p className="text-lg font-bold tabular-nums text-slate-900">
+                      {breakdown.leaderboard.basePoints}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Bonuses</p>
+                    <p className="text-lg font-bold tabular-nums text-emerald-800">
+                      +{breakdown.leaderboard.bonusPoints}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Streak</p>
+                    <p className="text-lg font-bold tabular-nums text-slate-900">
+                      {breakdown.leaderboard.activityStreak}d
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-xs text-indigo-900">
+                  <p className="font-semibold text-indigo-950">How bonuses are calculated</p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5 text-indigo-900/90">
+                    <li>
+                      Engagement streak bonus: +{breakdown.leaderboard.streakBonus} (streak{' '}
+                      {breakdown.leaderboard.activityStreak} days)
+                    </li>
+                    <li>
+                      Chat &amp; comments: +{breakdown.leaderboard.chatBonus} (
+                      {breakdown.leaderboard.chatCount} messages/comments; chat streak{' '}
+                      {breakdown.leaderboard.chatStreak} days → volume +{breakdown.leaderboard.chatVolumeBonus}, streak
+                      +{breakdown.leaderboard.chatStreakBonus})
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Points from activity log (by type)
+                  </p>
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200">
+                    {breakdown.byEventType.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-slate-500">No logged points this month.</p>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {breakdown.byEventType.map((row) => (
+                            <tr key={row.eventType} className="border-b border-slate-100 last:border-0">
+                              <td className="px-3 py-1.5 text-slate-700">{row.label}</td>
+                              <td className="px-3 py-1.5 text-right font-semibold tabular-nums text-slate-900">
+                                {row.points > 0 ? '+' : ''}
+                                {row.points}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+
+                {breakdown.achievementGrants.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Achievement bonuses
+                    </p>
+                    <ul className="space-y-1 rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2 text-xs">
+                      {breakdown.achievementGrants.map((a, i) => (
+                        <li key={`${a.name}-${i}`} className="flex justify-between gap-2">
+                          <span className="text-slate-800">{a.name}</span>
+                          <span className="shrink-0 font-semibold tabular-nums text-violet-800">+{a.points}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {breakdown.manualAdjustments.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Staff adjustments
+                    </p>
+                    <ul className="space-y-1 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 text-xs">
+                      {breakdown.manualAdjustments.map((m, i) => (
+                        <li key={`${m.description}-${i}`} className="flex justify-between gap-2">
+                          <span className="line-clamp-2 text-slate-800">{m.description}</span>
+                          <span
+                            className={cn(
+                              'shrink-0 font-semibold tabular-nums',
+                              m.points >= 0 ? 'text-emerald-800' : 'text-red-700',
+                            )}
+                          >
+                            {m.points > 0 ? '+' : ''}
+                            {m.points}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Recent log entries (up to 80)
+                  </p>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50">
+                    {breakdown.recentEntries.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-slate-500">No entries.</p>
+                    ) : (
+                      <ul className="divide-y divide-slate-200 text-xs">
+                        {breakdown.recentEntries.map((e) => (
+                          <li key={e.id} className="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-800">{e.label}</p>
+                              <p className="line-clamp-2 text-slate-600">{e.description}</p>
+                              <p className="text-[10px] text-slate-400">
+                                {new Date(e.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <span
+                              className={cn(
+                                'shrink-0 font-semibold tabular-nums',
+                                e.points >= 0 ? 'text-slate-900' : 'text-red-700',
+                              )}
+                            >
+                              {e.points > 0 ? '+' : ''}
+                              {e.points}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

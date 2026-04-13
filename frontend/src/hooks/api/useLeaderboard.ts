@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import type { LeaderboardResponse, LeaderboardRankResponse } from '@/types/api';
+import type {
+  LeaderboardResponse,
+  LeaderboardRankResponse,
+  LeaderboardFellowBreakdownResponse,
+} from '@/types/api';
 
 export interface LeaderboardMonthOption {
   month: number;
@@ -57,5 +61,29 @@ export function useLeaderboardMonths(cohortId?: string) {
       return apiClient.get<{ months: LeaderboardMonthOption[] }>(endpoint);
     },
     enabled: !!cohortId,
+  });
+}
+
+/** Admin & facilitators: monthly points composition for one fellow (matches leaderboard month). */
+export function useLeaderboardFellowBreakdown(
+  userId: string | null,
+  cohortId: string | undefined | null,
+  month: { month: number; year: number } | null,
+) {
+  return useQuery({
+    queryKey: ['leaderboard-fellow-breakdown', userId, cohortId, month?.month, month?.year],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (cohortId) params.append('cohortId', cohortId);
+      if (month) {
+        params.append('month', String(month.month));
+        params.append('year', String(month.year));
+      }
+      const q = params.toString();
+      return apiClient.get<LeaderboardFellowBreakdownResponse>(
+        `/leaderboard/fellows/${userId}/breakdown${q ? `?${q}` : ''}`,
+      );
+    },
+    enabled: !!userId && !!month,
   });
 }

@@ -33,6 +33,27 @@ export class LeaderboardFilterDto {
   limit?: number = 20;
 }
 
+/** Query params for GET /leaderboard/fellows/:userId/breakdown (admin & facilitators). */
+export class LeaderboardFellowBreakdownQueryDto {
+  /** Required for facilitators; optional for admins (validates cohort when set). */
+  @IsOptional()
+  @IsString()
+  cohortId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  @Type(() => Number)
+  month?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(2000)
+  @Type(() => Number)
+  year?: number;
+}
+
 export class LeaderboardAdjustPointsDto {
   @IsString()
   userId: string;

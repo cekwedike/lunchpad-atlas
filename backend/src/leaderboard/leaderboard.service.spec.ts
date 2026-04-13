@@ -19,6 +19,7 @@ describe('LeaderboardService', () => {
       groupBy: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      aggregate: jest.fn(),
     },
     chatMessage: {
       findMany: jest.fn(),
@@ -422,6 +423,40 @@ describe('LeaderboardService', () => {
       const result = await service.getAvailableMonths('user-1', 'FELLOW', 'cohort-1');
 
       expect(result).toEqual({ months: [] });
+    });
+  });
+
+  describe('getFellowPointsBreakdown', () => {
+    it('should return monthly breakdown for admin', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValueOnce({
+        id: 'f1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@test.com',
+        cohortId: 'c1',
+        role: 'FELLOW',
+      });
+      mockPrismaService.pointsLog.groupBy.mockResolvedValue([
+        { eventType: 'QUIZ_SUBMIT', _sum: { points: 40 } },
+        { eventType: 'RESOURCE_COMPLETE', _sum: { points: 10 } },
+      ]);
+      mockPrismaService.pointsLog.aggregate.mockResolvedValue({ _sum: { points: 50 } });
+      mockPrismaService.pointsLog.findMany.mockResolvedValue([]);
+      mockPrismaService.chatMessage.findMany.mockResolvedValue([]);
+      mockPrismaService.discussionComment.findMany.mockResolvedValue([]);
+      mockPrismaService.cohort.findUnique.mockResolvedValue({ name: 'April Cohort' });
+
+      const result = await service.getFellowPointsBreakdown('admin-1', 'ADMIN', 'f1', {
+        cohortId: 'c1',
+        month: 4,
+        year: 2026,
+      });
+
+      expect(result.fellow.id).toBe('f1');
+      expect(result.cohortName).toBe('April Cohort');
+      expect(result.leaderboard.basePoints).toBe(50);
+      expect(result.leaderboard.totalPoints).toBe(50);
+      expect(result.byEventType.some((r) => r.eventType === 'QUIZ_SUBMIT' && r.points === 40)).toBe(true);
     });
   });
 });

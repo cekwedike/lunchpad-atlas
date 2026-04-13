@@ -5,7 +5,11 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { LeaderboardFilterDto, LeaderboardAdjustPointsDto } from './dto/leaderboard.dto';
+import {
+  LeaderboardFilterDto,
+  LeaderboardAdjustPointsDto,
+  LeaderboardFellowBreakdownQueryDto,
+} from './dto/leaderboard.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PointsService } from '../gamification/points.service';
 
@@ -679,6 +683,271 @@ export class LeaderboardService {
     }
 
     return { success: result.awarded, capped: result.capped };
+  }
+
+  /**
+   * Staff-only: how a fellow's monthly leaderboard total is composed (logged points + chat/streak bonuses).
+   */
+  async getFellowPointsBreakdown(
+    viewerId: string,
+    viewerRole: string,
+    fellowUserId: string,
+    query: LeaderboardFellowBreakdownQueryDto,
+  ) {
+    const fellow = await this.prisma.user.findUnique({
+      where: { id: fellowUserId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        cohortId: true,
+        role: true,
+      },
+    });
+
+    if (!fellow || fellow.role !== 'FELLOW') {
+      throw new NotFoundException('Fellow not found');
+    }
+
+    if (viewerRole === 'FACILITATOR') {
+      if (!query.cohortId) {
+        throw new BadRequestException('cohortId is required');
+      }
+      if (fellow.cohortId !== query.cohortId) {
+        throw new ForbiddenException('Fellow is not in this cohort');
+      }
+      const link = await this.prisma.cohortFacilitator.findFirst({
+        where: { userId: viewerId, cohortId: query.cohortId },
+      });
+      if (!link) {
+        throw new ForbiddenException('You are not a facilitator for this cohort');
+      }
+    }
+
+    if (viewerRole === 'ADMIN' && query.cohortId) {
+      if (fellow.cohortId !== query.cohortId) {
+        throw new BadRequestException('Fellow is not in the selected cohort');
+      }
+    }
+
+    const now = new Date();
+    const targetYear = query.year ?? now.getFullYear();
+    const targetMonth = query.month ?? now.getMonth() + 1;
+    const { startDate, endDate } = this.buildMonthRange(targetYear, targetMonth);
+
+    const periodLabel = new Date(targetYear, targetMonth - 1, 1).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const pointsWhere = {
+      userId: fellowUserId,
+      createdAt: { gte: startDate, lte: endDate },
+    };
+
+    const [groupByEvent, baseAgg, adminLogs, chatMessages, discussionComments, pointsEvents] =
+      await Promise.all([
+        this.prisma.pointsLog.groupBy({
+          by: ['eventType'],
+          where: pointsWhere,
+          _sum: { points: true },
+        }),
+        this.prisma.pointsLog.aggregate({
+          where: pointsWhere,
+          _sum: { points: true },
+        }),
+        this.prisma.pointsLog.findMany({
+          where: { ...pointsWhere, eventType: 'ADMIN_ADJUSTMENT' },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            points: true,
+            description: true,
+            metadata: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.chatMessage.findMany({
+          where: {
+            userId: fellowUserId,
+            isDeleted: false,
+            createdAt: { gte: startDate, lte: endDate },
+          },
+          select: { createdAt: true },
+        }),
+        this.prisma.discussionComment.findMany({
+          where: {
+            userId: fellowUserId,
+            createdAt: { gte: startDate, lte: endDate },
+          },
+          select: { createdAt: true },
+        }),
+        this.prisma.pointsLog.findMany({
+          where: pointsWhere,
+          select: { createdAt: true },
+        }),
+      ]);
+
+    const basePoints = baseAgg._sum.points ?? 0;
+
+    const chatCount = chatMessages.length + discussionComments.length;
+    const chatDays = new Set<string>();
+    const activityDays = new Set<string>();
+    const addDayTo = (set: Set<string>, d: Date) => {
+      const date = new Date(d);
+      date.setHours(0, 0, 0, 0);
+      const key = date.toISOString().split('T')[0];
+      set.add(key);
+    };
+    chatMessages.forEach((m) => addDayTo(chatDays, m.createdAt));
+    discussionComments.forEach((c) => addDayTo(chatDays, c.createdAt));
+
+    const chatStreak = this.calculateConsecutiveStreak(chatDays);
+    const chatVolumeBonus = this.calculateChatCountBonus(chatCount);
+    const chatStreakBonus = this.calculateStreakBonus(chatStreak);
+    const chatBonus = chatVolumeBonus + chatStreakBonus;
+
+    pointsEvents.forEach((e) => addDayTo(activityDays, e.createdAt));
+    chatMessages.forEach((m) => addDayTo(activityDays, m.createdAt));
+    discussionComments.forEach((c) => addDayTo(activityDays, c.createdAt));
+
+    const activityStreak = this.calculateConsecutiveStreak(activityDays);
+    const streakBonus = this.calculateStreakBonus(activityStreak);
+
+    const bonusPoints = chatBonus + streakBonus;
+    const totalPoints = basePoints + bonusPoints;
+
+    const achievementGrants: Array<{ name: string; points: number; createdAt: string }> = [];
+    const manualAdjustments: Array<{ description: string; points: number; createdAt: string }> = [];
+
+    for (const log of adminLogs) {
+      const meta = log.metadata as Record<string, unknown> | null;
+      const isAchievement =
+        meta != null &&
+        (typeof meta.achievementId === 'string' || typeof meta.achievementName === 'string');
+      const createdAtIso = log.createdAt.toISOString();
+      if (isAchievement) {
+        const name =
+          typeof meta.achievementName === 'string' && meta.achievementName.length > 0
+            ? meta.achievementName
+            : 'Achievement bonus';
+        achievementGrants.push({ name, points: log.points, createdAt: createdAtIso });
+      } else {
+        manualAdjustments.push({
+          description: log.description,
+          points: log.points,
+          createdAt: createdAtIso,
+        });
+      }
+    }
+
+    const eventLabels: Record<string, string> = {
+      RESOURCE_VIEW: 'Resource views',
+      RESOURCE_COMPLETE: 'Resources completed',
+      DISCUSSION_POST: 'Discussions posted',
+      DISCUSSION_COMMENT: 'Discussion comments',
+      DISCUSSION_QUALITY_SCORE: 'Discussion quality',
+      COMMENT_QUALITY_SCORE: 'Comment quality',
+      ADMIN_ADJUSTMENT: 'Adjustments & bonuses',
+      QUIZ_SUBMIT: 'Quizzes',
+      CHAT_MESSAGE: 'Chat messages',
+      SESSION_ATTEND: 'Attendance',
+    };
+
+    const byEventType: Array<{ eventType: string; label: string; points: number }> = [];
+    for (const row of groupByEvent) {
+      if (row.eventType === 'ADMIN_ADJUSTMENT') continue;
+      const pts = row._sum.points ?? 0;
+      byEventType.push({
+        eventType: row.eventType,
+        label: eventLabels[row.eventType] ?? row.eventType,
+        points: pts,
+      });
+    }
+
+    if (achievementGrants.length > 0) {
+      const achSum = achievementGrants.reduce((s, a) => s + a.points, 0);
+      byEventType.push({
+        eventType: 'ACHIEVEMENT_BONUS',
+        label: 'Achievement bonuses',
+        points: achSum,
+      });
+    }
+    if (manualAdjustments.length > 0) {
+      const manSum = manualAdjustments.reduce((s, a) => s + a.points, 0);
+      byEventType.push({
+        eventType: 'MANUAL_ADJUSTMENT',
+        label: 'Manual points (staff)',
+        points: manSum,
+      });
+    }
+    byEventType.sort((a, b) => Math.abs(b.points) - Math.abs(a.points));
+
+    const recentEntries = await this.prisma.pointsLog.findMany({
+      where: pointsWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 80,
+      select: {
+        id: true,
+        points: true,
+        eventType: true,
+        description: true,
+        createdAt: true,
+        metadata: true,
+      },
+    });
+
+    let cohortName: string | null = null;
+    if (fellow.cohortId) {
+      const cohort = await this.prisma.cohort.findUnique({
+        where: { id: fellow.cohortId },
+        select: { name: true },
+      });
+      cohortName = cohort?.name ?? null;
+    }
+
+    return {
+      fellow: {
+        id: fellow.id,
+        firstName: fellow.firstName,
+        lastName: fellow.lastName,
+        email: fellow.email,
+        cohortId: fellow.cohortId,
+      },
+      cohortName,
+      month: targetMonth,
+      year: targetYear,
+      periodLabel,
+      leaderboard: {
+        totalPoints,
+        basePoints,
+        bonusPoints,
+        chatBonus,
+        streakBonus,
+        chatCount,
+        chatStreak,
+        activityStreak,
+        chatVolumeBonus,
+        chatStreakBonus,
+      },
+      byEventType,
+      achievementGrants,
+      manualAdjustments,
+      recentEntries: recentEntries.map((e) => ({
+        id: e.id,
+        points: e.points,
+        eventType: e.eventType,
+        label: eventLabels[e.eventType] ?? e.eventType,
+        description: e.description,
+        createdAt: e.createdAt.toISOString(),
+        isAchievementBonus:
+          e.eventType === 'ADMIN_ADJUSTMENT' &&
+          (() => {
+            const m = e.metadata as Record<string, unknown> | null;
+            return m != null && (typeof m.achievementId === 'string' || typeof m.achievementName === 'string');
+          })(),
+      })),
+    };
   }
 
   private async calculateStreak(userId: string): Promise<number> {

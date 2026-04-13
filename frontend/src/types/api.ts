@@ -293,6 +293,44 @@ export interface LeaderboardResponse {
   totalPages: number;
 }
 
+export interface LeaderboardFellowBreakdownResponse {
+  fellow: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    cohortId: string | null;
+  };
+  cohortName: string | null;
+  month: number;
+  year: number;
+  periodLabel: string;
+  leaderboard: {
+    totalPoints: number;
+    basePoints: number;
+    bonusPoints: number;
+    chatBonus: number;
+    streakBonus: number;
+    chatCount: number;
+    chatStreak: number;
+    activityStreak: number;
+    chatVolumeBonus: number;
+    chatStreakBonus: number;
+  };
+  byEventType: Array<{ eventType: string; label: string; points: number }>;
+  achievementGrants: Array<{ name: string; points: number; createdAt: string }>;
+  manualAdjustments: Array<{ description: string; points: number; createdAt: string }>;
+  recentEntries: Array<{
+    id: string;
+    points: number;
+    eventType: string;
+    label: string;
+    description: string;
+    createdAt: string;
+    isAchievementBonus: boolean;
+  }>;
+}
+
 export interface LeaderboardRankResponse {
   rank: number | null;
   totalUsers: number;
