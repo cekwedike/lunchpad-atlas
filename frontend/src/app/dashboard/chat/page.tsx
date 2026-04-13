@@ -553,11 +553,11 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout fullBleedContent showSetupChecklist={false}>
-      <div className="grid h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+      <div className="grid h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-x-hidden overflow-y-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {/* Fixed header row (never scrolls with messages). */}
         <div className="z-30 row-start-1 row-end-2 shrink-0">
-          <div className="border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
-            <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
+          <div className="overflow-x-hidden border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">
+            <div className="flex min-w-0 max-w-full flex-col gap-2 overflow-x-hidden border-b border-slate-200/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3 lg:px-8">
               <Button
                 variant="ghost"
                 onClick={() => router.push('/dashboard/chats')}
@@ -604,7 +604,7 @@ function ChatRoomContent() {
               </div>
             </div>
 
-            <header className="px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
+            <header className="max-w-full overflow-x-hidden px-3 py-3.5 sm:px-6 sm:py-4 lg:px-8">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                   <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/20 ring-1 ring-white/20">
@@ -677,7 +677,7 @@ function ChatRoomContent() {
                       >
                         {/* Row: no w-max — percentage max-widths break on mobile WebKit inside shrink-to-fit rows */}
                         <div
-                          className={`flex min-w-0 max-w-[min(100%,calc(100vw-2.5rem))] items-end gap-1.5 sm:max-w-[min(100%,26rem)] sm:gap-2.5 md:max-w-[min(100%,30rem)] lg:max-w-[min(100%,36rem)] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`flex min-w-0 max-w-full items-end gap-1.5 sm:max-w-[26rem] sm:gap-2.5 md:max-w-[30rem] lg:max-w-[36rem] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
                         >
                           <Avatar className="h-7 w-7 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
                             <div
