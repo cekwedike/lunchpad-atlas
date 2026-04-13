@@ -2,7 +2,7 @@
 
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Clock, CheckCircle, Award, XCircle } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,15 +30,6 @@ export default function QuizPage() {
 
   const { data: reviewData } = useQuizReview(quizId, showReview);
 
-  // Initialize timer when quiz starts
-  useEffect(() => {
-    if (started) {
-      const timeLimit = quiz?.timeLimit;
-      setTimeRemaining(timeLimit ? timeLimit * 60 : null); // null = no limit
-      setStartTime(Date.now());
-    }
-  }, [started, quiz]);
-
   const handleSubmit = useCallback(async () => {
     if (!questions) return;
 
@@ -56,23 +47,37 @@ export default function QuizPage() {
     }
   }, [answers, questions, submitQuizMutation, startTime]);
 
-  // Timer countdown
-  useEffect(() => {
-    if (!started || timeRemaining === null || timeRemaining <= 0) return;
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
 
-    const timer = setInterval(() => {
+  // Single timer: init + steady 1s tick. Avoid depending on `timeRemaining` (was resetting the
+  // interval every second) and on full `quiz` (refetches were resetting the clock).
+  useEffect(() => {
+    if (!started || quizResult || !quiz) return;
+
+    const limitMin = Number(quiz.timeLimit);
+    const limitSec =
+      Number.isFinite(limitMin) && limitMin > 0 ? Math.floor(limitMin * 60) : null;
+
+    setTimeRemaining(limitSec);
+    setStartTime(Date.now());
+
+    if (limitSec === null) return;
+
+    const id = setInterval(() => {
       setTimeRemaining((prev) => {
-        if (prev === null) return null;
+        if (prev === null || prev <= 0) return prev;
         if (prev <= 1) {
-          handleSubmit();
+          void handleSubmitRef.current();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [started, timeRemaining, handleSubmit]);
+    return () => clearInterval(id);
+    // Intentionally omit quiz?.timeLimit: same quiz id + refetch must not reset the clock.
+  }, [started, quiz?.id, quizResult]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

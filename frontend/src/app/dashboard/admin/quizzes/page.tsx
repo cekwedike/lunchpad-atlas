@@ -64,6 +64,28 @@ function buildLocalIso(date: string, hour: number, min: number, ampm: 'AM' | 'PM
   return `${date}T${String(hour24).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
+/**
+ * API stores UTC instants. Map to local YYYY-MM-DDTHH:MM for TimePicker12H so it matches
+ * `new Date(iso).toLocaleString()` on the card (toISOString().slice(0,16) was UTC → wrong hour).
+ */
+function utcIsoToLocalDatetimeInput(iso: string | Date): string {
+  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Picker value (local wall clock) → UTC ISO for the server so cloud UTC hosts don't mis-parse naive strings. */
+function localDatetimeInputToUtcIso(naive: string): string | null {
+  if (!naive || !naive.includes('T')) return null;
+  const [datePart, timePart] = naive.split('T');
+  const [y, mo, d] = datePart.split('-').map(Number);
+  const [h, mi] = timePart.split(':').map(Number);
+  if (![y, mo, d, h].every((n) => Number.isFinite(n))) return null;
+  const instant = new Date(y, mo - 1, d, h, Number.isFinite(mi) ? mi : 0, 0, 0);
+  return instant.toISOString();
+}
+
 
 const SELECT_CLS = "border border-gray-300 rounded-md text-sm py-1.5 px-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -231,8 +253,8 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
   const [pointValue, setPointValue] = useState(quiz.pointValue ?? 200);
   const [maxAttempts, setMaxAttempts] = useState<number>(quiz.maxAttempts ?? 0);
   const [showCorrectAnswers, setShowCorrectAnswers] = useState<boolean>(quiz.showCorrectAnswers ?? false);
-  const [openAt, setOpenAt] = useState(quiz.openAt ? new Date(quiz.openAt).toISOString().slice(0, 16) : "");
-  const [closeAt, setCloseAt] = useState(quiz.closeAt ? new Date(quiz.closeAt).toISOString().slice(0, 16) : "");
+  const [openAt, setOpenAt] = useState(quiz.openAt ? utcIsoToLocalDatetimeInput(quiz.openAt) : "");
+  const [closeAt, setCloseAt] = useState(quiz.closeAt ? utcIsoToLocalDatetimeInput(quiz.closeAt) : "");
   const [questions, setQuestions] = useState<Array<{ question: string; options: [string,string,string,string]; correctAnswer: string }>>(
     (quiz.questions ?? []).map((q: any) => ({
       question: q.question,
@@ -249,7 +271,8 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
       title, description: description || undefined,
       timeLimit, passingScore, pointValue,
       maxAttempts, showCorrectAnswers,
-      openAt: openAt || null, closeAt: closeAt || null,
+      openAt: openAt ? localDatetimeInputToUtcIso(openAt) : null,
+      closeAt: closeAt ? localDatetimeInputToUtcIso(closeAt) : null,
       questions: questions.map((q, i) => ({ ...q, order: i + 1 })),
     });
     onClose();
@@ -698,8 +721,8 @@ function CreateStandardQuizDialog({
       title, description: description || undefined,
       cohortId, quizType, timeLimit, passingScore, pointValue,
       maxAttempts, showCorrectAnswers,
-      openAt: openAt || undefined,
-      closeAt: closeAt || undefined,
+      openAt: openAt ? localDatetimeInputToUtcIso(openAt) ?? undefined : undefined,
+      closeAt: closeAt ? localDatetimeInputToUtcIso(closeAt) ?? undefined : undefined,
       sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
       questions: questions.map((q, i) => ({ ...q, order: i + 1 })),
     });
