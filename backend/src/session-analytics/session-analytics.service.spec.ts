@@ -185,4 +185,23 @@ describe('SessionAnalyticsService', () => {
       expect(result).toEqual(mockAnalytics);
     });
   });
+
+  describe('processSessionAnalytics', () => {
+    it('should throw NotFoundException when session cohort relation is missing', async () => {
+      mockPrismaService.session.findUnique
+        .mockResolvedValueOnce({ cohortId: 'cohort-1' })
+        .mockResolvedValueOnce({
+          id: 'session-1',
+          cohort: null,
+        });
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: 'ADMIN',
+        cohortId: null,
+      });
+
+      await expect(
+        service.processSessionAnalytics('session-1', 'transcript text', 'admin-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

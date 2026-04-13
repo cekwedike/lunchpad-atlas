@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ServiceUnavailableException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -436,6 +437,11 @@ Consider:
   async processSessionAnalytics(sessionId: string, transcript: string, viewerId: string) {
     await this.assertViewerCanAccessSession(viewerId, sessionId);
 
+    const normalizedTranscript = typeof transcript === 'string' ? transcript.trim() : '';
+    if (!normalizedTranscript) {
+      throw new BadRequestException('Transcript is required');
+    }
+
     // Always fetch session with fellows for participation analysis
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
@@ -448,7 +454,13 @@ Consider:
       throw new NotFoundException('Session not found');
     }
 
-    const fellows = session.cohort.fellows.map((f) => ({ id: f.id, name: `${f.firstName} ${f.lastName}` }));
+    if (!session.cohort) {
+      throw new NotFoundException('Session cohort not found');
+    }
+    const fellows = (session.cohort.fellows ?? []).map((f) => ({
+      id: f.id,
+      name: `${f.firstName} ${f.lastName}`,
+    }));
 
     // Get existing analytics or create new
     let analytics = await this.prisma.sessionAnalytics.findFirst({
@@ -468,7 +480,7 @@ Consider:
           fellowsAttended: attendanceCount,
           avgResourcesCompleted: 0,
           avgPoints: 0,
-          transcript,
+          transcript: normalizedTranscript,
         },
       });
     }
@@ -477,12 +489,12 @@ Consider:
       // Analyze with AI — pass fellows so provider can grade participation
       const aiAnalysis = await this.analyzeSessionWithAI(
         sessionId,
-        transcript,
+        normalizedTranscript,
         fellows,
       );
 
       // Count questions and interactions from transcript
-      const questionMatches = transcript.match(/\?/g) || [];
+      const questionMatches = normalizedTranscript.match(/\?/g) || [];
       const questionCount = questionMatches.length;
 
       // Ensure JSON payload is Prisma-safe (no undefined/function values)
@@ -500,7 +512,7 @@ Consider:
       return await this.prisma.sessionAnalytics.update({
         where: { id: analytics.id },
         data: {
-          transcript,
+          transcript: normalizedTranscript,
           engagementScore: aiAnalysis.engagementScore,
           participationRate: aiAnalysis.participationRate,
           averageAttention: aiAnalysis.averageAttention,
@@ -508,7 +520,7 @@ Consider:
           insights: insightsJson,
           participantAnalysis: participantAnalysisJson,
           questionCount,
-          interactionCount: transcript.split('\n').length,
+          interactionCount: normalizedTranscript.split('\n').length,
           aiProcessedAt: new Date(),
           updatedAt: new Date(),
         },
