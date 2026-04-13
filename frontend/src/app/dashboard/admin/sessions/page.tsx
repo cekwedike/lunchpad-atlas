@@ -62,6 +62,11 @@ interface ChatMessage {
   content: string;
 }
 
+function dateInputToIso(dateValue: string): string {
+  // Keep date-only inputs stable across timezones by anchoring to local midday.
+  return new Date(`${dateValue}T12:00:00`).toISOString();
+}
+
 // ─── Create Session Dialog ───────────────────────────────────────────────────
 function CreateSessionDialog({
   cohortId,
@@ -95,8 +100,8 @@ function CreateSessionDialog({
       title: form.title,
       description: form.description || undefined,
       monthTheme: form.monthTheme || undefined,
-      scheduledDate: new Date(form.scheduledDate).toISOString(),
-      unlockDate: form.unlockDate ? new Date(form.unlockDate).toISOString() : undefined,
+      scheduledDate: dateInputToIso(form.scheduledDate),
+      unlockDate: form.unlockDate ? dateInputToIso(form.unlockDate) : undefined,
     });
     onOpenChange(false);
     setForm({ title: "", description: "", monthTheme: "", scheduledDate: "", unlockDate: "", sessionNumber: existingCount + 2 });
@@ -223,7 +228,7 @@ function AttendanceModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setInitialized(false); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckSquare className="h-5 w-5 text-blue-600" />
@@ -236,7 +241,7 @@ function AttendanceModal({
           )}
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <ScrollArea className="min-h-0 flex-1 -mx-6 px-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -336,7 +341,10 @@ function AttendanceModal({
           )}
         </ScrollArea>
 
-        <DialogFooter className="pt-4 border-t">
+        <div className="border-t pt-3 text-xs text-gray-500">
+          Attendance points: Present +20, Late +10, Absent/Excused +0.
+        </div>
+        <DialogFooter className="pt-3">
           <Button variant="outline" onClick={() => { setInitialized(false); onOpenChange(false); }}>
             Cancel
           </Button>
@@ -682,8 +690,8 @@ function SessionRow({ session, onAttendance }: { session: any; onAttendance: (id
       sessionId: session.id,
       data: {
         title: editData.title,
-        scheduledDate: editData.scheduledDate ? new Date(editData.scheduledDate).toISOString() : undefined,
-        unlockDate: editData.unlockDate ? new Date(editData.unlockDate).toISOString() : undefined,
+        scheduledDate: editData.scheduledDate ? dateInputToIso(editData.scheduledDate) : undefined,
+        unlockDate: editData.unlockDate ? dateInputToIso(editData.unlockDate) : undefined,
       },
     });
     setIsEditing(false);

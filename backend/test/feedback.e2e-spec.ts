@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import request from 'supertest';
@@ -41,6 +42,10 @@ describe('Feedback (e2e)', () => {
   const mockNotificationsService = {
     createNotification: jest.fn().mockResolvedValue(undefined),
     notifyAdminsUserRegistered: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue(undefined),
   };
 
   const mockEmailService = {
@@ -86,6 +91,7 @@ describe('Feedback (e2e)', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: ConfigService, useValue: mockConfigService },
         AuthService,
         JwtStrategy,
       ],
@@ -105,7 +111,7 @@ describe('Feedback (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   afterEach(() => {
@@ -291,6 +297,47 @@ describe('Feedback (e2e)', () => {
         mockAdminUser.id,
         'feedback-1',
         true, // is admin
+      );
+    });
+  });
+
+  describe('PATCH /api/v1/feedback/admin/:id/respond', () => {
+    it('should return 403 for non-admin users', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      const token = getAuthToken(mockUser);
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/feedback/admin/feedback-1/respond')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'REVIEWED', adminNote: 'Checked' })
+        .expect(403);
+    });
+
+    it('should allow admin users to respond', async () => {
+      const updatedFeedback = {
+        id: 'feedback-1',
+        userId: mockUser.id,
+        status: 'REVIEWED',
+        adminNote: 'Checked and acknowledged',
+      };
+      mockFeedbackService.respond.mockResolvedValue(updatedFeedback);
+      mockPrismaService.user.findUnique.mockResolvedValue(mockAdminUser);
+      const token = getAuthToken(mockAdminUser);
+
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/feedback/admin/feedback-1/respond')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'REVIEWED', adminNote: 'Checked and acknowledged' })
+        .expect(200);
+
+      expect(response.body.id).toBe('feedback-1');
+      expect(mockFeedbackService.respond).toHaveBeenCalledWith(
+        mockAdminUser.id,
+        'feedback-1',
+        expect.objectContaining({
+          status: 'REVIEWED',
+          adminNote: 'Checked and acknowledged',
+        }),
       );
     });
   });

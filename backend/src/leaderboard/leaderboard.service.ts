@@ -97,6 +97,19 @@ export class LeaderboardService {
     return chatCount >= 50 ? 30 : 0;
   }
 
+  private compareLeaderboardRows(
+    a: { points: number; streak: number; basePoints: number; userName: string; userId: string },
+    b: { points: number; streak: number; basePoints: number; userName: string; userId: string },
+  ) {
+    return (
+      b.points - a.points ||
+      b.streak - a.streak ||
+      b.basePoints - a.basePoints ||
+      a.userName.localeCompare(b.userName) ||
+      a.userId.localeCompare(b.userId)
+    );
+  }
+
   /**
    * Enforces role-based cohort boundaries: fellows see only their cohort; facilitators
    * must pass cohortId and must facilitate it; admins may omit cohortId for org-wide view.
@@ -339,7 +352,7 @@ export class LeaderboardService {
       };
     });
 
-    leaderboardRows.sort((a, b) => b.points - a.points || b.basePoints - a.basePoints);
+    leaderboardRows.sort((a, b) => this.compareLeaderboardRows(a, b));
 
     const totalUsers = leaderboardRows.length;
     const pagedRows = leaderboardRows.slice(skip, skip + limit).map((row, index) => ({
@@ -556,7 +569,7 @@ export class LeaderboardService {
       };
     });
 
-    leaderboardRows.sort((a, b) => b.points - a.points || b.basePoints - a.basePoints);
+    leaderboardRows.sort((a, b) => this.compareLeaderboardRows(a, b));
     const userRankIndex = leaderboardRows.findIndex((row) => row.userId === viewerId);
 
     if (userRankIndex === -1) {

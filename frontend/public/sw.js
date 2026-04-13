@@ -191,7 +191,7 @@ self.addEventListener('notificationclick', (event) => {
   } else if (notifData.fellowId && notifData.achievementId) {
     path = '/dashboard/admin/users';
   } else if (notifData.channelId) {
-    path = `/dashboard/chat?channelId=${encodeURIComponent(String(notifData.channelId))}`;
+    path = `/dashboard/chats?channelId=${encodeURIComponent(String(notifData.channelId))}`;
   } else if (notifData.discussionId) {
     path = `/dashboard/discussions/${encodeURIComponent(String(notifData.discussionId))}`;
   } else if (notifData.resourceId) {

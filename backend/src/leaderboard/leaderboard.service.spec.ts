@@ -156,6 +156,68 @@ describe('LeaderboardService', () => {
         service.getLeaderboard('fac-1', 'FACILITATOR', { page: 1, limit: 20 }),
       ).rejects.toThrow('cohortId query parameter is required');
     });
+
+    it('should apply deterministic tie-breakers: streak, base points, then name', async () => {
+      const now = new Date();
+      const isoDay = (dayOffset: number) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() - dayOffset);
+        d.setHours(12, 0, 0, 0);
+        return d;
+      };
+
+      const mockFellows = [
+        {
+          id: 'u-b',
+          firstName: 'Bola',
+          lastName: 'Abe',
+          email: 'bola@test.com',
+          cohortId: 'cohort-1',
+        },
+        {
+          id: 'u-a',
+          firstName: 'Akin',
+          lastName: 'Zed',
+          email: 'akin@test.com',
+          cohortId: 'cohort-1',
+        },
+        {
+          id: 'u-c',
+          firstName: 'Chike',
+          lastName: 'Ade',
+          email: 'chike@test.com',
+          cohortId: 'cohort-1',
+        },
+      ];
+
+      mockPrismaService.user.findMany.mockResolvedValue(mockFellows);
+      mockPrismaService.pointsLog.groupBy.mockResolvedValue([
+        { userId: 'u-b', _sum: { points: 100 } },
+        { userId: 'u-a', _sum: { points: 110 } },
+        { userId: 'u-c', _sum: { points: 115 } },
+      ]);
+      mockPrismaService.chatMessage.findMany.mockResolvedValue([]);
+      mockPrismaService.discussionComment.findMany.mockResolvedValue([]);
+      mockPrismaService.pointsLog.findMany.mockResolvedValue([
+        // u-b streak = 7 days (+10 bonus) => total 110
+        { userId: 'u-b', createdAt: isoDay(0) },
+        { userId: 'u-b', createdAt: isoDay(1) },
+        { userId: 'u-b', createdAt: isoDay(2) },
+        { userId: 'u-b', createdAt: isoDay(3) },
+        { userId: 'u-b', createdAt: isoDay(4) },
+        { userId: 'u-b', createdAt: isoDay(5) },
+        { userId: 'u-b', createdAt: isoDay(6) },
+        // u-a streak = 2 days (+0 bonus) => total 110
+        { userId: 'u-a', createdAt: isoDay(0) },
+        { userId: 'u-a', createdAt: isoDay(1) },
+        // u-c no streak bonus threshold => total 115
+        { userId: 'u-c', createdAt: isoDay(4) },
+      ]);
+
+      const result = await service.getLeaderboard('admin-1', 'ADMIN', { page: 1, limit: 20 });
+
+      expect(result.data.map((row) => row.userId)).toEqual(['u-c', 'u-b', 'u-a']);
+    });
   });
 
   describe('getUserRank', () => {

@@ -1,12 +1,11 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   MessageSquare,
   Plus,
@@ -17,15 +16,15 @@ import {
   MessageCircle,
   TrendingUp,
   Filter,
-  Users,
-  ArrowRight,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useApproveDiscussion, useDiscussions, usePendingApprovalCount } from "@/hooks/api/useDiscussions";
+import {
+  useApproveDiscussion,
+  useDiscussions,
+  usePendingApprovalCount,
+} from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
-import { useAllChannels, useCohortChannels, useChannelMessages, useCreateChannel, useDeleteChannel, useAdminDirectChannels } from "@/hooks/api/useChat";
-import { useCohorts } from "@/hooks/api/useAdmin";
 import { useResource } from "@/hooks/api/useResources";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import Link from "next/link";
@@ -33,7 +32,15 @@ import { toast } from "sonner";
 
 export default function DiscussionsPage() {
   return (
-    <Suspense fallback={<DashboardLayout><div className="flex items-center justify-center h-[calc(100vh-4rem)]"><p className="text-gray-500">Loading discussions...</p></div></DashboardLayout>}>
+    <Suspense
+      fallback={
+        <DashboardLayout>
+          <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+            <p className="text-gray-500">Loading discussions...</p>
+          </div>
+        </DashboardLayout>
+      }
+    >
       <DiscussionsContent />
     </Suspense>
   );
@@ -46,20 +53,13 @@ function DiscussionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPinned, setFilterPinned] = useState(false);
   const [filterPendingApproval, setFilterPendingApproval] = useState(false);
-  const [selectedCohortId, setSelectedCohortId] = useState("");
-  const [chatRoomName, setChatRoomName] = useState("");
-  const [deleteChatModal, setDeleteChatModal] = useState<{ id: string; name: string } | null>(null);
-  const [showChatCreate, setShowChatCreate] = useState(false);
-  const [deletePrivateChatModal, setDeletePrivateChatModal] = useState<{ id: string; name: string } | null>(null);
 
-  const resourceId = searchParams.get('resourceId') || undefined;
+  const resourceId = searchParams.get("resourceId") || undefined;
   const { data: resource } = useResource(resourceId || "");
 
-  // Chat functionality
-  const isAdmin = profile?.role === 'ADMIN';
-  const isFacilitator = profile?.role === 'FACILITATOR';
-  const canManageChats = isAdmin || isFacilitator;
-  
+  const isAdmin = profile?.role === "ADMIN";
+  const canManageDiscussions = isAdmin || profile?.role === "FACILITATOR";
+
   const { data: discussionsData, refetch } = useDiscussions(profile?.cohortId ?? undefined, {
     pinned: filterPinned || undefined,
     resourceId,
@@ -68,76 +68,39 @@ function DiscussionsContent() {
   const approveDiscussion = useApproveDiscussion();
   const { data: pendingCountData, refetch: refetchPendingCount } = usePendingApprovalCount(
     isAdmin ? undefined : (profile?.cohortId ?? undefined),
-    canManageChats,
+    canManageDiscussions,
   );
 
   const { socket, isConnected } = useDiscussionsSocket();
 
-  const { data: cohortsData, isLoading: cohortsLoading } = useCohorts(isAdmin);
-  const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
-  const facilitatorCohorts = profile?.facilitatedCohorts || [];
-  const availableChatCohorts = isAdmin
-    ? cohorts
-    : isFacilitator
-      ? facilitatorCohorts
-      : [];
-  const chatCohortId = isAdmin
-    ? undefined
-    : (profile?.cohortId ?? selectedCohortId ?? undefined);
-  const { data: cohortChannels } = useCohortChannels(chatCohortId);
-  const { data: allChannels } = useAllChannels(isAdmin);
-  const createChannel = useCreateChannel();
-  const deleteChannel = useDeleteChannel();
-  const { data: adminDMs = [] } = useAdminDirectChannels(isAdmin);
-  const channels = isAdmin ? allChannels : cohortChannels;
-  const mainChannel = channels?.[0];
-  const { data: messages } = useChannelMessages(mainChannel?.id);
-
-  // Subscribe to real-time updates
   useEffect(() => {
     if (!socket) return;
 
-    const handleNewDiscussion = (discussion: any) => {
-      console.log('[Discussions] New discussion:', discussion);
+    const refreshAll = () => {
       refetch();
-      if (canManageChats) {
+      if (canManageDiscussions) {
         refetchPendingCount();
       }
     };
 
-    const handleDiscussionUpdated = (discussion: any) => {
-      console.log('[Discussions] Discussion updated:', discussion);
-      refetch();
-      if (canManageChats) {
-        refetchPendingCount();
-      }
-    };
-
-    const handleNewComment = (data: any) => {
-      console.log('[Discussions] New comment:', data);
-      refetch();
-    };
-
-    const handleDiscussionDeleted = (data: any) => {
-      console.log('[Discussions] Discussion deleted:', data);
-      refetch();
-      if (canManageChats) {
-        refetchPendingCount();
-      }
-    };
-
-    socket.on('discussion:new', handleNewDiscussion);
-    socket.on('discussion:updated', handleDiscussionUpdated);
-    socket.on('discussion:new_comment', handleNewComment);
-    socket.on('discussion:deleted', handleDiscussionDeleted);
+    socket.on("discussion:new", refreshAll);
+    socket.on("discussion:updated", refreshAll);
+    socket.on("discussion:new_comment", refreshAll);
+    socket.on("discussion:deleted", refreshAll);
 
     return () => {
-      socket.off('discussion:new', handleNewDiscussion);
-      socket.off('discussion:updated', handleDiscussionUpdated);
-      socket.off('discussion:new_comment', handleNewComment);
-      socket.off('discussion:deleted', handleDiscussionDeleted);
+      socket.off("discussion:new", refreshAll);
+      socket.off("discussion:updated", refreshAll);
+      socket.off("discussion:new_comment", refreshAll);
+      socket.off("discussion:deleted", refreshAll);
     };
-  }, [socket, refetch, refetchPendingCount, canManageChats]);
+  }, [socket, refetch, refetchPendingCount, canManageDiscussions]);
+
+  useEffect(() => {
+    if (!canManageDiscussions) return;
+    const interval = setInterval(() => refetchPendingCount(), 30000);
+    return () => clearInterval(interval);
+  }, [canManageDiscussions, refetchPendingCount]);
 
   const discussions = discussionsData?.data || [];
   const pendingApprovalCount = pendingCountData?.count ?? 0;
@@ -145,82 +108,17 @@ function DiscussionsContent() {
     searchQuery
       ? discussion.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         discussion.content.toLowerCase().includes(searchQuery.toLowerCase())
-      : true
+      : true,
   );
 
   const canCreateDiscussion = !!profile?.role;
-  const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1] : null;
-
-  const handleStartChat = async () => {
-    if (!selectedCohortId || !chatRoomName.trim()) return;
-
-    try {
-      const createdChannel = await createChannel.mutateAsync({
-        cohortId: selectedCohortId,
-        type: 'COHORT_WIDE',
-        name: chatRoomName.trim(),
-      });
-
-      if (createdChannel?.id) {
-        setChatRoomName("");
-        setShowChatCreate(false);
-        router.push(`/dashboard/chat?channelId=${createdChannel.id}`);
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to create chat room");
-    }
-  };
-
-  const handleDeleteChannel = async (channelId: string) => {
-    try {
-      await deleteChannel.mutateAsync(channelId);
-      toast.success("Chat room deleted");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to delete chat room");
-    }
-  };
-
-  const handleDeletePrivateChat = async (channelId: string) => {
-    try {
-      await deleteChannel.mutateAsync(channelId);
-      toast.success("Private conversation deleted");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to delete private conversation");
-    }
-  };
-
-  useEffect(() => {
-    if (!canManageChats || selectedCohortId) return;
-
-    if (isAdmin && profile?.cohortId) {
-      setSelectedCohortId(profile.cohortId);
-      return;
-    }
-
-    if (isFacilitator && facilitatorCohorts.length === 1) {
-      setSelectedCohortId(facilitatorCohorts[0].id);
-      return;
-    }
-  }, [canManageChats, isAdmin, isFacilitator, facilitatorCohorts, profile?.cohortId, selectedCohortId]);
-
-  useEffect(() => {
-    if (!canManageChats) return;
-
-    const interval = setInterval(() => {
-      refetchPendingCount();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [canManageChats, refetchPendingCount]);
 
   return (
     <DashboardLayout>
       <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 p-2 sm:p-4 lg:p-6">
-          {/* LEFT: Discussions Panel (60%) */}
-          <div className="lg:col-span-3 flex flex-col space-y-4">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 flex-shrink-0">
+        <div className="p-2 sm:p-4 lg:p-6">
+          <div className="flex flex-col space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
                   <MessageSquare className="h-8 w-8 text-blue-600" />
@@ -233,19 +131,33 @@ function DiscussionsContent() {
                   </div>
                 )}
               </div>
-              {canCreateDiscussion && (
+              <div className="flex gap-2">
                 <Button
-                  onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                  onClick={() => router.push("/dashboard/chats")}
+                  variant="outline"
+                  className="flex-shrink-0"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Start Discussion
+                  Open Chats
                 </Button>
-              )}
+                {canCreateDiscussion && (
+                  <Button
+                    onClick={() =>
+                      router.push(
+                        resourceId
+                          ? `/dashboard/discussions/new?resourceId=${resourceId}`
+                          : "/dashboard/discussions/new",
+                      )
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Start Discussion
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Search and Filter Bar */}
-            <Card className="bg-white border-gray-200 shadow-sm flex-shrink-0">
+            <Card className="bg-white border-gray-200 shadow-sm">
               <CardContent className="p-4">
                 <div className="flex flex-col md:flex-row gap-3">
                   <div className="flex-1 relative">
@@ -265,7 +177,7 @@ function DiscussionsContent() {
                     <Filter className="h-4 w-4" />
                     {filterPinned ? "Show All" : "Pinned Only"}
                   </Button>
-                  {canManageChats && (
+                  {canManageDiscussions && (
                     <Button
                       variant={filterPendingApproval ? "default" : "outline"}
                       onClick={() => setFilterPendingApproval(!filterPendingApproval)}
@@ -285,7 +197,7 @@ function DiscussionsContent() {
             </Card>
 
             {resourceId && (
-              <Card className="bg-blue-50 border-blue-200 shadow-sm flex-shrink-0">
+              <Card className="bg-blue-50 border-blue-200 shadow-sm">
                 <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <div className="text-sm text-blue-700">Filtered by resource</div>
@@ -294,16 +206,10 @@ function DiscussionsContent() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push(`/resources/${resourceId}`)}
-                    >
+                    <Button variant="outline" onClick={() => router.push(`/resources/${resourceId}`)}>
                       View Resource
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push('/dashboard/discussions')}
-                    >
+                    <Button variant="outline" onClick={() => router.push("/dashboard/discussions")}>
                       Clear Filter
                     </Button>
                   </div>
@@ -311,86 +217,30 @@ function DiscussionsContent() {
               </Card>
             )}
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
-              <Card className="bg-white border-gray-200 shadow-sm">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Total Discussions</p>
-                      <p className="text-2xl font-bold text-gray-900">{discussions.length}</p>
-                    </div>
-                    <MessageSquare className="h-8 w-8 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border-gray-200 shadow-sm">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Your Posts</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {discussions.filter((d: any) => d.userId === profile?.id).length}
-                      </p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border-gray-200 shadow-sm">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Total Comments</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {discussions.reduce((sum: number, d: any) => sum + (d._count?.comments || 0), 0)}
-                      </p>
-                    </div>
-                    <MessageCircle className="h-8 w-8 text-purple-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <div className="space-y-4">
+              {filteredDiscussions.length === 0 ? (
+                <Card className="bg-white border-gray-200 shadow-sm">
+                  <CardContent className="py-12 text-center">
+                    <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      {searchQuery ? "No discussions found" : "No discussions yet"}
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      {searchQuery ? "Try a different search term" : "Be the first to start a discussion!"}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredDiscussions.map((discussion: any) => {
+                  const topicLabel = discussion.resource?.title
+                    ? `Resource: ${discussion.resource.title}`
+                    : discussion.session?.title
+                      ? `Session ${discussion.session.sessionNumber}: ${discussion.session.title}`
+                      : "General";
 
-            {/* Discussions List */}
-            <div>
-              <div className="space-y-4">
-                {filteredDiscussions.length === 0 ? (
-                  <Card className="bg-white border-gray-200 shadow-sm">
-                    <CardContent className="py-12">
-                      <div className="text-center">
-                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {searchQuery ? "No discussions found" : "No discussions yet"}
-                        </h3>
-                        <p className="text-gray-600 mb-4">
-                          {searchQuery
-                            ? "Try a different search term"
-                            : "Be the first to start a discussion!"}
-                        </p>
-                        {!searchQuery && canCreateDiscussion && (
-                          <Button
-                            onClick={() => router.push(resourceId ? `/dashboard/discussions/new?resourceId=${resourceId}` : '/dashboard/discussions/new')}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Start Discussion
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  filteredDiscussions.map((discussion: any) => {
-                    const topicLabel = discussion.resource?.title
-                      ? `Resource: ${discussion.resource.title}`
-                      : discussion.session?.title
-                        ? `Session ${discussion.session.sessionNumber}: ${discussion.session.title}`
-                        : 'General';
+                  const isPendingApproval = discussion.isApproved === false;
 
-                    const isPendingApproval = discussion.isApproved === false;
-
-                    return (
+                  return (
                     <Link key={discussion.id} href={`/dashboard/discussions/${discussion.id}`}>
                       <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="p-6">
@@ -400,12 +250,8 @@ function DiscussionsContent() {
                                 <h3 className="text-lg font-semibold text-gray-900 truncate">
                                   {discussion.title}
                                 </h3>
-                                {discussion.isPinned && (
-                                  <Pin className="h-4 w-4 text-amber-600" />
-                                )}
-                                {discussion.isLocked && (
-                                  <Lock className="h-4 w-4 text-red-600" />
-                                )}
+                                {discussion.isPinned && <Pin className="h-4 w-4 text-amber-600" />}
+                                {discussion.isLocked && <Lock className="h-4 w-4 text-red-600" />}
                                 {isPendingApproval && (
                                   <Badge className="text-xs bg-amber-50 text-amber-700 border border-amber-200">
                                     Pending approval
@@ -415,33 +261,23 @@ function DiscussionsContent() {
                                   {topicLabel}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                                {discussion.content}
-                              </p>
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">{discussion.content}</p>
                               <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-700">
-                                    {discussion.user?.firstName}
-                                  </span>
+                                  <span className="font-medium text-gray-700">{discussion.user?.firstName}</span>
                                   <Badge className={`text-xs ${getRoleBadgeColor(discussion.user?.role)}`}>
                                     {getRoleDisplayName(discussion.user?.role)}
                                   </Badge>
                                 </div>
-                                {isPendingApproval && (isAdmin || isFacilitator) && (
+                                {isPendingApproval && canManageDiscussions && (
                                   <button
                                     type="button"
                                     onClick={(event) => {
                                       event.preventDefault();
                                       approveDiscussion
                                         .mutateAsync(discussion.id)
-                                        .then(() => {
-                                          if (canManageChats) {
-                                            refetchPendingCount();
-                                          }
-                                        })
-                                        .catch(() => {
-                                          toast.error("Failed to approve discussion");
-                                        });
+                                        .then(() => refetchPendingCount())
+                                        .catch(() => toast.error("Failed to approve discussion"));
                                     }}
                                     className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold"
                                   >
@@ -449,9 +285,7 @@ function DiscussionsContent() {
                                   </button>
                                 )}
                                 <span>•</span>
-                                <span>
-                                  {formatLocalTimestamp(discussion.createdAt)}
-                                </span>
+                                <span>{formatLocalTimestamp(discussion.createdAt)}</span>
                                 <span>•</span>
                                 <div className="flex items-center gap-1">
                                   <MessageCircle className="h-4 w-4" />
@@ -467,258 +301,13 @@ function DiscussionsContent() {
                         </CardContent>
                       </Card>
                     </Link>
-                    );
-                  })
-                )}
-              </div>
+                  );
+                })
+              )}
             </div>
-          </div>
-
-          {/* RIGHT: Chat Panel (40%) */}
-          <div className="lg:col-span-2 flex flex-col space-y-4">
-            <Card className="bg-white shadow-sm">
-              <CardHeader className="pb-3 border-b">
-                <CardTitle className="flex items-center justify-between">
-                  <MessageCircle className="h-6 w-6 text-blue-600" />
-                  <span>Chats</span>
-                </CardTitle>
-                {canManageChats && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowChatCreate((prev) => !prev)}
-                    className="mt-2 w-full"
-                  >
-                    {showChatCreate ? "Hide chat form" : "Create chat room"}
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent className="p-4">
-                {channels && channels.length > 0 ? (
-                  <div className="space-y-3">
-                    {channels.map((channel) => {
-                      const channelTitle = channel.name || channel.cohort?.name || 'Chat Room';
-                      const isActive = channel.id === mainChannel?.id;
-                      return (
-                        <Link
-                          key={channel.id}
-                          href={`/dashboard/chat?channelId=${channel.id}`}
-                          className="block"
-                        >
-                          <div className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${isActive ? 'border-blue-400 bg-blue-50/30' : 'border-gray-200'}`}>
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <div className="text-sm text-gray-500">Chat Room</div>
-                                <div className="text-lg font-semibold text-gray-900">
-                                  {channelTitle}
-                                </div>
-                                {channel.isLocked && (
-                                  <Badge className="mt-1 bg-amber-100 text-amber-700 border border-amber-200">
-                                    Locked
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <div className="h-2 w-2 rounded-full bg-green-500" />
-                                <Users className="h-4 w-4" />
-                                {canManageChats && (
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      setDeleteChatModal({ id: channel.id, name: channelTitle });
-                                    }}
-                                    className="ml-2 text-xs text-red-600 hover:text-red-700"
-                                  >
-                                    Delete
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between">
-                              <div className="text-sm text-gray-600 truncate max-w-[70%]">
-                                {isActive && lastMessage ? lastMessage.content : "Open to view messages"}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {isActive && lastMessage ? formatLocalTimestamp(lastMessage.createdAt) : ""}
-                              </div>
-                            </div>
-                            <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
-                              Open chat room
-                              <ArrowRight className="h-4 w-4" />
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-500">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No chat room yet</p>
-                    {!canManageChats && (
-                      <p className="text-sm mt-2">Ask an admin to create a cohort</p>
-                    )}
-                  </div>
-                )}
-                {canManageChats && showChatCreate && (
-                  <div className="mt-6 space-y-3 border-t pt-4">
-                    <p className="text-sm text-gray-600">Create a cohort chat room</p>
-                    <div className="text-left">
-                      <label htmlFor="cohort-chat-select" className="text-xs font-medium text-gray-700">
-                        Cohort
-                      </label>
-                      <select
-                        id="cohort-chat-select"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
-                        value={selectedCohortId}
-                        onChange={(e) => setSelectedCohortId(e.target.value)}
-                        disabled={cohortsLoading && isAdmin}
-                      >
-                        <option value="">-- Select a cohort --</option>
-                        {availableChatCohorts.map((cohort: any) => (
-                          <option key={cohort.id} value={cohort.id}>
-                            {cohort.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="text-left">
-                      <label htmlFor="chat-room-name" className="text-xs font-medium text-gray-700">
-                        Chat room name
-                      </label>
-                      <Input
-                        id="chat-room-name"
-                        value={chatRoomName}
-                        onChange={(event) => setChatRoomName(event.target.value)}
-                        placeholder="e.g., General, Help Desk"
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button
-                      onClick={handleStartChat}
-                      disabled={!selectedCohortId || !chatRoomName.trim() || createChannel.isPending}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {createChannel.isPending ? "Creating..." : "Start Chat"}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Private Chats — Admin only */}
-            {isAdmin && (
-              <Card className="bg-white shadow-sm">
-                <CardHeader className="pb-3 border-b">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Lock className="h-5 w-5 text-purple-600" />
-                    <span>Private Chats</span>
-                    {adminDMs.length > 0 && (
-                      <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-xs ml-auto">
-                        {adminDMs.length}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <p className="text-xs text-gray-500 mt-1">View-only. You can delete inappropriate conversations.</p>
-                </CardHeader>
-                <CardContent className="p-4">
-                  {adminDMs.length === 0 ? (
-                    <div className="text-center py-4 text-gray-500">
-                      <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm">No private conversations yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {adminDMs.map((dm: any) => {
-                        const displayName = dm.description || 'Private Conversation';
-                        return (
-                          <div key={dm.id} className="flex items-center justify-between p-3 border border-purple-100 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-7 h-7 rounded-full bg-purple-200 flex items-center justify-center shrink-0">
-                                <Lock className="h-3 w-3 text-purple-600" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-                                {dm.cohort?.name && (
-                                  <p className="text-xs text-gray-500">{dm.cohort.name}</p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0 ml-2">
-                              <Link href={`/dashboard/chat?channelId=${dm.id}`}>
-                                <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700 hover:bg-purple-200 text-xs px-2 h-7">
-                                  View
-                                </Button>
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={() => setDeletePrivateChatModal({ id: dm.id, name: displayName })}
-                                className="text-xs text-red-600 hover:text-red-700 px-2 h-7"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
-      {deleteChatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-900">Delete chat room</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              Are you sure you want to delete "{deleteChatModal.name}"? This cannot be undone.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteChatModal(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
-                onClick={async () => {
-                  await handleDeleteChannel(deleteChatModal.id);
-                  setDeleteChatModal(null);
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {deletePrivateChatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-900">Delete private conversation?</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              Are you sure you want to permanently delete the conversation between <strong>{deletePrivateChatModal.name}</strong>? All messages will be lost.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDeletePrivateChatModal(null)}>Cancel</Button>
-              <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
-                onClick={async () => {
-                  await handleDeletePrivateChat(deletePrivateChatModal.id);
-                  setDeletePrivateChatModal(null);
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </DashboardLayout>
   );
 }

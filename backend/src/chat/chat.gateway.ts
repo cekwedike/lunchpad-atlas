@@ -32,6 +32,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(private chatService: ChatService) {}
 
+  private extractDmParticipants(channelName: string): string[] | null {
+    const parts = channelName.split('::');
+    if (parts.length === 3 && parts[0] === 'dm') {
+      return [parts[1], parts[2]];
+    }
+    return null;
+  }
+
   // ==================== CONNECTION HANDLERS ====================
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -89,7 +97,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         select: { cohortId: true, role: true },
       });
 
-      if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
+      if (channel.type === 'DIRECT_MESSAGE') {
+        const participants = this.extractDmParticipants(channel.name);
+        if (!participants) {
+          throw new Error('Invalid private channel');
+        }
+        if (user?.role !== 'ADMIN' && !participants.includes(userId)) {
+          throw new Error('Access denied to this private channel');
+        }
+      } else if (user?.role !== 'ADMIN' && user?.cohortId !== channel.cohortId) {
         throw new Error('Access denied to this channel');
       }
 

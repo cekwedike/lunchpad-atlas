@@ -169,7 +169,7 @@ export function NotificationDropdown({ userId, userRole, onClose }: Notification
     if (d?.newUserId || d?.changedUserId) return '/dashboard/admin/users';
     if (d?.feedbackId) return '/dashboard/admin/feedback';
     if (d?.fellowId && d?.achievementId) return '/dashboard/admin/users';
-    if (d?.channelId) return `/dashboard/chat?channelId=${encodeURIComponent(String(d.channelId))}`;
+    if (d?.channelId) return `/dashboard/chats?channelId=${encodeURIComponent(String(d.channelId))}`;
     if (d?.discussionId) return `/dashboard/discussions/${encodeURIComponent(String(d.discussionId))}`;
     if (d?.resourceId) return `/resources/${encodeURIComponent(String(d.resourceId))}`;
     if (d?.sessionId) return '/dashboard/attendance';

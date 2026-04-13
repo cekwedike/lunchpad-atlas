@@ -567,6 +567,9 @@ export default function LeaderboardPage() {
                   Full standings
                   <span className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-200" />
                 </h3>
+                <p className="text-center text-xs text-slate-500">
+                  Tie-break order: streak, then base points, then name.
+                </p>
                 {rankedList.map((entry) => {
                   const isCurrentUser = entry.userId === profile?.id;
                   const pct = Math.round((entry.points / maxPoints) * 100);

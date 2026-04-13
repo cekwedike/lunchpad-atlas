@@ -12,6 +12,15 @@ import {
   isFuture,
 } from 'date-fns';
 
+function parseDateOnlyLocal(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  return new Date(year, monthIndex, day);
+}
+
 // ─── Timezone helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -168,7 +177,8 @@ export function formatRelativeDate(date: Date | string): string {
  * and reads one short (e.g. Apr 5 → Apr 11 shows 5 instead of 6).
  */
 export function calendarDaysFromToday(target: Date | string): number {
-  const d = typeof target === 'string' ? new Date(target) : target;
+  const d =
+    typeof target === 'string' ? parseDateOnlyLocal(target) ?? new Date(target) : target;
   return Math.max(0, differenceInCalendarDays(startOfDay(d), startOfDay(new Date())));
 }
 

@@ -34,6 +34,7 @@ import {
   FeedbackStatus,
   Feedback,
 } from '@/hooks/api/useFeedback';
+import { useProfile } from '@/hooks/api/useProfile';
 import { formatLocalTimestamp } from '@/lib/date-utils';
 
 const TYPE_CONFIG: Record<FeedbackType, { label: string; icon: LucideIcon; color: string; bg: string }> = {
@@ -61,12 +62,13 @@ const STATUS_BADGE: Record<FeedbackStatus, { label: string; className: string }>
 };
 
 export default function AdminFeedbackPage() {
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | ''>('');
   const [selectedItem, setSelectedItem] = useState<Feedback | null>(null);
   const [responseStatus, setResponseStatus] = useState<FeedbackStatus>('REVIEWED');
   const [adminNote, setAdminNote] = useState('');
 
-  const { data: feedbackList = [], isLoading } = useAdminFeedback(
+  const { data: feedbackList = [], isLoading, isError, error } = useAdminFeedback(
     statusFilter || undefined,
     undefined,
   );
@@ -82,13 +84,43 @@ export default function AdminFeedbackPage() {
 
   const handleRespond = async () => {
     if (!selectedItem) return;
-    await respondMutation.mutateAsync({
-      feedbackId: selectedItem.id,
-      status: responseStatus,
-      adminNote: adminNote.trim() || undefined,
-    });
-    setSelectedItem(null);
+    try {
+      await respondMutation.mutateAsync({
+        feedbackId: selectedItem.id,
+        status: responseStatus,
+        adminNote: adminNote.trim() || undefined,
+      });
+      setSelectedItem(null);
+    } catch {
+      // Keep dialog open and note intact so admins can retry.
+    }
   };
+
+  if (profileLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (profile?.role !== 'ADMIN') {
+    return (
+      <DashboardLayout>
+        <Card className="border-red-200 bg-red-50/40">
+          <CardContent className="py-10 text-center">
+            <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+            <p className="text-base font-semibold text-red-800">Not authorized</p>
+            <p className="text-sm text-red-700 mt-1">
+              Only admins can access the feedback inbox.
+            </p>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -127,6 +159,13 @@ export default function AdminFeedbackPage() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
+        ) : isError ? (
+          <Card className="border-red-200 bg-red-50/40">
+            <CardContent className="py-10 text-center">
+              <p className="text-sm font-semibold text-red-800">Could not load feedback inbox</p>
+              <p className="text-xs text-red-700 mt-1">{(error as any)?.message || 'Please try again.'}</p>
+            </CardContent>
+          </Card>
         ) : feedbackList.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-14 text-center">

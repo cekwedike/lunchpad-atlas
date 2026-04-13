@@ -121,7 +121,7 @@ const FELLOW_STEPS: TourStep[] = [
     description:
       'Message your facilitator or cohort members directly. Direct messages are private. Group channels are shared with your cohort.',
     icon: MessageCircle,
-    href: '/dashboard/chat',
+    href: '/dashboard/chats',
     cta: 'Open Chat',
     bg: 'from-teal-700 to-cyan-700',
   },
@@ -248,7 +248,7 @@ const FACILITATOR_STEPS: TourStep[] = [
     description:
       'Message fellows directly or use group channels to broadcast announcements to your whole cohort.',
     icon: MessageCircle,
-    href: '/dashboard/chat',
+    href: '/dashboard/chats',
     cta: 'Open Chat',
     bg: 'from-teal-700 to-cyan-700',
   },

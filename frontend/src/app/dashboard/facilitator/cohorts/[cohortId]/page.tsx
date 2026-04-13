@@ -61,7 +61,7 @@ export default function FacilitatorCohortMembersPage() {
   const handleMessage = async (targetUserId: string) => {
     try {
       const channel = await openDM.mutateAsync(targetUserId);
-      router.push(`/dashboard/chat?channelId=${channel.id}`);
+      router.push(`/dashboard/chats?channelId=${channel.id}`);
     } catch {
       toast.error("Could not open conversation");
     }

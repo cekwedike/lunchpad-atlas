@@ -136,7 +136,7 @@ function ChatRoomContent() {
 
     if (mainChannel?.id === data.channelId) {
       toast.info('Chat room deleted', { description: 'This room was removed by an admin.' });
-      router.replace('/dashboard/chat');
+      router.replace('/dashboard/chats');
     }
   }, [cohortId, mainChannel?.id, queryClient, router]);
 

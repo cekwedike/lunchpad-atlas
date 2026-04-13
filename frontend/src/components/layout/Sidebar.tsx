@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   BookOpen,
   MessageSquare,
+  MessageCircle,
   Trophy,
   Award,
   User,
@@ -68,6 +69,11 @@ export function Sidebar() {
       icon: MessageSquare,
     },
     {
+      title: 'Chats',
+      href: '/dashboard/chats',
+      icon: MessageCircle,
+    },
+    {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
@@ -121,6 +127,11 @@ export function Sidebar() {
       icon: MessageSquare,
     },
     {
+      title: 'Chats',
+      href: '/dashboard/chats',
+      icon: MessageCircle,
+    },
+    {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
@@ -152,6 +163,11 @@ export function Sidebar() {
       title: 'Discussions',
       href: '/dashboard/discussions',
       icon: MessageSquare,
+    },
+    {
+      title: 'Chats',
+      href: '/dashboard/chats',
+      icon: MessageCircle,
     },
     {
       title: 'Settings',
@@ -200,6 +216,11 @@ export function Sidebar() {
       title: 'Discussions',
       href: '/dashboard/discussions',
       icon: MessageSquare,
+    },
+    {
+      title: 'Chats',
+      href: '/dashboard/chats',
+      icon: MessageCircle,
     },
     {
       title: 'Leaderboard',

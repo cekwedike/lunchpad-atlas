@@ -311,7 +311,7 @@ export default function AdminDashboard() {
                     variant="ghost"
                     size="sm"
                     className="text-xs text-gray-500 h-7"
-                    onClick={() => router.push("/dashboard/chat")}
+                    onClick={() => router.push("/dashboard/chats")}
                   >
                     Open <ChevronRight className="h-3 w-3 ml-0.5" />
                   </Button>

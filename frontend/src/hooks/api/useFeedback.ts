@@ -84,7 +84,15 @@ export function useRespondToFeedback() {
       toast.success('Response sent');
     },
     onError: (error: any) => {
-      toast.error('Failed to respond', { description: error.message });
+      const isForbidden =
+        typeof error?.message === 'string' &&
+        (error.message.toLowerCase().includes('forbidden') ||
+          error.message.toLowerCase().includes('unauthorized'));
+      toast.error('Failed to respond', {
+        description: isForbidden
+          ? 'This action is restricted to admins.'
+          : error.message,
+      });
     },
   });
 }

@@ -95,6 +95,9 @@ describe('AttendanceService', () => {
           }),
         }),
       );
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ points: 20 }),
+      );
     });
 
     it('should mark attendance as late when checking in after scheduled time', async () => {
