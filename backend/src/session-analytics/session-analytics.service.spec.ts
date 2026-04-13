@@ -4,20 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { SessionAnalyticsService } from './session-analytics.service';
 import { PrismaService } from '../prisma.service';
 
-// Mock OpenAI module
-jest.mock('openai', () => ({
-  __esModule: true,
-  default: jest.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: jest.fn().mockResolvedValue({
-          choices: [{ message: { content: '{"ok":true}' } }],
-        }),
-      },
-    },
-  })),
-}));
-
 describe('SessionAnalyticsService', () => {
   let service: SessionAnalyticsService;
 

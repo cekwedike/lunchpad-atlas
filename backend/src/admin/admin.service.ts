@@ -18,7 +18,6 @@ import {
   CreateQuizDto,
   GenerateAIQuestionsDto,
 } from './dto/admin.dto';
-import OpenAI from 'openai';
 import { SessionAnalyticsService } from '../session-analytics/session-analytics.service';
 import {
   CreateResourceDto,
@@ -1503,19 +1502,6 @@ export class AdminService {
 
     const context = transcriptContext || dto.context;
 
-    const openai = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey,
-      defaultHeaders: {
-        ...(process.env.OPENROUTER_HTTP_REFERER
-          ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-          : {}),
-        ...(process.env.OPENROUTER_APP_TITLE
-          ? { 'X-OpenRouter-Title': process.env.OPENROUTER_APP_TITLE }
-          : {}),
-      },
-    });
-
     const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nBase your questions on the following session content:\n${context}` : ''}
 
 Return ONLY a JSON array with no explanation or markdown fences:
@@ -1536,11 +1522,33 @@ Rules:
 
     let raw = '';
     try {
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
-        messages: [{ role: 'user', content: prompt }],
-        reasoning: { enabled: true },
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      };
+      if (process.env.OPENROUTER_HTTP_REFERER) {
+        headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER;
+      }
+      if (process.env.OPENROUTER_APP_TITLE) {
+        headers['X-OpenRouter-Title'] = process.env.OPENROUTER_APP_TITLE;
+      }
+
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
+          messages: [{ role: 'user', content: prompt }],
+          reasoning: { enabled: true },
+        }),
       });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`OpenRouter ${response.status}: ${text}`);
+      }
+      const completion = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
       raw = completion.choices?.[0]?.message?.content || '';
     } catch (err: any) {
       throw new BadGatewayException(

@@ -6,7 +6,6 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 
@@ -33,7 +32,7 @@ interface AIAnalysisResult {
 @Injectable()
 export class SessionAnalyticsService {
   private readonly openRouterApiKey: string | null;
-  private readonly openRouterClient: OpenAI | null;
+  private readonly openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
   private readonly openRouterReferer: string | null;
   private readonly openRouterTitle: string | null;
   private readonly modelCooldownUntil = new Map<string, number>();
@@ -51,20 +50,6 @@ export class SessionAnalyticsService {
       this.config.get<string>('OPENROUTER_HTTP_REFERER')?.trim() || null;
     this.openRouterTitle =
       this.config.get<string>('OPENROUTER_APP_TITLE')?.trim() || null;
-    this.openRouterClient = this.openRouterApiKey
-      ? new OpenAI({
-          baseURL: 'https://openrouter.ai/api/v1',
-          apiKey: this.openRouterApiKey,
-          defaultHeaders: {
-            ...(this.openRouterReferer
-              ? { 'HTTP-Referer': this.openRouterReferer }
-              : {}),
-            ...(this.openRouterTitle
-              ? { 'X-OpenRouter-Title': this.openRouterTitle }
-              : {}),
-          },
-        })
-      : null;
   }
 
   private sanitizeOpenRouterModelId(raw: string | undefined): string | null {
@@ -163,18 +148,40 @@ export class SessionAnalyticsService {
     prompt: string,
     temperature: number,
   ): Promise<string> {
-    if (!this.openRouterClient) {
+    if (!this.openRouterApiKey) {
       throw new ServiceUnavailableException(
         'OpenRouter is not configured on the backend',
       );
     }
-    const response = await this.openRouterClient.chat.completions.create({
-        model,
-        reasoning: { enabled: true },
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.openRouterApiKey}`,
+      'Content-Type': 'application/json',
+    };
+    if (this.openRouterReferer) {
+      headers['HTTP-Referer'] = this.openRouterReferer;
+    }
+    if (this.openRouterTitle) {
+      headers['X-OpenRouter-Title'] = this.openRouterTitle;
+    }
+
+    const response = await fetch(this.openRouterBaseUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
         temperature,
+        model,
+        reasoning: { enabled: true },
+      }),
     });
-    const content = response?.choices?.[0]?.message?.content;
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter ${response.status}: ${text}`);
+    }
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }>;
+    };
+    const content = data?.choices?.[0]?.message?.content;
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
       const joined = content

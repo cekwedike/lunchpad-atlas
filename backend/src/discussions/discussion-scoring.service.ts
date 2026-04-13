@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai';
 
 interface DiscussionQualityAnalysis {
   score: number; // 0-100
@@ -19,7 +18,10 @@ interface ResourceSummaryResult {
 
 @Injectable()
 export class DiscussionScoringService {
-  private openai: OpenAI;
+  private readonly openRouterApiKey: string | null;
+  private readonly openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  private readonly openRouterReferer: string | null;
+  private readonly openRouterTitle: string | null;
 
   /** Invalid/retired model IDs — never use. */
   private static readonly BLOCKED_MODEL_IDS = new Set([
@@ -27,28 +29,12 @@ export class DiscussionScoringService {
   ]);
 
   constructor(private configService: ConfigService) {
-    const apiKey =
-      this.configService.get<string>('OPENROUTER_API_KEY')?.trim();
-    if (apiKey) {
-      this.openai = new OpenAI({
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey,
-        defaultHeaders: {
-          ...(this.configService.get<string>('OPENROUTER_HTTP_REFERER')
-            ? {
-                'HTTP-Referer':
-                  this.configService.get<string>('OPENROUTER_HTTP_REFERER')!,
-              }
-            : {}),
-          ...(this.configService.get<string>('OPENROUTER_APP_TITLE')
-            ? {
-                'X-OpenRouter-Title':
-                  this.configService.get<string>('OPENROUTER_APP_TITLE')!,
-              }
-            : {}),
-        },
-      });
-    }
+    this.openRouterApiKey =
+      this.configService.get<string>('OPENROUTER_API_KEY')?.trim() || null;
+    this.openRouterReferer =
+      this.configService.get<string>('OPENROUTER_HTTP_REFERER')?.trim() || null;
+    this.openRouterTitle =
+      this.configService.get<string>('OPENROUTER_APP_TITLE')?.trim() || null;
   }
 
   /** Drop blocked IDs; return null if nothing usable. */
@@ -103,7 +89,7 @@ export class DiscussionScoringService {
   }
 
   private async generateWithRetry(prompt: string) {
-    if (!this.openai) {
+    if (!this.openRouterApiKey) {
       throw new Error('OpenRouter API key not configured');
     }
     const candidates = this.getModelCandidates();
@@ -112,12 +98,29 @@ export class DiscussionScoringService {
     for (const modelName of candidates) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const completion = await this.openai.chat.completions.create({
-            model: modelName,
-            messages: [{ role: 'user', content: prompt }],
-            reasoning: { enabled: true },
-            temperature: 0.2,
+          const headers: Record<string, string> = {
+            Authorization: `Bearer ${this.openRouterApiKey}`,
+            'Content-Type': 'application/json',
+          };
+          if (this.openRouterReferer) headers['HTTP-Referer'] = this.openRouterReferer;
+          if (this.openRouterTitle) headers['X-OpenRouter-Title'] = this.openRouterTitle;
+          const response = await fetch(this.openRouterBaseUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              model: modelName,
+              messages: [{ role: 'user', content: prompt }],
+              reasoning: { enabled: true },
+              temperature: 0.2,
+            }),
           });
+          if (!response.ok) {
+            const textErr = await response.text();
+            throw new Error(`OpenRouter ${response.status}: ${textErr}`);
+          }
+          const completion = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
           const content = completion.choices?.[0]?.message?.content || '';
           return { response: { text: () => content } };
         } catch (err) {
@@ -232,7 +235,7 @@ export class DiscussionScoringService {
   }
 
   async getAiStatus(): Promise<{ available: boolean; message?: string }> {
-    if (!this.openai) {
+    if (!this.openRouterApiKey) {
       return {
         available: false,
         message:
@@ -246,12 +249,26 @@ export class DiscussionScoringService {
 
     for (const modelName of candidates) {
       try {
-        await this.openai.chat.completions.create({
-          model: modelName,
-          messages: [{ role: 'user', content: 'Return JSON: {"ok": true}' }],
-          reasoning: { enabled: true },
-          temperature: 0,
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${this.openRouterApiKey}`,
+          'Content-Type': 'application/json',
+        };
+        if (this.openRouterReferer) headers['HTTP-Referer'] = this.openRouterReferer;
+        if (this.openRouterTitle) headers['X-OpenRouter-Title'] = this.openRouterTitle;
+        const response = await fetch(this.openRouterBaseUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: modelName,
+            messages: [{ role: 'user', content: 'Return JSON: {"ok": true}' }],
+            reasoning: { enabled: true },
+            temperature: 0,
+          }),
         });
+        if (!response.ok) {
+          const textErr = await response.text();
+          throw new Error(`OpenRouter ${response.status}: ${textErr}`);
+        }
         return { available: true };
       } catch (error) {
         lastErr = error;
@@ -277,7 +294,7 @@ export class DiscussionScoringService {
     content: string,
     resourceContext?: string,
   ): Promise<DiscussionQualityAnalysis> {
-    if (!this.openai) {
+    if (!this.openRouterApiKey) {
       throw new Error('OpenRouter API key not configured');
     }
 
@@ -329,7 +346,7 @@ Do not include markdown or extra text.`;
     discussionContext?: string,
     learningContext?: string,
   ): Promise<DiscussionQualityAnalysis> {
-    if (!this.openai) {
+    if (!this.openRouterApiKey) {
       throw new Error('OpenRouter API key not configured');
     }
 
@@ -379,7 +396,7 @@ Do not include markdown or extra text.`;
     content: string,
     resourceType?: string,
   ): Promise<ResourceSummaryResult> {
-    if (!this.openai) {
+    if (!this.openRouterApiKey) {
       throw new Error('OpenRouter API key not configured');
     }
 
@@ -402,12 +419,29 @@ Return ONLY JSON with this shape:
 Do not include markdown or extra text.`;
 
     try {
-      const completion = await this.openai.chat.completions.create({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        reasoning: { enabled: true },
-        temperature: 0.2,
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${this.openRouterApiKey}`,
+        'Content-Type': 'application/json',
+      };
+      if (this.openRouterReferer) headers['HTTP-Referer'] = this.openRouterReferer;
+      if (this.openRouterTitle) headers['X-OpenRouter-Title'] = this.openRouterTitle;
+      const response = await fetch(this.openRouterBaseUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          reasoning: { enabled: true },
+          temperature: 0.2,
+        }),
       });
+      if (!response.ok) {
+        const textErr = await response.text();
+        throw new Error(`OpenRouter ${response.status}: ${textErr}`);
+      }
+      const completion = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
       const text = completion.choices?.[0]?.message?.content || '';
       const parsed = JSON.parse(text);
       return {

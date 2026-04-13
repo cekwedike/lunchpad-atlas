@@ -612,7 +612,7 @@ function ChatRoomContent() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-x-hidden">
-                      <span className="truncate text-base font-semibold tracking-tight text-slate-900 sm:text-lg">
+                      <span className="max-w-full break-words text-base font-semibold tracking-tight text-slate-900 sm:truncate sm:text-lg">
                         {mainChannel
                           ? isDmChannel
                             ? (mainChannel?.description || 'Private Conversation')
@@ -677,7 +677,7 @@ function ChatRoomContent() {
                       >
                         {/* Row: no w-max — percentage max-widths break on mobile WebKit inside shrink-to-fit rows */}
                         <div
-                          className={`flex min-w-0 w-full max-w-full items-end gap-1.5 sm:w-auto sm:max-w-[26rem] sm:gap-2.5 md:max-w-[30rem] lg:max-w-[36rem] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`flex min-w-0 max-w-[calc(100%-2.25rem)] items-end gap-1.5 sm:max-w-[26rem] sm:gap-2.5 md:max-w-[30rem] lg:max-w-[36rem] ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
                         >
                           <Avatar className="h-7 w-7 shrink-0 touch-manipulation ring-2 ring-white sm:h-9 sm:w-9">
                             <div
