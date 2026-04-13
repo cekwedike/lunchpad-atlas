@@ -788,6 +788,8 @@ export function useGenerateAIQuestions() {
   return useMutation({
     mutationFn: (dto: {
       quizTitle?: string;
+      topic?: string;
+      context?: string;
       sessionIds?: string[];
       cohortId?: string;
       questionCount: number;

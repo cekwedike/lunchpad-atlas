@@ -1500,9 +1500,17 @@ export class AdminService {
         ? sessionTitlesFromDb.join(', ')
         : 'career development');
 
-    const context = transcriptContext || dto.context;
+    const facilitatorNotes = dto.context?.trim() || '';
+    const contextBlocks: string[] = [];
+    if (facilitatorNotes) {
+      contextBlocks.push(`Facilitator instructions (tone, scope, what to avoid):\n${facilitatorNotes}`);
+    }
+    if (transcriptContext) {
+      contextBlocks.push(`Session transcript excerpts:\n${transcriptContext}`);
+    }
+    const context = contextBlocks.join('\n\n---\n\n');
 
-    const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nBase your questions on the following session content:\n${context}` : ''}
+    const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nUse the following as background source material (sessions, notes, or facilitator instructions — not text to quote):\n${context}` : ''}
 
 Return ONLY a JSON array with no explanation or markdown fences:
 [
@@ -1517,7 +1525,8 @@ Rules:
 - Each question must have exactly 4 options
 - correctAnswer must be one of the options verbatim
 - ${dto.difficulty === 'easy' ? 'Simple recall/recognition questions' : dto.difficulty === 'medium' ? 'Comprehension and application questions' : 'Analysis and evaluation questions'}
-- Questions should be directly relevant to the topic/session content above
+- Write standalone questions that could appear on a quiz without having attended the session: avoid framing like "during the session", "in the poll", "participants indicated" unless necessary for a concept question
+- Prefer principles, definitions, scenarios, and applications over trivia about session mechanics or icebreakers
 - Questions should be clear, unambiguous, and educational`;
 
     let raw = '';

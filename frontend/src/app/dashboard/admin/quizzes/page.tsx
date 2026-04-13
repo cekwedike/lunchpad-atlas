@@ -628,6 +628,7 @@ function CreateStandardQuizDialog({
   // AI generation state
   const [aiCount, setAiCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [aiInstructions, setAiInstructions] = useState("");
   const [showAiForm, setShowAiForm] = useState(false);
 
   const createQuiz = useCreateQuiz();
@@ -638,6 +639,7 @@ function CreateStandardQuizDialog({
     setTimeLimit(0); setPassingScore(70); setPointValue(200); setMaxAttempts(0); setShowCorrectAnswers(false); setQuestions([]);
     setOpenAt(""); setCloseAt("");
     setAiCount(5); setAiDifficulty("medium");
+    setAiInstructions("");
     setShowAiForm(false);
   };
 
@@ -650,6 +652,7 @@ function CreateStandardQuizDialog({
   const handleGenerateAI = async () => {
     const result = await generateAI.mutateAsync({
       quizTitle: title || undefined,
+      context: aiInstructions.trim() || undefined,
       sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
       cohortId: quizType === "MEGA" ? cohortId : undefined,
       questionCount: aiCount,
@@ -914,6 +917,16 @@ function CreateStandardQuizDialog({
                     </select>
                   </div>
                 </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs font-medium">Instructions for ATLAS (optional)</Label>
+                  <textarea
+                    value={aiInstructions}
+                    onChange={(e) => setAiInstructions(e.target.value)}
+                    placeholder='Tone and focus, e.g. "Formal MCQ, Nigerian workplace context", "Avoid referencing polls or icebreakers", "Emphasize ownership mindset and leadership without title"'
+                    rows={3}
+                    className="w-full min-h-[72px] rounded-md border border-gray-300 px-3 py-2 text-sm bg-white placeholder:text-gray-400"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button
                     type="button" size="sm"
@@ -1022,6 +1035,7 @@ function CreateLiveQuizDialog({
   const [showAiForm, setShowAiForm] = useState(false);
   const [aiCount, setAiCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [aiInstructions, setAiInstructions] = useState("");
 
   const createLiveQuiz = useCreateLiveQuiz();
   const generateAI = useGenerateAIQuestions();
@@ -1038,11 +1052,13 @@ function CreateLiveQuizDialog({
     setTitle(""); setDescription(""); setSelectedSessionIds([]);
     setTimePerQuestion(30); setQuestions([]);
     setShowAiForm(false); setAiCount(5);
+    setAiInstructions("");
   };
 
   const handleGenerateAI = async () => {
     const result = await generateAI.mutateAsync({
       quizTitle: title || undefined,
+      context: aiInstructions.trim() || undefined,
       sessionIds: selectedSessionIds.length ? selectedSessionIds : undefined,
       questionCount: aiCount,
       difficulty: aiDifficulty,
@@ -1190,6 +1206,16 @@ function CreateLiveQuizDialog({
                       <option value="hard">Hard</option>
                     </select>
                   </div>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs font-medium">Instructions for ATLAS (optional)</Label>
+                  <textarea
+                    value={aiInstructions}
+                    onChange={(e) => setAiInstructions(e.target.value)}
+                    placeholder='Tone and focus, e.g. "Avoid referencing polls; test principles only"'
+                    rows={3}
+                    className="w-full min-h-[72px] rounded-md border border-gray-300 px-3 py-2 text-sm bg-white placeholder:text-gray-400"
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Button type="button" size="sm" onClick={handleGenerateAI} disabled={generateAI.isPending} className="bg-purple-600 hover:bg-purple-700 gap-1">
