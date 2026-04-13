@@ -473,30 +473,50 @@ Consider:
       });
     }
 
-    // Analyze with AI — pass fellows so Gemini can grade participation
-    const aiAnalysis = await this.analyzeSessionWithAI(sessionId, transcript, fellows);
-
-    // Count questions and interactions from transcript
-    const questionMatches = transcript.match(/\?/g) || [];
-    const questionCount = questionMatches.length;
-
-    // Update analytics with AI insights (store fellowParticipation in participantAnalysis JSON field)
-    return this.prisma.sessionAnalytics.update({
-      where: { id: analytics.id },
-      data: {
+    try {
+      // Analyze with AI — pass fellows so provider can grade participation
+      const aiAnalysis = await this.analyzeSessionWithAI(
+        sessionId,
         transcript,
-        engagementScore: aiAnalysis.engagementScore,
-        participationRate: aiAnalysis.participationRate,
-        averageAttention: aiAnalysis.averageAttention,
-        keyTopics: aiAnalysis.keyTopics,
-        insights: aiAnalysis.insights,
-        participantAnalysis: aiAnalysis.fellowParticipation as unknown as object[],
-        questionCount,
-        interactionCount: transcript.split('\n').length,
-        aiProcessedAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+        fellows,
+      );
+
+      // Count questions and interactions from transcript
+      const questionMatches = transcript.match(/\?/g) || [];
+      const questionCount = questionMatches.length;
+
+      // Ensure JSON payload is Prisma-safe (no undefined/function values)
+      const participantAnalysisJson = JSON.parse(
+        JSON.stringify(aiAnalysis.fellowParticipation || []),
+      );
+      const insightsJson = JSON.parse(
+        JSON.stringify(aiAnalysis.insights || {}),
+      );
+      const keyTopicsJson = JSON.parse(
+        JSON.stringify(aiAnalysis.keyTopics || []),
+      );
+
+      // Update analytics with AI insights
+      return await this.prisma.sessionAnalytics.update({
+        where: { id: analytics.id },
+        data: {
+          transcript,
+          engagementScore: aiAnalysis.engagementScore,
+          participationRate: aiAnalysis.participationRate,
+          averageAttention: aiAnalysis.averageAttention,
+          keyTopics: keyTopicsJson,
+          insights: insightsJson,
+          participantAnalysis: participantAnalysisJson,
+          questionCount,
+          interactionCount: transcript.split('\n').length,
+          aiProcessedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new BadGatewayException(`AI review pipeline failed: ${message}`);
+    }
   }
 
   /**
