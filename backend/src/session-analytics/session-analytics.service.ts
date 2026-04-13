@@ -37,6 +37,7 @@ export class SessionAnalyticsService {
   private readonly openRouterReferer: string | null;
   private readonly openRouterTitle: string | null;
   private readonly openRouterMaxTokens: number;
+  private readonly aiTranscriptCharLimit: number;
   private readonly modelCooldownUntil = new Map<string, number>();
   private static readonly BLOCKED_OPENROUTER_MODEL_IDS = new Set([
     'qwen/qwen2.5-72b-instruct:free',
@@ -58,6 +59,20 @@ export class SessionAnalyticsService {
       Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0
         ? Math.floor(parsedMaxTokens)
         : 800;
+    const transcriptLimitRaw = this.config.get<string>('AI_TRANSCRIPT_CHAR_LIMIT');
+    const parsedTranscriptLimit = Number(transcriptLimitRaw);
+    this.aiTranscriptCharLimit =
+      Number.isFinite(parsedTranscriptLimit) && parsedTranscriptLimit > 2000
+        ? Math.floor(parsedTranscriptLimit)
+        : 16_000;
+  }
+
+  private clipTranscriptForAi(transcript: string): string {
+    if (transcript.length <= this.aiTranscriptCharLimit) return transcript;
+    const half = Math.floor(this.aiTranscriptCharLimit / 2);
+    const start = transcript.slice(0, half);
+    const end = transcript.slice(-half);
+    return `${start}\n\n[... transcript truncated for AI context ...]\n\n${end}`;
   }
 
   private sanitizeOpenRouterModelId(raw: string | undefined): string | null {
@@ -368,6 +383,7 @@ export class SessionAnalyticsService {
       );
     }
 
+    const transcriptForAi = this.clipTranscriptForAi(transcript);
     const fellowsSection = fellows.length > 0
       ? `\nRegistered cohort fellows:\n${fellows.map((f) => `- ${f.name}`).join('\n')}\n`
       : '';
@@ -375,7 +391,7 @@ export class SessionAnalyticsService {
     const prompt = `Analyze this LaunchPad fellowship session transcript and provide detailed insights.
 ${fellowsSection}
 Transcript:
-${transcript}
+${transcriptForAi}
 
 Please provide a JSON response with the following structure:
 {
