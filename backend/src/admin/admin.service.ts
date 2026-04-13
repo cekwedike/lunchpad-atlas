@@ -1084,6 +1084,10 @@ export class AdminService {
     );
   }
 
+  async getAiHealth() {
+    return this.sessionAnalyticsService.getAiProviderHealth();
+  }
+
   async aiChat(sessionId: string, dto: AiChatDto, requesterId: string) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },

@@ -186,6 +186,12 @@ export class AdminController {
     return this.adminService.submitAiReview(sessionId, dto, req.user.id);
   }
 
+  @Get('ai/health')
+  @ApiOperation({ summary: 'Check active AI provider configuration/health (Admin only)' })
+  getAiHealth() {
+    return this.adminService.getAiHealth();
+  }
+
   @Post('sessions/:id/award-points')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   @ApiOperation({ summary: 'Manually award session engagement points to fellows based on AI analysis' })

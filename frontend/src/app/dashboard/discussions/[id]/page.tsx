@@ -593,21 +593,23 @@ export default function DiscussionDetailPage() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/dashboard/discussions')}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Discussions
-          </Button>
-          {isConnected && (
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs text-green-600 font-medium">Live</span>
-            </div>
-          )}
+        <div className="sticky top-0 z-30 -mx-6 border-b border-slate-200/70 bg-gray-50/95 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-gray-50/80">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => router.push('/dashboard/discussions')}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Discussions
+            </Button>
+            {isConnected && (
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs text-green-600 font-medium">Live</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {discussion.isApproved === false && (

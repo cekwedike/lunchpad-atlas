@@ -263,6 +263,73 @@ export class SessionAnalyticsService {
     throw new BadGatewayException(`OpenRouter API error: ${message}`);
   }
 
+  async getAiProviderHealth(): Promise<{
+    activeProvider: 'openrouter' | 'gemini' | 'none';
+    openRouterConfigured: boolean;
+    geminiConfigured: boolean;
+    openRouterModels: string[];
+    geminiModels: string[];
+    probe: { ok: boolean; message: string };
+  }> {
+    const activeProvider = this.openRouterApiKey
+      ? 'openrouter'
+      : this.genAI
+      ? 'gemini'
+      : 'none';
+
+    if (activeProvider === 'none') {
+      return {
+        activeProvider,
+        openRouterConfigured: false,
+        geminiConfigured: false,
+        openRouterModels: [],
+        geminiModels: [],
+        probe: {
+          ok: false,
+          message:
+            'No AI provider configured (set OPENROUTER_API_KEY or GEMINI_API_KEY)',
+        },
+      };
+    }
+
+    try {
+      const result = await this.generateContentWithFallback(
+        'Return exactly this JSON: {"ok":true}',
+        0,
+      );
+      const response = await result.response;
+      const raw = response.text().trim();
+      return {
+        activeProvider,
+        openRouterConfigured: Boolean(this.openRouterApiKey),
+        geminiConfigured: Boolean(this.genAI),
+        openRouterModels: this.openRouterApiKey
+          ? this.getOpenRouterModelCandidates()
+          : [],
+        geminiModels: this.genAI ? this.getModelCandidates() : [],
+        probe: {
+          ok: true,
+          message: raw.slice(0, 220),
+        },
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        activeProvider,
+        openRouterConfigured: Boolean(this.openRouterApiKey),
+        geminiConfigured: Boolean(this.genAI),
+        openRouterModels: this.openRouterApiKey
+          ? this.getOpenRouterModelCandidates()
+          : [],
+        geminiModels: this.genAI ? this.getModelCandidates() : [],
+        probe: {
+          ok: false,
+          message,
+        },
+      };
+    }
+  }
+
   /** Enforce cohort-scoped analytics access (session-analytics IDOR fix). */
   async assertViewerCanAccessCohort(viewerId: string, cohortId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
