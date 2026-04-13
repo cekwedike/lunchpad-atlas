@@ -1540,6 +1540,7 @@ Rules:
           model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
           messages: [{ role: 'user', content: prompt }],
           reasoning: { enabled: true },
+          max_tokens: Number(process.env.OPENROUTER_MAX_TOKENS || 800),
         }),
       });
       if (!response.ok) {

@@ -22,6 +22,7 @@ export class DiscussionScoringService {
   private readonly openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
   private readonly openRouterReferer: string | null;
   private readonly openRouterTitle: string | null;
+  private readonly openRouterMaxTokens: number;
 
   /** Invalid/retired model IDs — never use. */
   private static readonly BLOCKED_MODEL_IDS = new Set([
@@ -35,6 +36,13 @@ export class DiscussionScoringService {
       this.configService.get<string>('OPENROUTER_HTTP_REFERER')?.trim() || null;
     this.openRouterTitle =
       this.configService.get<string>('OPENROUTER_APP_TITLE')?.trim() || null;
+    const maxTokensRaw =
+      this.configService.get<string>('OPENROUTER_MAX_TOKENS');
+    const parsedMaxTokens = Number(maxTokensRaw);
+    this.openRouterMaxTokens =
+      Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0
+        ? Math.floor(parsedMaxTokens)
+        : 800;
   }
 
   /** Drop blocked IDs; return null if nothing usable. */
@@ -83,7 +91,11 @@ export class DiscussionScoringService {
       .split(',')
       .map((s) => this.sanitizeModelId(s))
       .filter((x): x is string => x !== null);
-    const safeDefaults = ['qwen/qwen3-coder:free', 'anthropic/claude-opus-4.6-fast'];
+    const safeDefaults = [
+      'openai/gpt-oss-120b:free',
+      'z-ai/glm-4.5-air:free',
+      'minimax/minimax-m2.5:free',
+    ];
     const merged = [...fromEnv, ...safeDefaults];
     return merged.filter((v, i, a) => a.indexOf(v) === i);
   }
@@ -112,6 +124,7 @@ export class DiscussionScoringService {
               messages: [{ role: 'user', content: prompt }],
               reasoning: { enabled: true },
               temperature: 0.2,
+              max_tokens: this.openRouterMaxTokens,
             }),
           });
           if (!response.ok) {
@@ -263,6 +276,7 @@ export class DiscussionScoringService {
             messages: [{ role: 'user', content: 'Return JSON: {"ok": true}' }],
             reasoning: { enabled: true },
             temperature: 0,
+            max_tokens: this.openRouterMaxTokens,
           }),
         });
         if (!response.ok) {
@@ -433,6 +447,7 @@ Do not include markdown or extra text.`;
           messages: [{ role: 'user', content: prompt }],
           reasoning: { enabled: true },
           temperature: 0.2,
+          max_tokens: this.openRouterMaxTokens,
         }),
       });
       if (!response.ok) {

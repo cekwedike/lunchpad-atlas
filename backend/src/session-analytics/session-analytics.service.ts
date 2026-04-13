@@ -35,6 +35,7 @@ export class SessionAnalyticsService {
   private readonly openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
   private readonly openRouterReferer: string | null;
   private readonly openRouterTitle: string | null;
+  private readonly openRouterMaxTokens: number;
   private readonly modelCooldownUntil = new Map<string, number>();
   private static readonly BLOCKED_OPENROUTER_MODEL_IDS = new Set([
     'qwen/qwen2.5-72b-instruct:free',
@@ -50,6 +51,12 @@ export class SessionAnalyticsService {
       this.config.get<string>('OPENROUTER_HTTP_REFERER')?.trim() || null;
     this.openRouterTitle =
       this.config.get<string>('OPENROUTER_APP_TITLE')?.trim() || null;
+    const maxTokensRaw = this.config.get<string>('OPENROUTER_MAX_TOKENS');
+    const parsedMaxTokens = Number(maxTokensRaw);
+    this.openRouterMaxTokens =
+      Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0
+        ? Math.floor(parsedMaxTokens)
+        : 800;
   }
 
   private sanitizeOpenRouterModelId(raw: string | undefined): string | null {
@@ -70,8 +77,9 @@ export class SessionAnalyticsService {
       .map((s) => this.sanitizeOpenRouterModelId(s))
       .filter((x): x is string => x !== null);
     const safeDefaults = [
-      'qwen/qwen3-coder:free',
-      'anthropic/claude-opus-4.6-fast',
+      'openai/gpt-oss-120b:free',
+      'z-ai/glm-4.5-air:free',
+      'minimax/minimax-m2.5:free',
     ];
     return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
       (value, index, arr) => value && arr.indexOf(value) === index,
@@ -170,6 +178,7 @@ export class SessionAnalyticsService {
       body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
         temperature,
+        max_tokens: this.openRouterMaxTokens,
         model,
         reasoning: { enabled: true },
       }),
