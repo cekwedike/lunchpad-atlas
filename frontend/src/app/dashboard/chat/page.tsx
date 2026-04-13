@@ -260,6 +260,11 @@ function ChatRoomContent() {
     const last = member.lastName || '';
     return `${first}${last ? ` ${last}` : ''}`.trim() || 'Unknown';
   }, []);
+  const mentionDictionary = [
+    "everyone",
+    "all",
+    ...(chatMembers as ChatMember[]).map((m) => getDisplayName(m)),
+  ];
 
   const hashString = useCallback((s: string) => {
     let h = 2166136261;
@@ -293,7 +298,7 @@ function ChatRoomContent() {
   }, [hashString]);
 
   const mentionTokensInComposer = (() => {
-    const re = getChatMentionRegex();
+    const re = getChatMentionRegex(mentionDictionary);
     const out = new Set<string>();
     let m: RegExpExecArray | null;
     while ((m = re.exec(chatMessage)) !== null) out.add(m[1]);
@@ -302,7 +307,7 @@ function ChatRoomContent() {
 
   const renderMentions = useCallback((content: string) => {
     const parts: React.ReactNode[] = [];
-    const re = getChatMentionRegex();
+    const re = getChatMentionRegex(mentionDictionary);
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = re.exec(content)) !== null) {
@@ -322,7 +327,7 @@ function ChatRoomContent() {
     }
     if (lastIndex < content.length) parts.push(content.slice(lastIndex));
     return parts;
-  }, [mentionStyleForToken]);
+  }, [mentionDictionary, mentionStyleForToken]);
 
   const renderLinkifiedMentions = useCallback(
     (content: string, isOwnMessage: boolean) =>
@@ -508,7 +513,7 @@ function ChatRoomContent() {
       setMentionQuery(null);
       return;
     }
-    const displayName = (member.firstName || getDisplayName(member)).trim();
+    const displayName = getDisplayName(member);
     const atIndex = chatMessage.lastIndexOf('@');
     if (atIndex < 0) return;
     const token = displayName.replace(/\s+/g, " ").trim();
@@ -537,7 +542,7 @@ function ChatRoomContent() {
 
   return (
     <DashboardLayout fullBleedContent>
-      <div className="flex h-[calc(100dvh-4rem)] min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {/* Keep header static while only chat messages scroll. */}
         <div className="z-30 shrink-0">
           <div className="border-b border-slate-200/50 bg-white/65 shadow-[0_8px_32px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/[0.05] backdrop-blur-xl supports-[backdrop-filter]:bg-white/50">

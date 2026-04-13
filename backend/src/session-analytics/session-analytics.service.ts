@@ -3,6 +3,7 @@ import {
   BadGatewayException,
   NotFoundException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -32,30 +33,99 @@ interface AIAnalysisResult {
 @Injectable()
 export class SessionAnalyticsService {
   private genAI: GoogleGenerativeAI;
-  private model: any;       // JSON-mode model for structured analysis
-  private chatModel: any;   // Text model for free-form chat
+  private readonly modelCooldownUntil = new Map<string, number>();
+  private static readonly BLOCKED_MODEL_IDS = new Set(['gemini-1.5-flash-8b']);
+  private static readonly DEFAULT_PRIMARY_MODEL = 'gemini-2.5-flash';
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
     const apiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
-    const modelName =
-      this.config.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
 
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      // Structured analysis model — plain text, JSON extracted manually
-      this.model = this.genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: { temperature: 0.7 },
-      });
-      // Conversational chat model — plain text output
-      this.chatModel = this.genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: { temperature: 0.8 },
-      });
     }
+  }
+
+  private sanitizeModelId(raw: string | undefined): string | null {
+    const id = raw?.trim();
+    if (!id) return null;
+    if (SessionAnalyticsService.BLOCKED_MODEL_IDS.has(id)) return null;
+    return id;
+  }
+
+  private getModelCandidates(): string[] {
+    const primary =
+      this.sanitizeModelId(this.config.get<string>('GEMINI_MODEL')) ??
+      SessionAnalyticsService.DEFAULT_PRIMARY_MODEL;
+    const fallbackRaw = this.config.get<string>('GEMINI_MODEL_FALLBACKS') || '';
+    const fallbackFromEnv = fallbackRaw
+      .split(',')
+      .map((s) => this.sanitizeModelId(s))
+      .filter((x): x is string => x !== null);
+    const safeDefaults = ['gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+    return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
+      (value, index, arr) => value && arr.indexOf(value) === index,
+    );
+  }
+
+  private isRetryableGeminiError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err ?? '');
+    return /429|503|rate limit|resource has been exhausted|temporarily unavailable|overloaded/i.test(
+      msg,
+    );
+  }
+
+  private isOnCooldown(modelName: string): boolean {
+    const until = this.modelCooldownUntil.get(modelName);
+    return typeof until === 'number' && until > Date.now();
+  }
+
+  private markCooldown(modelName: string, ms = 30_000): void {
+    this.modelCooldownUntil.set(modelName, Date.now() + ms);
+  }
+
+  private async generateContentWithFallback(
+    prompt: string,
+    temperature: number,
+  ): Promise<any> {
+    if (!this.genAI) {
+      throw new ServiceUnavailableException(
+        'Gemini is not configured on the backend',
+      );
+    }
+
+    const candidates = this.getModelCandidates();
+    const ordered = [
+      ...candidates.filter((m) => !this.isOnCooldown(m)),
+      ...candidates.filter((m) => this.isOnCooldown(m)),
+    ];
+    let lastError: unknown = null;
+
+    for (const modelName of ordered) {
+      const model = this.genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { temperature },
+      });
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const result = await model.generateContent(prompt);
+          return result;
+        } catch (err) {
+          lastError = err;
+          if (!this.isRetryableGeminiError(err)) break;
+          this.markCooldown(modelName);
+          const backoffMs = 600 * Math.pow(2, attempt);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+      }
+    }
+
+    const message =
+      lastError instanceof Error ? lastError.message : 'unknown error';
+    throw new BadGatewayException(`Gemini API error: ${message}`);
   }
 
   /** Enforce cohort-scoped analytics access (session-analytics IDOR fix). */
@@ -116,8 +186,10 @@ export class SessionAnalyticsService {
     transcript: string,
     fellows: Array<{ id: string; name: string }> = [],
   ): Promise<AIAnalysisResult> {
-    if (!this.model) {
-      throw new Error('Gemini API key not configured');
+    if (!this.genAI) {
+      throw new ServiceUnavailableException(
+        'Gemini is not configured on the backend',
+      );
     }
 
     const fellowsSection = fellows.length > 0
@@ -163,15 +235,10 @@ Consider:
 - Key learning moments
 - Areas for improvement`;
 
-    let result: any;
-    try {
-      result = await this.model.generateContent(
-        `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
-      );
-    } catch (err: any) {
-      throw new BadGatewayException(`Gemini API error: ${err?.message ?? 'unknown error'}`);
-    }
-
+    const result = await this.generateContentWithFallback(
+      `System: You are an expert education analyst specializing in evaluating session quality and engagement for a youth leadership development program.\n\n${prompt}`,
+      0.7,
+    );
     const response = await result.response;
     let analysis: any;
     try {
@@ -215,7 +282,7 @@ Consider:
     });
 
     if (!session) {
-      throw new Error('Session not found');
+      throw new NotFoundException('Session not found');
     }
 
     const fellows = session.cohort.fellows.map((f) => ({ id: f.id, name: `${f.firstName} ${f.lastName}` }));
@@ -374,8 +441,10 @@ Consider:
   ): Promise<{ reply: string }> {
     await this.assertViewerCanAccessSession(viewerId, sessionId);
 
-    if (!this.chatModel) {
-      throw new Error('Gemini API key not configured');
+    if (!this.genAI) {
+      throw new ServiceUnavailableException(
+        'Gemini is not configured on the backend',
+      );
     }
 
     // Fall back to stored transcript if none provided
@@ -394,27 +463,18 @@ ${context ? `Session Transcript:\n${context}\n` : 'No transcript has been upload
 
 Be specific and actionable. When suggesting points, use a 0-100 scale per fellow and reference the transcript where possible.`;
 
-    // Build the chat with prior history
-    const chat = this.chatModel.startChat({
-      history: [
-        // Inject system context as the very first user/model exchange
-        {
-          role: 'user',
-          parts: [{ text: systemInstruction }],
-        },
-        {
-          role: 'model',
-          parts: [{ text: 'Understood. I\'m ready to help you review the session. What would you like to know?' }],
-        },
-        // Replay the conversation history
-        ...history.map((turn) => ({
-          role: turn.role,
-          parts: [{ text: turn.content }],
-        })),
-      ],
-    });
+    const historyBlock = history
+      .map((turn) => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`)
+      .join('\n');
+    const chatPrompt = `${systemInstruction}
 
-    const result = await chat.sendMessage(message);
+Conversation history:
+${historyBlock || '(none)'}
+
+User: ${message}
+Assistant:`;
+
+    const result = await this.generateContentWithFallback(chatPrompt, 0.8);
     const response = await result.response;
     return { reply: response.text() };
   }
@@ -425,7 +485,7 @@ Be specific and actionable. When suggesting points, use a 0-100 scale per fellow
   async generateCohortInsights(cohortId: string, viewerId: string) {
     const cohortData = await this.getCohortAnalytics(cohortId, viewerId);
 
-    if (!this.model || cohortData.analyzedSessions === 0) {
+    if (!this.genAI || cohortData.analyzedSessions === 0) {
       return null;
     }
 
@@ -442,8 +502,9 @@ Provide insights on:
 3. Opportunities for improvement
 4. Specific recommendations for facilitators`;
 
-    const result = await this.model.generateContent(
+    const result = await this.generateContentWithFallback(
       `System: You are an expert education analyst providing cohort-level insights.\n\n${prompt}`,
+      0.7,
     );
 
     const response = await result.response;
