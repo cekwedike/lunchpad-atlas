@@ -185,7 +185,7 @@ export function DashboardLayout({
       <div className="flex min-h-0 min-w-0">
         <Sidebar />
         <main
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden min-h-[calc(100vh-4rem)] ${isSuspended ? 'pointer-events-none select-none' : ''}`}
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden min-h-[calc(100vh-4rem)] ${fullBleedContent ? 'overflow-y-hidden' : ''} ${isSuspended ? 'pointer-events-none select-none' : ''}`}
         >
           {fullBleedContent ? (
             <>

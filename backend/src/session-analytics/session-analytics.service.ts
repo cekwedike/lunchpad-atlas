@@ -39,6 +39,9 @@ export class SessionAnalyticsService {
   private readonly openRouterTitle: string | null;
   private readonly modelCooldownUntil = new Map<string, number>();
   private static readonly BLOCKED_MODEL_IDS = new Set(['gemini-1.5-flash-8b']);
+  private static readonly BLOCKED_OPENROUTER_MODEL_IDS = new Set([
+    'qwen/qwen2.5-72b-instruct:free',
+  ]);
   private static readonly DEFAULT_PRIMARY_MODEL = 'gemini-2.5-flash';
 
   constructor(
@@ -68,6 +71,7 @@ export class SessionAnalyticsService {
   private sanitizeOpenRouterModelId(raw: string | undefined): string | null {
     const id = raw?.trim();
     if (!id) return null;
+    if (SessionAnalyticsService.BLOCKED_OPENROUTER_MODEL_IDS.has(id)) return null;
     return id;
   }
 
@@ -98,7 +102,7 @@ export class SessionAnalyticsService {
       .filter((x): x is string => x !== null);
     const safeDefaults = [
       'qwen/qwen3-32b:free',
-      'qwen/qwen2.5-72b-instruct:free',
+      'openrouter/free',
     ];
     return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
       (value, index, arr) => value && arr.indexOf(value) === index,
