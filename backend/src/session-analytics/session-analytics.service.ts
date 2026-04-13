@@ -233,6 +233,13 @@ export class SessionAnalyticsService {
     throw new BadGatewayException(`OpenRouter API error: ${message}`);
   }
 
+  private async generateContentWithFallback(
+    prompt: string,
+    temperature: number,
+  ): Promise<{ response: Promise<{ text: () => string }> }> {
+    return this.generateContentWithOpenRouterFallback(prompt, temperature);
+  }
+
   async getAiProviderHealth(): Promise<{
     activeProvider: 'openrouter' | 'none';
     openRouterConfigured: boolean;
