@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
 import { AchievementsService } from '../achievements/achievements.service';
+import { normalizeQuizAnswer } from '../common/quiz-answer';
 import { UserRole } from '@prisma/client';
 import { PointsService } from '../gamification/points.service';
 
@@ -273,14 +274,22 @@ export class QuizzesService {
     // Get questions with correct answers
     const questions = await this.prisma.quizQuestion.findMany({
       where: { quizId },
+      orderBy: { order: 'asc' },
     });
 
-    // Calculate score
+    if (questions.length === 0) {
+      throw new BadRequestException('This quiz has no questions');
+    }
+
+    // Calculate score (normalize answers to avoid whitespace / formatting mismatches)
     let correctCount = 0;
 
     for (const question of questions) {
       const userAnswer = dto.answers[question.id];
-      if (userAnswer === question.correctAnswer) {
+      if (
+        normalizeQuizAnswer(userAnswer) ===
+        normalizeQuizAnswer(question.correctAnswer)
+      ) {
         correctCount++;
       }
     }
@@ -456,7 +465,8 @@ export class QuizzesService {
 
     const reviewQuestions = questions.map((q) => {
       const userAnswer = userAnswers[q.id] ?? null;
-      const isCorrect = userAnswer === q.correctAnswer;
+      const isCorrect =
+        normalizeQuizAnswer(userAnswer) === normalizeQuizAnswer(q.correctAnswer);
       return {
         id: q.id,
         question: q.question,

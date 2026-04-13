@@ -19,6 +19,7 @@ import { usePushVapidConfigured } from "@/hooks/usePushVapidConfigured";
 import { useUIStore } from "@/stores/uiStore";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useProfile, useUserStats } from "@/hooks/api/useProfile";
+import { useLeaderboardRank } from "@/hooks/api/useLeaderboard";
 import { useUpdateProfile, useChangePassword } from "@/hooks/api/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { markPasswordChanged, markNotifPrefsSet } from "@/components/SetupChecklist";
@@ -426,6 +427,10 @@ function ProfilePageInner() {
 
   const { data: profile, isLoading, error, refetch } = useProfile();
   const { data: stats, isLoading: loadingStats } = useUserStats();
+  const cohortId = (profile as any)?.cohortId as string | undefined;
+  const { data: rankData, isLoading: rankLoading } = useLeaderboardRank(
+    profile && (profile as any).role === "FELLOW" ? cohortId : undefined,
+  );
   const updateProfile = useUpdateProfile();
 
   const { register, handleSubmit, formState: { errors }, reset: resetProfile } = useForm<ProfileData>({
@@ -557,13 +562,19 @@ function ProfilePageInner() {
         {isFellow && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: Trophy,        label: "Total Points",        value: (stats as any)?.totalPoints ?? 0,        color: "text-amber-600",  bg: "bg-amber-50",  ring: "ring-amber-200" },
-              { icon: FileText,      label: "Resources Done",      value: (stats as any)?.resourcesCompleted ?? 0, color: "text-blue-600",   bg: "bg-blue-50",   ring: "ring-blue-200" },
-              { icon: MessageSquare, label: "Discussions",         value: (stats as any)?.discussionsPosted ?? 0,  color: "text-violet-600", bg: "bg-violet-50", ring: "ring-violet-200" },
-              { icon: ClipboardCheck,label: "Quizzes Taken",       value: (stats as any)?.quizzesTaken ?? 0,       color: "text-green-600",  bg: "bg-green-50",  ring: "ring-green-200" },
-            ].map(({ icon: Icon, label, value, color, bg, ring }) => (
+              {
+                icon: Trophy,
+                label: "Leaderboard",
+                value: rankLoading || loadingStats ? null : (rankData?.points ?? 0),
+                footer: `All-time activity: ${(stats as any)?.totalPoints ?? 0}`,
+                color: "text-amber-600", bg: "bg-amber-50", ring: "ring-amber-200",
+              },
+              { icon: FileText,      label: "Resources Done",      value: loadingStats ? null : ((stats as any)?.resourcesCompleted ?? 0), color: "text-blue-600",   bg: "bg-blue-50",   ring: "ring-blue-200" },
+              { icon: MessageSquare, label: "Discussions",         value: loadingStats ? null : ((stats as any)?.discussionsPosted ?? 0),  color: "text-violet-600", bg: "bg-violet-50", ring: "ring-violet-200" },
+              { icon: ClipboardCheck,label: "Quizzes Taken",       value: loadingStats ? null : ((stats as any)?.quizzesTaken ?? 0),       color: "text-green-600",  bg: "bg-green-50",  ring: "ring-green-200" },
+            ].map(({ icon: Icon, label, value, color, bg, ring, footer }) => (
               <div key={label} className={cn("rounded-xl p-4 ring-1 flex flex-col gap-1", bg, ring)}>
-                {loadingStats ? (
+                {value === null ? (
                   <div className="h-7 w-12 rounded bg-gray-200 animate-pulse" />
                 ) : (
                   <p className={cn("text-2xl font-bold tabular-nums", color)}>{value}</p>
@@ -572,6 +583,9 @@ function ProfilePageInner() {
                   <Icon className={cn("h-3.5 w-3.5", color)} />
                   <p className="text-xs text-gray-500 font-medium">{label}</p>
                 </div>
+                {footer && (
+                  <p className="text-[10px] text-gray-400 leading-tight mt-0.5">{footer}</p>
+                )}
               </div>
             ))}
           </div>

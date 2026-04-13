@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,14 @@ import {
   FileQuestion, Plus, Trash2, Clock, Award, Sparkles, Loader2,
   ChevronDown, ChevronUp, CheckCircle, BookOpen, Zap, CalendarClock,
   LockOpen, Lock, Edit2, RefreshCw, Bell, Play, Users, Trophy, X,
-  Square,
+  Square, Timer, ListChecks, BarChart3,
 } from "lucide-react";
 import {
   useCohorts, useSessions, useCohortQuizzes, useCreateQuiz,
   useDeleteQuiz, useGenerateAIQuestions, useUpdateQuiz, useNotifyLiveQuiz,
   useCohortMembers,
+  useQuizAttemptsStaff,
+  useQuizAttemptDetailStaff,
 } from "@/hooks/api/useAdmin";
 import {
   useCreateLiveQuiz, useDeleteLiveQuiz, useCohortLiveQuizzes,
@@ -29,6 +31,8 @@ import {
 } from "@/hooks/api/useLiveQuiz";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { formatCountdown, useSecondTick } from "@/lib/quiz-countdown";
+import type { StaffQuizFellowSummary } from "@/hooks/api/useAdmin";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type QuizTab = "standard" | "live";
@@ -123,6 +127,324 @@ function TimePicker12H({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
+/** Live open/close countdown for staff (same math as fellow quiz list). */
+function QuizWindowStaff({
+  openAt,
+  closeAt,
+}: {
+  openAt?: string | null;
+  closeAt?: string | null;
+}) {
+  useSecondTick(!!(openAt || closeAt));
+  const now = Date.now();
+  const openT = openAt ? new Date(openAt).getTime() : null;
+  const closeT = closeAt ? new Date(closeAt).getTime() : null;
+
+  const openFuture = openT !== null && now < openT;
+  const openPassed = !openT || now >= openT;
+  const closeFuture = closeT !== null && now < closeT;
+  const closePassed = closeT !== null && now >= closeT;
+
+  const openRemainMs = openFuture && openT ? Math.max(0, openT - now) : -1;
+  const closeRemainMs =
+    openPassed && closeFuture && closeT ? Math.max(0, closeT - now) : -1;
+
+  const urgentClose =
+    openPassed && closeFuture && closeRemainMs > 0 && closeRemainMs < 3600000;
+
+  if (!openAt && !closeAt) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mt-2">
+      {openAt && (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+            openFuture ? "bg-blue-50 text-blue-800 border border-blue-200" : "text-emerald-700"
+          }`}
+        >
+          <LockOpen className="h-3.5 w-3.5 shrink-0" />
+          {openFuture && openRemainMs >= 0 ? (
+            <>
+              Opens in{" "}
+              <span className="font-mono font-bold tabular-nums">
+                {formatCountdown(openRemainMs)}
+              </span>
+              <span className="text-blue-600/80 font-normal hidden sm:inline">
+                · {new Date(openAt).toLocaleString()}
+              </span>
+            </>
+          ) : (
+            <span>Opened · {new Date(openAt).toLocaleString()}</span>
+          )}
+        </span>
+      )}
+      {closeAt && (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border ${
+            closePassed
+              ? "bg-gray-100 text-gray-600 border-gray-200"
+              : urgentClose
+                ? "bg-red-50 text-red-800 border-red-200 animate-pulse"
+                : "bg-amber-50 text-amber-900 border-amber-200"
+          }`}
+        >
+          <Timer className="h-3.5 w-3.5 shrink-0" />
+          {closePassed ? (
+            <span>Closed · {new Date(closeAt).toLocaleString()}</span>
+          ) : closeRemainMs >= 0 ? (
+            <>
+              Closes in{" "}
+              <span className="font-mono font-bold tabular-nums">
+                {formatCountdown(closeRemainMs)}
+              </span>
+              <span className="opacity-80 font-normal hidden sm:inline">
+                · {new Date(closeAt).toLocaleString()}
+              </span>
+            </>
+          ) : (
+            <span>Closes {new Date(closeAt).toLocaleString()}</span>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Staff: fellow attempts & per-question breakdown ───────────────────────────
+type ResultsTab = "fellows" | "attempts";
+
+function QuizAttemptsDialog({
+  open,
+  onClose,
+  quizId,
+  cohortId,
+  quizTitle,
+}: {
+  open: boolean;
+  onClose: () => void;
+  quizId: string;
+  cohortId: string;
+  quizTitle: string;
+}) {
+  const [selectedResponseId, setSelectedResponseId] = useState<string | null>(null);
+  const [tab, setTab] = useState<ResultsTab>("fellows");
+  const { data: listData, isLoading: listLoading, error: listError, isError } = useQuizAttemptsStaff(
+    quizId,
+    cohortId,
+    open,
+  );
+  const { data: detailData, isLoading: detailLoading } = useQuizAttemptDetailStaff(
+    quizId,
+    cohortId,
+    selectedResponseId ?? undefined,
+    open && !!selectedResponseId,
+  );
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedResponseId(null);
+      setTab("fellows");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (isError && listError) {
+      const msg =
+        listError instanceof Error ? listError.message : "Failed to load quiz results";
+      toast.error("Could not load quiz results", { description: msg });
+    }
+  }, [isError, listError]);
+
+  const fellows: StaffQuizFellowSummary[] = listData?.fellowSummaries ?? [];
+  const attempts = listData?.attempts ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
+            <BarChart3 className="h-4 w-4 shrink-0 text-violet-600" />
+            <span>Results — {quizTitle}</span>
+          </DialogTitle>
+          <p className="text-xs text-gray-500 pt-1">
+            Per-fellow summary, discussion posts linked to this quiz&apos;s session(s), points from the leaderboard log for this quiz, and every attempt with question-by-question grading.
+          </p>
+        </DialogHeader>
+
+        {selectedResponseId ? (
+          <div className="space-y-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedResponseId(null)}
+              className="gap-1"
+            >
+              ← Back
+            </Button>
+            {detailLoading ? (
+              <div className="space-y-2">
+                <div className="h-10 rounded bg-gray-100 animate-pulse" />
+                <div className="h-24 rounded bg-gray-100 animate-pulse" />
+              </div>
+            ) : detailData ? (
+              <div className="space-y-3 text-sm">
+                <p className="text-gray-600">
+                  <span className="font-semibold text-gray-900">{detailData.user.name}</span>
+                  {" · "}
+                  Score {detailData.response.score}% · {detailData.response.passed ? "Passed" : "Did not pass"}
+                  {" · "}
+                  {detailData.response.pointsAwarded} pts on this attempt
+                  {detailData.response.timeBonus > 0 && (
+                    <> · +{detailData.response.timeBonus} time bonus</>
+                  )}
+                </p>
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                  {detailData.questions.map((q, i) => (
+                    <div
+                      key={q.id}
+                      className={`border rounded-lg p-3 text-xs ${
+                        q.isCorrect ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                      }`}
+                    >
+                      <p className="font-medium text-gray-900">
+                        {i + 1}. {q.question}
+                      </p>
+                      <p className="mt-1">
+                        <span className="text-gray-500">Their answer:</span>{" "}
+                        <span className="text-gray-800">{q.userAnswer ?? "—"}</span>
+                      </p>
+                      {!q.isCorrect && (
+                        <p className="mt-0.5">
+                          <span className="text-gray-500">Correct option:</span>{" "}
+                          <span className="text-green-800 font-medium">{q.correctAnswer}</span>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Could not load attempt.</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setTab("fellows")}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-colors ${
+                  tab === "fellows" ? "bg-white shadow text-violet-800" : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                By fellow
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("attempts")}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-colors ${
+                  tab === "attempts" ? "bg-white shadow text-violet-800" : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                All attempts
+              </button>
+            </div>
+
+            {listLoading ? (
+              <div className="space-y-2">
+                <div className="h-12 rounded bg-gray-100 animate-pulse" />
+                <div className="h-12 rounded bg-gray-100 animate-pulse" />
+              </div>
+            ) : listError ? (
+              <p className="text-sm text-red-600">
+                Failed to load results. Check that you have access to this cohort (facilitators must be assigned).
+              </p>
+            ) : tab === "fellows" ? (
+              fellows.length === 0 ? (
+                <p className="text-sm text-gray-500">No fellows have submitted this quiz yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+                  {fellows.map((f) => (
+                    <div
+                      key={f.userId}
+                      className="rounded-lg border border-gray-200 p-3 text-xs bg-white"
+                    >
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 truncate">{f.userName}</p>
+                          <p className="text-gray-500 truncate">{f.email}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={f.passedOnce ? "text-green-700 font-semibold" : "text-amber-800 font-semibold"}>
+                            Best {f.bestScore}%
+                          </p>
+                          <p className="text-gray-500">{f.attemptCount} attempt(s)</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-gray-600">
+                        <span>Points (log): <strong className="text-gray-900">{f.pointsFromQuiz}</strong></span>
+                        <span>Session discussions: <strong className="text-gray-900">{f.discussionPostsInSession}</strong></span>
+                        <span className="text-gray-400">
+                          Last: {new Date(f.lastCompletedAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {attempts
+                          .filter((a) => a.userId === f.userId)
+                          .map((a) => (
+                            <Button
+                              key={a.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[11px]"
+                              onClick={() => setSelectedResponseId(a.id)}
+                            >
+                              Attempt {a.score}% · {new Date(a.completedAt).toLocaleDateString()}
+                            </Button>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : attempts.length === 0 ? (
+              <p className="text-sm text-gray-500">No attempts yet.</p>
+            ) : (
+              <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+                {attempts.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setSelectedResponseId(a.id)}
+                    className="w-full text-left flex justify-between gap-2 p-3 rounded-lg border border-gray-200 hover:bg-violet-50/80 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{a.userName}</p>
+                      <p className="text-xs text-gray-500 truncate">{a.email}</p>
+                    </div>
+                    <div className="text-right text-xs shrink-0">
+                      <p className={a.passed ? "text-green-700 font-semibold" : "text-red-600 font-semibold"}>
+                        {a.score}%
+                      </p>
+                      <p className="text-gray-400">
+                        {new Date(a.completedAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Quiz Card ────────────────────────────────────────────────────────────────
 function StandardQuizCard({
   quiz, cohortId, onDelete, onEdit,
@@ -134,8 +456,10 @@ function StandardQuizCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [attemptsOpen, setAttemptsOpen] = useState(false);
 
   return (
+    <>
     <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
       <div className="flex items-start gap-3 p-4">
         <div className="p-2 rounded-lg bg-violet-100 shrink-0">
@@ -169,18 +493,24 @@ function StandardQuizCard({
             <span>{quiz._count?.questions ?? 0} questions</span>
             <span>{quiz._count?.responses ?? 0} attempts</span>
             <span>Pass: {quiz.passingScore}%</span>
-            {quiz.openAt && (
-              <span className="flex items-center gap-1 text-emerald-600">
-                <LockOpen className="h-3 w-3" />
-                Opens {new Date(quiz.openAt).toLocaleString()}
-              </span>
-            )}
-            {quiz.closeAt && (
-              <span className="flex items-center gap-1 text-orange-500">
-                <Lock className="h-3 w-3" />
-                Closes {new Date(quiz.closeAt).toLocaleString()}
-              </span>
-            )}
+          </div>
+          <QuizWindowStaff openAt={quiz.openAt} closeAt={quiz.closeAt} />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+              onClick={() => setAttemptsOpen(true)}
+            >
+              <BarChart3 className="h-4 w-4 shrink-0" />
+              Results
+              <Badge className="ml-0.5 bg-white/25 text-white border-0 font-mono tabular-nums">
+                {quiz._count?.responses ?? 0}
+              </Badge>
+            </Button>
+            <span className="text-[11px] text-gray-500 max-w-[220px] leading-snug">
+              Fellow summary, points from log, session discussions, per-question answers
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -241,6 +571,14 @@ function StandardQuizCard({
         </div>
       )}
     </div>
+    <QuizAttemptsDialog
+      open={attemptsOpen}
+      onClose={() => setAttemptsOpen(false)}
+      quizId={quiz.id}
+      cohortId={cohortId}
+      quizTitle={quiz.title}
+    />
+    </>
   );
 }
 

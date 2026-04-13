@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
@@ -15,19 +15,9 @@ import { useMyQuizzes, type FellowQuiz, type QuizStatus } from "@/hooks/api/useQ
 import { useMyLiveQuizzes, useJoinLiveQuiz, useLiveQuizLeaderboard, useLiveQuiz, useSubmitAnswer, useParticipantAnswers } from "@/hooks/api/useLiveQuiz";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
+import { formatCountdown, useCountdown } from "@/lib/quiz-countdown";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatCountdown(ms: number) {
-  if (ms <= 0) return "00:00:00";
-  const totalSecs = Math.floor(ms / 1000);
-  const days = Math.floor(totalSecs / 86400);
-  const hrs = Math.floor((totalSecs % 86400) / 3600);
-  const mins = Math.floor((totalSecs % 3600) / 60);
-  const secs = totalSecs % 60;
-  if (days > 0) return `${days}d ${hrs}h ${mins}m`;
-  return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-}
 
 const STATUS_CONFIG: Record<QuizStatus, {
   label: string;
@@ -64,22 +54,6 @@ function RankBadge({ rank, size = "sm" }: { rank: number; size?: "sm" | "lg" }) 
   if (rank === 2) return <Medal className={cn(cls, "text-slate-400")} />;
   if (rank === 3) return <Medal className={cn(cls, "text-orange-400")} />;
   return <span className={cn("font-bold text-gray-500 font-mono", size === "lg" ? "text-sm" : "text-xs")}>#{rank}</span>;
-}
-
-function useCountdown(targetDate: string | null) {
-  const getMs = useCallback(() =>
-    targetDate ? new Date(targetDate).getTime() - Date.now() : -1,
-  [targetDate]);
-
-  const [ms, setMs] = useState(getMs);
-
-  useEffect(() => {
-    if (!targetDate) return;
-    const interval = setInterval(() => setMs(getMs()), 1000);
-    return () => clearInterval(interval);
-  }, [targetDate, getMs]);
-
-  return ms;
 }
 
 // ─── Compact Quiz Card ─────────────────────────────────────────────────────────

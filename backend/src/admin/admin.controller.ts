@@ -616,6 +616,42 @@ export class AdminController {
     return this.adminService.getCohortQuizzes(cohortId);
   }
 
+  @Get('quizzes/:quizId/cohort/:cohortId/attempts/:responseId')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({
+    summary: 'Per-question breakdown for one quiz attempt (admin / facilitator)',
+  })
+  getQuizAttemptDetailForStaff(
+    @Param('quizId') quizId: string,
+    @Param('cohortId') cohortId: string,
+    @Param('responseId') responseId: string,
+    @Request() req,
+  ) {
+    return this.adminService.getQuizAttemptDetailForStaff(
+      quizId,
+      cohortId,
+      responseId,
+      req.user.id,
+    );
+  }
+
+  @Get('quizzes/:quizId/cohort/:cohortId/attempts')
+  @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
+  @ApiOperation({
+    summary: 'List quiz attempts for fellows in a cohort (admin / facilitator)',
+  })
+  getQuizAttemptsForStaff(
+    @Param('quizId') quizId: string,
+    @Param('cohortId') cohortId: string,
+    @Request() req,
+  ) {
+    return this.adminService.getQuizAttemptsForStaff(
+      quizId,
+      cohortId,
+      req.user.id,
+    );
+  }
+
   @Post('quizzes')
   @Roles(UserRole.ADMIN, UserRole.FACILITATOR)
   @ApiOperation({ summary: 'Create a quiz with questions' })

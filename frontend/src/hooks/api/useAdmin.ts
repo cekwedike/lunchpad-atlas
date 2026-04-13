@@ -666,6 +666,90 @@ export function useCohortQuizzes(cohortId?: string) {
   });
 }
 
+export interface StaffQuizAttemptRow {
+  id: string;
+  userId: string;
+  userName: string;
+  email: string;
+  score: number;
+  passed: boolean;
+  pointsAwarded: number;
+  completedAt: string;
+  timeTaken: number;
+}
+
+export interface StaffQuizFellowSummary {
+  userId: string;
+  userName: string;
+  email: string;
+  attemptCount: number;
+  bestScore: number;
+  passedOnce: boolean;
+  lastCompletedAt: string;
+  pointsFromQuiz: number;
+  discussionPostsInSession: number;
+}
+
+export interface StaffQuizAttemptsPayload {
+  attempts: StaffQuizAttemptRow[];
+  fellowSummaries: StaffQuizFellowSummary[];
+  pointsFromQuizByUser: Record<string, number>;
+}
+
+export function useQuizAttemptsStaff(
+  quizId: string | undefined,
+  cohortId: string | undefined,
+  enabled: boolean,
+) {
+  const sessionReady = useAuthSessionReady();
+  return useQuery<StaffQuizAttemptsPayload>({
+    queryKey: ['quiz-attempts-staff', quizId, cohortId],
+    queryFn: () =>
+      apiClient.get(`/admin/quizzes/${quizId}/cohort/${cohortId}/attempts`),
+    enabled: !!quizId && !!cohortId && enabled && sessionReady,
+  });
+}
+
+export interface StaffQuizAttemptDetail {
+  quizTitle: string;
+  response: {
+    id: string;
+    score: number;
+    passed: boolean;
+    pointsAwarded: number;
+    completedAt: string;
+    timeTaken: number;
+    timeBonus: number;
+  };
+  user: { id: string; name: string; email: string };
+  questions: Array<{
+    id: string;
+    order: number;
+    question: string;
+    options: unknown;
+    userAnswer: string | null;
+    correctAnswer: string;
+    isCorrect: boolean;
+  }>;
+}
+
+export function useQuizAttemptDetailStaff(
+  quizId: string | undefined,
+  cohortId: string | undefined,
+  responseId: string | undefined,
+  enabled: boolean,
+) {
+  const sessionReady = useAuthSessionReady();
+  return useQuery<StaffQuizAttemptDetail>({
+    queryKey: ['quiz-attempt-detail-staff', quizId, cohortId, responseId],
+    queryFn: () =>
+      apiClient.get(
+        `/admin/quizzes/${quizId}/cohort/${cohortId}/attempts/${responseId}`,
+      ),
+    enabled: !!quizId && !!cohortId && !!responseId && enabled && sessionReady,
+  });
+}
+
 export function useUpdateQuiz() {
   const queryClient = useQueryClient();
   return useMutation({

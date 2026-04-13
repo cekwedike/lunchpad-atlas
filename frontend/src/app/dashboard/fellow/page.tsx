@@ -104,7 +104,10 @@ export default function FellowDashboard() {
   const cohortName = (profile as any)?.cohort?.name ?? null;
 
   const resourcesCompleted = profile?.resourcesCompleted ?? stats?.resourcesCompleted ?? 0;
-  const totalPoints        = profile?.totalPoints        ?? stats?.totalPoints        ?? 0;
+  /** Lifetime sum from PointsLog (activity only — excludes leaderboard chat/streak bonuses). */
+  const allTimeActivityPoints = stats?.totalPoints ?? 0;
+  /** Same formula as the navbar trophy — current month base points + leaderboard bonuses. */
+  const leaderboardPoints = rankData?.points ?? 0;
   /** Matches leaderboard streak for the current month (see /leaderboard/rank). */
   const currentStreak      = rankData?.streak ?? stats?.currentStreak ?? 0;
   const totalResources     = resources.length;
@@ -200,12 +203,17 @@ export default function FellowDashboard() {
                 <Zap className="h-4 w-4 text-violet-600" />
               </div>
             </div>
-            {pageLoading ? (
+            {pageLoading || rankLoading ? (
               <div className="h-9 w-20 rounded bg-gray-100 animate-pulse mt-3" />
             ) : (
-              <p className="text-3xl font-bold text-gray-900 mt-3">{totalPoints.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-3">{leaderboardPoints.toLocaleString()}</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">total earned</p>
+            <p className="text-xs text-gray-500 mt-1">this month · leaderboard</p>
+            {!rankLoading && (
+              <p className="text-[11px] text-gray-400 mt-1 leading-snug">
+                All-time (activity log): {allTimeActivityPoints.toLocaleString()}
+              </p>
+            )}
             {!rankLoading && myRank !== null && (
               <div className="mt-3 flex items-center gap-1.5">
                 <Trophy className="h-3 w-3 text-amber-500" />

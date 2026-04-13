@@ -26,6 +26,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from '../chat/chat.service';
 import { PointsService } from '../gamification/points.service';
+import { normalizeQuizAnswer } from '../common/quiz-answer';
 
 @Injectable()
 export class AdminService {
@@ -1225,6 +1226,226 @@ export class AdminService {
     });
 
     return { sessionQuizzes, cohortQuizzes };
+  }
+
+  private async assertStaffCohortAccess(cohortId: string, requesterId: string) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { role: true, cohortId: true },
+    });
+    if (!requester) throw new ForbiddenException('Not authenticated');
+    if (requester.role === 'ADMIN') return;
+    const assignment = await this.prisma.cohortFacilitator.findFirst({
+      where: { cohortId, userId: requesterId },
+    });
+    if (assignment) return;
+    // Legacy: some facilitators are scoped only via user.cohortId (matches getCohortMembers).
+    if (
+      requester.role === 'FACILITATOR' &&
+      requester.cohortId === cohortId
+    ) {
+      return;
+    }
+    throw new ForbiddenException('You are not assigned to this cohort');
+  }
+
+  private async assertQuizInCohortOrThrow(
+    quizId: string,
+    cohortId: string,
+  ): Promise<{ id: string; title: string }> {
+    const quiz = await this.prisma.quiz.findFirst({
+      where: {
+        id: quizId,
+        OR: [
+          { cohortId },
+          { sessions: { some: { session: { cohortId } } } },
+        ],
+      },
+      select: { id: true, title: true },
+    });
+    if (!quiz) throw new NotFoundException('Quiz not found for this cohort');
+    return quiz;
+  }
+
+  /** Fellows' attempts for a quiz — admin / cohort facilitators. */
+  async getQuizAttemptsForStaff(
+    quizId: string,
+    cohortId: string,
+    requesterId: string,
+  ) {
+    await this.assertStaffCohortAccess(cohortId, requesterId);
+    await this.assertQuizInCohortOrThrow(quizId, cohortId);
+
+    const responses = await this.prisma.quizResponse.findMany({
+      where: { quizId },
+      orderBy: { completedAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            cohortId: true,
+          },
+        },
+      },
+    });
+
+    const attempts = responses
+      .filter((r) => r.user.cohortId === cohortId)
+      .map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        userName: `${r.user.firstName} ${r.user.lastName}`.trim(),
+        email: r.user.email,
+        score: r.score,
+        passed: r.passed,
+        pointsAwarded: r.pointsAwarded,
+        completedAt: r.completedAt,
+        timeTaken: r.timeTaken,
+      }));
+
+    const fellowIds = await this.prisma.user
+      .findMany({
+        where: { cohortId, role: 'FELLOW' },
+        select: { id: true },
+      })
+      .then((rows) => rows.map((u) => u.id));
+
+    const pointsRows = await this.prisma.pointsLog.groupBy({
+      by: ['userId'],
+      where: { quizId, userId: { in: fellowIds } },
+      _sum: { points: true },
+    });
+    const pointsFromQuizByUser = Object.fromEntries(
+      pointsRows.map((p) => [p.userId, p._sum.points || 0]),
+    );
+
+    const sessionLinks = await this.prisma.quizSession.findMany({
+      where: { quizId },
+      select: { sessionId: true },
+    });
+    const sessionIds = sessionLinks.map((s) => s.sessionId);
+    const discussionPostsByUser: Record<string, number> = {};
+    if (sessionIds.length > 0) {
+      const disc = await this.prisma.discussion.groupBy({
+        by: ['userId'],
+        where: {
+          cohortId,
+          sessionId: { in: sessionIds },
+          userId: { in: fellowIds },
+        },
+        _count: { id: true },
+      });
+      for (const row of disc) {
+        discussionPostsByUser[row.userId] = row._count.id;
+      }
+    }
+
+    const byUser = new Map<string, typeof attempts>();
+    for (const a of attempts) {
+      if (!byUser.has(a.userId)) byUser.set(a.userId, []);
+      byUser.get(a.userId)!.push(a);
+    }
+
+    const fellowSummaries = [...byUser.entries()].map(([userId, rows]) => {
+      const sorted = [...rows].sort(
+        (a, b) =>
+          new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
+      );
+      const bestScore = Math.max(...rows.map((r) => r.score));
+      const passedOnce = rows.some((r) => r.passed);
+      return {
+        userId,
+        userName: sorted[0].userName,
+        email: sorted[0].email,
+        attemptCount: rows.length,
+        bestScore,
+        passedOnce,
+        lastCompletedAt: sorted[0].completedAt,
+        pointsFromQuiz: pointsFromQuizByUser[userId] ?? 0,
+        discussionPostsInSession: discussionPostsByUser[userId] ?? 0,
+      };
+    });
+    fellowSummaries.sort(
+      (a, b) =>
+        new Date(b.lastCompletedAt).getTime() -
+        new Date(a.lastCompletedAt).getTime(),
+    );
+
+    return { attempts, fellowSummaries, pointsFromQuizByUser };
+  }
+
+  /** Per-question right/wrong for one attempt — admin / cohort facilitators. */
+  async getQuizAttemptDetailForStaff(
+    quizId: string,
+    cohortId: string,
+    responseId: string,
+    requesterId: string,
+  ) {
+    await this.assertStaffCohortAccess(cohortId, requesterId);
+    const quiz = await this.assertQuizInCohortOrThrow(quizId, cohortId);
+
+    const response = await this.prisma.quizResponse.findFirst({
+      where: { id: responseId, quizId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            cohortId: true,
+          },
+        },
+      },
+    });
+    if (!response) throw new NotFoundException('Attempt not found');
+    if (response.user.cohortId !== cohortId) {
+      throw new ForbiddenException('This attempt is not in your cohort');
+    }
+
+    const questions = await this.prisma.quizQuestion.findMany({
+      where: { quizId },
+      orderBy: { order: 'asc' },
+    });
+
+    const userAnswers = (response.answers as Record<string, string>) || {};
+
+    const questionsOut = questions.map((q) => {
+      const rawUser = userAnswers[q.id];
+      const isCorrect =
+        normalizeQuizAnswer(rawUser) === normalizeQuizAnswer(q.correctAnswer);
+      return {
+        id: q.id,
+        order: q.order,
+        question: q.question,
+        options: q.options,
+        userAnswer: rawUser ?? null,
+        correctAnswer: q.correctAnswer,
+        isCorrect,
+      };
+    });
+
+    return {
+      quizTitle: quiz.title,
+      response: {
+        id: response.id,
+        score: response.score,
+        passed: response.passed,
+        pointsAwarded: response.pointsAwarded,
+        completedAt: response.completedAt,
+        timeTaken: response.timeTaken,
+        timeBonus: response.timeBonus,
+      },
+      user: {
+        id: response.user.id,
+        name: `${response.user.firstName} ${response.user.lastName}`.trim(),
+        email: response.user.email,
+      },
+      questions: questionsOut,
+    };
   }
 
   async createQuiz(dto: CreateQuizDto) {
