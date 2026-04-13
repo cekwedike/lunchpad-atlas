@@ -152,6 +152,8 @@ export interface Discussion {
   qualityAnalysis: any;
   scoredAt: Date | null;
   isQualityVisible?: boolean;
+  archivedAt?: Date | string | null;
+  archivedById?: string | null;
   likeCount: number;
   commentCount: number;
   createdAt: Date;

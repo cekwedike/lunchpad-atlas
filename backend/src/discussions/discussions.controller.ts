@@ -107,6 +107,26 @@ export class DiscussionsController {
     );
   }
 
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Archive a discussion (Admin/Facilitator)' })
+  archiveDiscussion(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.archiveDiscussion(
+      id,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
+  @Post(':id/unarchive')
+  @ApiOperation({ summary: 'Restore an archived discussion (Admin/Facilitator)' })
+  unarchiveDiscussion(@Param('id') id: string, @Request() req) {
+    return this.discussionsService.unarchiveDiscussion(
+      id,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
   @Post(':id/score-quality')
   @ApiOperation({ summary: 'AI score discussion quality' })
   scoreDiscussionQuality(@Param('id') id: string, @Request() req) {

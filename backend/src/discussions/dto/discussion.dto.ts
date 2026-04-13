@@ -72,6 +72,10 @@ export class DiscussionFilterDto {
   @IsOptional()
   isApproved?: boolean;
 
+  /** Staff only: list archived discussions (non-null archivedAt). */
+  @IsOptional()
+  archivedOnly?: boolean;
+
   @IsOptional()
   page?: number;
 

@@ -213,6 +213,9 @@ describe('DiscussionsService', () => {
       const discussionId = 'disc-1';
       const userId = '123';
 
+      mockPrismaService.discussion.findUnique
+        .mockResolvedValueOnce({ archivedAt: null })
+        .mockResolvedValueOnce({ cohortId: null });
       mockPrismaService.discussionLike.findUnique.mockResolvedValue(null);
       mockPrismaService.discussionLike.create.mockResolvedValue({
         id: 'like-1',
@@ -232,6 +235,9 @@ describe('DiscussionsService', () => {
       const discussionId = 'disc-1';
       const userId = '123';
 
+      mockPrismaService.discussion.findUnique
+        .mockResolvedValueOnce({ archivedAt: null })
+        .mockResolvedValueOnce({ cohortId: null });
       mockPrismaService.discussionLike.findUnique.mockResolvedValue({
         id: 'like-1',
         discussionId,
@@ -272,6 +278,7 @@ describe('DiscussionsService', () => {
         ...mockDiscussion,
         isLocked: false,
         isApproved: true,
+        archivedAt: null,
         userId,
       });
       mockPrismaService.user.findUnique.mockResolvedValue({ id: userId });

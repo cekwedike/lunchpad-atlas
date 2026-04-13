@@ -18,6 +18,9 @@ import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class DiscussionsService {
+  /** Archived threads are permanently deleted after this many days (cron job). */
+  static readonly ARCHIVED_DISCUSSION_RETENTION_DAYS = 100;
+
   constructor(
     private prisma: PrismaService,
     private discussionScoring: DiscussionScoringService,
@@ -25,6 +28,22 @@ export class DiscussionsService {
     private notificationsService: NotificationsService,
     private pointsService: PointsService,
   ) {}
+
+  private async assertFacilitatorOwnsDiscussionCohort(
+    userId: string,
+    discussionCohortId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { cohortId: true },
+    });
+
+    if (!user?.cohortId || user.cohortId !== discussionCohortId) {
+      throw new ForbiddenException(
+        'Facilitators can only manage discussions for their cohort',
+      );
+    }
+  }
 
   private stripHtmlToText(html: string) {
     return html
@@ -505,11 +524,26 @@ export class DiscussionsService {
       authorId,
       isPinned,
       isApproved,
+      archivedOnly,
     } = filters as any;
     const skip = (page - 1) * limit;
 
     const where: any = {};
     const andFilters: any[] = [];
+
+    const parsedArchivedOnly =
+      typeof archivedOnly === 'string' ? archivedOnly === 'true' : archivedOnly;
+
+    if (parsedArchivedOnly) {
+      if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+        throw new ForbiddenException(
+          'Only admins and facilitators can view archived discussions',
+        );
+      }
+      andFilters.push({ archivedAt: { not: null } });
+    } else {
+      andFilters.push({ archivedAt: null });
+    }
 
     if (search) {
       andFilters.push({
@@ -658,6 +692,7 @@ export class DiscussionsService {
 
     const where: any = {
       isApproved: false,
+      archivedAt: null,
     };
 
     if (scopedCohortId) {
@@ -695,6 +730,18 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
+    if (discussion.archivedAt) {
+      if (userRole === 'FELLOW' || userRole === 'GUEST_FACILITATOR') {
+        throw new NotFoundException('Discussion not found');
+      }
+      if (userRole === 'FACILITATOR') {
+        await this.assertFacilitatorOwnsDiscussionCohort(
+          userId,
+          discussion.cohortId,
+        );
+      }
+    }
+
     if (userRole === 'FELLOW' && !discussion.isApproved && discussion.userId !== userId) {
       throw new ForbiddenException('Discussion is pending approval');
     }
@@ -717,6 +764,19 @@ export class DiscussionsService {
   }
 
   async likeDiscussion(discussionId: string, userId: string) {
+    const discussionRow = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+      select: { archivedAt: true },
+    });
+
+    if (!discussionRow) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    if (discussionRow.archivedAt) {
+      throw new ForbiddenException('This discussion is archived');
+    }
+
     const existing = await this.prisma.discussionLike.findUnique({
       where: {
         discussionId_userId: { discussionId, userId },
@@ -762,6 +822,27 @@ export class DiscussionsService {
   }
 
   async getComments(discussionId: string, userId: string, userRole: string) {
+    const discussionShell = await this.prisma.discussion.findUnique({
+      where: { id: discussionId },
+      select: { archivedAt: true, cohortId: true },
+    });
+
+    if (!discussionShell) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    if (discussionShell.archivedAt) {
+      if (userRole === 'FELLOW' || userRole === 'GUEST_FACILITATOR') {
+        throw new NotFoundException('Discussion not found');
+      }
+      if (userRole === 'FACILITATOR') {
+        await this.assertFacilitatorOwnsDiscussionCohort(
+          userId,
+          discussionShell.cohortId,
+        );
+      }
+    }
+
     const comments = (await (this.prisma as any).discussionComment.findMany({
       where: { discussionId },
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'asc' }],
@@ -820,11 +901,18 @@ export class DiscussionsService {
         isApproved: true,
         cohortId: true,
         resourceId: true,
+        archivedAt: true,
       },
     });
 
     if (!discussion) {
       throw new NotFoundException('Discussion not found');
+    }
+
+    if (discussion.archivedAt) {
+      throw new ForbiddenException(
+        'This discussion is archived. Comments are disabled.',
+      );
     }
 
     // Check if discussion is locked
@@ -974,15 +1062,19 @@ export class DiscussionsService {
       throw new NotFoundException('Discussion not found');
     }
 
-    // Admin or Facilitator can delete any discussion
-    if (
-      discussion.userId !== userId &&
-      userRole !== 'ADMIN' &&
-      userRole !== 'FACILITATOR'
-    ) {
-      throw new ForbiddenException(
-        'Only administrators and facilitators can delete discussions',
-      );
+    // Author can delete own; admins/facilitators can delete (facilitators: cohort only)
+    if (discussion.userId !== userId) {
+      if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+        throw new ForbiddenException(
+          'Only administrators and facilitators can delete discussions',
+        );
+      }
+      if (userRole === 'FACILITATOR') {
+        await this.assertFacilitatorOwnsDiscussionCohort(
+          userId,
+          discussion.cohortId,
+        );
+      }
     }
 
     await this.prisma.discussion.delete({ where: { id } });
@@ -994,6 +1086,88 @@ export class DiscussionsService {
       );
     }
     return { message: 'Discussion deleted successfully' };
+  }
+
+  async archiveDiscussion(id: string, userId: string, userRole: string) {
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException(
+        'Only admins and facilitators can archive discussions',
+      );
+    }
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    if (userRole === 'FACILITATOR') {
+      await this.assertFacilitatorOwnsDiscussionCohort(
+        userId,
+        discussion.cohortId,
+      );
+    }
+
+    if (discussion.archivedAt) {
+      return discussion;
+    }
+
+    const updated = await this.prisma.discussion.update({
+      where: { id },
+      data: {
+        archivedAt: new Date(),
+        archivedById: userId,
+      },
+    });
+
+    if (updated.cohortId) {
+      this.discussionsGateway.broadcastDiscussionUpdate(updated);
+    }
+
+    return updated;
+  }
+
+  async unarchiveDiscussion(id: string, userId: string, userRole: string) {
+    if (userRole !== 'ADMIN' && userRole !== 'FACILITATOR') {
+      throw new ForbiddenException(
+        'Only admins and facilitators can restore archived discussions',
+      );
+    }
+
+    const discussion = await this.prisma.discussion.findUnique({
+      where: { id },
+    });
+
+    if (!discussion) {
+      throw new NotFoundException('Discussion not found');
+    }
+
+    if (userRole === 'FACILITATOR') {
+      await this.assertFacilitatorOwnsDiscussionCohort(
+        userId,
+        discussion.cohortId,
+      );
+    }
+
+    if (!discussion.archivedAt) {
+      return discussion;
+    }
+
+    const updated = await this.prisma.discussion.update({
+      where: { id },
+      data: {
+        archivedAt: null,
+        archivedById: null,
+      },
+    });
+
+    if (updated.cohortId) {
+      this.discussionsGateway.broadcastDiscussionUpdate(updated);
+    }
+
+    return updated;
   }
 
   async deleteComment(commentId: string, userId: string, userRole: string) {
@@ -1622,6 +1796,7 @@ export class DiscussionsService {
     const where: any = {
       qualityScore: { gte: 70 },
       isApproved: true,
+      archivedAt: null,
     };
 
     if (cohortId) {
@@ -1798,7 +1973,7 @@ export class DiscussionsService {
     return await this.prisma.discussion.findMany({
       take: limit,
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-      where: { isApproved: true },
+      where: { isApproved: true, archivedAt: null },
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, email: true },

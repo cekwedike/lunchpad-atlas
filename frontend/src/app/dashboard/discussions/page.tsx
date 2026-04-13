@@ -16,18 +16,30 @@ import {
   MessageCircle,
   TrendingUp,
   Filter,
+  MoreVertical,
+  Trash2,
+  Archive,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useApproveDiscussion,
+  useArchiveDiscussion,
+  useDeleteDiscussion,
   useDiscussions,
   usePendingApprovalCount,
+  useUnarchiveDiscussion,
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { useResource } from "@/hooks/api/useResources";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function DiscussionsPage() {
   return (
@@ -52,6 +64,7 @@ function DiscussionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPinned, setFilterPinned] = useState(false);
   const [filterPendingApproval, setFilterPendingApproval] = useState(false);
+  const [filterArchived, setFilterArchived] = useState(false);
 
   const resourceId = searchParams.get("resourceId") || undefined;
   const { data: resource } = useResource(resourceId || "");
@@ -60,11 +73,15 @@ function DiscussionsContent() {
   const canManageDiscussions = isAdmin || profile?.role === "FACILITATOR";
 
   const { data: discussionsData, refetch } = useDiscussions(profile?.cohortId ?? undefined, {
-    pinned: filterPinned || undefined,
+    pinned: filterPinned && !filterArchived ? true : undefined,
     resourceId,
     isApproved: filterPendingApproval ? false : undefined,
+    archivedOnly: filterArchived || undefined,
   });
   const approveDiscussion = useApproveDiscussion();
+  const archiveDiscussion = useArchiveDiscussion();
+  const unarchiveDiscussion = useUnarchiveDiscussion();
+  const deleteDiscussion = useDeleteDiscussion();
   const { data: pendingCountData, refetch: refetchPendingCount } = usePendingApprovalCount(
     isAdmin ? undefined : (profile?.cohortId ?? undefined),
     canManageDiscussions,
@@ -164,6 +181,7 @@ function DiscussionsContent() {
                   <Button
                     variant={filterPinned ? "default" : "outline"}
                     onClick={() => setFilterPinned(!filterPinned)}
+                    disabled={filterArchived}
                     className="gap-2"
                   >
                     <Filter className="h-4 w-4" />
@@ -173,6 +191,7 @@ function DiscussionsContent() {
                     <Button
                       variant={filterPendingApproval ? "default" : "outline"}
                       onClick={() => setFilterPendingApproval(!filterPendingApproval)}
+                      disabled={filterArchived}
                       className="gap-2"
                     >
                       <TrendingUp className="h-4 w-4" />
@@ -182,6 +201,23 @@ function DiscussionsContent() {
                           {pendingApprovalCount}
                         </Badge>
                       )}
+                    </Button>
+                  )}
+                  {canManageDiscussions && (
+                    <Button
+                      variant={filterArchived ? "default" : "outline"}
+                      onClick={() => {
+                        const next = !filterArchived;
+                        setFilterArchived(next);
+                        if (next) {
+                          setFilterPinned(false);
+                          setFilterPendingApproval(false);
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Archive className="h-4 w-4" />
+                      {filterArchived ? "Active discussions" : "Archived"}
                     </Button>
                   )}
                 </div>
@@ -231,6 +267,7 @@ function DiscussionsContent() {
                       : "General";
 
                   const isPendingApproval = discussion.isApproved === false;
+                  const isArchived = !!discussion.archivedAt;
 
                   return (
                     <Card
@@ -241,12 +278,18 @@ function DiscussionsContent() {
                       <CardContent className="p-6">
                           <div className="flex items-start gap-4">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex flex-wrap items-center gap-2 min-w-0">
                                 <h3 className="text-lg font-semibold text-gray-900 truncate">
                                   {discussion.title}
                                 </h3>
-                                {discussion.isPinned && <Pin className="h-4 w-4 text-amber-600" />}
-                                {discussion.isLocked && <Lock className="h-4 w-4 text-red-600" />}
+                                {discussion.isPinned && <Pin className="h-4 w-4 text-amber-600 flex-shrink-0" />}
+                                {discussion.isLocked && <Lock className="h-4 w-4 text-red-600 flex-shrink-0" />}
+                                {isArchived && (
+                                  <Badge className="text-xs bg-slate-100 text-slate-700 border border-slate-200">
+                                    Archived
+                                  </Badge>
+                                )}
                                 {isPendingApproval && (
                                   <Badge className="text-xs bg-amber-50 text-amber-700 border border-amber-200">
                                     Pending approval
@@ -255,6 +298,69 @@ function DiscussionsContent() {
                                 <Badge className="text-xs bg-blue-50 text-blue-700 border border-blue-100">
                                   {topicLabel}
                                 </Badge>
+                                </div>
+                                {canManageDiscussions && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="flex-shrink-0 -mr-2 -mt-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <MoreVertical className="h-4 w-4 text-gray-500" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                      {isArchived ? (
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            unarchiveDiscussion.mutate(discussion.id);
+                                          }}
+                                        >
+                                          <Archive className="h-4 w-4 mr-2" />
+                                          Restore
+                                        </DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (
+                                              !confirm(
+                                                "Archive this discussion? It will be hidden from fellows and permanently deleted after 100 days in archive.",
+                                              )
+                                            ) {
+                                              return;
+                                            }
+                                            archiveDiscussion.mutate(discussion.id);
+                                          }}
+                                        >
+                                          <Archive className="h-4 w-4 mr-2" />
+                                          Archive
+                                        </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (
+                                            !confirm(
+                                              "Permanently delete this discussion and all comments? This cannot be undone.",
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          deleteDiscussion.mutate(discussion.id);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
                               </div>
                               <p className="text-sm text-gray-600 line-clamp-2 mb-3">{discussion.content}</p>
                               <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">

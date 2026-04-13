@@ -3,6 +3,8 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Emit next to the backend package so IDE + `tsc` resolve the same client as `pnpm`/hoisted installs.
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -116,6 +118,7 @@ model User {
   resourceProgress   ResourceProgress[]
   discussions        Discussion[]
   approvedDiscussions Discussion[] @relation("DiscussionApprover")
+  archivedDiscussions Discussion[] @relation("DiscussionArchiver")
   comments           DiscussionComment[]
   commentReactions   DiscussionCommentReaction[]
   discussionLikes    DiscussionLike[]
@@ -332,6 +335,8 @@ model Discussion {
   qualityAnalysis Json?    // AI analysis details
   scoredAt        DateTime? // When AI scoring was completed
   isQualityVisible Boolean @default(false)
+  archivedAt      DateTime?
+  archivedById    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -341,6 +346,7 @@ model Discussion {
   cohort   Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   approvedBy User?             @relation("DiscussionApprover", fields: [approvedById], references: [id])
+  archivedBy User?             @relation("DiscussionArchiver", fields: [archivedById], references: [id])
   comments DiscussionComment[]
   likes    DiscussionLike[]
 
@@ -350,6 +356,7 @@ model Discussion {
   @@index([userId])
   @@index([isApproved])
   @@index([qualityScore])
+  @@index([archivedAt])
   @@map("discussions")
 }
 

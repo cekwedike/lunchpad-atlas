@@ -11,7 +11,12 @@ export interface DiscussionTopicOption {
 
 export function useDiscussions(
   cohortId?: string,
-  filters?: { pinned?: boolean; resourceId?: string; isApproved?: boolean },
+  filters?: {
+    pinned?: boolean;
+    resourceId?: string;
+    isApproved?: boolean;
+    archivedOnly?: boolean;
+  },
 ) {
   return useQuery({
     queryKey: ['discussions', cohortId, filters],
@@ -23,7 +28,10 @@ export function useDiscussions(
       if (filters?.isApproved !== undefined) {
         params.append('isApproved', String(filters.isApproved));
       }
-      
+      if (filters?.archivedOnly) {
+        params.append('archivedOnly', 'true');
+      }
+
       const endpoint = `/discussions${params.toString() ? `?${params.toString()}` : ''}`;
       return apiClient.get<PaginatedResponse<Discussion>>(endpoint);
     },
@@ -277,6 +285,57 @@ export function useApproveDiscussion() {
     },
     onError: (error: any) => {
       toast.error('Failed to approve discussion', error.message);
+    },
+  });
+}
+
+export function useArchiveDiscussion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (discussionId: string) =>
+      apiClient.post<Discussion>(`/discussions/${discussionId}/archive`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      toast.success('Discussion archived');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to archive discussion', error.message);
+    },
+  });
+}
+
+export function useUnarchiveDiscussion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (discussionId: string) =>
+      apiClient.post<Discussion>(`/discussions/${discussionId}/unarchive`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      toast.success('Discussion restored');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to restore discussion', error.message);
+    },
+  });
+}
+
+export function useDeleteDiscussion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (discussionId: string) =>
+      apiClient.delete(`/discussions/${discussionId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      toast.success('Discussion deleted');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete discussion', error.message);
     },
   });
 }

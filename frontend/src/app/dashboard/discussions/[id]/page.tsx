@@ -18,6 +18,7 @@ import {
   Trash2,
   MoreVertical,
   Loader2,
+  Archive,
 } from "lucide-react";
 import {
   useDiscussion,
@@ -33,7 +34,10 @@ import {
   useToggleDiscussionQualityVisibility,
   useToggleCommentQualityVisibility,
   useApproveDiscussion,
+  useArchiveDiscussion,
+  useDeleteDiscussion,
   useDiscussionAiStatus,
+  useUnarchiveDiscussion,
 } from "@/hooks/api/useDiscussions";
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
@@ -81,6 +85,9 @@ export default function DiscussionDetailPage() {
   const scoreCommentQuality = useScoreCommentQuality(discussionId);
   const toggleCommentQualityVisibility = useToggleCommentQualityVisibility(discussionId);
   const approveDiscussion = useApproveDiscussion();
+  const archiveDiscussion = useArchiveDiscussion();
+  const unarchiveDiscussion = useUnarchiveDiscussion();
+  const deleteDiscussionMutation = useDeleteDiscussion();
   const { data: aiStatus } = useDiscussionAiStatus(!!isAdmin);
   
   const { socket, isConnected, subscribeToDiscussion, unsubscribeFromDiscussion, emitTyping } = useDiscussionsSocket();
@@ -321,13 +328,10 @@ export default function DiscussionDetailPage() {
 
   const handleDeleteDiscussion = async () => {
     try {
-      await apiClient.delete(`/discussions/${discussionId}`);
-
-      toast.success("Discussion deleted");
-      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      await deleteDiscussionMutation.mutateAsync(discussionId);
       router.push('/dashboard/discussions');
-    } catch (error: any) {
-      toast.error("Failed to delete discussion");
+    } catch {
+      // toast handled by mutation
     }
   };
 
@@ -336,6 +340,7 @@ export default function DiscussionDetailPage() {
   const isLocked = discussion?.isLocked;
   const isLiked = discussion?.likes?.some((like: any) => like.userId === profile?.id);
   const canModerateDiscussion = isAdmin || isFacilitator;
+  const isArchived = !!discussion?.archivedAt;
   const isFellowDiscussion = discussion?.user?.role === "FELLOW";
   const canScoreQuality = canModerateDiscussion && discussion?.isApproved && isFellowDiscussion;
 
@@ -612,6 +617,29 @@ export default function DiscussionDetailPage() {
           </div>
         </div>
 
+        {isArchived && (
+          <Card className="bg-slate-50 border border-slate-200">
+            <CardContent className="p-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Archived</div>
+                <div className="text-sm text-slate-600">
+                  Hidden from the main feed. Permanently deleted after 100 days in archive unless restored.
+                </div>
+              </div>
+              {canModerateDiscussion && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => unarchiveDiscussion.mutate(discussionId)}
+                  disabled={unarchiveDiscussion.isPending}
+                >
+                  Restore discussion
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {discussion.isApproved === false && (
           <Card className="bg-amber-50 border border-amber-200">
             <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -681,14 +709,41 @@ export default function DiscussionDetailPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleTogglePin}>
-                        <Pin className="h-4 w-4 mr-2" />
-                        {discussion.isPinned ? "Unpin" : "Pin"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleToggleLock}>
-                        <Lock className="h-4 w-4 mr-2" />
-                        {discussion.isLocked ? "Unlock" : "Lock"}
-                      </DropdownMenuItem>
+                      {!isArchived && (
+                        <>
+                          <DropdownMenuItem onClick={handleTogglePin}>
+                            <Pin className="h-4 w-4 mr-2" />
+                            {discussion.isPinned ? "Unpin" : "Pin"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleToggleLock}>
+                            <Lock className="h-4 w-4 mr-2" />
+                            {discussion.isLocked ? "Unlock" : "Lock"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (
+                                !confirm(
+                                  "Archive this discussion? It will be hidden from fellows and permanently deleted after 100 days in archive.",
+                                )
+                              ) {
+                                return;
+                              }
+                              archiveDiscussion.mutate(discussionId);
+                            }}
+                          >
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archive
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {isArchived && (
+                        <DropdownMenuItem
+                          onClick={() => unarchiveDiscussion.mutate(discussionId)}
+                        >
+                          <Archive className="h-4 w-4 mr-2" />
+                          Restore
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => setDeleteDiscussionModalOpen(true)} className="text-red-600">
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete discussion
@@ -846,6 +901,7 @@ export default function DiscussionDetailPage() {
                   variant={isLiked ? "default" : "outline"}
                   size="sm"
                   onClick={handleLike}
+                  disabled={isArchived}
                   className="gap-2"
                 >
                   <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
@@ -866,7 +922,7 @@ export default function DiscussionDetailPage() {
             <h2 className="text-xl font-semibold text-gray-900">Comments</h2>
 
             {/* Comment Input */}
-            {!isLocked && discussion?.isApproved ? (
+            {!isLocked && discussion?.isApproved && !isArchived ? (
               <div className="space-y-3">
                 {replyTo && (
                   <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
@@ -908,14 +964,18 @@ export default function DiscussionDetailPage() {
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
                 <Lock className="h-6 w-6 text-red-600 mx-auto mb-2" />
                 <p className="text-red-700 font-medium">
-                  {discussion?.isApproved === false
-                    ? "This discussion is pending approval"
-                    : "This discussion is locked"}
+                  {isArchived
+                    ? "This discussion is archived"
+                    : discussion?.isApproved === false
+                      ? "This discussion is pending approval"
+                      : "This discussion is locked"}
                 </p>
                 <p className="text-red-600 text-sm">
-                  {discussion?.isApproved === false
-                    ? "Comments are disabled until approval"
-                    : "No new comments can be added"}
+                  {isArchived
+                    ? "Comments are disabled for archived discussions"
+                    : discussion?.isApproved === false
+                      ? "Comments are disabled until approval"
+                      : "No new comments can be added"}
                 </p>
               </div>
             )}

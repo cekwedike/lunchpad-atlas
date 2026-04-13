@@ -14,6 +14,7 @@ import {
   resolveCohortForWeeklyDigest,
   resolveCohortTimeZone,
 } from './weekly-digest-eligibility';
+import { DiscussionsService } from '../discussions/discussions.service';
 
 @Injectable()
 export class CronService {
@@ -851,6 +852,30 @@ export class CronService {
     if (alerted > 0) {
       this.logger.log(
         `Alerted staff about ${alerted} fellows with low engagement`,
+      );
+    }
+  }
+
+  /**
+   * Permanently remove discussions that have been archived longer than the retention window.
+   * Runs daily at 03:15 UTC.
+   */
+  @Cron('15 3 * * *')
+  async purgeLongArchivedDiscussions() {
+    const days = DiscussionsService.ARCHIVED_DISCUSSION_RETENTION_DAYS;
+    const threshold = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    );
+
+    const result = await this.prisma.discussion.deleteMany({
+      where: {
+        archivedAt: { not: null, lt: threshold },
+      },
+    });
+
+    if (result.count > 0) {
+      this.logger.log(
+        `Purged ${result.count} discussion(s) archived more than ${days} days ago`,
       );
     }
   }
