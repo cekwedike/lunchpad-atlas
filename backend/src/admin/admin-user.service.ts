@@ -5,10 +5,7 @@ import { PrismaService } from '../prisma.service';
 import { UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
-import {
-  getCohortDurationMonths,
-  getMonthlyCapForDuration,
-} from '../common/gamification.utils';
+import { getMonthlyCapForDuration } from '../common/gamification.utils';
 
 export interface UserFilters {
   search?: string;
@@ -358,7 +355,7 @@ export class AdminUserService {
    * Side-effects when the cohort actually changes:
    *   - Wipes all UserAchievement rows (per-cohort reset)
    *   - Resets currentMonthPoints to 0
-   *   - Updates monthlyPointsCap based on the new cohort's duration
+   *   - Sets monthlyPointsCap to the global 10k/month limit (same for all cohort lengths)
    */
   async updateUserCohort(userId: string, cohortId: string | null) {
     const user = await this.prisma.user.findUnique({
@@ -383,8 +380,7 @@ export class AdminUserService {
         throw new NotFoundException(`Cohort with ID ${cohortId} not found`);
       }
 
-      const months = getCohortDurationMonths(cohort.startDate, cohort.endDate);
-      newMonthlyPointsCap = getMonthlyCapForDuration(months);
+      newMonthlyPointsCap = getMonthlyCapForDuration();
     }
 
     // When the user moves to a different cohort (or is removed from one),

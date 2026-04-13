@@ -3,15 +3,9 @@
  *
  * Shared utility functions for cohort-duration-aware gamification.
  *
- * Monthly cap and total-target targets:
- *   1 month  → 10,000/mo cap  (10,000 total)
- *   2 months → 11,000/mo cap  (22,000 total)
- *   3 months → 15,000/mo cap  (45,000 total)
- *   4 months → 20,000/mo cap  (80,000 total)
- *   5 months → 24,000/mo cap  (120,000 total)
- *   6+ months→ 26,667/mo cap  (160,000 total)
+ * Monthly earning cap: 10,000 points per fellow per calendar month for all cohorts.
  *
- * Leaderboard achievement milestones for a 4-month cohort (total = 80,000):
+ * Total-target scaling by cohort length (used for LEADERBOARD achievement thresholds only):
  *   Point Starter      ≈   400 pts  (first session)
  *   Point Collector    ≈ 2,500 pts  (early month 1)
  *   Point Accumulator  ≈ 6,000 pts  (mid month 1)
@@ -24,13 +18,8 @@
  *   The GOAT           ≈76,000 pts  (near-perfect performance all 4 months)
  */
 
-const MONTHLY_CAP_BY_MONTHS: Record<number, number> = {
-  1: 10000,
-  2: 11000,
-  3: 15000,
-  4: 20000,
-  5: 24000,
-};
+/** Maximum points earnable per fellow per calendar month (same for every cohort length). */
+export const MONTHLY_POINTS_CAP = 10000;
 
 const TOTAL_TARGET_BY_MONTHS: Record<number, number> = {
   1: 10000,
@@ -40,7 +29,6 @@ const TOTAL_TARGET_BY_MONTHS: Record<number, number> = {
   5: 120000,
 };
 
-const DEFAULT_MONTHLY_CAP = 26667;  // Math.round(160_000 / 6)
 const DEFAULT_TOTAL_TARGET = 160000;
 
 /**
@@ -55,9 +43,12 @@ export function getCohortDurationMonths(start: Date, end: Date): number {
   return Math.max(1, months);
 }
 
-/** Monthly point-earning cap for a cohort of the given duration. */
-export function getMonthlyCapForDuration(months: number): number {
-  return MONTHLY_CAP_BY_MONTHS[months] ?? DEFAULT_MONTHLY_CAP;
+/**
+ * Monthly point-earning cap. Same for all cohort durations (10,000).
+ * @param _months retained for call-site compatibility; ignored.
+ */
+export function getMonthlyCapForDuration(_months?: number): number {
+  return MONTHLY_POINTS_CAP;
 }
 
 /** Total point target (all sources) for a cohort of the given duration. */

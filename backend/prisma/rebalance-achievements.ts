@@ -1,9 +1,9 @@
 /**
  * rebalance-achievements.ts
  *
- * Run ONCE after the monthly cap is raised to 2,500.
+ * Run ONCE after the monthly cap is raised (e.g. to 10,000 floor).
  * Updates:
- *   1. All users' monthlyPointsCap to 2,500
+ *   1. All users' monthlyPointsCap below the floor to 10,000
  *   2. LEADERBOARD point thresholds to spread evenly across a 6-month program
  *   3. Does NOT clear UserAchievement rows — existing unlocks are preserved
  *
@@ -18,8 +18,8 @@ const prisma = new PrismaClient();
 // ---------------------------------------------------------------------------
 // New point thresholds for "total points earned" achievements.
 //
-// With 2,500 pts/month cap × 6 months = 15,000 regular points
-// + ~9,200 achievement bonus points = ~24,000 max total for a dedicated fellow.
+// Thresholds below are legacy; live definitions sync from AchievementsService on boot.
+// Monthly earning caps use gamification.utils (10k+ per month by cohort length).
 //
 // Spread so one tier unlocks each month:
 //   Starter – Accumulator  : Month 1 (early dopamine hits)
@@ -49,12 +49,14 @@ const LEADERBOARD_UPDATES: Array<{
 async function main() {
   console.log('⚙️  Rebalancing gamification system...\n');
 
-  // 1. Raise monthly cap for all existing users
+  // 1. Raise monthly cap floor for users still on legacy low values (does not lower cohort-based caps ≥ 10k)
   const userUpdate = await prisma.user.updateMany({
-    where: { monthlyPointsCap: { lt: 2500 } },
-    data: { monthlyPointsCap: 2500 },
+    where: {
+      monthlyPointsCap: { gt: 0, lt: 10000 },
+    },
+    data: { monthlyPointsCap: 10000 },
   });
-  console.log(`✅ Raised monthlyPointsCap to 2,500 for ${userUpdate.count} user(s)`);
+  console.log(`✅ Raised monthlyPointsCap to 10,000 for ${userUpdate.count} user(s)`);
 
   // 2. Update leaderboard achievement thresholds
   let updated = 0;
