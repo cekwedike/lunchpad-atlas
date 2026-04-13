@@ -33,6 +33,10 @@ interface AIAnalysisResult {
 @Injectable()
 export class SessionAnalyticsService {
   private genAI: GoogleGenerativeAI;
+  private readonly openRouterApiKey: string | null;
+  private readonly openRouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  private readonly openRouterReferer: string | null;
+  private readonly openRouterTitle: string | null;
   private readonly modelCooldownUntil = new Map<string, number>();
   private static readonly BLOCKED_MODEL_IDS = new Set(['gemini-1.5-flash-8b']);
   private static readonly DEFAULT_PRIMARY_MODEL = 'gemini-2.5-flash';
@@ -42,6 +46,12 @@ export class SessionAnalyticsService {
     private config: ConfigService,
   ) {
     const apiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
+    this.openRouterApiKey =
+      this.config.get<string>('OPENROUTER_API_KEY')?.trim() || null;
+    this.openRouterReferer =
+      this.config.get<string>('OPENROUTER_HTTP_REFERER')?.trim() || null;
+    this.openRouterTitle =
+      this.config.get<string>('OPENROUTER_APP_TITLE')?.trim() || null;
 
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
@@ -55,6 +65,12 @@ export class SessionAnalyticsService {
     return id;
   }
 
+  private sanitizeOpenRouterModelId(raw: string | undefined): string | null {
+    const id = raw?.trim();
+    if (!id) return null;
+    return id;
+  }
+
   private getModelCandidates(): string[] {
     const primary =
       this.sanitizeModelId(this.config.get<string>('GEMINI_MODEL')) ??
@@ -65,6 +81,25 @@ export class SessionAnalyticsService {
       .map((s) => this.sanitizeModelId(s))
       .filter((x): x is string => x !== null);
     const safeDefaults = ['gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+    return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
+      (value, index, arr) => value && arr.indexOf(value) === index,
+    );
+  }
+
+  private getOpenRouterModelCandidates(): string[] {
+    const primary =
+      this.sanitizeOpenRouterModelId(this.config.get<string>('OPENROUTER_MODEL')) ??
+      'qwen/qwen3-next-80b-a3b-instruct:free';
+    const fallbackRaw =
+      this.config.get<string>('OPENROUTER_MODEL_FALLBACKS') || '';
+    const fallbackFromEnv = fallbackRaw
+      .split(',')
+      .map((s) => this.sanitizeOpenRouterModelId(s))
+      .filter((x): x is string => x !== null);
+    const safeDefaults = [
+      'qwen/qwen3-32b:free',
+      'qwen/qwen2.5-72b-instruct:free',
+    ];
     return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
       (value, index, arr) => value && arr.indexOf(value) === index,
     );
@@ -90,9 +125,13 @@ export class SessionAnalyticsService {
     prompt: string,
     temperature: number,
   ): Promise<any> {
+    if (this.openRouterApiKey) {
+      return this.generateContentWithOpenRouterFallback(prompt, temperature);
+    }
+
     if (!this.genAI) {
       throw new ServiceUnavailableException(
-        'Gemini is not configured on the backend',
+        'No AI provider is configured on the backend',
       );
     }
 
@@ -126,6 +165,102 @@ export class SessionAnalyticsService {
     const message =
       lastError instanceof Error ? lastError.message : 'unknown error';
     throw new BadGatewayException(`Gemini API error: ${message}`);
+  }
+
+  private async callOpenRouterChatCompletions(
+    model: string,
+    prompt: string,
+    temperature: number,
+  ): Promise<string> {
+    if (!this.openRouterApiKey) {
+      throw new ServiceUnavailableException(
+        'OpenRouter is not configured on the backend',
+      );
+    }
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.openRouterApiKey}`,
+      'Content-Type': 'application/json',
+    };
+    if (this.openRouterReferer) {
+      headers['HTTP-Referer'] = this.openRouterReferer;
+    }
+    if (this.openRouterTitle) {
+      headers['X-OpenRouter-Title'] = this.openRouterTitle;
+    }
+
+    const response = await fetch(this.openRouterBaseUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        temperature,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter ${response.status}: ${text}`);
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{
+        message?: {
+          content?: string | Array<{ type?: string; text?: string }>;
+        };
+      }>;
+    };
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      const joined = content
+        .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+        .join('')
+        .trim();
+      if (joined) return joined;
+    }
+
+    throw new Error('OpenRouter response missing message content');
+  }
+
+  private async generateContentWithOpenRouterFallback(
+    prompt: string,
+    temperature: number,
+  ): Promise<{ response: Promise<{ text: () => string }> }> {
+    const candidates = this.getOpenRouterModelCandidates();
+    const ordered = [
+      ...candidates.filter((m) => !this.isOnCooldown(m)),
+      ...candidates.filter((m) => this.isOnCooldown(m)),
+    ];
+    let lastError: unknown = null;
+
+    for (const modelName of ordered) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const text = await this.callOpenRouterChatCompletions(
+            modelName,
+            prompt,
+            temperature,
+          );
+          return {
+            response: Promise.resolve({
+              text: () => text,
+            }),
+          };
+        } catch (err) {
+          lastError = err;
+          if (!this.isRetryableGeminiError(err)) break;
+          this.markCooldown(modelName);
+          const backoffMs = 600 * Math.pow(2, attempt);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+      }
+    }
+
+    const message =
+      lastError instanceof Error ? lastError.message : 'unknown error';
+    throw new BadGatewayException(`OpenRouter API error: ${message}`);
   }
 
   /** Enforce cohort-scoped analytics access (session-analytics IDOR fix). */
@@ -186,9 +321,9 @@ export class SessionAnalyticsService {
     transcript: string,
     fellows: Array<{ id: string; name: string }> = [],
   ): Promise<AIAnalysisResult> {
-    if (!this.genAI) {
+    if (!this.genAI && !this.openRouterApiKey) {
       throw new ServiceUnavailableException(
-        'Gemini is not configured on the backend',
+        'No AI provider is configured on the backend',
       );
     }
 
@@ -441,9 +576,9 @@ Consider:
   ): Promise<{ reply: string }> {
     await this.assertViewerCanAccessSession(viewerId, sessionId);
 
-    if (!this.genAI) {
+    if (!this.genAI && !this.openRouterApiKey) {
       throw new ServiceUnavailableException(
-        'Gemini is not configured on the backend',
+        'No AI provider is configured on the backend',
       );
     }
 
@@ -485,7 +620,7 @@ Assistant:`;
   async generateCohortInsights(cohortId: string, viewerId: string) {
     const cohortData = await this.getCohortAnalytics(cohortId, viewerId);
 
-    if (!this.genAI || cohortData.analyzedSessions === 0) {
+    if ((!this.genAI && !this.openRouterApiKey) || cohortData.analyzedSessions === 0) {
       return null;
     }
 
