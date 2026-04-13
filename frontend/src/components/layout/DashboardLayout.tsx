@@ -16,6 +16,8 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   /** Skip max-width/padding so a child page (e.g. chat) can use the full main column edge-to-edge. */
   fullBleedContent?: boolean;
+  /** Optionally hide setup checklist for immersive pages like chat. */
+  showSetupChecklist?: boolean;
 }
 
 function SuspensionOverlay({ reason }: { reason?: string | null }) {
@@ -166,7 +168,11 @@ function ForcePasswordChangeOverlay() {
   );
 }
 
-export function DashboardLayout({ children, fullBleedContent = false }: DashboardLayoutProps) {
+export function DashboardLayout({
+  children,
+  fullBleedContent = false,
+  showSetupChecklist = true,
+}: DashboardLayoutProps) {
   const { user } = useAuthStore();
   const isSuspended = user?.isSuspended === true;
   const mustChangePassword = user?.mustChangePassword === true;
@@ -183,7 +189,7 @@ export function DashboardLayout({ children, fullBleedContent = false }: Dashboar
         >
           {fullBleedContent ? (
             <>
-              {!isSuspended && (
+              {!isSuspended && showSetupChecklist && (
                 <div className="shrink-0 border-b border-slate-200/60 bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8">
                   <SetupChecklist />
                 </div>
@@ -192,7 +198,7 @@ export function DashboardLayout({ children, fullBleedContent = false }: Dashboar
             </>
           ) : (
             <div className="mx-auto w-full min-w-0 max-w-7xl space-y-4 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-              {!isSuspended && <SetupChecklist />}
+              {!isSuspended && showSetupChecklist && <SetupChecklist />}
               {children}
             </div>
           )}
