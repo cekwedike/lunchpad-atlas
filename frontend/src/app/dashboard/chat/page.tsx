@@ -7,7 +7,6 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -201,6 +200,18 @@ function ChatRoomContent() {
     if (!mainChannel?.id || !lastError) return;
     refetchMessages();
   }, [mainChannel?.id, lastError, refetchMessages]);
+
+  // Hard lock document scrolling on chat route so only the message pane scrolls.
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
 
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !mainChannel) return;
@@ -649,7 +660,7 @@ function ChatRoomContent() {
         </div>
 
         <div className="row-start-2 row-end-3 min-h-0 min-w-0 overflow-hidden">
-            <ScrollArea className="h-full min-h-0 min-w-0 bg-slate-50/95 [&_[data-radix-scroll-area-viewport]]:min-w-0 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden">
+            <div className="h-full min-h-0 min-w-0 overflow-y-auto overflow-x-hidden bg-slate-50/95">
               <div className="min-w-0 max-w-full space-y-1 overflow-x-hidden px-2.5 py-2.5 sm:space-y-2 sm:px-4 sm:py-4 md:px-5">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => {
@@ -850,7 +861,8 @@ function ChatRoomContent() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
-            </ScrollArea>
+            </div>
+        </div>
 
         <div className="row-start-3 row-end-4 shrink-0 border-t border-slate-200/70 bg-white px-3 py-2.5 sm:px-6 sm:py-4 lg:px-8">
               {mainChannel?.isLocked && !canManageChats && (
