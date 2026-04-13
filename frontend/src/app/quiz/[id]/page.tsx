@@ -30,22 +30,34 @@ export default function QuizPage() {
 
   const { data: reviewData } = useQuizReview(quizId, showReview);
 
-  const handleSubmit = useCallback(async () => {
-    if (!questions) return;
+  /** Always read latest selections on submit (timer / double-click safe). */
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const questionsRef = useRef(questions);
+  questionsRef.current = questions;
 
-    // Calculate time taken in seconds
+  const handleSubmit = useCallback(async () => {
+    const qs = questionsRef.current;
+    if (!qs?.length) return;
+
     const timeTaken = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+
+    const payload: Record<string, string> = {};
+    for (const q of qs) {
+      const v = answersRef.current[q.id];
+      payload[q.id] = v == null ? '' : String(v);
+    }
 
     try {
       const result = await submitQuizMutation.mutateAsync({
-        answers,
+        answers: payload,
         timeTaken,
       });
       setQuizResult(result);
     } catch (error) {
       console.error('Failed to submit quiz:', error);
     }
-  }, [answers, questions, submitQuizMutation, startTime]);
+  }, [submitQuizMutation, startTime]);
 
   const handleSubmitRef = useRef(handleSubmit);
   handleSubmitRef.current = handleSubmit;

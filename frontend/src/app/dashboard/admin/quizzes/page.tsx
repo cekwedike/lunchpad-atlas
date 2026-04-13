@@ -267,7 +267,7 @@ function QuizAttemptsDialog({
             <span>Results — {quizTitle}</span>
           </DialogTitle>
           <p className="text-xs text-gray-500 pt-1">
-            Per-fellow summary, discussion posts linked to this quiz&apos;s session(s), points from the leaderboard log for this quiz, and every attempt with question-by-question grading.
+            Quiz pass points (from the quiz submission log), achievement bonuses unlocked in the same completion (e.g. Perfectionist), leaderboard total, and per-attempt question review.
           </p>
         </DialogHeader>
 
@@ -384,12 +384,31 @@ function QuizAttemptsDialog({
                           <p className="text-gray-500">{f.attemptCount} attempt(s)</p>
                         </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-gray-600">
-                        <span>Points (log): <strong className="text-gray-900">{f.pointsFromQuiz}</strong></span>
-                        <span>Session discussions: <strong className="text-gray-900">{f.discussionPostsInSession}</strong></span>
-                        <span className="text-gray-400">
-                          Last: {new Date(f.lastCompletedAt).toLocaleString()}
-                        </span>
+                      <div className="mt-2 space-y-1.5 text-[11px] text-gray-700">
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <span className="text-gray-500">Quiz points (log)</span>
+                          <strong className="text-gray-900 tabular-nums">{f.quizPointsFromLog ?? 0}</strong>
+                        </div>
+                        {(f.achievementBonuses?.length ?? 0) > 0 ? (
+                          f.achievementBonuses!.map((a) => (
+                            <div
+                              key={`${a.name}-${a.unlockedAt}`}
+                              className="flex flex-wrap justify-between gap-2 pl-2 border-l-2 border-violet-200"
+                            >
+                              <span className="text-violet-900">{a.name}</span>
+                              <span className="font-mono text-violet-800 tabular-nums">+{a.points}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-400 pl-0.5">No achievement bonuses linked to a passing attempt</p>
+                        )}
+                        <div className="flex flex-wrap justify-between gap-2 pt-1 border-t border-gray-100 font-semibold text-gray-900">
+                          <span>Leaderboard total</span>
+                          <span className="tabular-nums">{f.leaderboardPointsTotal ?? 0}</span>
+                        </div>
+                        <p className="text-gray-400 text-[10px]">
+                          Last attempt: {new Date(f.lastCompletedAt).toLocaleString()}
+                        </p>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {attempts

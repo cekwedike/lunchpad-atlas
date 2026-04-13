@@ -306,6 +306,43 @@ export function useArchiveDiscussion() {
   });
 }
 
+/** Archives multiple discussions in parallel; shows a single summary toast. */
+export function useBulkArchiveDiscussions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (discussionIds: string[]) => {
+      const results = await Promise.allSettled(
+        discussionIds.map((id) =>
+          apiClient.post<Discussion>(`/discussions/${id}/archive`, {}),
+        ),
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      return { succeeded, failed, total: discussionIds.length };
+    },
+    onSuccess: ({ succeeded, failed, total }) => {
+      queryClient.invalidateQueries({ queryKey: ['discussions'] });
+      queryClient.invalidateQueries({ queryKey: ['discussion'] });
+      if (failed === 0) {
+        toast.success(
+          total === 1 ? 'Discussion archived' : `${total} discussions archived`,
+        );
+      } else if (succeeded > 0) {
+        toast.warning(
+          `Archived ${succeeded} of ${total}`,
+          `${failed} failed — try again for the rest.`,
+        );
+      } else {
+        toast.error('Failed to archive discussions');
+      }
+    },
+    onError: (error: any) => {
+      toast.error('Failed to archive discussions', error?.message);
+    },
+  });
+}
+
 export function useUnarchiveDiscussion() {
   const queryClient = useQueryClient();
 

@@ -678,6 +678,12 @@ export interface StaffQuizAttemptRow {
   timeTaken: number;
 }
 
+export interface StaffQuizAchievementBonus {
+  name: string;
+  points: number;
+  unlockedAt: string;
+}
+
 export interface StaffQuizFellowSummary {
   userId: string;
   userName: string;
@@ -686,8 +692,12 @@ export interface StaffQuizFellowSummary {
   bestScore: number;
   passedOnce: boolean;
   lastCompletedAt: string;
-  pointsFromQuiz: number;
-  discussionPostsInSession: number;
+  /** QUIZ_SUBMIT points rows for this quiz only (pass reward + time bonus). */
+  quizPointsFromLog: number;
+  /** Achievement bonuses logged right after a passing attempt (e.g. Perfectionist +50). */
+  achievementBonuses: StaffQuizAchievementBonus[];
+  /** quizPointsFromLog + sum(achievementBonuses.points) — matches leaderboard activity from this quiz. */
+  leaderboardPointsTotal: number;
 }
 
 export interface StaffQuizAttemptsPayload {

@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma.service';
 import { SubmitQuizDto } from './dto/quiz.dto';
 import { AchievementsService } from '../achievements/achievements.service';
 import { normalizeQuizAnswer } from '../common/quiz-answer';
+import { resolveStoredAnswerForQuestion } from '../common/quiz-stored-answers';
 import { UserRole } from '@prisma/client';
 import { PointsService } from '../gamification/points.service';
 
@@ -281,11 +282,33 @@ export class QuizzesService {
       throw new BadRequestException('This quiz has no questions');
     }
 
+    const incoming = dto.answers && typeof dto.answers === 'object' ? dto.answers : {};
+    /** One entry per current question id so DB always matches the live question set. */
+    const mergedAnswers: Record<string, string> = {};
+    for (const q of questions) {
+      const v = incoming[q.id];
+      mergedAnswers[q.id] = v == null ? '' : String(v);
+    }
+    const hasAnyDirectHit = questions.some(
+      (q) => Object.prototype.hasOwnProperty.call(incoming, q.id),
+    );
+    const vals = Object.values(incoming);
+    if (
+      !hasAnyDirectHit &&
+      vals.length === questions.length &&
+      vals.length > 0
+    ) {
+      // Client sent answers keyed by a previous question-id revision — map by index
+      questions.forEach((q, i) => {
+        mergedAnswers[q.id] = vals[i] == null ? '' : String(vals[i]);
+      });
+    }
+
     // Calculate score (normalize answers to avoid whitespace / formatting mismatches)
     let correctCount = 0;
 
     for (const question of questions) {
-      const userAnswer = dto.answers[question.id];
+      const userAnswer = mergedAnswers[question.id];
       if (
         normalizeQuizAnswer(userAnswer) ===
         normalizeQuizAnswer(question.correctAnswer)
@@ -388,7 +411,7 @@ export class QuizzesService {
       data: {
         quizId,
         userId,
-        answers: dto.answers,
+        answers: mergedAnswers,
         score,
         passed,
         pointsAwarded,
@@ -463,8 +486,13 @@ export class QuizzesService {
     const userAnswers = (latestAttempt.answers as Record<string, string>) || {};
     const showCorrectAnswers = (quiz as any).showCorrectAnswers as boolean;
 
-    const reviewQuestions = questions.map((q) => {
-      const userAnswer = userAnswers[q.id] ?? null;
+    const reviewQuestions = questions.map((q, i) => {
+      const userAnswer = resolveStoredAnswerForQuestion(
+        questions,
+        i,
+        q.id,
+        userAnswers,
+      );
       const isCorrect =
         normalizeQuizAnswer(userAnswer) === normalizeQuizAnswer(q.correctAnswer);
       return {

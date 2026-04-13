@@ -400,6 +400,56 @@ describe('QuizzesService', () => {
       expect(result.score).toBe(100);
     });
 
+    it('should remap and persist answers when client sends only legacy question ids', async () => {
+      mockPrismaService.quiz.findUnique.mockResolvedValue(baseQuiz);
+      mockPrismaService.quizResponse.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+
+      const questions = [
+        { id: 'new-1', correctAnswer: 'B' },
+        { id: 'new-2', correctAnswer: 'C' },
+      ];
+      mockPrismaService.quizQuestion.findMany.mockResolvedValue(questions);
+
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({ role: 'FELLOW', cohortId: 'cohort-1' })
+        .mockResolvedValue({
+          currentMonthPoints: 0,
+          monthlyPointsCap: 5000,
+          lastPointReset: null,
+        });
+      mockPrismaService.user.update.mockResolvedValue({});
+      mockPrismaService.pointsLog.create.mockResolvedValue({});
+
+      mockPrismaService.quizResponse.create.mockResolvedValue({
+        id: 'response-1',
+        userId: 'user-1',
+        quizId: 'quiz-1',
+        score: 100,
+        passed: true,
+        pointsAwarded: 200,
+        timeTaken: 0,
+        completedAt: new Date(),
+      });
+
+      const dto = {
+        answers: { 'legacy-a': 'B', 'legacy-b': 'C' },
+        timeTaken: 0,
+      };
+
+      await service.submitQuiz('quiz-1', 'user-1', dto);
+
+      expect(mockPrismaService.quizResponse.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            answers: { 'new-1': 'B', 'new-2': 'C' },
+            score: 100,
+          }),
+        }),
+      );
+    });
+
     it('should not award points on second pass attempt', async () => {
       mockPrismaService.quiz.findUnique.mockResolvedValue(baseQuiz);
       mockPrismaService.quizResponse.count

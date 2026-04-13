@@ -51,10 +51,12 @@ export function useQuizAttempts(quizId: string, userId?: string) {
   return useQuery({
     queryKey: ['quiz-attempts', quizId, userId],
     queryFn: async () => {
-      const endpoint = userId 
-        ? `/quizzes/${quizId}/attempts?userId=${userId}`
-        : `/quizzes/${quizId}/attempts/me`;
-      return apiClient.get<QuizResponse[]>(endpoint);
+      if (userId) {
+        return apiClient.get<QuizResponse[]>(
+          `/quizzes/${quizId}/attempts?userId=${userId}`,
+        );
+      }
+      return apiClient.get<QuizResponse[]>(`/quizzes/${quizId}/attempts`);
     },
     enabled: !!quizId,
   });

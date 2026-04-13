@@ -322,15 +322,21 @@ export class AchievementsService implements OnApplicationBootstrap {
         data: { userId, achievementId: achievement.id, unlockedAt: new Date() },
       });
 
-      // Log the achievement bonus points
+      // Log the achievement bonus points (bypass monthly cap — milestones are intentional rewards)
       if (achievement.pointValue > 0) {
-        await this.pointsService.awardPoints({
+        const award = await this.pointsService.awardPoints({
           userId,
           points: achievement.pointValue,
           eventType: 'ADMIN_ADJUSTMENT' as any,
           description: `Achievement unlocked: ${achievement.name}`,
           metadata: { achievementId: achievement.id, achievementName: achievement.name } as any,
+          bypassMonthlyCap: true,
         });
+        if (!award.awarded) {
+          this.logger.warn(
+            `Achievement "${achievement.name}" recorded for ${userId} but bonus points were not awarded: ${award.reason ?? 'unknown'}`,
+          );
+        }
       }
 
       // ── Notify the fellow ─────────────────────────────────────────────────

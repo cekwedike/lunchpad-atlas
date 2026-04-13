@@ -53,6 +53,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function DiscussionDetailPage() {
   const params = useParams();
@@ -65,6 +73,7 @@ export default function DiscussionDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; author?: string } | null>(null);
   const [deleteDiscussionModalOpen, setDeleteDiscussionModalOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteCommentModalOpen, setDeleteCommentModalOpen] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<{ id: string; content?: string } | null>(null);
   const [isDeletingComment, setIsDeletingComment] = useState(false);
@@ -719,18 +728,7 @@ export default function DiscussionDetailPage() {
                             <Lock className="h-4 w-4 mr-2" />
                             {discussion.isLocked ? "Unlock" : "Lock"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              if (
-                                !confirm(
-                                  "Archive this discussion? It will be hidden from fellows and permanently deleted after 100 days in archive.",
-                                )
-                              ) {
-                                return;
-                              }
-                              archiveDiscussion.mutate(discussionId);
-                            }}
-                          >
+                          <DropdownMenuItem onClick={() => setArchiveDialogOpen(true)}>
                             <Archive className="h-4 w-4 mr-2" />
                             Archive
                           </DropdownMenuItem>
@@ -1003,6 +1001,40 @@ export default function DiscussionDetailPage() {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Archive this discussion?</DialogTitle>
+            <DialogDescription>
+              It will be hidden from fellows and permanently deleted after 100 days in archive.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setArchiveDialogOpen(false)}
+              disabled={archiveDiscussion.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-slate-800 hover:bg-slate-900 text-white"
+              onClick={() => {
+                archiveDiscussion.mutate(discussionId, {
+                  onSuccess: () => setArchiveDialogOpen(false),
+                });
+              }}
+              disabled={archiveDiscussion.isPending}
+            >
+              {archiveDiscussion.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {deleteDiscussionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-lg">

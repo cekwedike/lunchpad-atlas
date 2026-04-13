@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,12 @@ import {
   MoreVertical,
   Trash2,
   Archive,
+  Loader2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useApproveDiscussion,
-  useArchiveDiscussion,
+  useBulkArchiveDiscussions,
   useDeleteDiscussion,
   useDiscussions,
   usePendingApprovalCount,
@@ -32,6 +33,7 @@ import {
 import { useProfile } from "@/hooks/api/useProfile";
 import { useDiscussionsSocket } from "@/hooks/useDiscussionsSocket";
 import { useResource } from "@/hooks/api/useResources";
+import type { Discussion } from "@/types/api";
 import { formatLocalTimestamp, getRoleBadgeColor, getRoleDisplayName } from "@/lib/date-utils";
 import { toast } from "sonner";
 import {
@@ -40,6 +42,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function DiscussionsPage() {
   return (
@@ -65,6 +75,11 @@ function DiscussionsContent() {
   const [filterPinned, setFilterPinned] = useState(false);
   const [filterPendingApproval, setFilterPendingApproval] = useState(false);
   const [filterArchived, setFilterArchived] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveTargetIds, setArchiveTargetIds] = useState<string[]>([]);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   const resourceId = searchParams.get("resourceId") || undefined;
   const { data: resource } = useResource(resourceId || "");
@@ -79,7 +94,7 @@ function DiscussionsContent() {
     archivedOnly: filterArchived || undefined,
   });
   const approveDiscussion = useApproveDiscussion();
-  const archiveDiscussion = useArchiveDiscussion();
+  const bulkArchiveDiscussions = useBulkArchiveDiscussions();
   const unarchiveDiscussion = useUnarchiveDiscussion();
   const deleteDiscussion = useDeleteDiscussion();
   const { data: pendingCountData, refetch: refetchPendingCount } = usePendingApprovalCount(
@@ -120,12 +135,31 @@ function DiscussionsContent() {
 
   const discussions = discussionsData?.data || [];
   const pendingApprovalCount = pendingCountData?.count ?? 0;
-  const filteredDiscussions = discussions.filter((discussion: any) =>
+  const filteredDiscussions = discussions.filter((discussion: Discussion) =>
     searchQuery
       ? discussion.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         discussion.content.toLowerCase().includes(searchQuery.toLowerCase())
       : true,
   );
+
+  const archivableIds = useMemo(
+    () =>
+      filteredDiscussions.filter((d) => !d.archivedAt).map((d) => d.id),
+    [filteredDiscussions],
+  );
+
+  /** Selection restricted to discussions still visible and archivable (avoids stale ids after search/filter). */
+  const selectedInView = useMemo(
+    () => selectedIds.filter((id) => archivableIds.includes(id)),
+    [selectedIds, archivableIds],
+  );
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (!el) return;
+    el.indeterminate =
+      selectedInView.length > 0 && selectedInView.length < archivableIds.length;
+  }, [selectedInView, archivableIds]);
 
   const canCreateDiscussion = !!profile?.role;
 
@@ -212,6 +246,7 @@ function DiscussionsContent() {
                         if (next) {
                           setFilterPinned(false);
                           setFilterPendingApproval(false);
+                          setSelectedIds([]);
                         }
                       }}
                       className="gap-2"
@@ -223,6 +258,46 @@ function DiscussionsContent() {
                 </div>
               </CardContent>
             </Card>
+
+            {canManageDiscussions && !filterArchived && archivableIds.length > 0 && (
+              <Card className="bg-white border-gray-200 shadow-sm">
+                <CardContent className="p-3 flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+                    <input
+                      ref={selectAllCheckboxRef}
+                      type="checkbox"
+                      checked={
+                        archivableIds.length > 0 &&
+                        selectedInView.length === archivableIds.length
+                      }
+                      onChange={() => {
+                        if (selectedInView.length === archivableIds.length) {
+                          setSelectedIds([]);
+                        } else {
+                          setSelectedIds([...archivableIds]);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    Select all ({archivableIds.length})
+                  </label>
+                  {selectedInView.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="gap-2"
+                      onClick={() => {
+                        setArchiveTargetIds([...selectedInView]);
+                        setArchiveDialogOpen(true);
+                      }}
+                    >
+                      <Archive className="h-4 w-4" />
+                      Archive selected ({selectedInView.length})
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {resourceId && (
               <Card className="bg-blue-50 border-blue-200 shadow-sm">
@@ -259,7 +334,7 @@ function DiscussionsContent() {
                   </CardContent>
                 </Card>
               ) : (
-                filteredDiscussions.map((discussion: any) => {
+                filteredDiscussions.map((discussion: Discussion) => {
                   const topicLabel = discussion.resource?.title
                     ? `Resource: ${discussion.resource.title}`
                     : discussion.session?.title
@@ -277,6 +352,23 @@ function DiscussionsContent() {
                     >
                       <CardContent className="p-6">
                           <div className="flex items-start gap-4">
+                            {canManageDiscussions && !filterArchived && !isArchived && (
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(discussion.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedIds((prev) =>
+                                    prev.includes(discussion.id)
+                                      ? prev.filter((id) => id !== discussion.id)
+                                      : [...prev, discussion.id],
+                                  );
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1.5 h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                aria-label={`Select discussion: ${discussion.title}`}
+                              />
+                            )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -327,14 +419,8 @@ function DiscussionsContent() {
                                         <DropdownMenuItem
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            if (
-                                              !confirm(
-                                                "Archive this discussion? It will be hidden from fellows and permanently deleted after 100 days in archive.",
-                                              )
-                                            ) {
-                                              return;
-                                            }
-                                            archiveDiscussion.mutate(discussion.id);
+                                            setArchiveTargetIds([discussion.id]);
+                                            setArchiveDialogOpen(true);
                                           }}
                                         >
                                           <Archive className="h-4 w-4 mr-2" />
@@ -345,14 +431,7 @@ function DiscussionsContent() {
                                         className="text-red-600"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (
-                                            !confirm(
-                                              "Permanently delete this discussion and all comments? This cannot be undone.",
-                                            )
-                                          ) {
-                                            return;
-                                          }
-                                          deleteDiscussion.mutate(discussion.id);
+                                          setDeleteTargetId(discussion.id);
                                         }}
                                       >
                                         <Trash2 className="h-4 w-4 mr-2" />
@@ -366,8 +445,8 @@ function DiscussionsContent() {
                               <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-gray-700">{discussion.user?.firstName}</span>
-                                  <Badge className={`text-xs ${getRoleBadgeColor(discussion.user?.role)}`}>
-                                    {getRoleDisplayName(discussion.user?.role)}
+                                  <Badge className={`text-xs ${getRoleBadgeColor(discussion.user?.role ?? "")}`}>
+                                    {getRoleDisplayName(discussion.user?.role ?? "")}
                                   </Badge>
                                 </div>
                                 {isPendingApproval && canManageDiscussions && (
@@ -409,6 +488,99 @@ function DiscussionsContent() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={archiveDialogOpen}
+        onOpenChange={(open) => {
+          setArchiveDialogOpen(open);
+          if (!open) setArchiveTargetIds([]);
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>
+              {archiveTargetIds.length > 1
+                ? `Archive ${archiveTargetIds.length} discussions?`
+                : "Archive this discussion?"}
+            </DialogTitle>
+            <DialogDescription>
+              {archiveTargetIds.length > 1
+                ? "Selected discussions will be hidden from fellows and permanently deleted after 100 days in archive."
+                : "This discussion will be hidden from fellows and permanently deleted after 100 days in archive."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setArchiveDialogOpen(false)}
+              disabled={bulkArchiveDiscussions.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-slate-800 hover:bg-slate-900 text-white"
+              onClick={() => {
+                bulkArchiveDiscussions.mutate(archiveTargetIds, {
+                  onSettled: () => {
+                    setArchiveDialogOpen(false);
+                    setArchiveTargetIds([]);
+                  },
+                });
+              }}
+              disabled={bulkArchiveDiscussions.isPending || archiveTargetIds.length === 0}
+            >
+              {bulkArchiveDiscussions.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Delete discussion?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete this discussion and all comments. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTargetId(null)}
+              disabled={deleteDiscussion.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (!deleteTargetId) return;
+                deleteDiscussion.mutate(deleteTargetId, {
+                  onSuccess: () => setDeleteTargetId(null),
+                });
+              }}
+              disabled={deleteDiscussion.isPending}
+            >
+              {deleteDiscussion.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

@@ -6,7 +6,7 @@ import {
   BadGatewayException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { ResourceState } from '@prisma/client';
+import { EventType, ResourceState, UserRole } from '@prisma/client';
 import {
   CreateCohortDto,
   UpdateCohortDto,
@@ -27,6 +27,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from '../chat/chat.service';
 import { PointsService } from '../gamification/points.service';
 import { normalizeQuizAnswer } from '../common/quiz-answer';
+import { resolveStoredAnswerForQuestion } from '../common/quiz-stored-answers';
 
 @Injectable()
 export class AdminService {
@@ -1313,34 +1314,83 @@ export class AdminService {
       })
       .then((rows) => rows.map((u) => u.id));
 
-    const pointsRows = await this.prisma.pointsLog.groupBy({
-      by: ['userId'],
-      where: { quizId, userId: { in: fellowIds } },
-      _sum: { points: true },
-    });
-    const pointsFromQuizByUser = Object.fromEntries(
-      pointsRows.map((p) => [p.userId, p._sum.points || 0]),
-    );
+    const passTimesByUser = new Map<string, Date[]>();
+    for (const r of responses) {
+      if (r.user.cohortId !== cohortId || !r.passed) continue;
+      if (!passTimesByUser.has(r.userId)) passTimesByUser.set(r.userId, []);
+      passTimesByUser.get(r.userId)!.push(r.completedAt);
+    }
 
-    const sessionLinks = await this.prisma.quizSession.findMany({
-      where: { quizId },
-      select: { sessionId: true },
+    const quizSubmitLogs = await this.prisma.pointsLog.findMany({
+      where: {
+        quizId,
+        userId: { in: fellowIds },
+        eventType: EventType.QUIZ_SUBMIT,
+      },
+      select: { userId: true, points: true, description: true, createdAt: true },
     });
-    const sessionIds = sessionLinks.map((s) => s.sessionId);
-    const discussionPostsByUser: Record<string, number> = {};
-    if (sessionIds.length > 0) {
-      const disc = await this.prisma.discussion.groupBy({
-        by: ['userId'],
-        where: {
-          cohortId,
-          sessionId: { in: sessionIds },
-          userId: { in: fellowIds },
-        },
-        _count: { id: true },
+
+    const achievementLogs = await this.prisma.pointsLog.findMany({
+      where: {
+        userId: { in: fellowIds },
+        eventType: EventType.ADMIN_ADJUSTMENT,
+        description: { startsWith: 'Achievement unlocked:' },
+      },
+      select: { userId: true, points: true, description: true, createdAt: true },
+    });
+
+    const parseAchievementName = (description: string) => {
+      const m = /^Achievement unlocked:\s*(.+)$/i.exec(description.trim());
+      return m ? m[1].trim() : description;
+    };
+
+    const logMatchesPassWindow = (logAt: Date, passTimes: Date[]) => {
+      const tLog = logAt.getTime();
+      return passTimes.some((t) => {
+        const t0 = t.getTime();
+        return tLog >= t0 - 3000 && tLog <= t0 + 120000;
       });
-      for (const row of disc) {
-        discussionPostsByUser[row.userId] = row._count.id;
+    };
+
+    const quizPointsByUser = new Map<string, number>();
+    for (const row of quizSubmitLogs) {
+      quizPointsByUser.set(
+        row.userId,
+        (quizPointsByUser.get(row.userId) ?? 0) + row.points,
+      );
+    }
+
+    type AchBonus = { name: string; points: number; unlockedAt: string };
+    const achievementBonusesByUser = new Map<string, AchBonus[]>();
+    for (const row of achievementLogs) {
+      const passTimes = passTimesByUser.get(row.userId) ?? [];
+      if (passTimes.length === 0 || !logMatchesPassWindow(row.createdAt, passTimes)) {
+        continue;
       }
+      const bonus: AchBonus = {
+        name: parseAchievementName(row.description),
+        points: row.points,
+        unlockedAt: row.createdAt.toISOString(),
+      };
+      if (!achievementBonusesByUser.has(row.userId)) {
+        achievementBonusesByUser.set(row.userId, []);
+      }
+      achievementBonusesByUser.get(row.userId)!.push(bonus);
+    }
+    for (const [, arr] of achievementBonusesByUser) {
+      arr.sort(
+        (a, b) =>
+          new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime(),
+      );
+    }
+
+    const leaderboardPointsTotalByUser: Record<string, number> = {};
+    for (const uid of fellowIds) {
+      const qPts = quizPointsByUser.get(uid) ?? 0;
+      const aPts =
+        achievementBonusesByUser.get(uid)?.reduce((s, x) => s + x.points, 0) ??
+        0;
+      leaderboardPointsTotalByUser[uid] = qPts + aPts;
     }
 
     const byUser = new Map<string, typeof attempts>();
@@ -1356,6 +1406,9 @@ export class AdminService {
       );
       const bestScore = Math.max(...rows.map((r) => r.score));
       const passedOnce = rows.some((r) => r.passed);
+      const qPts = quizPointsByUser.get(userId) ?? 0;
+      const ach = achievementBonusesByUser.get(userId) ?? [];
+      const achPts = ach.reduce((s, x) => s + x.points, 0);
       return {
         userId,
         userName: sorted[0].userName,
@@ -1364,8 +1417,12 @@ export class AdminService {
         bestScore,
         passedOnce,
         lastCompletedAt: sorted[0].completedAt,
-        pointsFromQuiz: pointsFromQuizByUser[userId] ?? 0,
-        discussionPostsInSession: discussionPostsByUser[userId] ?? 0,
+        /** Points from QUIZ_SUBMIT rows tied to this quiz (base pass + time bonus, etc.). */
+        quizPointsFromLog: qPts,
+        /** Achievement bonus points logged right after a passing attempt on this quiz. */
+        achievementBonuses: ach,
+        /** Quiz submit points + achievement bonuses (leaderboard activity from this quiz session). */
+        leaderboardPointsTotal: qPts + achPts,
       };
     });
     fellowSummaries.sort(
@@ -1374,7 +1431,11 @@ export class AdminService {
         new Date(a.lastCompletedAt).getTime(),
     );
 
-    return { attempts, fellowSummaries, pointsFromQuizByUser };
+    return {
+      attempts,
+      fellowSummaries,
+      pointsFromQuizByUser: leaderboardPointsTotalByUser,
+    };
   }
 
   /** Per-question right/wrong for one attempt — admin / cohort facilitators. */
@@ -1413,8 +1474,13 @@ export class AdminService {
 
     const userAnswers = (response.answers as Record<string, string>) || {};
 
-    const questionsOut = questions.map((q) => {
-      const rawUser = userAnswers[q.id];
+    const questionsOut = questions.map((q, i) => {
+      const rawUser = resolveStoredAnswerForQuestion(
+        questions,
+        i,
+        q.id,
+        userAnswers,
+      );
       const isCorrect =
         normalizeQuizAnswer(rawUser) === normalizeQuizAnswer(q.correctAnswer);
       return {
@@ -1980,27 +2046,37 @@ Rules:
   async getAchievements() {
     const achievements = await this.prisma.achievement.findMany({
       orderBy: [{ type: 'asc' }, { pointValue: 'asc' }],
-      include: {
-        userAchievements: {
-          where: { user: { role: 'FELLOW' } },
-          include: {
-            user: { select: { id: true, firstName: true, lastName: true } },
-          },
-          orderBy: { unlockedAt: 'desc' },
-        },
-      },
     });
-    return achievements.map((a) => {
-      const { userAchievements, ...achievement } = a as any;
-      const unlockedBy = (userAchievements ?? [])
-        .map((ua: any) => ua.user)
-        .filter(Boolean)
-        .map((u: any) => ({
-          id: u.id,
-          firstName: u.firstName,
-          lastName: u.lastName,
-        }));
 
+    // Load fellow unlocks in one query (avoids relying on nested filters on Achievement.include,
+    // which can be inconsistent across Prisma versions) and group by achievement for counts + lists.
+    const fellowUnlocks = await this.prisma.userAchievement.findMany({
+      where: { user: { role: UserRole.FELLOW } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { unlockedAt: 'desc' },
+    });
+
+    const unlockedByAchievementId = new Map<
+      string,
+      Array<{ id: string; firstName: string; lastName: string }>
+    >();
+
+    for (const ua of fellowUnlocks) {
+      const u = ua.user;
+      if (!u) continue;
+      const list = unlockedByAchievementId.get(ua.achievementId) ?? [];
+      list.push({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+      });
+      unlockedByAchievementId.set(ua.achievementId, list);
+    }
+
+    return achievements.map((achievement) => {
+      const unlockedBy = unlockedByAchievementId.get(achievement.id) ?? [];
       return {
         ...achievement,
         unlockedBy,
