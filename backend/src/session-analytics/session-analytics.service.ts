@@ -102,7 +102,6 @@ export class SessionAnalyticsService {
       .filter((x): x is string => x !== null);
     const safeDefaults = [
       'qwen/qwen3-32b:free',
-      'openrouter/free',
     ];
     return [primary, ...fallbackFromEnv, ...safeDefaults].filter(
       (value, index, arr) => value && arr.indexOf(value) === index,
