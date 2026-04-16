@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { Resend } from 'resend';
 import { ConfigService } from '@nestjs/config';
 
 export interface EmailOptions {
@@ -67,8 +66,6 @@ export interface WeeklySummaryData {
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
-  private resend: Resend | null = null;
-  private brevoApiKey: string | null = null;
 
   constructor(private configService: ConfigService) {
     this.initializeTransporter();
@@ -93,50 +90,23 @@ export class EmailService {
       );
     }
 
-    // 1. Brevo HTTP API (works on Render — no SMTP port needed)
-    const brevoKey = this.configService.get<string>('BREVO_API_KEY');
-    if (brevoKey) {
-      this.brevoApiKey = brevoKey;
-      console.log('[EmailService] Initialized with Brevo HTTP API');
-      return;
-    }
-
-    // 2. Resend HTTP API
-    const resendKey = this.configService.get<string>('RESEND_API_KEY');
-    if (resendKey) {
-      this.resend = new Resend(resendKey);
-      console.log('[EmailService] Initialized with Resend (HTTP API)');
-      return;
-    }
-
-    // 3. SMTP fallback (likely blocked on Render)
-    const user = this.configService.get<string>('EMAIL_USER');
-    const pass = this.configService.get<string>('EMAIL_PASSWORD');
-    if (!user || !pass) {
+    const pass = process.env.GMAIL_APP_PASSWORD;
+    if (!pass) {
       console.warn(
-        '[EmailService] No BREVO_API_KEY, RESEND_API_KEY, or EMAIL_USER/PASSWORD — emails will not be sent',
+        '[EmailService] No GMAIL_APP_PASSWORD — emails will not be sent',
       );
     } else {
       console.log(
-        `[EmailService] Initialized with SMTP user=${user}, host=${this.configService.get('EMAIL_HOST', 'smtp.gmail.com')}`,
+        '[EmailService] Initialized with Google Workspace SMTP (Nodemailer)',
       );
     }
 
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get('EMAIL_HOST', 'smtp.gmail.com'),
-      port: Number(this.configService.get('EMAIL_PORT', 587)),
+      host: 'smtp.gmail.com',
+      port: 587,
       secure: false,
-      auth: { user, pass },
+      auth: { user: 'c.ekwedike@thrivehub.ng', pass },
     });
-  }
-
-  /** Parse "Display Name <email@example.com>" into { name, email } for Brevo */
-  private parseFrom(from: string): { name: string; email: string } {
-    const match = from.match(/^"?([^"<]+?)"?\s*<([^>]+)>$/);
-    if (match) {
-      return { name: match[1].trim(), email: match[2].trim() };
-    }
-    return { name: 'ATLAS Platform', email: from.trim() };
   }
 
   /**
@@ -157,56 +127,22 @@ export class EmailService {
       options.from ??
       this.configService.get('EMAIL_FROM') ??
       'ATLAS Platform <onboarding@resend.dev>';
-    const toArray = Array.isArray(options.to) ? options.to : [options.to];
 
     try {
-      if (this.brevoApiKey) {
-        // Brevo HTTP API
-        const sender = this.parseFrom(from);
-        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'api-key': this.brevoApiKey,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            sender,
-            to: toArray.map((email) => ({ email })),
-            subject: options.subject,
-            htmlContent: options.html,
-          }),
-        });
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(`Brevo API ${res.status}: ${body}`);
-        }
-      } else if (this.resend) {
-        // Resend HTTP API
-        const { error } = await this.resend.emails.send({
-          from,
-          to: toArray,
-          subject: options.subject,
-          html: options.html,
-        });
-        if (error) throw new Error(error.message);
-      } else {
-        // SMTP fallback
-        const user = this.configService.get<string>('EMAIL_USER');
-        const pass = this.configService.get<string>('EMAIL_PASSWORD');
-        if (!user || !pass) {
-          console.warn(
-            `[EmailService] Cannot send email to ${options.to} — no email provider configured`,
-          );
-          return false;
-        }
-        await this.transporter.sendMail({
-          from,
-          to: options.to,
-          subject: options.subject,
-          html: options.html,
-        });
+      const pass = process.env.GMAIL_APP_PASSWORD;
+      if (!pass) {
+        console.warn(
+          `[EmailService] Cannot send email to ${options.to} — no GMAIL_APP_PASSWORD configured`,
+        );
+        return false;
       }
+
+      await this.transporter.sendMail({
+        from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+      });
 
       console.log(`[EmailService] Sent "${options.subject}" to ${options.to}`);
       return true;
