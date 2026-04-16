@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { NotificationType, ReminderDispatchKind } from '@prisma/client';
+import { ReminderDispatchKind } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -18,8 +18,8 @@ import { DiscussionsService } from '../discussions/discussions.service';
 import {
   daysLeftForQuizClosingKind,
   quizClosingReminderKindsForToday,
-  QUIZ_REMINDER_DISPATCH,
 } from './quiz-reminder-stages';
+import { QuizUnlockNotificationService } from '../quizzes/quiz-unlock-notification.service';
 
 @Injectable()
 export class CronService {
@@ -30,6 +30,7 @@ export class CronService {
     private emailService: EmailService,
     private notificationsService: NotificationsService,
     private configService: ConfigService,
+    private quizUnlockNotificationService: QuizUnlockNotificationService,
   ) {}
 
   /**
@@ -488,52 +489,10 @@ export class CronService {
         if (quiz.openAt) {
           const openYmd = calendarYmdInTimeZone(quiz.openAt, tz);
           if (openYmd === todayYmd) {
-            for (const fellow of fellows) {
-              const email = fellow.email?.trim();
-              if (!email) continue;
-
-              const dispatched = await this.prisma.reminderDispatch.findUnique({
-                where: {
-                  kind_userId_entityId: {
-                    kind: QUIZ_REMINDER_DISPATCH.QUIZ_UNLOCK_EMAIL,
-                    userId: fellow.id,
-                    entityId: quiz.id,
-                  },
-                },
-              });
-              if (dispatched) continue;
-
-              try {
-                const sent = await this.emailService.sendQuizUnlockedEmail(email, {
-                  firstName: fellow.firstName || 'there',
-                  quizTitle: quiz.title,
-                  quizId: quiz.id,
-                  closeAt: quiz.closeAt,
-                });
-                if (!sent) continue;
-
-                await this.prisma.reminderDispatch.create({
-                  data: {
-                    kind: QUIZ_REMINDER_DISPATCH.QUIZ_UNLOCK_EMAIL,
-                    userId: fellow.id,
-                    entityId: quiz.id,
-                  },
-                });
-
-                const closeNote = quiz.closeAt
-                  ? ` Complete it by ${quiz.closeAt.toLocaleDateString()}.`
-                  : '';
-                await this.notificationsService.createNotification({
-                  userId: fellow.id,
-                  type: NotificationType.QUIZ_UNLOCKED,
-                  title: 'Quiz now open',
-                  message: `"${quiz.title}" is now available.${closeNote}`,
-                  data: { quizId: quiz.id, dueDate: quiz.closeAt },
-                });
-              } catch {
-                // non-critical
-              }
-            }
+            await this.quizUnlockNotificationService.sendUnlockEmailsToFellows(
+              quiz,
+              fellows,
+            );
           }
         }
 

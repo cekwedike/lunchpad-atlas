@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -26,17 +27,21 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from '../chat/chat.service';
 import { PointsService } from '../gamification/points.service';
+import { QuizUnlockNotificationService } from '../quizzes/quiz-unlock-notification.service';
 import { normalizeQuizAnswer } from '../common/quiz-answer';
 import { resolveStoredAnswerForQuestion } from '../common/quiz-stored-answers';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private chatService: ChatService,
     private sessionAnalyticsService: SessionAnalyticsService,
     private pointsService: PointsService,
+    private quizUnlockNotificationService: QuizUnlockNotificationService,
   ) {}
 
   // ============ Cohort Management Methods ============
@@ -1554,7 +1559,7 @@ export class AdminService {
       } as any,
     });
 
-    // Notify all fellows in the cohort about the new quiz
+    // Notify all fellows in the cohort about the new quiz (in-app)
     if (dto.cohortId) {
       const fellows = await this.prisma.user.findMany({
         where: { cohortId: dto.cohortId, role: 'FELLOW' },
@@ -1571,6 +1576,16 @@ export class AdminService {
           })),
         );
       }
+    }
+
+    try {
+      await this.quizUnlockNotificationService.sendUnlockEmailsWhenQuizOpen(
+        quiz.id,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Quiz unlock email pass failed after create (${quiz.id}): ${err}`,
+      );
     }
 
     return quiz;
@@ -1667,7 +1682,7 @@ export class AdminService {
       });
     }
 
-    return this.prisma.quiz.update({
+    const updated = await this.prisma.quiz.update({
       where: { id: quizId },
       data: {
         ...(dto.title !== undefined && { title: dto.title }),
@@ -1698,6 +1713,18 @@ export class AdminService {
         _count: { select: { questions: true, responses: true } },
       } as any,
     });
+
+    try {
+      await this.quizUnlockNotificationService.sendUnlockEmailsWhenQuizOpen(
+        updated.id,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Quiz unlock email pass failed after update (${updated.id}): ${err}`,
+      );
+    }
+
+    return updated;
   }
 
   async notifyLiveQuizJoin(liveQuizId: string, requesterId: string) {
