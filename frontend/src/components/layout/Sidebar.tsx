@@ -20,12 +20,13 @@ import {
   FileQuestion,
   Inbox,
   UserCheck,
+  Crown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
-import { UserRole } from '@/types/api';
+import { CohortLeadershipRole, UserRole } from '@/types/api';
 import { useState } from 'react';
 
 interface NavItem {
@@ -258,8 +259,28 @@ export function Sidebar() {
       case UserRole.GUEST_FACILITATOR:
         return getGuestFacilitatorItems();
       case UserRole.FELLOW:
-      default:
-        return getFellowItems();
+      default: {
+        const items = getFellowItems();
+        const lead = user?.cohortLeadershipRole;
+        if (
+          user?.role === UserRole.FELLOW &&
+          lead &&
+          lead !== CohortLeadershipRole.NONE
+        ) {
+          const next = [...items];
+          const insertAt = Math.max(
+            0,
+            next.findIndex((i) => i.href === '/dashboard/fellow/cohorts') + 1,
+          );
+          next.splice(insertAt, 0, {
+            title: 'Cohort pulse',
+            href: '/dashboard/fellow/captain',
+            icon: Crown,
+          });
+          return next;
+        }
+        return items;
+      }
     }
   };
 

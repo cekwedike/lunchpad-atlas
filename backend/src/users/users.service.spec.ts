@@ -63,6 +63,17 @@ describe('UsersService', () => {
         role: 'FELLOW',
         cohortId: 'cohort-123',
         createdAt: new Date(),
+        emailNotifications: true,
+        weeklyDigest: true,
+        cohortLeadershipRole: 'NONE',
+        isSuspended: false,
+        suspensionReason: null,
+        mustChangePassword: false,
+        onboardingChecklistDismissed: false,
+        onboardingTourCompleted: false,
+        onboardingNotifReviewed: false,
+        cohort: { id: 'cohort-123', name: 'Test' },
+        facilitatedCohorts: [],
       };
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);

@@ -99,3 +99,23 @@ export function useFacilitatorUnsuspendFellow(cohortId: string) {
     },
   });
 }
+
+export function useSetCohortLeadership(cohortId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      captainUserId?: string | null;
+      assistantUserId?: string | null;
+    }) =>
+      apiClient.patch(`/facilitator/cohorts/${cohortId}/cohort-leadership`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cohort-members', cohortId] });
+      queryClient.invalidateQueries({ queryKey: ['fellow-engagement', cohortId] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      toast.success('Cohort leadership updated');
+    },
+    onError: (error: any) => {
+      toast.error('Could not update leadership', { description: error.message });
+    },
+  });
+}

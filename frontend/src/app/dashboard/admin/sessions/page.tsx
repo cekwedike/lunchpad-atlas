@@ -529,7 +529,7 @@ function AiReviewPanel({ sessionId }: { sessionId: string }) {
                   <div className="bg-purple-50 px-4 py-2 border-b border-purple-100 flex items-center gap-2">
                     <Users className="h-4 w-4 text-purple-600" />
                     <span className="text-sm font-semibold text-purple-800">Fellow Participation</span>
-                    <span className="text-xs text-purple-500 ml-auto">Suggested points out of 50</span>
+                    <span className="text-xs text-purple-500 ml-auto">AI suggested session bonus (0–50 pts)</span>
                   </div>
                   <div className="divide-y divide-gray-100">
                     {(displayData.participantAnalysis as Array<{

@@ -28,6 +28,8 @@ export class UsersService {
         cohortId: true,
         createdAt: true,
         emailNotifications: true,
+        weeklyDigest: true,
+        cohortLeadershipRole: true,
         isSuspended: true,
         suspensionReason: true,
         mustChangePassword: true,

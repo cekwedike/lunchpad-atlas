@@ -441,6 +441,36 @@ export class NotificationsService {
     });
   }
 
+  /** Staged closing reminders (7d / 3d / 1d); emails respect {@code emailNotifications}. */
+  async notifyQuizClosingSoon(
+    userId: string,
+    quizTitle: string,
+    quizId: string,
+    closeAt: Date,
+    daysLeft: number,
+  ) {
+    const dueStr = closeAt.toLocaleDateString();
+    const title =
+      daysLeft <= 1
+        ? 'Quiz closes tomorrow'
+        : daysLeft === 3
+          ? 'Quiz closes in 3 days'
+          : 'Quiz closes in one week';
+    const message =
+      daysLeft <= 1
+        ? `Complete "${quizTitle}" by ${dueStr} — it closes tomorrow.`
+        : daysLeft === 3
+          ? `Complete "${quizTitle}" soon — it closes in 3 days (${dueStr}).`
+          : `Plan ahead: "${quizTitle}" closes on ${dueStr} (one week from today).`;
+    return this.createNotification({
+      userId,
+      type: NotificationType.QUIZ_REMINDER,
+      title,
+      message,
+      data: { quizId, dueDate: closeAt },
+    });
+  }
+
   async notifyIncompleteResource(
     userId: string,
     resourceTitle: string,

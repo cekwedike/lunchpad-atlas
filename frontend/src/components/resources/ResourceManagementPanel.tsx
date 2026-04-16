@@ -646,6 +646,9 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
                     onChange={e => setFormData(d => ({ ...d, pointValue: parseInt(e.target.value) || 0 }))}
                     className="h-9 text-sm"
                   />
+                  <p className="text-[10px] text-gray-500 mt-1 leading-snug">
+                    Stored as <code className="font-mono">pointValue</code> on the resource. Article completions use fixed server points (30 core / 15 optional), not this field.
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs font-medium text-gray-700 mb-1.5 block">Order</Label>

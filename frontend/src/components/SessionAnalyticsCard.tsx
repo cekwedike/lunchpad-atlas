@@ -209,7 +209,9 @@ export function SessionAnalyticsCard({ sessionId, showDetails = true }: SessionA
             <div>
               <h4 className="mb-3 font-semibold flex items-center gap-2">
                 Fellow Participation
-                <span className="text-xs font-normal text-muted-foreground">suggested points out of 50</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  AI suggested session bonus (0–50 pts; separate from resource points)
+                </span>
               </h4>
               <div className="space-y-2">
                 {(analytics.participantAnalysis as Array<{

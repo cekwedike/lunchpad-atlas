@@ -7,6 +7,12 @@ export enum UserRole {
   GUEST_FACILITATOR = 'GUEST_FACILITATOR',
 }
 
+export enum CohortLeadershipRole {
+  NONE = 'NONE',
+  COHORT_CAPTAIN = 'COHORT_CAPTAIN',
+  ASSISTANT_COHORT_CAPTAIN = 'ASSISTANT_COHORT_CAPTAIN',
+}
+
 export enum ResourceType {
   VIDEO = 'VIDEO',
   ARTICLE = 'ARTICLE',
@@ -52,6 +58,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role: UserRole;
+  cohortLeadershipRole?: CohortLeadershipRole;
   cohortId: string | null;
   cohort?: { id: string; name: string } | null;
   facilitatedCohorts?: Array<{ id: string; name: string }>;
@@ -71,6 +78,7 @@ export interface User {
   onboardingChecklistDismissed?: boolean;
   onboardingTourCompleted?: boolean;
   onboardingNotifReviewed?: boolean;
+  weeklyDigest?: boolean;
 }
 
 export interface Cohort {

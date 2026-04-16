@@ -1,6 +1,15 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '@prisma/client';
+import {
+  CohortLeadershipRole,
+  NotificationType,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -27,8 +36,52 @@ export class FacilitatorService {
     }
   }
 
+  /**
+   * Read-only cohort insights: admins, assigned facilitators, or cohort captain /
+   * assistant captain (fellows in the same cohort).
+   */
+  private async verifyCohortInsightAccess(
+    cohortId: string,
+    requesterId: string,
+  ): Promise<'admin' | 'facilitator' | 'captain'> {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: {
+        role: true,
+        cohortId: true,
+        cohortLeadershipRole: true,
+      },
+    });
+    if (!requester) throw new ForbiddenException('Not authenticated');
+    if (requester.role === UserRole.ADMIN) return 'admin';
+
+    const assignment = await this.prisma.cohortFacilitator.findFirst({
+      where: { cohortId, userId: requesterId },
+    });
+    if (assignment) return 'facilitator';
+
+    if (
+      requester.role === UserRole.FELLOW &&
+      requester.cohortId === cohortId &&
+      requester.cohortLeadershipRole !== CohortLeadershipRole.NONE
+    ) {
+      return 'captain';
+    }
+
+    throw new ForbiddenException('You are not assigned to this cohort');
+  }
+
+  private maskFellowEmailForCaptain(email: string): string {
+    const at = email.indexOf('@');
+    if (at <= 0) return '***';
+    const user = email.slice(0, at);
+    const domain = email.slice(at + 1);
+    if (user.length <= 2) return `***@${domain}`;
+    return `${user[0]}…${user.slice(-1)}@${domain}`;
+  }
+
   async getCohortStats(cohortId: string, requesterId: string) {
-    await this.verifyAccess(cohortId, requesterId);
+    await this.verifyCohortInsightAccess(cohortId, requesterId);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -86,7 +139,11 @@ export class FacilitatorService {
   }
 
   async getFellowEngagement(cohortId: string, requesterId: string) {
-    await this.verifyAccess(cohortId, requesterId);
+    const insightRole = await this.verifyCohortInsightAccess(
+      cohortId,
+      requesterId,
+    );
+    const maskEmails = insightRole === 'captain';
 
     const fellows = await this.prisma.user.findMany({
       where: { cohortId, role: 'FELLOW' },
@@ -221,7 +278,7 @@ export class FacilitatorService {
       return {
         userId: fellow.id,
         name: `${fellow.firstName} ${fellow.lastName}`.trim(),
-        email: fellow.email,
+        email: maskEmails ? this.maskFellowEmailForCaptain(fellow.email) : fellow.email,
         progress,
         sessionProgress,
         lastActive,
@@ -237,7 +294,7 @@ export class FacilitatorService {
   }
 
   async getResourceCompletions(cohortId: string, requesterId: string) {
-    await this.verifyAccess(cohortId, requesterId);
+    await this.verifyCohortInsightAccess(cohortId, requesterId);
 
     const fellowCount = await this.prisma.user.count({
       where: { cohortId, role: 'FELLOW' },
@@ -349,5 +406,114 @@ export class FacilitatorService {
     });
 
     return { message: 'Fellow unsuspended', fellowId };
+  }
+
+  async setCohortLeadership(
+    cohortId: string,
+    requesterId: string,
+    dto: { captainUserId?: string | null; assistantUserId?: string | null },
+  ) {
+    await this.verifyAccess(cohortId, requesterId);
+
+    const { captainUserId, assistantUserId } = dto;
+
+    const assertFellowInCohort = async (userId: string) => {
+      const u = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, cohortId: true, role: true },
+      });
+      if (!u) throw new NotFoundException('User not found');
+      if (u.role !== UserRole.FELLOW) {
+        throw new BadRequestException('Only fellows can hold cohort leadership roles');
+      }
+      if (u.cohortId !== cohortId) {
+        throw new BadRequestException('User is not in this cohort');
+      }
+    };
+
+    if (
+      captainUserId != null &&
+      assistantUserId != null &&
+      captainUserId === assistantUserId
+    ) {
+      throw new BadRequestException('Captain and assistant must be different users');
+    }
+
+    if (captainUserId !== undefined) {
+      if (captainUserId === null) {
+        await this.prisma.user.updateMany({
+          where: {
+            cohortId,
+            role: UserRole.FELLOW,
+            cohortLeadershipRole: CohortLeadershipRole.COHORT_CAPTAIN,
+          },
+          data: { cohortLeadershipRole: CohortLeadershipRole.NONE },
+        });
+      } else {
+        await assertFellowInCohort(captainUserId);
+        await this.prisma.user.updateMany({
+          where: {
+            cohortId,
+            role: UserRole.FELLOW,
+            cohortLeadershipRole: CohortLeadershipRole.COHORT_CAPTAIN,
+          },
+          data: { cohortLeadershipRole: CohortLeadershipRole.NONE },
+        });
+        await this.prisma.user.update({
+          where: { id: captainUserId },
+          data: { cohortLeadershipRole: CohortLeadershipRole.COHORT_CAPTAIN },
+        });
+      }
+    }
+
+    if (assistantUserId !== undefined) {
+      if (assistantUserId === null) {
+        await this.prisma.user.updateMany({
+          where: {
+            cohortId,
+            role: UserRole.FELLOW,
+            cohortLeadershipRole: CohortLeadershipRole.ASSISTANT_COHORT_CAPTAIN,
+          },
+          data: { cohortLeadershipRole: CohortLeadershipRole.NONE },
+        });
+      } else {
+        await assertFellowInCohort(assistantUserId);
+        await this.prisma.user.updateMany({
+          where: {
+            cohortId,
+            role: UserRole.FELLOW,
+            cohortLeadershipRole: CohortLeadershipRole.ASSISTANT_COHORT_CAPTAIN,
+          },
+          data: { cohortLeadershipRole: CohortLeadershipRole.NONE },
+        });
+        await this.prisma.user.update({
+          where: { id: assistantUserId },
+          data: {
+            cohortLeadershipRole: CohortLeadershipRole.ASSISTANT_COHORT_CAPTAIN,
+          },
+        });
+      }
+    }
+
+    const [captain, assistant] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: {
+          cohortId,
+          role: UserRole.FELLOW,
+          cohortLeadershipRole: CohortLeadershipRole.COHORT_CAPTAIN,
+        },
+        select: { id: true, firstName: true, lastName: true },
+      }),
+      this.prisma.user.findFirst({
+        where: {
+          cohortId,
+          role: UserRole.FELLOW,
+          cohortLeadershipRole: CohortLeadershipRole.ASSISTANT_COHORT_CAPTAIN,
+        },
+        select: { id: true, firstName: true, lastName: true },
+      }),
+    ]);
+
+    return { captain, assistant };
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { ReminderDispatchKind } from '@prisma/client';
+import { NotificationType, ReminderDispatchKind } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -15,6 +15,11 @@ import {
   resolveCohortTimeZone,
 } from './weekly-digest-eligibility';
 import { DiscussionsService } from '../discussions/discussions.service';
+import {
+  daysLeftForQuizClosingKind,
+  quizClosingReminderKindsForToday,
+  QUIZ_REMINDER_DISPATCH,
+} from './quiz-reminder-stages';
 
 @Injectable()
 export class CronService {
@@ -377,7 +382,7 @@ export class CronService {
 
       const fellows = await this.prisma.user.findMany({
         where: { cohortId: cohort.id, role: 'FELLOW', isSuspended: false },
-        select: { id: true },
+        select: { id: true, email: true, firstName: true },
       });
       if (fellows.length === 0) continue;
 
@@ -469,20 +474,77 @@ export class CronService {
         }
       }
 
-      const quizzes = await this.prisma.quiz.findMany({
+      const quizzesForCohort = await this.prisma.quiz.findMany({
         where: {
-          closeAt: { not: null },
           OR: [
             { cohortId: cohort.id },
             { sessions: { some: { session: { cohortId: cohort.id } } } },
           ],
         },
-        select: { id: true, title: true, closeAt: true },
+        select: { id: true, title: true, openAt: true, closeAt: true },
       });
 
-      for (const quiz of quizzes) {
+      for (const quiz of quizzesForCohort) {
+        if (quiz.openAt) {
+          const openYmd = calendarYmdInTimeZone(quiz.openAt, tz);
+          if (openYmd === todayYmd) {
+            for (const fellow of fellows) {
+              const email = fellow.email?.trim();
+              if (!email) continue;
+
+              const dispatched = await this.prisma.reminderDispatch.findUnique({
+                where: {
+                  kind_userId_entityId: {
+                    kind: QUIZ_REMINDER_DISPATCH.QUIZ_UNLOCK_EMAIL,
+                    userId: fellow.id,
+                    entityId: quiz.id,
+                  },
+                },
+              });
+              if (dispatched) continue;
+
+              try {
+                const sent = await this.emailService.sendQuizUnlockedEmail(email, {
+                  firstName: fellow.firstName || 'there',
+                  quizTitle: quiz.title,
+                  quizId: quiz.id,
+                  closeAt: quiz.closeAt,
+                });
+                if (!sent) continue;
+
+                await this.prisma.reminderDispatch.create({
+                  data: {
+                    kind: QUIZ_REMINDER_DISPATCH.QUIZ_UNLOCK_EMAIL,
+                    userId: fellow.id,
+                    entityId: quiz.id,
+                  },
+                });
+
+                const closeNote = quiz.closeAt
+                  ? ` Complete it by ${quiz.closeAt.toLocaleDateString()}.`
+                  : '';
+                await this.notificationsService.createNotification({
+                  userId: fellow.id,
+                  type: NotificationType.QUIZ_UNLOCKED,
+                  title: 'Quiz now open',
+                  message: `"${quiz.title}" is now available.${closeNote}`,
+                  data: { quizId: quiz.id, dueDate: quiz.closeAt },
+                });
+              } catch {
+                // non-critical
+              }
+            }
+          }
+        }
+
         if (!quiz.closeAt) continue;
-        if (calendarYmdInTimeZone(quiz.closeAt, tz) !== tomorrowYmd) continue;
+        const closeYmd = calendarYmdInTimeZone(quiz.closeAt, tz);
+        const closingKinds = quizClosingReminderKindsForToday(
+          todayYmd,
+          tomorrowYmd,
+          closeYmd,
+        );
+        if (closingKinds.length === 0) continue;
 
         for (const fellow of fellows) {
           const passed = await this.prisma.quizResponse.findFirst({
@@ -490,32 +552,36 @@ export class CronService {
           });
           if (passed) continue;
 
-          const dispatched = await this.prisma.reminderDispatch.findUnique({
-            where: {
-              kind_userId_entityId: {
-                kind: ReminderDispatchKind.QUIZ_CLOSING,
-                userId: fellow.id,
-                entityId: quiz.id,
-              },
-            },
-          });
-          if (dispatched) continue;
-          try {
-            await this.notificationsService.notifyQuizReminder(
-              fellow.id,
-              quiz.title,
-              quiz.id,
-              quiz.closeAt,
-            );
-            await this.prisma.reminderDispatch.create({
-              data: {
-                kind: ReminderDispatchKind.QUIZ_CLOSING,
-                userId: fellow.id,
-                entityId: quiz.id,
+          for (const kind of closingKinds) {
+            const dispatched = await this.prisma.reminderDispatch.findUnique({
+              where: {
+                kind_userId_entityId: {
+                  kind,
+                  userId: fellow.id,
+                  entityId: quiz.id,
+                },
               },
             });
-          } catch {
-            // non-critical
+            if (dispatched) continue;
+            try {
+              const daysLeft = daysLeftForQuizClosingKind(kind);
+              await this.notificationsService.notifyQuizClosingSoon(
+                fellow.id,
+                quiz.title,
+                quiz.id,
+                quiz.closeAt,
+                daysLeft,
+              );
+              await this.prisma.reminderDispatch.create({
+                data: {
+                  kind,
+                  userId: fellow.id,
+                  entityId: quiz.id,
+                },
+              });
+            } catch {
+              // non-critical
+            }
           }
         }
       }

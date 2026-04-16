@@ -5,34 +5,51 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { SetCohortLeadershipDto } from './dto/set-cohort-leadership.dto';
 
 @ApiTags('facilitator')
 @Controller('facilitator')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.FACILITATOR, UserRole.ADMIN)
 @ApiBearerAuth()
 export class FacilitatorController {
   constructor(private facilitatorService: FacilitatorService) {}
 
   @Get('cohorts/:cohortId/stats')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN, UserRole.FELLOW)
   @ApiOperation({ summary: 'Get cohort statistics for facilitator dashboard' })
   getCohortStats(@Param('cohortId') cohortId: string, @Request() req) {
     return this.facilitatorService.getCohortStats(cohortId, req.user.id);
   }
 
   @Get('cohorts/:cohortId/fellows')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN, UserRole.FELLOW)
   @ApiOperation({ summary: 'Get fellow engagement data for a cohort' })
   getFellowEngagement(@Param('cohortId') cohortId: string, @Request() req) {
     return this.facilitatorService.getFellowEngagement(cohortId, req.user.id);
   }
 
   @Get('cohorts/:cohortId/resources')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN, UserRole.FELLOW)
   @ApiOperation({ summary: 'Get resource completion rates for a cohort' })
   getResourceCompletions(@Param('cohortId') cohortId: string, @Request() req) {
     return this.facilitatorService.getResourceCompletions(cohortId, req.user.id);
   }
 
+  @Patch('cohorts/:cohortId/cohort-leadership')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Assign or clear cohort captain and assistant (fellows in this cohort only)',
+  })
+  setCohortLeadership(
+    @Param('cohortId') cohortId: string,
+    @Body() dto: SetCohortLeadershipDto,
+    @Request() req,
+  ) {
+    return this.facilitatorService.setCohortLeadership(cohortId, req.user.id, dto);
+  }
+
   @Patch('cohorts/:cohortId/fellows/:fellowId/suspend')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Suspend a fellow in facilitator\'s cohort' })
   suspendFellow(
     @Param('cohortId') cohortId: string,
@@ -44,6 +61,7 @@ export class FacilitatorController {
   }
 
   @Patch('cohorts/:cohortId/fellows/:fellowId/unsuspend')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Unsuspend a fellow in facilitator\'s cohort' })
   unsuspendFellow(
     @Param('cohortId') cohortId: string,

@@ -41,6 +41,13 @@ export interface GuestAccessExpiryReminderEmailData {
   guestAccessExpiresAt: Date;
 }
 
+export interface QuizUnlockedEmailData {
+  firstName: string;
+  quizTitle: string;
+  quizId: string;
+  closeAt: Date | null;
+}
+
 export interface NotificationEmailData {
   firstName: string;
   title: string;
@@ -315,6 +322,23 @@ export class EmailService {
   }
 
   /**
+   * Quiz unlock announcement — sent directly via {@link sendEmail} so it is not
+   * suppressed by the fellow's {@code emailNotifications} preference (global
+   * {@code EMAIL_NOTIFICATIONS_ENABLED} still applies).
+   */
+  async sendQuizUnlockedEmail(
+    email: string,
+    data: QuizUnlockedEmailData,
+  ): Promise<boolean> {
+    const html = this.getQuizUnlockedTemplate(data);
+    return this.sendEmail({
+      to: email,
+      subject: `New quiz available: ${data.quizTitle}`,
+      html,
+    });
+  }
+
+  /**
    * Password Reset Email Template
    */
   private getPasswordResetTemplate(data: {
@@ -402,6 +426,60 @@ export class EmailService {
           <p style="margin:0;font-size:12px;color:#94a3b8;">&copy; ${year} LaunchPad. All rights reserved.</p>
         </td></tr>
 
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private getQuizUnlockedTemplate(data: QuizUnlockedEmailData): string {
+    const base = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const quizUrl = `${base}/quiz/${encodeURIComponent(data.quizId)}`;
+    const year = new Date().getFullYear();
+    const safeFirst = this.escapeHtml(data.firstName);
+    const safeTitle = this.escapeHtml(data.quizTitle);
+    const dueLine =
+      data.closeAt != null
+        ? `<p style="margin:0;font-size:15px;line-height:1.7;color:#334155;">Complete it by <strong style="color:#0f172a;">${this.escapeHtml(
+            data.closeAt.toLocaleDateString(),
+          )}</strong>.</p>`
+        : `<p style="margin:0;font-size:15px;line-height:1.7;color:#334155;">You can start whenever you are ready.</p>`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New quiz on ATLAS</title>
+  <style>
+    body { margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; }
+    .preheader { display:none;max-height:0;overflow:hidden; }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;">
+  <span class="preheader">A new quiz is now open: ${safeTitle}</span>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.10);">
+        <tr><td style="background:#4338ca;height:5px;font-size:0;line-height:0;">&nbsp;</td></tr>
+        <tr><td style="background:#1e3a8a;padding:40px 48px 32px;text-align:center;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#93c5fd;margin-bottom:12px;">LaunchPad ATLAS</div>
+          <div style="font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">A new quiz is open</div>
+          <p style="margin:10px 0 0;font-size:14px;color:#94a3b8;">${safeTitle}</p>
+        </td></tr>
+        <tr><td style="padding:40px 48px 0;">
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">Hi <strong style="color:#0f172a;">${safeFirst}</strong>,</p>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#334155;">You can now take <strong style="color:#0f172a;">${safeTitle}</strong> on ATLAS.</p>
+          ${dueLine}
+        </td></tr>
+        <tr><td style="padding:32px 48px 44px;text-align:center;">
+          <a href="${quizUrl}" style="display:inline-block;padding:15px 44px;background:#1e3a8a;color:#ffffff!important;text-decoration:none;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(30,58,138,0.35);">Open quiz</a>
+        </td></tr>
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:24px 48px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#0f172a;">ATLAS &mdash; LaunchPad Fellowship</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">&copy; ${year} LaunchPad. All rights reserved.</p>
+        </td></tr>
       </table>
     </td></tr>
   </table>

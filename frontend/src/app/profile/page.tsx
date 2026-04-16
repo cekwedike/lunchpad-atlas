@@ -235,7 +235,12 @@ function NotificationPreferencesSection({ emailNotifications, weeklyDigest }: { 
             )}
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900">Email notifications</p>
-              <p className="text-xs text-gray-500 mt-0.5">Receive email alerts for important events like new resources and session reminders.</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Receive email for reminders such as quizzes closing soon, new resources, and session updates. When a
+                quiz first opens on its scheduled date, you may still receive one unlock email so you do not miss it,
+                even if this is off. The weekly digest has its own toggle below. Server-wide email can also be disabled
+                by your programme team.
+              </p>
             </div>
           </div>
           <Switch

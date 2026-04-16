@@ -77,6 +77,13 @@ enum QuizType {
   MEGA     // End-of-month mega quiz (standard quiz with high point value)
 }
 
+/// Fellow-only peer leadership in a cohort (at most one captain + one assistant per cohort; enforced in app).
+enum CohortLeadershipRole {
+  NONE
+  COHORT_CAPTAIN
+  ASSISTANT_COHORT_CAPTAIN
+}
+
 // ==================== CORE TABLES ====================
 
 model User {
@@ -99,6 +106,7 @@ model User {
   suspendedAt        DateTime? // When the account was suspended
   suspensionReason   String?   // Admin note for suspension reason
   cohortId           String?
+  cohortLeadershipRole CohortLeadershipRole @default(NONE)
   currentMonthPoints Int       @default(0) // Points earned this month
   monthlyPointsCap   Int       @default(10000) // Maximum points per month (floor; cohort-based caps may be higher)
   lastPointReset     DateTime? // Last time monthly points were reset
@@ -267,8 +275,12 @@ model ResourceDateUnlockNotification {
 
 enum ReminderDispatchKind {
   SESSION_UPCOMING
-  QUIZ_CLOSING
+  QUIZ_CLOSING // legacy: quiz closes tomorrow (prefer QUIZ_CLOSING_1D for new sends)
   INCOMPLETE_RESOURCE
+  QUIZ_UNLOCK_EMAIL // compulsory unlock email once per user per quiz
+  QUIZ_CLOSING_7D
+  QUIZ_CLOSING_3D
+  QUIZ_CLOSING_1D // calendar day before close (same window as legacy QUIZ_CLOSING)
 }
 
 model ReminderDispatch {
@@ -784,6 +796,7 @@ model PlatformTimeDaily {
 
 enum NotificationType {
   RESOURCE_UNLOCK // New resource available
+  QUIZ_UNLOCKED // Quiz became available (openAt); optional in-app companion to unlock email
   QUIZ_REMINDER // Upcoming quiz reminder
   INCOMPLETE_RESOURCE // Resource nearing deadline
   ACHIEVEMENT_EARNED // New achievement unlocked

@@ -109,6 +109,8 @@ export class AdminService {
         lastName: true,
         email: true,
         role: true,
+        isSuspended: true,
+        cohortLeadershipRole: true,
       },
       orderBy: [{ role: 'asc' }, { firstName: 'asc' }],
     });
