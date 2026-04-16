@@ -980,13 +980,21 @@ export class DiscussionsService {
       withinResourceCap = priorResourceComments < 3;
     }
 
+    let pointsCappedMessage: string | null = null;
     if (withinResourceCap) {
-      awarded = await this.awardPoints(
+      const awardResult = await this.pointsService.awardPoints({
         userId,
-        2,
-        'DISCUSSION_COMMENT',
-        `Commented on discussion: ${discussion.title}`,
-      );
+        points: 2,
+        eventType: 'DISCUSSION_COMMENT' as any,
+        description: `Commented on discussion: ${discussion.title}`,
+      });
+      awarded = awardResult.awarded;
+      if (!awardResult.awarded && awardResult.capped) {
+        pointsCappedMessage = 'Monthly point cap reached — no points for this comment.';
+      }
+    } else {
+      pointsCappedMessage =
+        'No points for this comment — you have reached the maximum rewarded comments (3) for this resource.';
     }
 
     // Note: previously we withheld discussion-post points until first peer comment.
@@ -1049,7 +1057,7 @@ export class DiscussionsService {
       reactionCounts: {},
       userReactions: [],
       pointsAwarded: awarded ? 2 : 0,
-      cappedMessage: awarded ? null : 'Monthly point cap reached',
+      cappedMessage: awarded ? null : pointsCappedMessage,
     };
   }
 

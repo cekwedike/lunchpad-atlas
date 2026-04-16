@@ -118,10 +118,21 @@ export function useCreateComment(discussionId: string) {
   return useMutation({
     mutationFn: (data: CreateCommentRequest) =>
       apiClient.post<DiscussionComment>(`/discussions/${discussionId}/comments`, data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['discussion-comments', discussionId] });
       queryClient.invalidateQueries({ queryKey: ['discussion', discussionId] });
-      toast.success('Comment added!', '+10 points for engagement');
+      const pts = data?.pointsAwarded ?? 0;
+      const capped = data?.cappedMessage;
+      if (pts > 0) {
+        toast.success(
+          'Comment added!',
+          `+${pts} point${pts === 1 ? '' : 's'} for engagement`,
+        );
+      } else if (capped) {
+        toast.success('Comment added!', capped);
+      } else {
+        toast.success('Comment added!');
+      }
     },
     onError: (error: any) => {
       toast.error('Failed to add comment', error.message);

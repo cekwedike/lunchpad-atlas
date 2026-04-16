@@ -286,6 +286,11 @@ export default function LeaderboardPage() {
                       Pick your arena
                     </h2>
                     <p className="text-xs text-slate-500">Months inside the cohort run only.</p>
+                    <p className="text-xs text-slate-600 leading-relaxed max-w-xl">
+                      The big number on the board is for the <strong>month you select</strong>: points from your
+                      activity log that month, <strong>plus</strong> extra bonuses (streaks, chat). It is{' '}
+                      <strong>not</strong> the same as your all-time total on your profile.
+                    </p>
                   </div>
                   {availableCohorts.length > 0 && (
                     <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -349,7 +354,7 @@ export default function LeaderboardPage() {
                         </p>
                       </div>
                       <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-center backdrop-blur-sm">
-                        <p className="text-[10px] uppercase tracking-wider text-white/60">Points</p>
+                        <p className="text-[10px] uppercase tracking-wider text-white/60">Points (this month)</p>
                         <p className="text-xl font-bold tabular-nums">{userRank.points}</p>
                       </div>
                     </div>

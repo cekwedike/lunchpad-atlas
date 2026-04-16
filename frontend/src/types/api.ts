@@ -185,6 +185,9 @@ export interface DiscussionComment {
   user?: User; // Changed from author to match backend
   reactionCounts?: Record<CommentReactionType, number>;
   userReactions?: CommentReactionType[];
+  /** Present on create-comment response when the server reports points for this action */
+  pointsAwarded?: number;
+  cappedMessage?: string | null;
 }
 
 export type CommentReactionType = 'LIKE' | 'CELEBRATE' | 'SUPPORT' | 'INSIGHTFUL' | 'LOVE';

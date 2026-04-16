@@ -643,6 +643,7 @@ export class AdminUserService {
       averageQuizScore,
       totalTimeSpent,
       platformTimeAgg,
+      allTimePointsAgg,
     ] = await Promise.all([
       this.prisma.resourceProgress.count({
         where: {
@@ -678,6 +679,10 @@ export class AdminUserService {
         where: { userId },
         _sum: { seconds: true },
       }),
+      this.prisma.pointsLog.aggregate({
+        where: { userId },
+        _sum: { points: true },
+      }),
     ]);
 
     return {
@@ -686,7 +691,8 @@ export class AdminUserService {
       email: user.email,
       role: user.role,
       cohort: user.cohort?.name || null,
-      totalPoints: user.currentMonthPoints,
+      totalPoints: allTimePointsAgg._sum.points ?? 0,
+      currentMonthPoints: user.currentMonthPoints ?? 0,
       completedResources,
       inProgressResources,
       totalDiscussions,

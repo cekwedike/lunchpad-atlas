@@ -8,71 +8,7 @@ import {
   getScaledLeaderboardThreshold,
 } from '../common/gamification.utils';
 import { PointsService } from '../gamification/points.service';
-
-const ACHIEVEMENT_DEFINITIONS = [
-  // MILESTONE (18)
-  { name: 'First Step',        description: 'Complete your first resource',                                                              type: AchievementType.MILESTONE,   iconUrl: '🎯', pointValue: 10,   criteria: { resourceCount: 1 } },
-  { name: 'Getting Started',   description: 'Complete 8 resources',                                                                     type: AchievementType.MILESTONE,   iconUrl: '📚', pointValue: 25,   criteria: { resourceCount: 8 } },
-  { name: 'Resource Explorer', description: 'Complete 15 resources',                                                                    type: AchievementType.MILESTONE,   iconUrl: '🔭', pointValue: 50,   criteria: { resourceCount: 15 } },
-  { name: 'Halfway There',     description: 'Complete 30 resources',                                                                    type: AchievementType.MILESTONE,   iconUrl: '🏃', pointValue: 100,  criteria: { resourceCount: 30 } },
-  { name: 'Resource Master',   description: 'Complete 50 resources',                                                                    type: AchievementType.MILESTONE,   iconUrl: '🎓', pointValue: 250,  criteria: { resourceCount: 50 } },
-  { name: 'Quiz Rookie',       description: 'Pass your first quiz',                                                                     type: AchievementType.MILESTONE,   iconUrl: '📝', pointValue: 10,   criteria: { quizCount: 1 } },
-  { name: 'Quiz Enthusiast',   description: 'Pass 7 quizzes',                                                                          type: AchievementType.MILESTONE,   iconUrl: '✏️', pointValue: 50,   criteria: { quizCount: 7 } },
-  { name: 'Quiz Expert',       description: 'Pass 12 quizzes',                                                                         type: AchievementType.MILESTONE,   iconUrl: '🧠', pointValue: 100,  criteria: { quizCount: 12 } },
-  { name: 'Quiz Champion',     description: 'Pass 20 quizzes',                                                                         type: AchievementType.MILESTONE,   iconUrl: '🏅', pointValue: 200,  criteria: { quizCount: 20 } },
-  { name: 'Perfectionist',     description: 'Score 100% on a quiz',                                                                    type: AchievementType.MILESTONE,   iconUrl: '💯', pointValue: 50,   criteria: { perfectQuizCount: 1 } },
-  { name: 'Twice Perfect',     description: 'Score 100% on 3 quizzes',                                                                 type: AchievementType.MILESTONE,   iconUrl: '✨', pointValue: 100,  criteria: { perfectQuizCount: 3 } },
-  { name: 'Flawless Five',     description: 'Score 100% on 5 quizzes',                                                                 type: AchievementType.MILESTONE,   iconUrl: '🌟', pointValue: 200,  criteria: { perfectQuizCount: 5 } },
-  { name: 'Flawless Ten',      description: 'Score 100% on 10 quizzes',                                                                type: AchievementType.MILESTONE,   iconUrl: '⭐', pointValue: 400,  criteria: { perfectQuizCount: 10 } },
-  { name: 'Live Buzzer',       description: 'Participate in your first live quiz',                                                      type: AchievementType.MILESTONE,   iconUrl: '🎮', pointValue: 25,   criteria: { liveQuizCount: 1 } },
-  { name: 'Live Regular',      description: 'Participate in 5 live quizzes',                                                           type: AchievementType.MILESTONE,   iconUrl: '🕹️', pointValue: 75,   criteria: { liveQuizCount: 5 } },
-  { name: 'Live Pro',          description: 'Participate in 10 live quizzes',                                                          type: AchievementType.MILESTONE,   iconUrl: '🎯', pointValue: 150,  criteria: { liveQuizCount: 10 } },
-  { name: 'Live Veteran',      description: 'Participate in 25 live quizzes',                                                          type: AchievementType.MILESTONE,   iconUrl: '🏆', pointValue: 300,  criteria: { liveQuizCount: 25 } },
-  { name: 'Overachiever',      description: 'Complete 30 resources, pass 12 quizzes, and score 100% three times',                      type: AchievementType.MILESTONE,   iconUrl: '🚀', pointValue: 350,  criteria: { resourceCount: 30, quizCount: 12, perfectQuizCount: 3 } },
-  // SOCIAL (12)
-  { name: 'First Post',        description: 'Post your first discussion',                                                              type: AchievementType.SOCIAL,      iconUrl: '💬', pointValue: 10,   criteria: { discussionCount: 1 } },
-  { name: 'Regular Poster',    description: 'Post 5 discussions',                                                                      type: AchievementType.SOCIAL,      iconUrl: '📣', pointValue: 20,   criteria: { discussionCount: 5 } },
-  { name: 'Conversationalist', description: 'Post 10 discussions',                                                                     type: AchievementType.SOCIAL,      iconUrl: '🗣️', pointValue: 35,   criteria: { discussionCount: 10 } },
-  { name: 'Community Voice',   description: 'Post 15 discussions',                                                                     type: AchievementType.SOCIAL,      iconUrl: '📢', pointValue: 75,   criteria: { discussionCount: 15 } },
-  { name: 'Forum Regular',     description: 'Post 25 discussions',                                                                     type: AchievementType.SOCIAL,      iconUrl: '🏛️', pointValue: 150,  criteria: { discussionCount: 25 } },
-  { name: 'Community Pillar',  description: 'Post 50 discussions',                                                                     type: AchievementType.SOCIAL,      iconUrl: '🌐', pointValue: 300,  criteria: { discussionCount: 50 } },
-  { name: 'First Reply',       description: 'Post your first comment',                                                                 type: AchievementType.SOCIAL,      iconUrl: '↩️', pointValue: 5,    criteria: { commentCount: 1 } },
-  { name: 'Active Responder',  description: 'Post 15 comments',                                                                       type: AchievementType.SOCIAL,      iconUrl: '💭', pointValue: 25,   criteria: { commentCount: 15 } },
-  { name: 'Reply Guru',        description: 'Post 30 comments',                                                                       type: AchievementType.SOCIAL,      iconUrl: '🎙️', pointValue: 75,   criteria: { commentCount: 30 } },
-  { name: 'Reply Legend',      description: 'Post 50 comments',                                                                       type: AchievementType.SOCIAL,      iconUrl: '📡', pointValue: 150,  criteria: { commentCount: 50 } },
-  { name: 'Mega Contributor',  description: 'Post 100 comments',                                                                      type: AchievementType.SOCIAL,      iconUrl: '🔊', pointValue: 300,  criteria: { commentCount: 100 } },
-  { name: 'Social Butterfly',  description: 'Post 15 discussions and 15 comments',                                                    type: AchievementType.SOCIAL,      iconUrl: '🦋', pointValue: 100,  criteria: { discussionCount: 15, commentCount: 15 } },
-  // STREAK / COMBO (10)
-  { name: 'Combo Starter',     description: 'Complete 8 resources and pass 3 quizzes',                                                type: AchievementType.STREAK,      iconUrl: '⚡', pointValue: 35,   criteria: { resourceCount: 8, quizCount: 3 } },
-  { name: 'Momentum Builder',  description: 'Complete 15 resources and pass 7 quizzes',                                               type: AchievementType.STREAK,      iconUrl: '🔥', pointValue: 75,   criteria: { resourceCount: 15, quizCount: 7 } },
-  { name: 'All-Rounder',       description: 'Complete 15 resources, pass 7 quizzes, and post 7 discussions',                          type: AchievementType.STREAK,      iconUrl: '🎪', pointValue: 150,  criteria: { resourceCount: 15, quizCount: 7, discussionCount: 7 } },
-  { name: 'Triple Threat',     description: 'Complete 30 resources, pass 12 quizzes, and post 12 discussions',                        type: AchievementType.STREAK,      iconUrl: '🎯', pointValue: 300,  criteria: { resourceCount: 30, quizCount: 12, discussionCount: 12 } },
-  { name: 'Scholar',           description: 'Complete 25 resources, score 100% on 5 quizzes, and post 7 discussions',                 type: AchievementType.STREAK,      iconUrl: '📖', pointValue: 250,  criteria: { resourceCount: 25, perfectQuizCount: 5, discussionCount: 7 } },
-  { name: 'Live Learner',      description: 'Complete 10 resources and join 5 live quizzes',                                          type: AchievementType.STREAK,      iconUrl: '🎓', pointValue: 50,   criteria: { resourceCount: 10, liveQuizCount: 5 } },
-  { name: 'Engaged Scholar',   description: 'Complete 20 resources, post 7 discussions, and 8 comments',                              type: AchievementType.STREAK,      iconUrl: '🌱', pointValue: 200,  criteria: { resourceCount: 20, discussionCount: 7, commentCount: 8 } },
-  { name: 'The Trifecta',      description: 'Complete 50 resources, pass 20 quizzes, and post 25 discussions',                        type: AchievementType.STREAK,      iconUrl: '🎆', pointValue: 600,  criteria: { resourceCount: 50, quizCount: 20, discussionCount: 25 } },
-  { name: 'Perfect Scholar',   description: 'Score 100% on 7 quizzes and post 12 discussions',                                        type: AchievementType.STREAK,      iconUrl: '💎', pointValue: 300,  criteria: { perfectQuizCount: 7, discussionCount: 12 } },
-  { name: 'Campus Legend',     description: 'Complete 50 resources, pass 15 quizzes, post 20 discussions, join 10 live quizzes',      type: AchievementType.STREAK,      iconUrl: '👑', pointValue: 750,  criteria: { resourceCount: 50, quizCount: 15, discussionCount: 20, liveQuizCount: 10 } },
-  // LEADERBOARD / POINTS (10) — thresholds are the 4-month (80 k) fallback values;
-  // at runtime they are scaled via getScaledLeaderboardThreshold() based on cohort length.
-  { name: 'Point Starter',     description: 'Earn 400 points',                                                                        type: AchievementType.LEADERBOARD, iconUrl: '🥉', pointValue: 15,   criteria: { totalPoints: 400 } },
-  { name: 'Point Collector',   description: 'Earn 2,500 points',                                                                      type: AchievementType.LEADERBOARD, iconUrl: '🥈', pointValue: 25,   criteria: { totalPoints: 2500 } },
-  { name: 'Point Accumulator', description: 'Earn 6,000 points',                                                                      type: AchievementType.LEADERBOARD, iconUrl: '🥇', pointValue: 50,   criteria: { totalPoints: 6000 } },
-  { name: 'Point Hoarder',     description: 'Earn 12,000 points',                                                                     type: AchievementType.LEADERBOARD, iconUrl: '💰', pointValue: 75,   criteria: { totalPoints: 12000 } },
-  { name: 'Point Enthusiast',  description: 'Earn 20,000 points',                                                                     type: AchievementType.LEADERBOARD, iconUrl: '💎', pointValue: 100,  criteria: { totalPoints: 20000 } },
-  { name: 'Point Expert',      description: 'Earn 32,000 points',                                                                     type: AchievementType.LEADERBOARD, iconUrl: '🏅', pointValue: 150,  criteria: { totalPoints: 32000 } },
-  { name: 'Point Legend',      description: 'Earn 44,000 points',                                                                     type: AchievementType.LEADERBOARD, iconUrl: '🌟', pointValue: 200,  criteria: { totalPoints: 44000 } },
-  { name: 'Point Elite',       description: 'Earn 58,000 points',                                                                     type: AchievementType.LEADERBOARD, iconUrl: '⭐', pointValue: 300,  criteria: { totalPoints: 58000 } },
-  { name: 'Living Legend',     description: 'Earn 68,000 points',                                                                     type: AchievementType.LEADERBOARD, iconUrl: '🔱', pointValue: 500,  criteria: { totalPoints: 68000 } },
-  { name: 'The GOAT',          description: 'Earn 76,000 points — the greatest of all time',                                          type: AchievementType.LEADERBOARD, iconUrl: '🐐', pointValue: 1000, criteria: { totalPoints: 76000 } },
-  // SPEC-REQUIRED: Monthly/Ranking/Special achievements (6)
-  { name: 'Monthly Champion',  description: 'Finish #1 on the monthly leaderboard',                                                   type: AchievementType.LEADERBOARD, iconUrl: '🏆', pointValue: 100,  criteria: { monthlyRank: 1 } },
-  { name: 'Top 10 Finisher',   description: 'Finish in the top 10 on the monthly leaderboard',                                        type: AchievementType.LEADERBOARD, iconUrl: '🎖️', pointValue: 50,   criteria: { monthlyRank: 10 } },
-  { name: 'Consistency Star',  description: 'Complete 100% of core resources in a month',                                             type: AchievementType.MILESTONE,   iconUrl: '⭐', pointValue: 100,  criteria: { monthlyCoreCompletion: 100 } },
-  { name: 'Deep Diver',        description: 'Complete all optional resources in a session',                                           type: AchievementType.MILESTONE,   iconUrl: '🤿', pointValue: 100,  criteria: { sessionOptionalCompletion: 100 } },
-  { name: 'Thought Leader',    description: 'Post 7 high-quality discussions (AI-scored)',                                            type: AchievementType.SOCIAL,      iconUrl: '💡', pointValue: 80,   criteria: { qualityDiscussionCount: 7 } },
-  { name: 'Quiz Master',       description: 'Finish in the top 3 of a live quiz session',                                             type: AchievementType.MILESTONE,   iconUrl: '🧙', pointValue: 60,   criteria: { liveQuizTop3: 1 } },
-];
+import { ACHIEVEMENT_DEFINITIONS } from './achievement-definitions';
 
 @Injectable()
 export class AchievementsService implements OnApplicationBootstrap {

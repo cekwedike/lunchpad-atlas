@@ -164,7 +164,7 @@ export default function FacilitatorCohortMembersPage() {
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       {member.currentMonthPoints > 0 && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                          {member.currentMonthPoints} pts
+                          {member.currentMonthPoints} pts this month
                         </Badge>
                       )}
 

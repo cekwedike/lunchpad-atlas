@@ -521,7 +521,9 @@ export default function AdminUsersPage() {
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Cohort</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Points</th>
+                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Points (all-time)
+                    </th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Time on platform (dashboard heartbeat)">
                       App time (min)
                     </th>
@@ -588,9 +590,23 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-4 px-6">
                         {user.role === "FELLOW" ? (
-                          <div className="flex items-center gap-2">
-                            <Award className="h-4 w-4 text-amber-500" />
-                            <span className="text-sm text-gray-900 font-semibold">{user.statistics?.totalPoints ?? 0}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <Award className="h-4 w-4 text-amber-500" />
+                              <span className="text-sm text-gray-900 font-semibold">
+                                {user.statistics?.totalPoints ?? 0}
+                              </span>
+                            </div>
+                            {(() => {
+                              const cm = (
+                                user.statistics as
+                                  | { totalPoints?: number; currentMonthPoints?: number }
+                                  | undefined
+                              )?.currentMonthPoints;
+                              return typeof cm === "number" && cm > 0 ? (
+                                <span className="text-xs text-gray-500 pl-6">{cm} this month</span>
+                              ) : null;
+                            })()}
                           </div>
                         ) : (
                           <span className="text-sm text-gray-500">N/A</span>

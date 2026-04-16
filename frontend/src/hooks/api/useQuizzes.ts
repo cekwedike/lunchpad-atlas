@@ -95,10 +95,15 @@ export function useSubmitQuiz(quizId: string) {
       queryClient.invalidateQueries({ queryKey: ['my-quizzes'] });
       
       if (data.passed) {
-        toast.success(
-          'Quiz passed!',
-          `You scored ${data.score}% and earned ${(data as any).pointsAwarded} points`
-        );
+        const pts = data.pointsAwarded ?? 0;
+        const cap = data.cappedMessage;
+        if (pts > 0) {
+          toast.success('Quiz passed!', `Score ${data.score}% · +${pts} pts`);
+        } else if (cap) {
+          toast.success('Quiz passed!', `Score ${data.score}%. ${cap}`);
+        } else {
+          toast.success('Quiz passed!', `Score ${data.score}%`);
+        }
       } else {
         toast.warning(
           'Quiz not passed',

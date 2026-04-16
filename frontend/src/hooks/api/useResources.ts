@@ -5,6 +5,21 @@ import { useAuthSessionReady } from '@/hooks/useAuthSessionReady';
 import { toast } from '@/lib/toast';
 import type { Resource, ResourceProgress, PaginatedResponse, MarkResourceCompleteRequest } from '@/types/api';
 
+function toastResourceCompletion(
+  title: string,
+  data: { pointsAwarded?: number; cappedMessage?: string | null },
+) {
+  const pts = data.pointsAwarded;
+  const cap = data.cappedMessage;
+  if (pts !== undefined && pts > 0) {
+    toast.success(title, `+${pts} point${pts === 1 ? '' : 's'}`);
+  } else if (cap) {
+    toast.success(title, cap);
+  } else {
+    toast.success(title, 'Progress saved.');
+  }
+}
+
 export function useResources(filters?: { sessionId?: string; cohortId?: string }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
   const authSessionReady = useAuthSessionReady();
@@ -63,14 +78,14 @@ export function useMarkResourceComplete(resourceId: string) {
   return useMutation({
     mutationFn: (data?: MarkResourceCompleteRequest) =>
       apiClient.post<ResourceProgress>(`/resources/${resourceId}/complete`, data || {}),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['resource-progress'] });
       queryClient.invalidateQueries({ queryKey: ['resource', resourceId] });
       queryClient.invalidateQueries({ queryKey: ['resources'] }); // refresh list green checkmarks
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['user-stats'] });
       queryClient.invalidateQueries({ queryKey: ['leaderboard-rank'] });
-      toast.success('Resource completed!', 'Points have been awarded');
+      toastResourceCompletion('Resource completed!', data);
     },
     onError: (error: any) => {
       toast.error('Failed to mark complete', error.message);
@@ -78,7 +93,7 @@ export function useMarkResourceComplete(resourceId: string) {
   });
 }
 
-/** Article-only: open external link, then leave tab — server awards 30 (core) / 15 (optional) once. */
+/** Article-only: open external link, then leave tab — server awards 30 pts (core) / 15 pts (optional) once (see completeArticleOpen). */
 export function useCompleteArticleOpen(resourceId: string) {
   const queryClient = useQueryClient();
 
@@ -99,7 +114,7 @@ export function useCompleteArticleOpen(resourceId: string) {
       if (data?.alreadyCompleted) {
         toast.success('Already completed', 'This article was already marked complete.');
       } else {
-        toast.success('Article completed!', 'Points have been awarded');
+        toastResourceCompletion('Article completed!', data);
       }
     },
     onError: (error: unknown) => {

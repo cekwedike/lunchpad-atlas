@@ -183,7 +183,9 @@ export default function FellowCohortsPage() {
                               </div>
                               <p className="text-sm text-gray-600 truncate">{member.email}</p>
                               {member.currentMonthPoints > 0 && (
-                                <p className="text-xs text-gray-500 mt-1">{member.currentMonthPoints} points</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {member.currentMonthPoints} points this month
+                                </p>
                               )}
                             </div>
                             {!isMe && (
