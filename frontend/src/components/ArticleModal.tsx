@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, ExternalLink, BookOpen, MessageSquare, Zap } from "lucide-react";
 import { useCompleteArticleOpen } from "@/hooks/api/useResources";
+import { getArticleCompletionPoints } from "@/lib/resourcePoints";
 
 export interface ArticleResource {
   id: string;
@@ -42,7 +43,7 @@ export function ArticleModal({
 
   const completeArticle = useCompleteArticleOpen(resource?.id ?? "");
 
-  const pts = resource?.isCore !== false ? 30 : 15;
+  const pts = getArticleCompletionPoints(resource?.isCore);
 
   useEffect(() => {
     if (open) {

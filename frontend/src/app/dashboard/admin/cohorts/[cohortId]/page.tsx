@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, ArrowLeft, Loader2, UserPlus, X, MessageSquare, RefreshCw } from "lucide-react";
+import { Users, ArrowLeft, Loader2, UserPlus, X, MessageSquare, RefreshCw, Crown } from "lucide-react";
 import {
   useCohorts,
   useAdminUsers,
@@ -25,6 +25,7 @@ import {
   useAddCohortFacilitator,
   useRemoveCohortFacilitator,
 } from "@/hooks/api/useAdmin";
+import { useSetCohortLeadership } from "@/hooks/api/useFacilitator";
 import { useOpenDM } from "@/hooks/api/useChat";
 import { toast } from "sonner";
 
@@ -54,6 +55,7 @@ type CohortMember = {
   email?: string;
   role?: string;
   cohortId?: string | null;
+  cohortLeadershipRole?: string | null;
 };
 
 type AdminUser = {
@@ -93,6 +95,26 @@ export default function AdminCohortMembersPage() {
   const { data: membersRaw = [], isLoading: membersLoading } = useCohortMembers(cohortId);
   const allCohortMembers = (Array.isArray(membersRaw) ? (membersRaw as unknown[]) : []).filter(Boolean) as unknown as CohortMember[];
   const cohortMembers = allCohortMembers.filter((m) => m.role === "FELLOW");
+
+  const NONE = "__none__";
+  const fellowsOnly = cohortMembers;
+  const currentCaptain = useMemo(
+    () => fellowsOnly.find((m) => m.cohortLeadershipRole === "COHORT_CAPTAIN"),
+    [fellowsOnly],
+  );
+  const currentAssistant = useMemo(
+    () => fellowsOnly.find((m) => m.cohortLeadershipRole === "ASSISTANT_COHORT_CAPTAIN"),
+    [fellowsOnly],
+  );
+  const [captainPick, setCaptainPick] = useState(NONE);
+  const [assistantPick, setAssistantPick] = useState(NONE);
+  const setLeadership = useSetCohortLeadership(cohortId ?? "");
+
+  useEffect(() => {
+    if (membersLoading) return;
+    setCaptainPick(currentCaptain?.id ?? NONE);
+    setAssistantPick(currentAssistant?.id ?? NONE);
+  }, [membersLoading, currentCaptain?.id, currentAssistant?.id]);
 
   // Fetch all fellows for the "Add Member" dialog
   const { data: fellowsResponse } = useAdminUsers(isAddMemberDialogOpen ? { role: "FELLOW" } : undefined);
@@ -158,7 +180,8 @@ export default function AdminCohortMembersPage() {
     membersLoading ||
     updateUserCohort.isPending ||
     addCohortFacilitator.isPending ||
-    removeCohortFacilitator.isPending;
+    removeCohortFacilitator.isPending ||
+    setLeadership.isPending;
 
   return (
     <DashboardLayout>
@@ -212,7 +235,77 @@ export default function AdminCohortMembersPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            <Card className="bg-white border-gray-200 shadow-sm">
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Crown className="h-5 w-5 text-violet-600 shrink-0" />
+                  Cohort captain & assistant
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 space-y-4">
+                <p className="text-sm text-gray-600">
+                  Fellows in this role get a read-only &quot;Cohort pulse&quot; page (masked emails). At most one captain and one assistant per cohort.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Captain</Label>
+                    <select
+                      value={captainPick}
+                      onChange={(e) => setCaptainPick(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    >
+                      <option value={NONE}>None</option>
+                      {fellowsOnly.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.firstName} {f.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Assistant captain</Label>
+                    <select
+                      value={assistantPick}
+                      onChange={(e) => setAssistantPick(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    >
+                      <option value={NONE}>None</option>
+                      {fellowsOnly.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.firstName} {f.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  disabled={setLeadership.isPending || !cohortId}
+                  onClick={() =>
+                    setLeadership.mutate({
+                      captainUserId: captainPick === NONE ? null : captainPick,
+                      assistantUserId: assistantPick === NONE ? null : assistantPick,
+                    })
+                  }
+                >
+                  {setLeadership.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="h-4 w-4 mr-2" />
+                      Save leadership
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-6 lg:grid-cols-2">
             <Card className="bg-white border-gray-200 shadow-sm">
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center justify-between">
@@ -307,7 +400,7 @@ export default function AdminCohortMembersPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {cohortMembers.map((member: any) => (
+                    {cohortMembers.map((member) => (
                       <div
                         key={member.id}
                         className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
@@ -324,7 +417,18 @@ export default function AdminCohortMembersPage() {
                               <p className="truncate font-medium text-gray-900">
                                 {member.firstName} {member.lastName}
                               </p>
-                              {getRoleBadge(member.role)}
+                              {getRoleBadge(member.role ?? "")}
+                              {member.cohortLeadershipRole === "COHORT_CAPTAIN" && (
+                                <Badge variant="outline" className="text-xs bg-violet-50 text-violet-800 border-violet-200 gap-1">
+                                  <Crown className="h-3 w-3" />
+                                  Captain
+                                </Badge>
+                              )}
+                              {member.cohortLeadershipRole === "ASSISTANT_COHORT_CAPTAIN" && (
+                                <Badge variant="outline" className="text-xs bg-sky-50 text-sky-800 border-sky-200">
+                                  Assistant captain
+                                </Badge>
+                              )}
                             </div>
                             <p className="truncate text-sm text-gray-500">{member.email}</p>
                           </div>
@@ -358,6 +462,7 @@ export default function AdminCohortMembersPage() {
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
         )}
 

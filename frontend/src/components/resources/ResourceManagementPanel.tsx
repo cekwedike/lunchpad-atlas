@@ -21,6 +21,7 @@ import {
 import { ResourceType } from "@/types/api";
 import { format, isPast } from "date-fns";
 import { calendarDaysFromToday } from "@/lib/date-utils";
+import { getResourceCatalogPoints } from "@/lib/resourcePoints";
 
 interface ResourceManagementPanelProps {
   role: "ADMIN" | "FACILITATOR";
@@ -489,7 +490,7 @@ export function ResourceManagementPanel({ role }: ResourceManagementPanelProps) 
                                           </div>
                                           <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-gray-400">
                                             <span>{resource.estimatedMinutes} min</span>
-                                            <span>{resource.pointValue} pts</span>
+                                            <span>{getResourceCatalogPoints(resource)} pts</span>
                                             <span className={lockStatus.color}>{lockStatus.reason}</span>
                                             {resource.url && (
                                               <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">

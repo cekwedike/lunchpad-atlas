@@ -30,6 +30,7 @@ import { useResources, useAdminUnlockResource, useResourceProgress } from "@/hoo
 import { useProfile } from "@/hooks/api/useProfile";
 import { useCohorts, useSessions, useAdminUsers } from "@/hooks/api/useAdmin";
 import { ResourceType, UserRole } from "@/types/api";
+import { getResourceCatalogPoints } from "@/lib/resourcePoints";
 import { VideoModal } from "@/components/VideoModal";
 import { ArticleModal } from "@/components/ArticleModal";
 import { format } from "date-fns";
@@ -549,6 +550,7 @@ export default function ResourcesPage() {
                                 const unlocked = isResourceUnlocked(resource, session);
                                 const isCompleted = resource.isCompleted || resource.state === "COMPLETED";
                                 const isVideo = resource.type === ResourceType.VIDEO;
+                                const catalogPts = getResourceCatalogPoints(resource);
 
                                 return (
                                   <div
@@ -615,10 +617,10 @@ export default function ResourcesPage() {
                                             {resource.estimatedMinutes} min
                                           </span>
                                         )}
-                                        {resource.pointValue && (
+                                        {catalogPts > 0 && (
                                           <span className={`flex items-center gap-1 font-bold ${cfg.textColor}`}>
                                             <Zap className="h-3 w-3" />
-                                            {resource.pointValue} pts
+                                            {catalogPts} pts
                                           </span>
                                         )}
                                       </div>

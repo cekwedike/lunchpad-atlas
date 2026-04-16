@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/authStore';
+import type { User } from '@/types/api';
+import { UserRole } from '@/types/api';
 import { toast } from 'sonner';
 
 // Types
@@ -108,10 +111,23 @@ export function useSetCohortLeadership(cohortId: string) {
       assistantUserId?: string | null;
     }) =>
       apiClient.patch(`/facilitator/cohorts/${cohortId}/cohort-leadership`, body),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['cohort-members', cohortId] });
       queryClient.invalidateQueries({ queryKey: ['fellow-engagement', cohortId] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      const { user, setUser } = useAuthStore.getState();
+      if (
+        user?.role === UserRole.FELLOW &&
+        cohortId &&
+        user.cohortId === cohortId
+      ) {
+        try {
+          const userData = await apiClient.get<User>('/users/me');
+          setUser(userData);
+        } catch {
+          // Sidebar still updates on next navigation or manual refresh
+        }
+      }
       toast.success('Cohort leadership updated');
     },
     onError: (error: any) => {

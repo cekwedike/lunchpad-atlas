@@ -389,9 +389,9 @@ export default function AdminUsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600 mt-1">Manage all platform users and their roles</p>
@@ -422,7 +422,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -485,7 +485,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Search Bar */}
-        <Card className="bg-white border-gray-200 shadow-sm">
+        <Card className="shrink-0 bg-white border-gray-200 shadow-sm">
           <CardContent className="p-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -499,9 +499,9 @@ export default function AdminUsersPage() {
           </CardContent>
         </Card>
 
-        {/* Users Table */}
-        <Card className="bg-white border-gray-200 shadow-sm">
-          <CardHeader className="border-b border-gray-200">
+        {/* Users Table — fills remaining viewport; scroll inside card */}
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white border-gray-200 shadow-sm">
+          <CardHeader className="shrink-0 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-semibold text-gray-900">All Users</CardTitle>
@@ -511,10 +511,10 @@ export default function AdminUsersPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+          <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto overscroll-y-contain">
+              <table className="w-full min-w-[920px]">
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)]">
                   <tr>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Email</th>

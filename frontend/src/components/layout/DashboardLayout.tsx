@@ -197,7 +197,7 @@ export function DashboardLayout({
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
             </>
           ) : (
-            <div className="mx-auto w-full min-w-0 max-w-7xl space-y-4 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-7xl flex-1 flex-col gap-4 overflow-x-hidden p-4 sm:p-6 lg:p-8">
               {!isSuspended && showSetupChecklist && <SetupChecklist />}
               {children}
             </div>

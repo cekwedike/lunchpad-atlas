@@ -25,6 +25,7 @@ import {
   getVimeoEmbedUrl,
 } from "@/lib/videoUtils";
 import { cn } from "@/lib/utils";
+import { getArticleCompletionPoints, getResourceCatalogPoints } from "@/lib/resourcePoints";
 
 // ── YouTube IFrame API singleton ─────────────────────────────────────────────
 const YT_PLAYING = 1;
@@ -408,7 +409,7 @@ export default function ResourceDetailPage() {
 
   // ── ARTICLE ───────────────────────────────────────────────────────────────
   if (resource.type === ResourceType.ARTICLE) {
-    const articlePts = resource.isCore !== false ? 30 : 15;
+    const articlePts = getArticleCompletionPoints(resource.isCore);
 
     return (
       <DashboardLayout>
@@ -511,6 +512,8 @@ export default function ResourceDetailPage() {
   const isYT = isYouTubeUrl(resource.url ?? "");
   const isVimeo = isVimeoUrl(resource.url ?? "");
   const vimeoEmbedUrl = isVimeo ? getVimeoEmbedUrl(resource.url ?? "") : null;
+  const videoCatalogPts = getResourceCatalogPoints(resource);
+  const videoPointsAwarded = markCompleteMutation.data?.pointsAwarded;
 
   return (
     <DashboardLayout>
@@ -541,10 +544,10 @@ export default function ResourceDetailPage() {
                   <span>{displayMinutes} min</span>
                 </div>
               )}
-              {resource.pointsValue !== undefined && (
+              {videoCatalogPts > 0 && (
                 <div className="flex items-center gap-1">
                   <Award className="h-4 w-4" />
-                  <span>{resource.pointsValue} points</span>
+                  <span>{videoCatalogPts} pts</span>
                 </div>
               )}
             </div>
@@ -642,10 +645,18 @@ export default function ResourceDetailPage() {
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
                 <div>
                   <p className="font-semibold text-emerald-800 text-sm">Video completed!</p>
-                  {resource.pointsValue && (
+                  {typeof videoPointsAwarded === "number" && videoPointsAwarded > 0 ? (
                     <p className="text-xs text-emerald-600 flex items-center gap-1 mt-0.5">
                       <Zap className="h-3 w-3" />
-                      {resource.pointsValue} points earned
+                      {videoPointsAwarded} points earned
+                    </p>
+                  ) : markCompleteMutation.data?.cappedMessage ? (
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      {markCompleteMutation.data.cappedMessage}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-emerald-600 mt-0.5">
+                      Points have been added to your account.
                     </p>
                   )}
                 </div>
