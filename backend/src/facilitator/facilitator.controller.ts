@@ -35,6 +35,16 @@ export class FacilitatorController {
     return this.facilitatorService.getResourceCompletions(cohortId, req.user.id);
   }
 
+  @Get('cohorts/:cohortId/fellow-resource-matrix')
+  @Roles(UserRole.FACILITATOR, UserRole.ADMIN, UserRole.FELLOW)
+  @ApiOperation({
+    summary:
+      'Per-fellow resource progress matrix (captain / facilitator / admin cohort insight)',
+  })
+  getFellowResourceMatrix(@Param('cohortId') cohortId: string, @Request() req) {
+    return this.facilitatorService.getFellowResourceMatrix(cohortId, req.user.id);
+  }
+
   @Patch('cohorts/:cohortId/cohort-leadership')
   @Roles(UserRole.FACILITATOR, UserRole.ADMIN)
   @ApiOperation({

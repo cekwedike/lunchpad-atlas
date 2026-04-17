@@ -341,6 +341,100 @@ export class FacilitatorService {
     });
   }
 
+  /**
+   * Per-fellow × resource progress for cohort captains / facilitators / admins.
+   * Used by Cohort Pulse to see who completed each resource and who may need a nudge.
+   */
+  async getFellowResourceMatrix(cohortId: string, requesterId: string) {
+    const insightRole = await this.verifyCohortInsightAccess(
+      cohortId,
+      requesterId,
+    );
+    const maskEmails = insightRole === 'captain';
+
+    const fellowsRaw = await this.prisma.user.findMany({
+      where: { cohortId, role: 'FELLOW' },
+      select: { id: true, firstName: true, lastName: true, email: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    const fellows = fellowsRaw.map((f) => ({
+      userId: f.id,
+      name: `${f.firstName} ${f.lastName}`.trim(),
+      email: maskEmails ? this.maskFellowEmailForCaptain(f.email) : f.email,
+    }));
+
+    const resources = await this.prisma.resource.findMany({
+      where: { session: { cohortId } },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        isCore: true,
+        order: true,
+        session: { select: { sessionNumber: true, title: true } },
+      },
+      orderBy: [
+        { session: { sessionNumber: 'asc' } },
+        { order: 'asc' },
+      ],
+    });
+
+    const resourceIds = resources.map((r) => r.id);
+    const fellowIds = fellows.map((f) => f.userId);
+
+    const progressRows =
+      resourceIds.length > 0 && fellowIds.length > 0
+        ? await this.prisma.resourceProgress.findMany({
+            where: {
+              resourceId: { in: resourceIds },
+              userId: { in: fellowIds },
+            },
+            select: { userId: true, resourceId: true, state: true },
+          })
+        : [];
+
+    const progressByUser = new Map<string, Map<string, string>>();
+    for (const row of progressRows) {
+      if (!progressByUser.has(row.userId)) {
+        progressByUser.set(row.userId, new Map());
+      }
+      progressByUser.get(row.userId)!.set(row.resourceId, row.state);
+    }
+
+    const cells: Array<{
+      userId: string;
+      resourceId: string;
+      state: string | null;
+      needsAttention: boolean;
+    }> = [];
+
+    for (const uid of fellowIds) {
+      const rowMap = progressByUser.get(uid);
+      for (const rid of resourceIds) {
+        const state = rowMap?.get(rid) ?? null;
+        const needsAttention =
+          state !== null &&
+          state !== 'COMPLETED' &&
+          state !== 'LOCKED';
+        cells.push({ userId: uid, resourceId: rid, state, needsAttention });
+      }
+    }
+
+    return {
+      resources: resources.map((r) => ({
+        resourceId: r.id,
+        title: r.title,
+        type: r.type,
+        isCore: r.isCore,
+        sessionNumber: r.session.sessionNumber,
+        sessionTitle: r.session.title,
+      })),
+      fellows,
+      cells,
+    };
+  }
+
   async suspendFellow(cohortId: string, fellowId: string, requesterId: string, reason?: string) {
     await this.verifyAccess(cohortId, requesterId);
 

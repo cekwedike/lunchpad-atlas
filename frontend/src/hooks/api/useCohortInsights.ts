@@ -6,9 +6,14 @@ export {
   useCohortStats,
   useFellowEngagement,
   useResourceCompletions,
+  useFellowResourceMatrix,
 } from './useFacilitator';
 export type {
   CohortStats,
   FellowEngagement,
   ResourceCompletion,
+  FellowResourceMatrixResponse,
+  FellowResourceMatrixResource,
+  FellowResourceMatrixFellow,
+  FellowResourceMatrixCell,
 } from './useFacilitator';

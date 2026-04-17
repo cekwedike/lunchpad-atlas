@@ -1,34 +1,45 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
+  AlertCircle,
   ArrowLeft,
   BarChart3,
-  BookOpen,
   CalendarDays,
+  Check,
   ChevronRight,
   ClipboardList,
   Crown,
   Loader2,
+  Lock,
   MessageSquare,
   Sparkles,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import { useProfile } from "@/hooks/api/useProfile";
 import {
   useCohortStats,
   useFellowEngagement,
-  useResourceCompletions,
+  useFellowResourceMatrix,
 } from "@/hooks/api/useCohortInsights";
 import { useSessions } from "@/hooks/api/useAdmin";
-import type { CohortStats, FellowEngagement, ResourceCompletion } from "@/hooks/api/useFacilitator";
+import { useOpenDM } from "@/hooks/api/useChat";
+import type {
+  CohortStats,
+  FellowEngagement,
+  FellowResourceMatrixFellow,
+  FellowResourceMatrixResource,
+} from "@/hooks/api/useFacilitator";
 import { cn } from "@/lib/utils";
 import { CohortLeadershipRole, UserRole } from "@/types/api";
 
@@ -39,6 +50,55 @@ type QuizRow = {
   closeAt?: string | null;
   sessionTitle?: string;
 };
+
+function cellKey(userId: string, resourceId: string) {
+  return `${userId}:${resourceId}`;
+}
+
+function ProgressCell({
+  state,
+  needsAttention,
+}: {
+  state: string | null;
+  needsAttention: boolean;
+}) {
+  if (state === "COMPLETED") {
+    return (
+      <span className="flex justify-center" title="Completed">
+        <Check className="h-4 w-4 text-emerald-600" strokeWidth={2.5} aria-hidden />
+        <span className="sr-only">Completed</span>
+      </span>
+    );
+  }
+  if (state === "LOCKED") {
+    return (
+      <span className="flex justify-center text-slate-400" title="Locked">
+        <Lock className="h-3.5 w-3.5" aria-hidden />
+        <span className="sr-only">Locked</span>
+      </span>
+    );
+  }
+  if (state === null) {
+    return (
+      <span className="flex justify-center text-xs text-slate-400" title="No activity recorded yet">
+        —
+      </span>
+    );
+  }
+  if (needsAttention) {
+    return (
+      <span className="flex justify-center text-amber-600" title="Unlocked or in progress — not completed yet">
+        <AlertCircle className="h-4 w-4" aria-hidden />
+        <span className="sr-only">Needs attention</span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex justify-center text-slate-500" title={state ?? ""}>
+      …
+    </span>
+  );
+}
 
 function StatTile({
   label,
@@ -61,7 +121,20 @@ function StatTile({
   );
 }
 
-function FellowMobileCard({ f }: { f: FellowEngagement }) {
+function FellowMobileCard({
+  f,
+  currentUserId,
+  onCheckIn,
+  dmLoadingUserId,
+}: {
+  f: FellowEngagement;
+  currentUserId?: string;
+  onCheckIn: (userId: string) => void;
+  dmLoadingUserId: string | null;
+}) {
+  const isSelf = f.userId === currentUserId;
+  const showCheckIn = f.needsAttention && !isSelf;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
@@ -69,8 +142,22 @@ function FellowMobileCard({ f }: { f: FellowEngagement }) {
           <p className="truncate font-semibold text-slate-900">{f.name}</p>
           <p className="truncate text-xs text-slate-500">{f.email}</p>
         </div>
-        {f.needsAttention ? (
-          <Badge className="shrink-0 border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-50">Check in</Badge>
+        {showCheckIn ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="shrink-0 gap-1 border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            onClick={() => onCheckIn(f.userId)}
+            disabled={dmLoadingUserId === f.userId}
+          >
+            {dmLoadingUserId === f.userId ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+            )}
+            Check in
+          </Button>
         ) : null}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -82,25 +169,6 @@ function FellowMobileCard({ f }: { f: FellowEngagement }) {
           <p className="text-[10px] font-medium uppercase text-slate-500">Points</p>
           <p className="font-semibold tabular-nums text-slate-900">{f.totalPoints}</p>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ResourceMobileCard({ r }: { r: ResourceCompletion }) {
-  const pct = Math.min(100, Math.round(r.completionRate));
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="font-medium leading-snug text-slate-900">{r.title}</p>
-      <p className="mt-0.5 text-xs text-slate-500">{r.type}</p>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-teal-500 transition-all"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-700">{pct}%</span>
       </div>
     </div>
   );
@@ -137,7 +205,32 @@ function overviewValues(stats: CohortStats | undefined) {
   };
 }
 
+function MatrixLegend() {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/50 px-4 py-3 text-xs text-slate-600 sm:px-5">
+      <span className="inline-flex items-center gap-1.5">
+        <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+        Done
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <AlertCircle className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+        Needs attention
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <Lock className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+        Locked
+      </span>
+      <span className="inline-flex items-center gap-1.5 text-slate-500">— No activity yet</span>
+    </div>
+  );
+}
+
 export default function FellowCaptainDashboardPage() {
+  const router = useRouter();
+  const openDM = useOpenDM();
+  const [dmLoadingUserId, setDmLoadingUserId] = useState<string | null>(null);
+  const [selectedFellowId, setSelectedFellowId] = useState<string | null>(null);
+
   const { data: profile, isLoading: profileLoading } = useProfile();
   const cohortId = profile?.cohortId ?? undefined;
   const isCaptain =
@@ -147,10 +240,47 @@ export default function FellowCaptainDashboardPage() {
 
   const { data: stats, isLoading: statsLoading } = useCohortStats(cohortId);
   const { data: fellows, isLoading: fellowsLoading } = useFellowEngagement(cohortId);
-  const { data: resources, isLoading: resourcesLoading } = useResourceCompletions(cohortId);
+  const { data: matrix, isLoading: matrixLoading } = useFellowResourceMatrix(cohortId);
   const { data: sessions = [], isLoading: sessionsLoading } = useSessions(cohortId);
 
   const metrics = useMemo(() => overviewValues(stats), [stats]);
+
+  const cellMap = useMemo(() => {
+    const m = new Map<string, { state: string | null; needsAttention: boolean }>();
+    for (const c of matrix?.cells ?? []) {
+      m.set(cellKey(c.userId, c.resourceId), {
+        state: c.state,
+        needsAttention: c.needsAttention,
+      });
+    }
+    return m;
+  }, [matrix]);
+
+  useEffect(() => {
+    if (!matrix?.fellows?.length) return;
+    setSelectedFellowId((prev) => {
+      if (prev && matrix.fellows.some((f) => f.userId === prev)) return prev;
+      return matrix.fellows[0].userId;
+    });
+  }, [matrix]);
+
+  const handleCheckIn = useCallback(
+    async (targetUserId: string) => {
+      if (!targetUserId || targetUserId === profile?.id) return;
+      setDmLoadingUserId(targetUserId);
+      try {
+        const channel = await openDM.mutateAsync(targetUserId);
+        router.push(`/dashboard/chats?channelId=${channel.id}`);
+      } catch {
+        toast.error("Could not open conversation", {
+          description: "Try again or message them from Chats if the problem continues.",
+        });
+      } finally {
+        setDmLoadingUserId(null);
+      }
+    },
+    [openDM, profile?.id, router],
+  );
 
   const upcoming = useMemo(() => {
     const now = Date.now();
@@ -189,6 +319,21 @@ export default function FellowCaptainDashboardPage() {
     profile?.cohortLeadershipRole === CohortLeadershipRole.COHORT_CAPTAIN
       ? "Captain"
       : "Assistant Captain";
+
+  const selectedFellow = useMemo(() => {
+    if (!matrix?.fellows || !selectedFellowId) return null;
+    return matrix.fellows.find((f) => f.userId === selectedFellowId) ?? null;
+  }, [matrix, selectedFellowId]);
+
+  const mobileAttentionCount = useMemo(() => {
+    if (!selectedFellowId || !matrix?.resources.length) return 0;
+    let n = 0;
+    for (const r of matrix.resources) {
+      const cell = cellMap.get(cellKey(selectedFellowId, r.resourceId));
+      if (cell?.needsAttention) n += 1;
+    }
+    return n;
+  }, [cellMap, matrix?.resources, selectedFellowId]);
 
   if (profileLoading) {
     return (
@@ -235,11 +380,12 @@ export default function FellowCaptainDashboardPage() {
   }
 
   const cohortName = profile?.cohort?.name ?? "your cohort";
+  const matrixResources: FellowResourceMatrixResource[] = matrix?.resources ?? [];
+  const matrixFellows: FellowResourceMatrixFellow[] = matrix?.fellows ?? [];
 
   return (
     <DashboardLayout>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 pb-10 sm:gap-8">
-        {/* Hero */}
         <section
           className={cn(
             "relative overflow-hidden rounded-2xl border border-slate-200/90",
@@ -270,8 +416,9 @@ export default function FellowCaptainDashboardPage() {
               </div>
               <p className="max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
                 Read-only snapshot for <span className="font-semibold text-slate-800">{cohortName}</span>. Fellow
-                emails are masked for privacy. Use this view to spot momentum and who may need a nudge—then coordinate
-                with your facilitator.
+                emails are masked for privacy. Use the matrix below to see who has finished each resource—then use{" "}
+                <span className="font-medium text-slate-800">Check in</span> to open a direct message when someone may
+                need support.
               </p>
             </div>
             <Badge
@@ -284,7 +431,6 @@ export default function FellowCaptainDashboardPage() {
           </div>
         </section>
 
-        {/* KPI grid */}
         <section aria-labelledby="pulse-metrics-heading">
           <div className="mb-3 flex items-center gap-2 sm:mb-4">
             <BarChart3 className="h-5 w-5 text-cyan-700" aria-hidden />
@@ -303,18 +449,13 @@ export default function FellowCaptainDashboardPage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-          {/* Sessions */}
           <Card className="overflow-hidden border-slate-200/90 shadow-sm">
             <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80 pb-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <CalendarDays className="h-5 w-5 text-cyan-700" aria-hidden />
-                    Upcoming sessions
-                  </CardTitle>
-                  <CardDescription className="mt-1.5">Scheduled cohort sessions</CardDescription>
-                </div>
-              </div>
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <CalendarDays className="h-5 w-5 text-cyan-700" aria-hidden />
+                Upcoming sessions
+              </CardTitle>
+              <CardDescription className="mt-1.5">Scheduled cohort sessions</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {sessionsLoading ? (
@@ -344,7 +485,6 @@ export default function FellowCaptainDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quizzes */}
           <Card className="overflow-hidden border-slate-200/90 shadow-sm">
             <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80 pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -402,14 +542,13 @@ export default function FellowCaptainDashboardPage() {
           </Card>
         </div>
 
-        {/* Fellow activity */}
         <Card className="overflow-hidden border-slate-200/90 shadow-sm">
           <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Users className="h-5 w-5 text-cyan-700" aria-hidden />
               Fellow activity
             </CardTitle>
-            <CardDescription>Progress, points, and light flags (no raw emails)</CardDescription>
+            <CardDescription>Overall progress, points, and quick check-ins (masked emails)</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {fellowsLoading ? (
@@ -422,7 +561,13 @@ export default function FellowCaptainDashboardPage() {
               <>
                 <div className="space-y-3 p-4 sm:hidden">
                   {(fellows ?? []).map((f) => (
-                    <FellowMobileCard key={f.userId} f={f} />
+                    <FellowMobileCard
+                      key={f.userId}
+                      f={f}
+                      currentUserId={profile?.id}
+                      onCheckIn={handleCheckIn}
+                      dmLoadingUserId={dmLoadingUserId}
+                    />
                   ))}
                 </div>
                 <div className="hidden overflow-x-auto sm:block">
@@ -437,80 +582,35 @@ export default function FellowCaptainDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(fellows ?? []).map((f) => (
-                        <tr key={f.userId} className="bg-white/80">
-                          <td className="px-5 py-3 font-medium text-slate-900">{f.name}</td>
-                          <td className="px-3 py-3 text-slate-600">{f.email}</td>
-                          <td className="px-3 py-3 tabular-nums text-slate-800">{f.progress}%</td>
-                          <td className="px-3 py-3 tabular-nums text-slate-800">{f.totalPoints}</td>
-                          <td className="px-5 py-3">
-                            {f.needsAttention ? (
-                              <Badge className="border-amber-200 bg-amber-50 font-medium text-amber-900 hover:bg-amber-50">
-                                Check in
-                              </Badge>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Resources */}
-        <Card className="overflow-hidden border-slate-200/90 shadow-sm">
-          <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <BookOpen className="h-5 w-5 text-cyan-700" aria-hidden />
-              Resource completion
-            </CardTitle>
-            <CardDescription>How much of the cohort has finished each resource</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {resourcesLoading ? (
-              <div className="flex justify-center py-14">
-                <Loader2 className="h-7 w-7 animate-spin text-cyan-600" aria-label="Loading resources" />
-              </div>
-            ) : !(resources ?? []).length ? (
-              <p className="p-6 text-sm text-slate-600">No resource completion data yet.</p>
-            ) : (
-              <>
-                <div className="space-y-3 p-4 sm:hidden">
-                  {(resources ?? []).map((r) => (
-                    <ResourceMobileCard key={r.resourceId} r={r} />
-                  ))}
-                </div>
-                <div className="hidden overflow-x-auto sm:block">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <th className="px-5 py-3 text-left">Resource</th>
-                        <th className="px-3 py-3 text-left">Type</th>
-                        <th className="px-5 py-3 text-left">Completion</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {(resources ?? []).map((r) => {
-                        const pct = Math.min(100, Math.round(r.completionRate));
+                      {(fellows ?? []).map((f) => {
+                        const isSelf = f.userId === profile?.id;
+                        const showCheckIn = f.needsAttention && !isSelf;
                         return (
-                          <tr key={r.resourceId} className="bg-white/80">
-                            <td className="px-5 py-3 font-medium text-slate-900">{r.title}</td>
-                            <td className="px-3 py-3 text-slate-600">{r.type}</td>
+                          <tr key={f.userId} className="bg-white/80">
+                            <td className="px-5 py-3 font-medium text-slate-900">{f.name}</td>
+                            <td className="px-3 py-3 text-slate-600">{f.email}</td>
+                            <td className="px-3 py-3 tabular-nums text-slate-800">{f.progress}%</td>
+                            <td className="px-3 py-3 tabular-nums text-slate-800">{f.totalPoints}</td>
                             <td className="px-5 py-3">
-                              <div className="flex max-w-xs items-center gap-3">
-                                <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-teal-500"
-                                    style={{ width: `${pct}%` }}
-                                  />
-                                </div>
-                                <span className="shrink-0 tabular-nums text-slate-700">{pct}%</span>
-                              </div>
+                              {showCheckIn ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 gap-1 border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                  onClick={() => handleCheckIn(f.userId)}
+                                  disabled={dmLoadingUserId === f.userId}
+                                >
+                                  {dmLoadingUserId === f.userId ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                                  ) : (
+                                    <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                                  )}
+                                  Check in
+                                </Button>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -523,13 +623,144 @@ export default function FellowCaptainDashboardPage() {
           </CardContent>
         </Card>
 
+        <Card className="overflow-hidden border-slate-200/90 shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <MessageSquare className="h-5 w-5 text-cyan-700" aria-hidden />
+              Resource progress by fellow
+            </CardTitle>
+            <CardDescription>
+              Each cell is one fellow and one resource. Open a chat from Fellow activity when someone needs a nudge.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {matrixLoading ? (
+              <div className="flex justify-center py-14">
+                <Loader2 className="h-7 w-7 animate-spin text-cyan-600" aria-label="Loading resource matrix" />
+              </div>
+            ) : !matrixResources.length || !matrixFellows.length ? (
+              <p className="p-6 text-sm text-slate-600">No resources or fellows to display for this cohort yet.</p>
+            ) : (
+              <>
+                <div className="md:hidden space-y-4 p-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pulse-fellow-select" className="text-xs font-semibold uppercase text-slate-500">
+                      Fellow
+                    </Label>
+                    <select
+                      id="pulse-fellow-select"
+                      className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      value={selectedFellowId ?? ""}
+                      onChange={(e) => setSelectedFellowId(e.target.value || null)}
+                    >
+                      {matrixFellows.map((f) => (
+                        <option key={f.userId} value={f.userId}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {selectedFellow ? (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 text-xs text-slate-600">
+                      <span className="font-medium text-slate-800">{selectedFellow.name}</span>
+                      <span className="mx-1">·</span>
+                      <span>{mobileAttentionCount} resource{mobileAttentionCount === 1 ? "" : "s"} need attention</span>
+                    </div>
+                  ) : null}
+                  <ul className="space-y-2">
+                    {matrixResources.map((r) => {
+                      const cell = selectedFellowId
+                        ? cellMap.get(cellKey(selectedFellowId, r.resourceId))
+                        : undefined;
+                      return (
+                        <li
+                          key={r.resourceId}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium leading-snug text-slate-900">{r.title}</p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">
+                              Session {r.sessionNumber}
+                              {r.isCore ? "" : " · Optional"} · {r.type}
+                            </p>
+                          </div>
+                          <div className="shrink-0 pt-0.5">
+                            <ProgressCell
+                              state={cell?.state ?? null}
+                              needsAttention={cell?.needsAttention ?? false}
+                            />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                <div className="hidden md:block">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] border-collapse text-sm">
+                      <thead>
+                        <tr>
+                          <th
+                            scope="col"
+                            className="sticky left-0 z-20 min-w-[140px] border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                          >
+                            Fellow
+                          </th>
+                          {matrixResources.map((r) => (
+                            <th
+                              key={r.resourceId}
+                              scope="col"
+                              title={`${r.title} (${r.type})`}
+                              className="min-w-[76px] max-w-[100px] border-b border-slate-200 bg-slate-50 px-1 py-2 text-center align-bottom text-[10px] font-semibold leading-tight text-slate-700"
+                            >
+                              <span className="block text-[9px] font-bold uppercase text-cyan-700">
+                                S{r.sessionNumber}
+                              </span>
+                              <span className="line-clamp-3 text-slate-600">{r.title}</span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrixFellows.map((fellow) => (
+                          <tr key={fellow.userId} className="border-b border-slate-100">
+                            <th
+                              scope="row"
+                              className="sticky left-0 z-10 border-r border-slate-200 bg-white px-3 py-2.5 text-left font-medium text-slate-900 shadow-[2px_0_8px_-4px_rgba(15,23,42,0.12)]"
+                            >
+                              <span className="line-clamp-2 leading-snug">{fellow.name}</span>
+                            </th>
+                            {matrixResources.map((r) => {
+                              const cell = cellMap.get(cellKey(fellow.userId, r.resourceId));
+                              return (
+                                <td key={r.resourceId} className="border-l border-slate-50 px-1 py-2 text-center">
+                                  <ProgressCell
+                                    state={cell?.state ?? null}
+                                    needsAttention={cell?.needsAttention ?? false}
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <MatrixLegend />
+              </>
+            )}
+          </CardContent>
+        </Card>
+
         <Separator className="opacity-60" />
 
         <p className="flex flex-wrap items-center gap-2 text-center text-xs text-slate-500 sm:text-left">
           <MessageSquare className="mx-auto h-4 w-4 shrink-0 text-slate-400 sm:mx-0" aria-hidden />
           <span>
-            Questions about cohort pacing or individual fellows? Reach out through your facilitator—this page stays
-            read-only for everyone&apos;s privacy.
+            This page is read-only for privacy. For policy or grading questions, loop in your facilitator—they can see
+            full detail in their tools.
           </span>
         </p>
       </div>

@@ -44,6 +44,34 @@ export interface ResourceCompletion {
   totalAttempts: number;
 }
 
+export interface FellowResourceMatrixResource {
+  resourceId: string;
+  title: string;
+  type: string;
+  isCore: boolean;
+  sessionNumber: number;
+  sessionTitle: string;
+}
+
+export interface FellowResourceMatrixFellow {
+  userId: string;
+  name: string;
+  email: string;
+}
+
+export interface FellowResourceMatrixCell {
+  userId: string;
+  resourceId: string;
+  state: string | null;
+  needsAttention: boolean;
+}
+
+export interface FellowResourceMatrixResponse {
+  resources: FellowResourceMatrixResource[];
+  fellows: FellowResourceMatrixFellow[];
+  cells: FellowResourceMatrixCell[];
+}
+
 // Get cohort statistics
 export function useCohortStats(cohortId?: string) {
   return useQuery({
@@ -67,6 +95,18 @@ export function useResourceCompletions(cohortId?: string) {
   return useQuery({
     queryKey: ['resource-completions', cohortId],
     queryFn: () => apiClient.get<ResourceCompletion[]>(`/facilitator/cohorts/${cohortId}/resources`),
+    enabled: !!cohortId,
+  });
+}
+
+/** Per-fellow × resource progress (Cohort Pulse matrix). */
+export function useFellowResourceMatrix(cohortId?: string) {
+  return useQuery({
+    queryKey: ['fellow-resource-matrix', cohortId],
+    queryFn: () =>
+      apiClient.get<FellowResourceMatrixResponse>(
+        `/facilitator/cohorts/${cohortId}/fellow-resource-matrix`,
+      ),
     enabled: !!cohortId,
   });
 }
@@ -114,6 +154,7 @@ export function useSetCohortLeadership(cohortId: string) {
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['cohort-members', cohortId] });
       queryClient.invalidateQueries({ queryKey: ['fellow-engagement', cohortId] });
+      queryClient.invalidateQueries({ queryKey: ['fellow-resource-matrix', cohortId] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
       const { user, setUser } = useAuthStore.getState();
       if (
