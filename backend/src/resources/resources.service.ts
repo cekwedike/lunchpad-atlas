@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { ResourceQueryDto, TrackEngagementDto } from './dto/resource.dto';
 import { AchievementsService } from '../achievements/achievements.service';
@@ -13,6 +13,9 @@ import { PointsService } from '../gamification/points.service';
 
 @Injectable()
 export class ResourcesService {
+  private static readonly ANTI_SKIMMING_WARNING_COOLDOWN_MS =
+    7 * 24 * 60 * 60 * 1000;
+
   constructor(
     private prisma: PrismaService,
     private achievementsService: AchievementsService,
@@ -30,16 +33,48 @@ export class ResourcesService {
     // Look at last 10 completed resources for this user
     const recentProgress = await this.prisma.resourceProgress.findMany({
       where: { userId, state: 'COMPLETED' },
-      include: { resource: { select: { minimumTimeThreshold: true } } },
+      select: {
+        timeSpent: true,
+        watchPercentage: true,
+        engagementQuality: true,
+        resource: { select: { minimumTimeThreshold: true, type: true } },
+      },
       orderBy: { completedAt: 'desc' },
       take: 10,
     });
 
     const skimmingCount = recentProgress.filter(
-      (p) => p.resource && p.timeSpent < p.resource.minimumTimeThreshold * 0.5,
+      (p) => {
+        if (!p.resource) return false;
+        const hasLowTime = p.timeSpent < p.resource.minimumTimeThreshold * 0.5;
+        const hasLowQuality = p.engagementQuality < 0.45;
+        const hasLowVideoWatch =
+          p.resource.type === 'VIDEO' && p.watchPercentage < 85;
+
+        // Require at least two weak signals before penalizing.
+        return hasLowTime && (hasLowQuality || hasLowVideoWatch);
+      },
     ).length;
 
     return skimmingCount >= 3;
+  }
+
+  private async hasRecentAntiSkimmingWarning(userId: string): Promise<boolean> {
+    const cutoff = new Date(
+      Date.now() - ResourcesService.ANTI_SKIMMING_WARNING_COOLDOWN_MS,
+    );
+    const recentWarning = await this.prisma.notification.findFirst({
+      where: {
+        userId,
+        type: NotificationType.ANTI_SKIMMING_WARNING,
+        createdAt: { gte: cutoff },
+        isDeleted: false,
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return Boolean(recentWarning);
   }
 
   private async awardPoints(
@@ -402,7 +437,11 @@ export class ResourcesService {
       if (skimmer) {
         totalPoints = Math.floor(totalPoints * 0.5);
         try {
-          await this.notificationsService.notifyAntiSkimmingWarning(userId);
+          const hasRecentWarning =
+            await this.hasRecentAntiSkimmingWarning(userId);
+          if (!hasRecentWarning) {
+            await this.notificationsService.notifyAntiSkimmingWarning(userId);
+          }
         } catch {
           // Non-critical
         }

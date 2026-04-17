@@ -30,6 +30,9 @@ describe('ResourcesService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    notification: {
+      findFirst: jest.fn(),
+    },
     $transaction: jest.fn((callback) => callback(mockPrismaService)),
   };
 
@@ -39,6 +42,7 @@ describe('ResourcesService', () => {
 
   const mockNotificationsService = {
     createNotification: jest.fn(),
+    notifyAntiSkimmingWarning: jest.fn(),
   };
 
   const mockPointsService = {
@@ -130,50 +134,53 @@ describe('ResourcesService', () => {
   });
 
   describe('completeResource', () => {
+    const baseResource = {
+      id: 'res-1',
+      title: 'Test Resource',
+      pointValue: 100,
+      estimatedMinutes: 10,
+      type: 'VIDEO',
+      session: { unlockDate: new Date() },
+    };
+
+    const baseProgress = {
+      state: 'IN_PROGRESS',
+      scrollDepth: 0,
+      watchPercentage: 90,
+      minimumThresholdMet: true,
+      engagementQuality: 0.5,
+    };
+
+    const completedProgress = {
+      id: 'progress-1',
+      state: 'COMPLETED',
+      completedAt: new Date(),
+    };
+
+    const awardedPointsResult = {
+      awarded: true,
+      capped: false,
+      monthResetApplied: false,
+    };
+
     it('should mark resource as complete and award points', async () => {
       const userId = '123';
       const resourceId = 'res-1';
 
-      const mockResource = {
-        id: resourceId,
-        title: 'Test Resource',
-        pointValue: 100,
-        estimatedMinutes: 10,
-        type: 'VIDEO',
-      };
-
-      const existingProgress = {
-        state: 'IN_PROGRESS',
-        scrollDepth: 0,
-        watchPercentage: 90,
-        minimumThresholdMet: true,
-        engagementQuality: 0.5,
-      };
+      const mockResource = { ...baseResource, id: resourceId };
+      const existingProgress = { ...baseProgress };
 
       mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
       mockPrismaService.resourceProgress.findMany.mockResolvedValue([]);
       mockPrismaService.resourceProgress.findUnique.mockResolvedValue(existingProgress);
-      mockPrismaService.resourceProgress.update.mockResolvedValue({
-        id: 'progress-1',
-        state: 'COMPLETED',
-        completedAt: new Date(),
-      });
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        currentMonthPoints: 0,
-        monthlyPointsCap: 1000,
-        lastPointReset: new Date(),
-      });
-      mockPointsService.awardPoints.mockResolvedValue({
-        awarded: true,
-        capped: false,
-        monthResetApplied: false,
-      });
+      mockPrismaService.resourceProgress.update.mockResolvedValue(completedProgress);
+      mockPointsService.awardPoints.mockResolvedValue(awardedPointsResult);
       mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
 
       const qualityBonus = Math.floor(
         mockResource.pointValue * existingProgress.engagementQuality * 0.2,
       );
-      const totalPoints = mockResource.pointValue + qualityBonus;
+      const totalPoints = mockResource.pointValue + qualityBonus + 10;
 
       const result = await service.markComplete(resourceId, userId);
 
@@ -192,13 +199,7 @@ describe('ResourcesService', () => {
       const userId = '123';
       const resourceId = 'res-1';
 
-      const mockResource = {
-        id: resourceId,
-        title: 'Test Resource',
-        pointValue: 100,
-        estimatedMinutes: 10,
-        type: 'VIDEO',
-      };
+      const mockResource = { ...baseResource, id: resourceId };
 
       mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
       mockPrismaService.resourceProgress.findUnique.mockResolvedValue({
@@ -241,6 +242,98 @@ describe('ResourcesService', () => {
       await expect(service.markComplete('res-article', '123')).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('should not apply anti-skimming penalty for high-quality completions', async () => {
+      const userId = '123';
+      const resourceId = 'res-1';
+      const mockResource = { ...baseResource, id: resourceId };
+      const existingProgress = {
+        ...baseProgress,
+        engagementQuality: 0.82,
+        watchPercentage: 96,
+      };
+
+      mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue(existingProgress);
+      mockPrismaService.resourceProgress.update.mockResolvedValue(completedProgress);
+      mockPrismaService.resourceProgress.findMany.mockResolvedValue([
+        {
+          timeSpent: 120,
+          watchPercentage: 95,
+          engagementQuality: 0.8,
+          resource: { minimumTimeThreshold: 420, type: 'VIDEO' },
+        },
+        {
+          timeSpent: 100,
+          watchPercentage: 93,
+          engagementQuality: 0.75,
+          resource: { minimumTimeThreshold: 420, type: 'VIDEO' },
+        },
+        {
+          timeSpent: 160,
+          watchPercentage: 98,
+          engagementQuality: 0.9,
+          resource: { minimumTimeThreshold: 420, type: 'VIDEO' },
+        },
+      ]);
+      mockPointsService.awardPoints.mockResolvedValue(awardedPointsResult);
+      mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
+
+      await service.markComplete(resourceId, userId);
+
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ points: 126 }),
+      );
+      expect(mockNotificationsService.notifyAntiSkimmingWarning).not.toHaveBeenCalled();
+    });
+
+    it('should suppress anti-skimming warning inside cooldown window', async () => {
+      const userId = '123';
+      const resourceId = 'res-1';
+      const mockResource = { ...baseResource, id: resourceId };
+      const existingProgress = {
+        ...baseProgress,
+        engagementQuality: 0.2,
+        watchPercentage: 86,
+      };
+
+      mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
+      mockPrismaService.resourceProgress.findUnique.mockResolvedValue(existingProgress);
+      mockPrismaService.resourceProgress.update.mockResolvedValue(completedProgress);
+      mockPrismaService.resourceProgress.findMany.mockResolvedValue([
+        {
+          timeSpent: 120,
+          watchPercentage: 60,
+          engagementQuality: 0.2,
+          resource: { minimumTimeThreshold: 420, type: 'VIDEO' },
+        },
+        {
+          timeSpent: 100,
+          watchPercentage: 55,
+          engagementQuality: 0.25,
+          resource: { minimumTimeThreshold: 420, type: 'VIDEO' },
+        },
+        {
+          timeSpent: 80,
+          watchPercentage: 58,
+          engagementQuality: 0.3,
+          resource: { minimumTimeThreshold: 420, type: 'VIDEO' },
+        },
+      ]);
+      mockPrismaService.notification.findFirst.mockResolvedValue({
+        id: 'notif-1',
+        createdAt: new Date(),
+      });
+      mockPointsService.awardPoints.mockResolvedValue(awardedPointsResult);
+      mockAchievementsService.checkAndAwardAchievements.mockResolvedValue([]);
+
+      await service.markComplete(resourceId, userId);
+
+      expect(mockPointsService.awardPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ points: 57 }),
+      );
+      expect(mockNotificationsService.notifyAntiSkimmingWarning).not.toHaveBeenCalled();
     });
   });
 
