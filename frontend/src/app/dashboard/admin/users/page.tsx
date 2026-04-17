@@ -389,7 +389,7 @@ export default function AdminUsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden">
         {/* Header */}
         <div className="flex shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -513,7 +513,7 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent className="flex min-h-0 flex-1 flex-col p-0">
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto overscroll-y-contain">
-              <table className="w-full min-w-[920px]">
+              <table className="w-full min-w-[820px]">
                 <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 shadow-[0_1px_0_0_rgb(229_231_235)]">
                   <tr>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</th>
@@ -523,9 +523,6 @@ export default function AdminUsersPage() {
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Points (all-time)
-                    </th>
-                    <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider" title="Time on platform (dashboard heartbeat)">
-                      App time (min)
                     </th>
                     <th className="text-left py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Active</th>
                     <th className="text-right py-3 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
@@ -611,13 +608,6 @@ export default function AdminUsersPage() {
                         ) : (
                           <span className="text-sm text-gray-500">N/A</span>
                         )}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-gray-700 tabular-nums">
-                          {typeof user.statistics?.totalPlatformTimeMinutes === "number"
-                            ? user.statistics.totalPlatformTimeMinutes
-                            : "—"}
-                        </span>
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-sm text-gray-600">

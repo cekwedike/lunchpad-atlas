@@ -180,12 +180,14 @@ export function DashboardLayout({
   usePlatformTimePing(!isSuspended);
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    /* min-h-screen alone lets the shell grow past the viewport; lock to dvh so flex-1 + min-h-0 can bound inner scroll areas (e.g. admin user table). */
+    <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-x-hidden overflow-y-hidden bg-gray-50">
       <Navbar />
-      <div className="flex min-h-0 min-w-0">
+      {/* Fill viewport below the h-16 navbar so dashboard pages can use flex-1 + min-h-0 for inner scroll */}
+      <div className="flex min-h-0 min-w-0 flex-1">
         <Sidebar />
         <main
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden min-h-[calc(100vh-4rem)] ${fullBleedContent ? 'overflow-y-hidden' : ''} ${isSuspended ? 'pointer-events-none select-none' : ''}`}
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden ${fullBleedContent ? 'overflow-y-hidden' : 'overflow-y-auto'} ${isSuspended ? 'pointer-events-none select-none' : ''}`}
         >
           {fullBleedContent ? (
             <>
@@ -198,8 +200,12 @@ export function DashboardLayout({
             </>
           ) : (
             <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-7xl flex-1 flex-col gap-4 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-              {!isSuspended && showSetupChecklist && <SetupChecklist />}
-              {children}
+              {!isSuspended && showSetupChecklist && (
+                <div className="shrink-0">
+                  <SetupChecklist />
+                </div>
+              )}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
             </div>
           )}
         </main>
