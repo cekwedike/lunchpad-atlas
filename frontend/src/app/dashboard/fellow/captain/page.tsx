@@ -1,20 +1,26 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
   ArrowLeft,
   BarChart3,
+  BookOpen,
   CalendarDays,
+  ChevronRight,
+  ClipboardList,
+  Crown,
   Loader2,
   MessageSquare,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useProfile } from "@/hooks/api/useProfile";
 import {
   useCohortStats,
@@ -22,7 +28,114 @@ import {
   useResourceCompletions,
 } from "@/hooks/api/useCohortInsights";
 import { useSessions } from "@/hooks/api/useAdmin";
+import type { CohortStats, FellowEngagement, ResourceCompletion } from "@/hooks/api/useFacilitator";
+import { cn } from "@/lib/utils";
 import { CohortLeadershipRole, UserRole } from "@/types/api";
+
+type QuizRow = {
+  id: string;
+  title: string;
+  openAt?: string | null;
+  closeAt?: string | null;
+  sessionTitle?: string;
+};
+
+function StatTile({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: ReactNode;
+  loading?: boolean;
+}) {
+  return (
+    <div className="group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white/80 p-3 shadow-sm backdrop-blur-sm transition hover:border-cyan-200/80 hover:shadow-md sm:p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      {loading ? (
+        <div className="mt-2 h-8 w-16 animate-pulse rounded-md bg-slate-100" />
+      ) : (
+        <p className="mt-1.5 text-xl font-bold tabular-nums tracking-tight text-slate-900 sm:text-2xl">{value}</p>
+      )}
+    </div>
+  );
+}
+
+function FellowMobileCard({ f }: { f: FellowEngagement }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-900">{f.name}</p>
+          <p className="truncate text-xs text-slate-500">{f.email}</p>
+        </div>
+        {f.needsAttention ? (
+          <Badge className="shrink-0 border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-50">Check in</Badge>
+        ) : null}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+        <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+          <p className="text-[10px] font-medium uppercase text-slate-500">Progress</p>
+          <p className="font-semibold tabular-nums text-slate-900">{f.progress}%</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+          <p className="text-[10px] font-medium uppercase text-slate-500">Points</p>
+          <p className="font-semibold tabular-nums text-slate-900">{f.totalPoints}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResourceMobileCard({ r }: { r: ResourceCompletion }) {
+  const pct = Math.min(100, Math.round(r.completionRate));
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="font-medium leading-snug text-slate-900">{r.title}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{r.type}</p>
+      <div className="mt-3 flex items-center gap-3">
+        <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-teal-500 transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-700">{pct}%</span>
+      </div>
+    </div>
+  );
+}
+
+function QuizMobileCard({ q }: { q: QuizRow }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <Link
+        href={`/quiz/${q.id}`}
+        className="font-semibold text-cyan-800 underline-offset-2 hover:text-cyan-950 hover:underline"
+      >
+        {q.title}
+      </Link>
+      <p className="mt-1 text-xs text-slate-600">
+        <span className="font-medium text-slate-500">Session</span> · {q.sessionTitle ?? "—"}
+      </p>
+      <p className="mt-2 text-xs text-slate-500">
+        <span className="font-medium text-slate-500">Closes</span> ·{" "}
+        {q.closeAt ? format(new Date(q.closeAt), "MMM d, yyyy") : "—"}
+      </p>
+    </div>
+  );
+}
+
+function overviewValues(stats: CohortStats | undefined) {
+  return {
+    fellows: stats?.fellowCount ?? "—",
+    active: stats?.activeFellows ?? "—",
+    avgProgress: stats?.avgProgress != null ? `${stats.avgProgress}%` : "—",
+    discussions: stats?.totalDiscussions ?? "—",
+    newPosts: stats?.activeDiscussions ?? "—",
+    attendance: stats?.attendanceRate != null ? `${stats.attendanceRate}%` : "—",
+  };
+}
 
 export default function FellowCaptainDashboardPage() {
   const { data: profile, isLoading: profileLoading } = useProfile();
@@ -37,6 +150,8 @@ export default function FellowCaptainDashboardPage() {
   const { data: resources, isLoading: resourcesLoading } = useResourceCompletions(cohortId);
   const { data: sessions = [], isLoading: sessionsLoading } = useSessions(cohortId);
 
+  const metrics = useMemo(() => overviewValues(stats), [stats]);
+
   const upcoming = useMemo(() => {
     const now = Date.now();
     return [...sessions]
@@ -45,33 +160,42 @@ export default function FellowCaptainDashboardPage() {
         (a: { scheduledDate?: string }, b: { scheduledDate?: string }) =>
           new Date(a.scheduledDate!).getTime() - new Date(b.scheduledDate!).getTime(),
       )
-      .slice(0, 6);
+      .slice(0, 8);
   }, [sessions]);
 
   const quizRows = useMemo(() => {
-    const rows: { id: string; title: string; openAt?: string | null; closeAt?: string | null; sessionTitle?: string }[] = [];
+    const byId = new Map<string, QuizRow>();
     for (const s of sessions as Array<{
       title?: string;
       quizSessions?: Array<{ quiz: { id: string; title: string; openAt?: string | null; closeAt?: string | null } }>;
     }>) {
       for (const qs of s.quizSessions ?? []) {
-        rows.push({
-          id: qs.quiz.id,
-          title: qs.quiz.title,
-          openAt: qs.quiz.openAt,
-          closeAt: qs.quiz.closeAt,
-          sessionTitle: s.title,
-        });
+        const id = qs.quiz.id;
+        if (!byId.has(id)) {
+          byId.set(id, {
+            id,
+            title: qs.quiz.title,
+            openAt: qs.quiz.openAt,
+            closeAt: qs.quiz.closeAt,
+            sessionTitle: s.title,
+          });
+        }
       }
     }
-    return rows;
+    return [...byId.values()];
   }, [sessions]);
+
+  const leadershipLabel =
+    profile?.cohortLeadershipRole === CohortLeadershipRole.COHORT_CAPTAIN
+      ? "Captain"
+      : "Assistant Captain";
 
   if (profileLoading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
+          <Loader2 className="h-9 w-9 animate-spin text-cyan-600" aria-hidden />
+          <p className="text-sm text-slate-600">Loading Cohort Pulse…</p>
         </div>
       </DashboardLayout>
     );
@@ -80,19 +204,29 @@ export default function FellowCaptainDashboardPage() {
   if (!isCaptain) {
     return (
       <DashboardLayout>
-        <div className="max-w-lg space-y-4">
-          <Button variant="ghost" asChild className="gap-2 -ml-2 w-fit">
+        <div className="mx-auto max-w-lg space-y-6 px-1">
+          <Button variant="ghost" asChild className="gap-2 -ml-2 w-fit text-slate-700">
             <Link href="/dashboard/fellow">
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" aria-hidden />
               Back to dashboard
             </Link>
           </Button>
-          <Card>
-            <CardHeader>
-              <CardTitle>Cohort captain tools</CardTitle>
+          <Card className="overflow-hidden border-slate-200 shadow-md">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-200/80">
+                  <Crown className="h-5 w-5 text-slate-600" aria-hidden />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Cohort leadership</CardTitle>
+                  <CardDescription>Restricted access</CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              This area is only available when your facilitator has assigned you as cohort captain or assistant captain.
+            <CardContent className="pt-6 text-sm leading-relaxed text-slate-600">
+              Cohort Pulse is only available when your facilitator has assigned you as{" "}
+              <span className="font-medium text-slate-800">cohort captain</span> or{" "}
+              <span className="font-medium text-slate-800">assistant captain</span>.
             </CardContent>
           </Card>
         </div>
@@ -100,214 +234,304 @@ export default function FellowCaptainDashboardPage() {
     );
   }
 
-  const loading = statsLoading || fellowsLoading || resourcesLoading;
+  const cohortName = profile?.cohort?.name ?? "your cohort";
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <Button variant="ghost" asChild className="mb-1 -ml-2 w-fit gap-2 text-slate-700">
-              <Link href="/dashboard/fellow">
-                <ArrowLeft className="h-4 w-4" />
-                Fellow dashboard
-              </Link>
-            </Button>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Cohort pulse</h1>
-            <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-              Read-only snapshot for {profile?.cohort?.name ?? "your cohort"}. Fellow emails are masked here for privacy.
-            </p>
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 pb-10 sm:gap-8">
+        {/* Hero */}
+        <section
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-slate-200/90",
+            "bg-gradient-to-br from-slate-50 via-white to-cyan-50/50 shadow-sm ring-1 ring-slate-900/[0.04]",
+          )}
+        >
+          <div
+            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-400/15 blur-3xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-teal-400/10 blur-2xl"
+            aria-hidden
+          />
+          <div className="relative flex flex-col gap-6 p-5 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 space-y-3">
+              <Button variant="ghost" size="sm" asChild className="-ml-2 h-9 w-fit gap-2 text-slate-700">
+                <Link href="/dashboard/fellow">
+                  <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+                  Fellow dashboard
+                </Link>
+              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Sparkles className="hidden h-5 w-5 text-cyan-600 sm:block" aria-hidden />
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
+                  Cohort Pulse
+                </h1>
+              </div>
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                Read-only snapshot for <span className="font-semibold text-slate-800">{cohortName}</span>. Fellow
+                emails are masked for privacy. Use this view to spot momentum and who may need a nudge—then coordinate
+                with your facilitator.
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className="h-fit w-fit shrink-0 gap-1.5 border-cyan-200/80 bg-white/90 px-3 py-1.5 text-sm font-semibold text-cyan-950 shadow-sm backdrop-blur-sm"
+            >
+              <Crown className="h-3.5 w-3.5" aria-hidden />
+              {leadershipLabel}
+            </Badge>
           </div>
-          <Badge variant="outline" className="w-fit shrink-0">
-            {profile?.cohortLeadershipRole === CohortLeadershipRole.COHORT_CAPTAIN ? "Captain" : "Assistant captain"}
-          </Badge>
+        </section>
+
+        {/* KPI grid */}
+        <section aria-labelledby="pulse-metrics-heading">
+          <div className="mb-3 flex items-center gap-2 sm:mb-4">
+            <BarChart3 className="h-5 w-5 text-cyan-700" aria-hidden />
+            <h2 id="pulse-metrics-heading" className="text-lg font-semibold text-slate-900">
+              Cohort metrics
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+            <StatTile label="Fellows" value={metrics.fellows} loading={statsLoading} />
+            <StatTile label="Active (7d)" value={metrics.active} loading={statsLoading} />
+            <StatTile label="Avg progress" value={metrics.avgProgress} loading={statsLoading} />
+            <StatTile label="Discussions" value={metrics.discussions} loading={statsLoading} />
+            <StatTile label="New posts (7d)" value={metrics.newPosts} loading={statsLoading} />
+            <StatTile label="Attendance" value={metrics.attendance} loading={statsLoading} />
+          </div>
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+          {/* Sessions */}
+          <Card className="overflow-hidden border-slate-200/90 shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80 pb-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <CalendarDays className="h-5 w-5 text-cyan-700" aria-hidden />
+                    Upcoming sessions
+                  </CardTitle>
+                  <CardDescription className="mt-1.5">Scheduled cohort sessions</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {sessionsLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-7 w-7 animate-spin text-cyan-600" aria-label="Loading sessions" />
+                </div>
+              ) : upcoming.length === 0 ? (
+                <p className="p-6 text-sm text-slate-600">No upcoming sessions scheduled.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {upcoming.map((s: { id: string; title?: string; scheduledDate?: string }) => (
+                    <li key={s.id} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-xs font-bold text-cyan-800 ring-1 ring-cyan-100">
+                        {s.scheduledDate ? format(new Date(s.scheduledDate), "d") : "—"}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium leading-snug text-slate-900">{s.title ?? "Session"}</p>
+                        <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+                          {s.scheduledDate ? format(new Date(s.scheduledDate), "EEEE, MMMM d, yyyy") : "Date TBD"}
+                        </p>
+                      </div>
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" aria-hidden />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quizzes */}
+          <Card className="overflow-hidden border-slate-200/90 shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80 pb-4">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <ClipboardList className="h-5 w-5 text-cyan-700" aria-hidden />
+                Session quizzes
+              </CardTitle>
+              <CardDescription className="mt-1.5">Linked quizzes and close dates</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {sessionsLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-7 w-7 animate-spin text-cyan-600" aria-label="Loading quizzes" />
+                </div>
+              ) : quizRows.length === 0 ? (
+                <p className="p-6 text-sm text-slate-600">No quizzes linked to sessions yet.</p>
+              ) : (
+                <>
+                  <div className="space-y-3 p-4 sm:hidden">
+                    {quizRows.map((q) => (
+                      <QuizMobileCard key={q.id} q={q} />
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full min-w-[520px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <th className="px-5 py-3">Quiz</th>
+                          <th className="px-3 py-3">Session</th>
+                          <th className="px-5 py-3">Closes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {quizRows.map((q) => (
+                          <tr key={q.id} className="bg-white/80">
+                            <td className="px-5 py-3">
+                              <Link
+                                className="font-medium text-cyan-800 underline-offset-2 hover:text-cyan-950 hover:underline"
+                                href={`/quiz/${q.id}`}
+                              >
+                                {q.title}
+                              </Link>
+                            </td>
+                            <td className="px-3 py-3 text-slate-600">{q.sessionTitle ?? "—"}</td>
+                            <td className="px-5 py-3 text-slate-600 tabular-nums">
+                              {q.closeAt ? format(new Date(q.closeAt), "MMM d, yyyy") : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-          </div>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-indigo-600" />
-                  Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                <div className="rounded-lg border bg-slate-50/80 p-3">
-                  <p className="text-xs text-muted-foreground">Fellows</p>
-                  <p className="text-xl font-semibold">{stats?.fellowCount ?? "–"}</p>
+        {/* Fellow activity */}
+        <Card className="overflow-hidden border-slate-200/90 shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Users className="h-5 w-5 text-cyan-700" aria-hidden />
+              Fellow activity
+            </CardTitle>
+            <CardDescription>Progress, points, and light flags (no raw emails)</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {fellowsLoading ? (
+              <div className="flex justify-center py-14">
+                <Loader2 className="h-7 w-7 animate-spin text-cyan-600" aria-label="Loading fellow activity" />
+              </div>
+            ) : !(fellows ?? []).length ? (
+              <p className="p-6 text-sm text-slate-600">No fellow data for this cohort yet.</p>
+            ) : (
+              <>
+                <div className="space-y-3 p-4 sm:hidden">
+                  {(fellows ?? []).map((f) => (
+                    <FellowMobileCard key={f.userId} f={f} />
+                  ))}
                 </div>
-                <div className="rounded-lg border bg-slate-50/80 p-3">
-                  <p className="text-xs text-muted-foreground">Active (7d)</p>
-                  <p className="text-xl font-semibold">{stats?.activeFellows ?? "–"}</p>
-                </div>
-                <div className="rounded-lg border bg-slate-50/80 p-3">
-                  <p className="text-xs text-muted-foreground">Avg progress</p>
-                  <p className="text-xl font-semibold">{stats?.avgProgress != null ? `${stats.avgProgress}%` : "–"}</p>
-                </div>
-                <div className="rounded-lg border bg-slate-50/80 p-3">
-                  <p className="text-xs text-muted-foreground">Discussions</p>
-                  <p className="text-xl font-semibold">{stats?.totalDiscussions ?? "–"}</p>
-                </div>
-                <div className="rounded-lg border bg-slate-50/80 p-3">
-                  <p className="text-xs text-muted-foreground">New posts (7d)</p>
-                  <p className="text-xl font-semibold">{stats?.activeDiscussions ?? "–"}</p>
-                </div>
-                <div className="rounded-lg border bg-slate-50/80 p-3">
-                  <p className="text-xs text-muted-foreground">Attendance</p>
-                  <p className="text-xl font-semibold">{stats?.attendanceRate != null ? `${stats.attendanceRate}%` : "–"}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-indigo-600" />
-                  Upcoming sessions & quizzes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Sessions</p>
-                  {sessionsLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                  ) : upcoming.length === 0 ? (
-                    <p className="text-muted-foreground">No upcoming sessions scheduled.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {upcoming.map((s: { id: string; title?: string; scheduledDate?: string }) => (
-                        <li key={s.id} className="flex flex-wrap justify-between gap-2 border-b border-dashed pb-2 last:border-0">
-                          <span className="font-medium text-slate-800">{s.title ?? "Session"}</span>
-                          <span className="text-muted-foreground">
-                            {s.scheduledDate ? format(new Date(s.scheduledDate), "MMM d, yyyy") : "—"}
-                          </span>
-                        </li>
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full min-w-[640px] text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-left">Name</th>
+                        <th className="px-3 py-3 text-left">Email</th>
+                        <th className="px-3 py-3 text-left">Progress</th>
+                        <th className="px-3 py-3 text-left">Points</th>
+                        <th className="px-5 py-3 text-left">Flag</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(fellows ?? []).map((f) => (
+                        <tr key={f.userId} className="bg-white/80">
+                          <td className="px-5 py-3 font-medium text-slate-900">{f.name}</td>
+                          <td className="px-3 py-3 text-slate-600">{f.email}</td>
+                          <td className="px-3 py-3 tabular-nums text-slate-800">{f.progress}%</td>
+                          <td className="px-3 py-3 tabular-nums text-slate-800">{f.totalPoints}</td>
+                          <td className="px-5 py-3">
+                            {f.needsAttention ? (
+                              <Badge className="border-amber-200 bg-amber-50 font-medium text-amber-900 hover:bg-amber-50">
+                                Check in
+                              </Badge>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                        </tr>
                       ))}
-                    </ul>
-                  )}
+                    </tbody>
+                  </table>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Quizzes</p>
-                  {quizRows.length === 0 ? (
-                    <p className="text-muted-foreground">No quizzes linked to sessions yet.</p>
-                  ) : (
-                    <div className="overflow-x-auto -mx-1">
-                      <table className="min-w-full text-left text-xs sm:text-sm">
-                        <thead>
-                          <tr className="border-b text-muted-foreground">
-                            <th className="py-2 pr-3 font-medium">Quiz</th>
-                            <th className="py-2 pr-3 font-medium">Session</th>
-                            <th className="py-2 pr-3 font-medium">Closes</th>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Resources */}
+        <Card className="overflow-hidden border-slate-200/90 shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <BookOpen className="h-5 w-5 text-cyan-700" aria-hidden />
+              Resource completion
+            </CardTitle>
+            <CardDescription>How much of the cohort has finished each resource</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {resourcesLoading ? (
+              <div className="flex justify-center py-14">
+                <Loader2 className="h-7 w-7 animate-spin text-cyan-600" aria-label="Loading resources" />
+              </div>
+            ) : !(resources ?? []).length ? (
+              <p className="p-6 text-sm text-slate-600">No resource completion data yet.</p>
+            ) : (
+              <>
+                <div className="space-y-3 p-4 sm:hidden">
+                  {(resources ?? []).map((r) => (
+                    <ResourceMobileCard key={r.resourceId} r={r} />
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full min-w-[560px] text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-5 py-3 text-left">Resource</th>
+                        <th className="px-3 py-3 text-left">Type</th>
+                        <th className="px-5 py-3 text-left">Completion</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(resources ?? []).map((r) => {
+                        const pct = Math.min(100, Math.round(r.completionRate));
+                        return (
+                          <tr key={r.resourceId} className="bg-white/80">
+                            <td className="px-5 py-3 font-medium text-slate-900">{r.title}</td>
+                            <td className="px-3 py-3 text-slate-600">{r.type}</td>
+                            <td className="px-5 py-3">
+                              <div className="flex max-w-xs items-center gap-3">
+                                <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-teal-500"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="shrink-0 tabular-nums text-slate-700">{pct}%</span>
+                              </div>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {quizRows.map((q) => (
-                            <tr key={q.id} className="border-b border-slate-100 last:border-0">
-                              <td className="py-2 pr-3">
-                                <Link className="text-indigo-600 hover:underline" href={`/quiz/${q.id}`}>
-                                  {q.title}
-                                </Link>
-                              </td>
-                              <td className="py-2 pr-3 text-muted-foreground">{q.sessionTitle ?? "—"}</td>
-                              <td className="py-2 pr-3 text-muted-foreground">
-                                {q.closeAt ? format(new Date(q.closeAt), "MMM d, yyyy") : "—"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </CardContent>
-            </Card>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-4 w-4 text-indigo-600" />
-                  Fellow activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto -mx-1 px-1">
-                <table className="min-w-[640px] w-full text-left text-xs sm:text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="py-2 pr-3 font-medium">Name</th>
-                      <th className="py-2 pr-3 font-medium">Email</th>
-                      <th className="py-2 pr-3 font-medium">Progress</th>
-                      <th className="py-2 pr-3 font-medium">Points</th>
-                      <th className="py-2 pr-3 font-medium">Flag</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(fellows ?? []).map((f) => (
-                      <tr key={f.userId} className="border-b border-slate-100 last:border-0">
-                        <td className="py-2 pr-3 font-medium text-slate-800">{f.name}</td>
-                        <td className="py-2 pr-3 text-muted-foreground">{f.email}</td>
-                        <td className="py-2 pr-3">{f.progress}%</td>
-                        <td className="py-2 pr-3">{f.totalPoints}</td>
-                        <td className="py-2 pr-3">
-                          {f.needsAttention ? (
-                            <Badge variant="outline" className="text-amber-800 border-amber-200 bg-amber-50">
-                              Check in
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+        <Separator className="opacity-60" />
 
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-indigo-600" />
-                  Resource completion heatmap
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto -mx-1 px-1">
-                <table className="min-w-[560px] w-full text-left text-xs sm:text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="py-2 pr-3 font-medium">Resource</th>
-                      <th className="py-2 pr-3 font-medium">Type</th>
-                      <th className="py-2 pr-3 font-medium">Completion</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(resources ?? []).map((r) => (
-                      <tr key={r.resourceId} className="border-b border-slate-100 last:border-0">
-                        <td className="py-2 pr-3">{r.title}</td>
-                        <td className="py-2 pr-3 text-muted-foreground">{r.type}</td>
-                        <td className="py-2 pr-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-24 rounded-full bg-slate-100 overflow-hidden">
-                              <div
-                                className="h-full bg-indigo-500 rounded-full"
-                                style={{ width: `${Math.min(100, r.completionRate)}%` }}
-                              />
-                            </div>
-                            <span>{r.completionRate}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <p className="flex flex-wrap items-center gap-2 text-center text-xs text-slate-500 sm:text-left">
+          <MessageSquare className="mx-auto h-4 w-4 shrink-0 text-slate-400 sm:mx-0" aria-hidden />
+          <span>
+            Questions about cohort pacing or individual fellows? Reach out through your facilitator—this page stays
+            read-only for everyone&apos;s privacy.
+          </span>
+        </p>
       </div>
     </DashboardLayout>
   );

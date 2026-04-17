@@ -273,7 +273,7 @@ export function Sidebar() {
             next.findIndex((i) => i.href === '/dashboard/fellow/cohorts') + 1,
           );
           next.splice(insertAt, 0, {
-            title: 'Cohort pulse',
+            title: 'Cohort Pulse',
             href: '/dashboard/fellow/captain',
             icon: Crown,
           });
