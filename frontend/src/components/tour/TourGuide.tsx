@@ -281,6 +281,61 @@ const FACILITATOR_STEPS: TourStep[] = [
   },
 ];
 
+const GUEST_FACILITATOR_STEPS: TourStep[] = [
+  {
+    title: 'Welcome to ATLAS',
+    description:
+      'As a guest facilitator, ATLAS gives you a focused workspace to review learning materials, follow cohort discussions, and support fellows during your access window.',
+    icon: Compass,
+    bg: 'from-blue-950 via-blue-900 to-indigo-700',
+  },
+  {
+    title: 'Dashboard',
+    description:
+      'Your dashboard gives a quick snapshot of your guest facilitator access and points you to the core areas you can use during your temporary access period.',
+    icon: LayoutDashboard,
+    href: '/dashboard/guest-facilitator',
+    cta: 'Go to Dashboard',
+    bg: 'from-indigo-700 to-blue-700',
+  },
+  {
+    title: 'Resources',
+    description:
+      'Browse learning materials available to your cohort. Use resources to stay aligned with the content fellows are working through.',
+    icon: BookOpen,
+    href: '/resources',
+    cta: 'Browse Resources',
+    bg: 'from-cyan-700 to-blue-700',
+  },
+  {
+    title: 'Discussions',
+    description:
+      'Join cohort discussions, answer questions, and keep conversations active. This is your main space to support fellows asynchronously.',
+    icon: MessageSquare,
+    href: '/dashboard/discussions',
+    cta: 'View Discussions',
+    bg: 'from-emerald-700 to-teal-700',
+  },
+  {
+    title: 'Chat',
+    description:
+      'Use chat for direct communication with fellows and facilitators when you need quick coordination or follow-ups.',
+    icon: MessageCircle,
+    href: '/dashboard/chats',
+    cta: 'Open Chat',
+    bg: 'from-teal-700 to-cyan-700',
+  },
+  {
+    title: 'Profile & Settings',
+    description:
+      'Update your account details, manage preferences, and restart this platform tour anytime from your profile.',
+    icon: User,
+    href: '/profile',
+    cta: 'Open Settings',
+    bg: 'from-blue-950 to-slate-800',
+  },
+];
+
 const ADMIN_STEPS: TourStep[] = [
   {
     title: 'Welcome to ATLAS',
@@ -420,6 +475,7 @@ const ADMIN_STEPS: TourStep[] = [
 function getSteps(role?: string): TourStep[] {
   if (role === UserRole.ADMIN) return ADMIN_STEPS;
   if (role === UserRole.FACILITATOR) return FACILITATOR_STEPS;
+  if (role === UserRole.GUEST_FACILITATOR) return GUEST_FACILITATOR_STEPS;
   return FELLOW_STEPS;
 }
 

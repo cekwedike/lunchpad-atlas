@@ -88,6 +88,7 @@ export default function ResourcesPage() {
   const isAdmin = profile?.role === UserRole.ADMIN;
   const isFacilitator = profile?.role === UserRole.FACILITATOR;
   const isFellow = profile?.role === UserRole.FELLOW;
+  const isGuestFacilitator = profile?.role === UserRole.GUEST_FACILITATOR;
 
   const { data: cohortsData } = useCohorts();
   const cohorts = Array.isArray(cohortsData) ? cohortsData : [];
@@ -551,6 +552,7 @@ export default function ResourcesPage() {
                                 const isCompleted = resource.isCompleted || resource.state === "COMPLETED";
                                 const isVideo = resource.type === ResourceType.VIDEO;
                                 const catalogPts = getResourceCatalogPoints(resource);
+                                const shouldShowPoints = !isGuestFacilitator && catalogPts > 0;
 
                                 return (
                                   <div
@@ -617,7 +619,7 @@ export default function ResourcesPage() {
                                             {resource.estimatedMinutes} min
                                           </span>
                                         )}
-                                        {catalogPts > 0 && (
+                                        {shouldShowPoints && (
                                           <span className={`flex items-center gap-1 font-bold ${cfg.textColor}`}>
                                             <Zap className="h-3 w-3" />
                                             {catalogPts} pts
