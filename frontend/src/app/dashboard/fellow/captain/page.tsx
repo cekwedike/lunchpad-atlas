@@ -12,6 +12,7 @@ import {
   Check,
   ChevronRight,
   ClipboardList,
+  Copy,
   Crown,
   Loader2,
   Lock,
@@ -53,6 +54,15 @@ type QuizRow = {
 
 function cellKey(userId: string, resourceId: string) {
   return `${userId}:${resourceId}`;
+}
+
+async function copyEmailToClipboard(email: string) {
+  try {
+    await navigator.clipboard.writeText(email);
+    toast.success("Email copied");
+  } catch {
+    toast.error("Could not copy email");
+  }
 }
 
 function ProgressCell({
@@ -138,9 +148,22 @@ function FellowMobileCard({
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-900">{f.name}</p>
-          <p className="truncate text-xs text-slate-500">{f.email}</p>
+          <div className="mt-0.5 flex items-center gap-1">
+            <p className="min-w-0 flex-1 truncate text-xs text-slate-600">{f.email}</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-slate-500 hover:text-slate-800"
+              title="Copy email"
+              aria-label={`Copy email for ${f.name}`}
+              onClick={() => void copyEmailToClipboard(f.email)}
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+            </Button>
+          </div>
         </div>
         {showCheckIn ? (
           <Button
@@ -415,10 +438,10 @@ export default function FellowCaptainDashboardPage() {
                 </h1>
               </div>
               <p className="max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-                Read-only snapshot for <span className="font-semibold text-slate-800">{cohortName}</span>. Fellow
-                emails are masked for privacy. Use the matrix below to see who has finished each resource—then use{" "}
-                <span className="font-medium text-slate-800">Check in</span> to open a direct message when someone may
-                need support.
+                Read-only snapshot for <span className="font-semibold text-slate-800">{cohortName}</span>. Fellow emails
+                appear below so you can reach out when needed. Use the matrix to see who has finished each resource—then
+                use <span className="font-medium text-slate-800">Check in</span> to open a direct message when someone
+                may need support.
               </p>
             </div>
             <Badge
@@ -548,7 +571,7 @@ export default function FellowCaptainDashboardPage() {
               <Users className="h-5 w-5 text-cyan-700" aria-hidden />
               Fellow activity
             </CardTitle>
-            <CardDescription>Overall progress, points, and quick check-ins (masked emails)</CardDescription>
+            <CardDescription>Overall progress, points, fellow emails, and quick check-ins</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {fellowsLoading ? (
@@ -588,7 +611,24 @@ export default function FellowCaptainDashboardPage() {
                         return (
                           <tr key={f.userId} className="bg-white/80">
                             <td className="px-5 py-3 font-medium text-slate-900">{f.name}</td>
-                            <td className="px-3 py-3 text-slate-600">{f.email}</td>
+                            <td className="px-3 py-3 text-slate-600">
+                              <div className="flex max-w-[min(100%,280px)] items-center gap-1">
+                                <span className="min-w-0 truncate" title={f.email}>
+                                  {f.email}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0 text-slate-500 hover:text-slate-800"
+                                  title="Copy email"
+                                  aria-label={`Copy email for ${f.name}`}
+                                  onClick={() => void copyEmailToClipboard(f.email)}
+                                >
+                                  <Copy className="h-3.5 w-3.5" aria-hidden />
+                                </Button>
+                              </div>
+                            </td>
                             <td className="px-3 py-3 tabular-nums text-slate-800">{f.progress}%</td>
                             <td className="px-3 py-3 tabular-nums text-slate-800">{f.totalPoints}</td>
                             <td className="px-5 py-3">
@@ -759,8 +799,8 @@ export default function FellowCaptainDashboardPage() {
         <p className="flex flex-wrap items-center gap-2 text-center text-xs text-slate-500 sm:text-left">
           <MessageSquare className="mx-auto h-4 w-4 shrink-0 text-slate-400 sm:mx-0" aria-hidden />
           <span>
-            This page is read-only for privacy. For policy or grading questions, loop in your facilitator—they can see
-            full detail in their tools.
+            Roster and progress here are read-only (you cannot edit cohort settings). For policy or grading questions,
+            loop in your facilitator.
           </span>
         </p>
       </div>

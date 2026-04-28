@@ -245,7 +245,7 @@ export default function AdminCohortMembersPage() {
               </CardHeader>
               <CardContent className="p-4 sm:p-6 space-y-4">
                 <p className="text-sm text-gray-600">
-                  Fellows in this role get a read-only &quot;Cohort Pulse&quot; page (masked emails). At most one captain and one assistant per cohort.
+                  Fellows in this role get a read-only &quot;Cohort Pulse&quot; page (roster emails visible to captains). At most one captain and one assistant per cohort.
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">

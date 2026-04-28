@@ -71,15 +71,6 @@ export class FacilitatorService {
     throw new ForbiddenException('You are not assigned to this cohort');
   }
 
-  private maskFellowEmailForCaptain(email: string): string {
-    const at = email.indexOf('@');
-    if (at <= 0) return '***';
-    const user = email.slice(0, at);
-    const domain = email.slice(at + 1);
-    if (user.length <= 2) return `***@${domain}`;
-    return `${user[0]}…${user.slice(-1)}@${domain}`;
-  }
-
   async getCohortStats(cohortId: string, requesterId: string) {
     await this.verifyCohortInsightAccess(cohortId, requesterId);
 
@@ -139,11 +130,7 @@ export class FacilitatorService {
   }
 
   async getFellowEngagement(cohortId: string, requesterId: string) {
-    const insightRole = await this.verifyCohortInsightAccess(
-      cohortId,
-      requesterId,
-    );
-    const maskEmails = insightRole === 'captain';
+    await this.verifyCohortInsightAccess(cohortId, requesterId);
 
     const fellows = await this.prisma.user.findMany({
       where: { cohortId, role: 'FELLOW' },
@@ -278,7 +265,7 @@ export class FacilitatorService {
       return {
         userId: fellow.id,
         name: `${fellow.firstName} ${fellow.lastName}`.trim(),
-        email: maskEmails ? this.maskFellowEmailForCaptain(fellow.email) : fellow.email,
+        email: fellow.email,
         progress,
         sessionProgress,
         lastActive,
@@ -346,11 +333,7 @@ export class FacilitatorService {
    * Used by Cohort Pulse to see who completed each resource and who may need a nudge.
    */
   async getFellowResourceMatrix(cohortId: string, requesterId: string) {
-    const insightRole = await this.verifyCohortInsightAccess(
-      cohortId,
-      requesterId,
-    );
-    const maskEmails = insightRole === 'captain';
+    await this.verifyCohortInsightAccess(cohortId, requesterId);
 
     const fellowsRaw = await this.prisma.user.findMany({
       where: { cohortId, role: 'FELLOW' },
@@ -361,7 +344,7 @@ export class FacilitatorService {
     const fellows = fellowsRaw.map((f) => ({
       userId: f.id,
       name: `${f.firstName} ${f.lastName}`.trim(),
-      email: maskEmails ? this.maskFellowEmailForCaptain(f.email) : f.email,
+      email: f.email,
     }));
 
     const resources = await this.prisma.resource.findMany({
