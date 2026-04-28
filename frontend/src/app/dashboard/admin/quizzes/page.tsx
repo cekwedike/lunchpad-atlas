@@ -1033,7 +1033,7 @@ function CreateStandardQuizDialog({
     const result = await generateAI.mutateAsync({
       quizTitle: title || undefined,
       context: aiInstructions.trim() || undefined,
-      sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
+      sessionIds: selectedSessionIds.length > 0 ? selectedSessionIds : undefined,
       cohortId: quizType === "MEGA" ? cohortId : undefined,
       questionCount: aiCount,
       difficulty: aiDifficulty,
@@ -1080,7 +1080,7 @@ function CreateStandardQuizDialog({
       maxAttempts, showCorrectAnswers,
       openAt: openAt ? localDatetimeInputToUtcIso(openAt) ?? undefined : undefined,
       closeAt: closeAt ? localDatetimeInputToUtcIso(closeAt) ?? undefined : undefined,
-      sessionIds: quizType === "SESSION" ? selectedSessionIds : undefined,
+      sessionIds: selectedSessionIds.length > 0 ? selectedSessionIds : undefined,
       questions: questions.map((q, i) => ({ ...q, order: i + 1 })),
     });
     toast.success("Quiz created");
@@ -1118,7 +1118,7 @@ function CreateStandardQuizDialog({
                   <button
                     key={t}
                     type="button"
-                    onClick={() => { setQuizType(t); setSelectedSessionIds([]); }}
+                    onClick={() => setQuizType(t)}
                     className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
                       quizType === t
                         ? "bg-violet-600 text-white border-violet-600"
@@ -1131,45 +1131,44 @@ function CreateStandardQuizDialog({
               </div>
               <p className="text-xs text-gray-400">
                 {quizType === "SESSION" && "Linked to one or more sessions — one quiz covers all selected sessions"}
-                {quizType === "GENERAL" && "Cohort-wide quiz, not tied to any session"}
-                {quizType === "MEGA" && "End-of-month mega quiz with high point value"}
+                {quizType === "GENERAL" && "Cohort-wide quiz — optionally target selected sessions"}
+                {quizType === "MEGA" && "End-of-month mega quiz — select sessions or leave empty for all analysed cohort sessions"}
               </p>
             </div>
 
             {/* Session multi-select */}
-            {quizType === "SESSION" && (
-              <div className="space-y-1 sm:col-span-2">
-                <Label className="text-sm font-medium">
-                  Sessions * <span className="text-gray-400 font-normal">({selectedSessionIds.length} selected)</span>
-                </Label>
-                <div className="border border-gray-200 rounded-lg max-h-36 overflow-y-auto divide-y divide-gray-100">
-                  {sessions.length === 0 ? (
-                    <p className="p-3 text-sm text-gray-400 text-center">No sessions in this cohort</p>
-                  ) : (
-                    sessions.map((s: any) => (
-                      <label key={s.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-violet-50 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={selectedSessionIds.includes(s.id)}
-                          onChange={() => toggleSession(s.id)}
-                          className="accent-violet-600"
-                        />
-                        <span className="text-sm text-gray-800">
-                          <span className="font-medium text-violet-700">S{s.sessionNumber}</span>
-                          {" — "}{s.title}
-                        </span>
-                      </label>
-                    ))
-                  )}
-                </div>
-                {selectedSessionIds.length > 1 && (
-                  <p className="text-xs text-violet-600 flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    {selectedSessionIds.length} sessions linked to this quiz
-                  </p>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-sm font-medium">
+                Sessions {quizType === "SESSION" ? "*" : <span className="text-gray-400 font-normal">(optional)</span>}{" "}
+                <span className="text-gray-400 font-normal">({selectedSessionIds.length} selected)</span>
+              </Label>
+              <div className="border border-gray-200 rounded-lg max-h-36 overflow-y-auto divide-y divide-gray-100">
+                {sessions.length === 0 ? (
+                  <p className="p-3 text-sm text-gray-400 text-center">No sessions in this cohort</p>
+                ) : (
+                  sessions.map((s: any) => (
+                    <label key={s.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-violet-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedSessionIds.includes(s.id)}
+                        onChange={() => toggleSession(s.id)}
+                        className="accent-violet-600"
+                      />
+                      <span className="text-sm text-gray-800">
+                        <span className="font-medium text-violet-700">S{s.sessionNumber}</span>
+                        {" — "}{s.title}
+                      </span>
+                    </label>
+                  ))
                 )}
               </div>
-            )}
+              {selectedSessionIds.length > 1 && (
+                <p className="text-xs text-violet-600 flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  {selectedSessionIds.length} sessions linked to this quiz
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Settings */}
@@ -1269,10 +1268,10 @@ function CreateStandardQuizDialog({
                 <div className="text-xs text-purple-700 bg-purple-100 rounded-lg px-3 py-2 space-y-0.5">
                   <p className="font-medium">ATLAS will base questions on:</p>
                   {title && <p>• Quiz title: <span className="font-semibold">{title}</span></p>}
-                  {quizType === "SESSION" && selectedSessionIds.length > 0 && (
+                  {selectedSessionIds.length > 0 && (
                     <p>• {selectedSessionIds.length} selected session{selectedSessionIds.length > 1 ? "s" : ""} (transcripts auto-imported)</p>
                   )}
-                  {quizType === "MEGA" && (
+                  {quizType === "MEGA" && selectedSessionIds.length === 0 && (
                     <p>• All analysed sessions in cohort (transcripts auto-imported)</p>
                   )}
                   {quizType === "GENERAL" && !title && (
