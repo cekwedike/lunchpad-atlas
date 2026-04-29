@@ -200,16 +200,39 @@ describe('QuizzesService', () => {
         title: 'Test Quiz',
         cohortId: 'cohort-1',
         sessions: [],
+        openAt: null,
+        closeAt: null,
       };
       mockPrismaService.quiz.findUnique.mockResolvedValue(mockQuiz);
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        role: 'FELLOW',
-        cohortId: 'cohort-1',
-      });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          role: 'FELLOW',
+          cohortId: 'cohort-1',
+        })
+        .mockResolvedValueOnce({ role: 'FELLOW' });
 
       const result = await service.getQuiz('quiz-1', 'user-1');
 
       expect(result).toEqual(mockQuiz);
+    });
+
+    it('should reject when quiz has not opened yet (non-admin)', async () => {
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        title: 'Test Quiz',
+        cohortId: 'cohort-1',
+        sessions: [],
+        openAt: new Date(Date.now() + 86400000),
+        closeAt: null,
+      });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          role: 'FELLOW',
+          cohortId: 'cohort-1',
+        })
+        .mockResolvedValueOnce({ role: 'FELLOW' });
+
+      await expect(service.getQuiz('quiz-1', 'user-1')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException when quiz not found', async () => {
@@ -228,11 +251,15 @@ describe('QuizzesService', () => {
         id: 'quiz-1',
         cohortId: 'cohort-1',
         sessions: [],
+        openAt: null,
+        closeAt: null,
       });
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        role: 'FELLOW',
-        cohortId: 'cohort-1',
-      });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce({
+          role: 'FELLOW',
+          cohortId: 'cohort-1',
+        })
+        .mockResolvedValueOnce({ role: 'FELLOW' });
       mockPrismaService.quizQuestion.findMany.mockResolvedValue(mockQuestions);
 
       const result = await service.getQuizQuestions('quiz-1', 'user-1');
@@ -287,15 +314,19 @@ describe('QuizzesService', () => {
       maxAttempts: 3,
       quizType: 'SESSION',
       showCorrectAnswers: false,
+      openAt: null as Date | null,
+      closeAt: null as Date | null,
     };
 
     beforeEach(() => {
       mockPrismaService.quizResponse.count.mockReset();
       mockPrismaService.user.findUnique.mockReset();
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        role: 'FELLOW',
-        cohortId: 'cohort-1',
-      });
+      mockPrismaService.user.findUnique.mockImplementation(() =>
+        Promise.resolve({
+          role: 'FELLOW',
+          cohortId: 'cohort-1',
+        }),
+      );
     });
 
     it('should throw NotFoundException when quiz not found', async () => {
@@ -312,6 +343,29 @@ describe('QuizzesService', () => {
         maxAttempts: 2,
       });
       mockPrismaService.quizResponse.count.mockResolvedValue(2);
+
+      await expect(
+        service.submitQuiz('quiz-1', 'user-1', { answers: {}, timeTaken: 0 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when quiz is not open yet', async () => {
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        ...baseQuiz,
+        openAt: new Date(Date.now() + 86400000),
+      });
+
+      await expect(
+        service.submitQuiz('quiz-1', 'user-1', { answers: {}, timeTaken: 0 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when quiz window has closed', async () => {
+      mockPrismaService.quiz.findUnique.mockResolvedValue({
+        ...baseQuiz,
+        openAt: new Date(Date.now() - 200000),
+        closeAt: new Date(Date.now() - 100000),
+      });
 
       await expect(
         service.submitQuiz('quiz-1', 'user-1', { answers: {}, timeTaken: 0 }),

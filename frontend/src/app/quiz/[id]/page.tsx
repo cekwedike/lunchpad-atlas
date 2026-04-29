@@ -8,12 +8,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useQuiz, useQuizQuestions, useSubmitQuiz, useQuizAttempts, useQuizReview } from "@/hooks/api/useQuizzes";
+import { useProfile } from "@/hooks/api/useProfile";
 import type { QuizQuestion } from "@/types/api";
 
 export default function QuizPage() {
   const router = useRouter();
   const params = useParams();
   const quizId = params.id as string;
+
+  const { data: profile } = useProfile();
+  const isAdmin = profile?.role === "ADMIN";
   
   const { data: quiz, isLoading: isLoadingQuiz, error: quizError, refetch: refetchQuiz } = useQuiz(quizId);
   const { data: questions, isLoading: isLoadingQuestions, error: questionsError } = useQuizQuestions(quizId);
@@ -433,6 +437,14 @@ export default function QuizPage() {
   }
 
   if (!started) {
+    const now = Date.now();
+    const opensAtMs = quiz.openAt ? new Date(quiz.openAt).getTime() : null;
+    const closesAtMs = quiz.closeAt ? new Date(quiz.closeAt).getTime() : null;
+    const outsideScheduleWindow =
+      !isAdmin &&
+      ((opensAtMs !== null && opensAtMs > now) ||
+        (closesAtMs !== null && closesAtMs < now));
+
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto">
@@ -489,21 +501,38 @@ export default function QuizPage() {
               </p>
             </div>
 
-            {(() => {
-              const maxAttempts = quiz.maxAttempts;
-              const usedAttempts = attempts?.length ?? 0;
-              const exhausted = maxAttempts > 0 && usedAttempts >= maxAttempts;
-              return exhausted ? (
-                <Button disabled className="w-full text-lg py-6">No Attempts Remaining</Button>
-              ) : (
-                <Button
-                  onClick={handleStart}
-                  className="w-full bg-atlas-navy hover:bg-atlas-navy/90 text-lg py-6"
-                >
-                  Start Quiz
-                </Button>
-              );
-            })()}
+            {outsideScheduleWindow ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                {opensAtMs !== null && opensAtMs > now && quiz.openAt && (
+                  <p>
+                    This quiz opens on{" "}
+                    <span className="font-semibold">{new Date(quiz.openAt).toLocaleString()}</span>.
+                  </p>
+                )}
+                {closesAtMs !== null && closesAtMs < now && quiz.closeAt && (
+                  <p>
+                    This quiz closed on{" "}
+                    <span className="font-semibold">{new Date(quiz.closeAt).toLocaleString()}</span>.
+                  </p>
+                )}
+              </div>
+            ) : (
+              (() => {
+                const maxAttempts = quiz.maxAttempts;
+                const usedAttempts = attempts?.length ?? 0;
+                const exhausted = maxAttempts > 0 && usedAttempts >= maxAttempts;
+                return exhausted ? (
+                  <Button disabled className="w-full text-lg py-6">No Attempts Remaining</Button>
+                ) : (
+                  <Button
+                    onClick={handleStart}
+                    className="w-full bg-atlas-navy hover:bg-atlas-navy/90 text-lg py-6"
+                  >
+                    Start Quiz
+                  </Button>
+                );
+              })()
+            )}
           </Card>
         </div>
       </DashboardLayout>

@@ -78,6 +78,32 @@ export class QuizzesService {
   }
 
   /**
+   * Fellows/facilitators/guests may only load questions or submit while the quiz window is active.
+   * Admins bypass (preview/support). Not applied to getQuizReview — closed quizzes stay reviewable.
+   */
+  private async assertQuizTakingWindow(
+    userId: string,
+    quiz: { openAt?: Date | null; closeAt?: Date | null },
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN) return;
+
+    const now = new Date();
+    const openAt = quiz.openAt ?? null;
+    const closeAt = quiz.closeAt ?? null;
+    if (openAt && openAt > now) {
+      throw new BadRequestException('This quiz is not open yet');
+    }
+    if (closeAt && closeAt < now) {
+      throw new BadRequestException('This quiz is closed');
+    }
+  }
+
+  /**
    * Helper function to award points with monthly cap enforcement
    * Returns true if points were awarded, false if cap reached
    */
@@ -190,6 +216,7 @@ export class QuizzesService {
     }
 
     await this.assertUserCanAccessQuiz(userId, quiz as any);
+    await this.assertQuizTakingWindow(userId, quiz as any);
 
     return quiz;
   }
@@ -207,6 +234,7 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
     await this.assertUserCanAccessQuiz(userId, quiz);
+    await this.assertQuizTakingWindow(userId, quiz);
 
     const questions = await this.prisma.quizQuestion.findMany({
       where: { quizId },
@@ -259,6 +287,7 @@ export class QuizzesService {
     }
 
     await this.assertUserCanAccessQuiz(userId, quiz);
+    await this.assertQuizTakingWindow(userId, quiz);
 
     // Enforce max attempt limit (0 = unlimited)
     const totalAllAttempts = await this.prisma.quizResponse.count({
