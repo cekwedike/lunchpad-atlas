@@ -1777,6 +1777,132 @@ export class AdminService {
     return { notified: joinedUserIds.size === 0 ? 'all' : 'non-joined' };
   }
 
+  /** Retired / broken IDs — never use (matches session-analytics & discussion-scoring). */
+  private static readonly BLOCKED_QUIZ_OPENROUTER_MODELS = new Set([
+    'qwen/qwen2.5-72b-instruct:free',
+  ]);
+
+  private sanitizeOpenRouterModelIdForQuiz(raw: string | undefined): string | null {
+    const id = raw?.trim();
+    if (!id) return null;
+    if (AdminService.BLOCKED_QUIZ_OPENROUTER_MODELS.has(id)) return null;
+    return id;
+  }
+
+  /**
+   * Same wiring as `SessionAnalyticsService` / `DiscussionScoringService`:
+   * `OPENROUTER_MODEL`, then comma-separated `OPENROUTER_MODEL_FALLBACKS`, then safe free defaults.
+   */
+  private getQuizGenerationModelCandidates(): string[] {
+    const primary =
+      this.sanitizeOpenRouterModelIdForQuiz(process.env.OPENROUTER_MODEL) ??
+      'qwen/qwen3.6-plus';
+    const fallbackRaw = process.env.OPENROUTER_MODEL_FALLBACKS || '';
+    const fromEnv = fallbackRaw
+      .split(',')
+      .map((s) => this.sanitizeOpenRouterModelIdForQuiz(s))
+      .filter((x): x is string => x !== null);
+    const safeDefaults = [
+      'openai/gpt-oss-120b:free',
+      'z-ai/glm-4.5-air:free',
+      'minimax/minimax-m2.5:free',
+    ];
+    return [primary, ...fromEnv, ...safeDefaults].filter(
+      (v, i, a) => v && a.indexOf(v) === i,
+    );
+  }
+
+  private isRetryableOpenRouterQuizError(msg: string): boolean {
+    return /429|503|rate limit|resource has been exhausted|temporarily unavailable|overloaded/i.test(
+      msg,
+    );
+  }
+
+  private async callOpenRouterQuizCompletionSingle(
+    apiKey: string,
+    prompt: string,
+    completionBudget: number,
+    modelName: string,
+  ): Promise<string> {
+    const envMax = Number(process.env.OPENROUTER_MAX_TOKENS || 2048);
+    const reasoningEnabled = process.env.OPENROUTER_REASONING === 'true';
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    };
+    if (process.env.OPENROUTER_HTTP_REFERER) {
+      headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER;
+    }
+    if (process.env.OPENROUTER_APP_TITLE) {
+      headers['X-OpenRouter-Title'] = process.env.OPENROUTER_APP_TITLE;
+    }
+    const body: Record<string, unknown> = {
+      model: modelName,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: Math.min(envMax, completionBudget),
+    };
+    if (reasoningEnabled) {
+      (body as { reasoning?: { enabled: boolean } }).reasoning = {
+        enabled: true,
+      };
+    }
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter ${response.status}: ${text}`);
+    }
+    const completion = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    return completion.choices?.[0]?.message?.content || '';
+  }
+
+  /** Try primary, then `OPENROUTER_MODEL_FALLBACKS`, then built-in free models (402 / 429 / etc.). */
+  private async runOpenRouterQuizWithFallbacks(
+    apiKey: string,
+    prompt: string,
+    completionBudget: number,
+  ): Promise<string> {
+    const candidates = this.getQuizGenerationModelCandidates();
+    let lastErr: Error | null = null;
+
+    for (const modelName of candidates) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await this.callOpenRouterQuizCompletionSingle(
+            apiKey,
+            prompt,
+            completionBudget,
+            modelName,
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          lastErr = err instanceof Error ? err : new Error(msg);
+          const is402 = /\b402\b|insufficient credits|more credits/i.test(msg);
+          if (is402) break;
+          if (this.isRetryableOpenRouterQuizError(msg) && attempt < 2) {
+            await new Promise((r) => setTimeout(r, 600 * Math.pow(2, attempt)));
+            continue;
+          }
+          break;
+        }
+      }
+    }
+
+    const finalMsg = lastErr?.message ?? 'unknown';
+    if (/\b402\b|insufficient credits|more credits/i.test(finalMsg)) {
+      throw new HttpException(
+        'OpenRouter account has insufficient credits for this request (all models failed). Try fewer questions, add credits at openrouter.ai/settings/credits, or set OPENROUTER_MAX_TOKENS lower.',
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+    throw new BadGatewayException(`OpenRouter API error: ${finalMsg}`);
+  }
+
   async generateAIQuizQuestions(dto: GenerateAIQuestionsDto) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey)
@@ -1863,51 +1989,6 @@ Rules:
 - Prefer principles, definitions, scenarios, and applications over trivia about session mechanics or icebreakers
 - Questions should be clear, unambiguous, and educational`;
 
-    const envMax = Number(process.env.OPENROUTER_MAX_TOKENS || 2048);
-    const reasoningEnabled = process.env.OPENROUTER_REASONING === 'true';
-
-    const runOpenRouter = async (prompt: string, completionBudget: number) => {
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      };
-      if (process.env.OPENROUTER_HTTP_REFERER) {
-        headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER;
-      }
-      if (process.env.OPENROUTER_APP_TITLE) {
-        headers['X-OpenRouter-Title'] = process.env.OPENROUTER_APP_TITLE;
-      }
-
-      const body: Record<string, unknown> = {
-        model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: Math.min(envMax, completionBudget),
-      };
-      if (reasoningEnabled) {
-        (body as any).reasoning = { enabled: true };
-      }
-
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        if (response.status === 402) {
-          throw new HttpException(
-            'OpenRouter account has insufficient credits for this request. Try fewer questions, ask an admin to add credits at openrouter.ai/settings/credits, or set OPENROUTER_MAX_TOKENS lower.',
-            HttpStatus.PAYMENT_REQUIRED,
-          );
-        }
-        throw new Error(`OpenRouter ${response.status}: ${text}`);
-      }
-      const completion = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      return completion.choices?.[0]?.message?.content || '';
-    };
-
     const parseQuestionsJson = (raw: string): any[] => {
       const stripped = raw
         .replace(/```(?:json)?\s*/gi, '')
@@ -1933,7 +2014,11 @@ Rules:
         const prompt = buildPrompt(n);
         // ~70 output tokens per MCQ + small overhead; stay well under low credit ceilings
         const completionBudget = n * 70 + 180;
-        const raw = await runOpenRouter(prompt, completionBudget);
+        const raw = await this.runOpenRouterQuizWithFallbacks(
+          apiKey,
+          prompt,
+          completionBudget,
+        );
         generated = generated.concat(parseQuestionsJson(raw));
       }
     } catch (err: unknown) {
