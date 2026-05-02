@@ -1402,6 +1402,7 @@ function CreateLiveQuizDialog({
   const [description, setDescription] = useState("");
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [timePerQuestion, setTimePerQuestion] = useState(30);
+  const [defaultPointValue, setDefaultPointValue] = useState(1000);
   const [questions, setQuestions] = useState<Array<{
     questionText: string;
     options: [string, string, string, string];
@@ -1429,7 +1430,7 @@ function CreateLiveQuizDialog({
 
   const resetForm = () => {
     setTitle(""); setDescription(""); setSelectedSessionIds([]);
-    setTimePerQuestion(30); setQuestions([]);
+    setTimePerQuestion(30); setDefaultPointValue(1000); setQuestions([]);
     setShowAiForm(false); setAiCount(5);
     setAiInstructions("");
   };
@@ -1439,6 +1440,7 @@ function CreateLiveQuizDialog({
       quizTitle: title || undefined,
       context: aiInstructions.trim() || undefined,
       sessionIds: selectedSessionIds.length ? selectedSessionIds : undefined,
+      cohortId: selectedSessionIds.length ? undefined : cohortId,
       questionCount: aiCount,
       difficulty: aiDifficulty,
     });
@@ -1447,7 +1449,7 @@ function CreateLiveQuizDialog({
       options: q.options.slice(0, 4).concat(["", "", "", ""]).slice(0, 4) as [string, string, string, string],
       correctAnswer: q.options.indexOf(q.correctAnswer) >= 0 ? q.options.indexOf(q.correctAnswer) : 0,
       timeLimit: timePerQuestion,
-      pointValue: 1000,
+      pointValue: defaultPointValue,
     }));
     setQuestions((prev) => [...prev, ...drafts]);
     setShowAiForm(false);
@@ -1455,7 +1457,7 @@ function CreateLiveQuizDialog({
   };
 
   const addBlankQuestion = () => {
-    setQuestions((prev) => [...prev, { questionText: "", options: ["", "", "", ""], correctAnswer: 0, timeLimit: timePerQuestion, pointValue: 1000 }]);
+    setQuestions((prev) => [...prev, { questionText: "", options: ["", "", "", ""], correctAnswer: 0, timeLimit: timePerQuestion, pointValue: defaultPointValue }]);
   };
 
   const handleCreate = async () => {
@@ -1540,6 +1542,20 @@ function CreateLiveQuizDialog({
               <Label className="text-sm font-medium">Default Seconds / Question</Label>
               <Input type="number" min={5} max={120} value={timePerQuestion} onChange={(e) => setTimePerQuestion(Number(e.target.value))} />
             </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Default Points / Question</Label>
+              <Input
+                type="number"
+                min={100}
+                max={100000}
+                step={100}
+                value={defaultPointValue}
+                onChange={(e) => setDefaultPointValue(Number(e.target.value))}
+              />
+              <p className="text-xs text-gray-500">
+                Used for the live game scoreboard (speed + accuracy). Edit per question below. Self-paced mega quiz leaderboard bonuses use a separate rank-based rule.
+              </p>
+            </div>
           </div>
 
           {/* Questions */}
@@ -1620,6 +1636,24 @@ function CreateLiveQuizDialog({
                     <button onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== qi))} className="p-1 text-gray-400 hover:text-red-500 mt-1 shrink-0">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
+                  </div>
+                  <div className="ml-6 flex flex-wrap items-center gap-2">
+                    <Label className="text-xs text-gray-600">Points</Label>
+                    <Input
+                      type="number"
+                      min={100}
+                      max={100000}
+                      step={100}
+                      value={q.pointValue}
+                      onChange={(e) =>
+                        setQuestions((prev) =>
+                          prev.map((q2, i) =>
+                            i === qi ? { ...q2, pointValue: Number(e.target.value) || 0 } : q2,
+                          ),
+                        )
+                      }
+                      className="text-xs h-8 w-24"
+                    />
                   </div>
                   <div className="ml-6 grid grid-cols-2 gap-1.5">
                     {q.options.map((opt, oi) => (

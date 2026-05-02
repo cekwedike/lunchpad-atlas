@@ -889,7 +889,13 @@ export function useGenerateAIQuestions() {
       questionCount: number;
       difficulty: 'easy' | 'medium' | 'hard';
     }) => apiClient.post<{ questions: Array<{ question: string; options: string[]; correctAnswer: string; order: number }> }>('/admin/quizzes/generate-ai', dto),
-    onError: () => toast.error('AI question generation failed'),
+    onError: (err: unknown) => {
+      const msg =
+        err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : 'AI question generation failed';
+      toast.error(msg);
+    },
   });
 }
 

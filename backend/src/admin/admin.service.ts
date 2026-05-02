@@ -5,6 +5,8 @@ import {
   BadRequestException,
   ForbiddenException,
   BadGatewayException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { EventType, ResourceState, UserRole } from '@prisma/client';
@@ -1826,7 +1828,23 @@ export class AdminService {
     }
     const context = contextBlocks.join('\n\n---\n\n');
 
-    const prompt = `Generate exactly ${dto.questionCount} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nUse the following as background source material (sessions, notes, or facilitator instructions — not text to quote):\n${context}` : ''}
+    // Smaller batches keep each OpenRouter request within tight credit limits (402)
+    // and avoid huge completion payloads. Chunk size 8 keeps ~max_tokens under ~800 per call.
+    const CHUNK = 8;
+    const chunkCounts: number[] = [];
+    for (let left = dto.questionCount; left > 0; left -= Math.min(CHUNK, left)) {
+      chunkCounts.push(Math.min(CHUNK, left));
+    }
+
+    const difficultyHint =
+      dto.difficulty === 'easy'
+        ? 'Simple recall/recognition questions'
+        : dto.difficulty === 'medium'
+          ? 'Comprehension and application questions'
+          : 'Analysis and evaluation questions';
+
+    const buildPrompt = (count: number) =>
+      `Generate exactly ${count} ${dto.difficulty}-difficulty multiple-choice quiz questions about: "${topic}"${context ? `\n\nUse the following as background source material (sessions, notes, or facilitator instructions — not text to quote):\n${context}` : ''}
 
 Return ONLY a JSON array with no explanation or markdown fences:
 [
@@ -1840,13 +1858,15 @@ Return ONLY a JSON array with no explanation or markdown fences:
 Rules:
 - Each question must have exactly 4 options
 - correctAnswer must be one of the options verbatim
-- ${dto.difficulty === 'easy' ? 'Simple recall/recognition questions' : dto.difficulty === 'medium' ? 'Comprehension and application questions' : 'Analysis and evaluation questions'}
+- ${difficultyHint}
 - Write standalone questions that could appear on a quiz without having attended the session: avoid framing like "during the session", "in the poll", "participants indicated" unless necessary for a concept question
 - Prefer principles, definitions, scenarios, and applications over trivia about session mechanics or icebreakers
 - Questions should be clear, unambiguous, and educational`;
 
-    let raw = '';
-    try {
+    const envMax = Number(process.env.OPENROUTER_MAX_TOKENS || 2048);
+    const reasoningEnabled = process.env.OPENROUTER_REASONING === 'true';
+
+    const runOpenRouter = async (prompt: string, completionBudget: number) => {
       const headers: Record<string, string> = {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -1858,45 +1878,68 @@ Rules:
         headers['X-OpenRouter-Title'] = process.env.OPENROUTER_APP_TITLE;
       }
 
+      const body: Record<string, unknown> = {
+        model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: Math.min(envMax, completionBudget),
+      };
+      if (reasoningEnabled) {
+        (body as any).reasoning = { enabled: true };
+      }
+
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: process.env.OPENROUTER_MODEL || 'qwen/qwen3.6-plus',
-          messages: [{ role: 'user', content: prompt }],
-          reasoning: { enabled: true },
-          max_tokens: Number(process.env.OPENROUTER_MAX_TOKENS || 800),
-        }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         const text = await response.text();
+        if (response.status === 402) {
+          throw new HttpException(
+            'OpenRouter account has insufficient credits for this request. Try fewer questions, ask an admin to add credits at openrouter.ai/settings/credits, or set OPENROUTER_MAX_TOKENS lower.',
+            HttpStatus.PAYMENT_REQUIRED,
+          );
+        }
         throw new Error(`OpenRouter ${response.status}: ${text}`);
       }
       const completion = (await response.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
       };
-      raw = completion.choices?.[0]?.message?.content || '';
-    } catch (err: any) {
-      throw new BadGatewayException(
-        `OpenRouter API error: ${err?.message ?? 'unknown'}`,
-      );
-    }
-    const stripped = raw
-      .replace(/```(?:json)?\s*/gi, '')
-      .replace(/```\s*/gi, '')
-      .trim();
-    const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-    if (!jsonMatch)
-      throw new BadGatewayException(
-        'AI returned an unparseable response. Try again.',
-      );
+      return completion.choices?.[0]?.message?.content || '';
+    };
 
-    let generated: any[];
+    const parseQuestionsJson = (raw: string): any[] => {
+      const stripped = raw
+        .replace(/```(?:json)?\s*/gi, '')
+        .replace(/```\s*/gi, '')
+        .trim();
+      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+      if (!jsonMatch)
+        throw new BadGatewayException(
+          'AI returned an unparseable response. Try again.',
+        );
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        throw new BadGatewayException(
+          'AI returned an unparseable response. Try again.',
+        );
+      }
+    };
+
+    let generated: any[] = [];
     try {
-      generated = JSON.parse(jsonMatch[0]);
-    } catch {
+      for (const n of chunkCounts) {
+        const prompt = buildPrompt(n);
+        // ~70 output tokens per MCQ + small overhead; stay well under low credit ceilings
+        const completionBudget = n * 70 + 180;
+        const raw = await runOpenRouter(prompt, completionBudget);
+        generated = generated.concat(parseQuestionsJson(raw));
+      }
+    } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
       throw new BadGatewayException(
-        'AI returned an unparseable response. Try again.',
+        `OpenRouter API error: ${err instanceof Error ? err.message : 'unknown'}`,
       );
     }
 
