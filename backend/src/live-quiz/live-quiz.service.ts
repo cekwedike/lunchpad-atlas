@@ -463,7 +463,7 @@ export class LiveQuizService {
     }
 
     if (quiz.status === 'COMPLETED') {
-      return this.prisma.liveQuiz.findUnique({
+      return this.prisma.liveQuiz.findUniqueOrThrow({
         where: { id },
         include: { questions: { orderBy: { orderIndex: 'asc' } } },
       });
@@ -503,7 +503,7 @@ export class LiveQuizService {
       throw new NotFoundException(`Live quiz with ID ${id} not found`);
     }
     if (existing.status === 'COMPLETED') {
-      return this.prisma.liveQuiz.findUnique({
+      return this.prisma.liveQuiz.findUniqueOrThrow({
         where: { id },
         include: {
           participants: {
