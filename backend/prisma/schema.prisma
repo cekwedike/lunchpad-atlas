@@ -108,7 +108,7 @@ model User {
   cohortId           String?
   cohortLeadershipRole CohortLeadershipRole @default(NONE)
   currentMonthPoints Int       @default(0) // Points earned this month
-  monthlyPointsCap   Int       @default(10000) // Maximum points per month (floor; cohort-based caps may be higher)
+  monthlyPointsCap   Int       @default(20000) // Maximum points per calendar month (0 = unlimited)
   lastPointReset     DateTime? // Last time monthly points were reset
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

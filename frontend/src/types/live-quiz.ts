@@ -76,6 +76,19 @@ export interface SubmitAnswerDto {
   timeToAnswer: number;
 }
 
+/** One submitted answer with question payload (facilitator review / resume UI). */
+export interface LiveQuizAnswerWithQuestion {
+  id: string;
+  participantId: string;
+  questionId: string;
+  selectedAnswer: number;
+  isCorrect: boolean;
+  timeToAnswer: number;
+  pointsEarned: number;
+  answeredAt: string;
+  question: LiveQuizQuestion;
+}
+
 // WebSocket Events
 export interface ParticipantJoinedEvent {
   participant: LiveQuizParticipant;

@@ -72,20 +72,22 @@ Figures below match published curriculum and README context for **Cohort 4 (2026
 
 All point grants are recorded in an **immutable points log** (`PointsLog`). Fellows also have a **monthly point balance** and a **monthly cap**; if an award would exceed the cap, **no points** are granted for that action (completion may still succeed).
 
-### Monthly point cap (cohort-duration-aware)
+### Monthly point cap
 
-The **maximum points a fellow can earn per calendar month** depends on **cohort length** (from cohort `startDate` / `endDate`). Implemented caps (see `backend/src/common/gamification.utils.ts`):
+The **maximum points a fellow can earn per calendar month** is **20,000** (same for every cohort length). Implemented as `MONTHLY_POINTS_CAP` / `getMonthlyCapForDuration()` in `backend/src/common/gamification.utils.ts`. Set a user’s `monthlyPointsCap` to **0** to disable the cap for that account (the points service only enforces when `monthlyPointsCap` is greater than zero).
 
-| Cohort length | Monthly cap | Approximate total target over cohort |
-|---------------|-------------|--------------------------------------|
-| 1 month | 10,000 | 10,000 |
-| 2 months | 11,000 | 22,000 |
-| 3 months | 15,000 | 45,000 |
-| 4 months | 20,000 | 80,000 |
-| 5 months | 24,000 | 120,000 |
-| 6+ months | 26,667 | 160,000 |
+**Approximate total point targets** over a cohort (used for leaderboard achievement scaling, not the monthly cap):
 
-The cap is applied when **logging** points (resources, quizzes, discussions, achievements, admin adjustments—each module enforces it consistently).
+| Cohort length | Approximate total target |
+|---------------|--------------------------|
+| 1 month | 10,000 |
+| 2 months | 22,000 |
+| 3 months | 45,000 |
+| 4 months | 80,000 |
+| 5 months | 120,000 |
+| 6+ months | 160,000 |
+
+The monthly cap is applied when **logging** points (resources, quizzes, discussions, etc.), except where code passes `bypassMonthlyCap` (e.g. some tiered mega/live prizes, achievements).
 
 ---
 

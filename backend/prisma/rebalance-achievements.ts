@@ -1,9 +1,9 @@
 /**
  * rebalance-achievements.ts
  *
- * Run ONCE after the monthly cap is raised (e.g. to 10,000 floor).
+ * Run ONCE after the monthly cap is raised (e.g. to 20,000 floor).
  * Updates:
- *   1. All users' monthlyPointsCap below the floor to 10,000
+ *   1. All users' monthlyPointsCap below the floor to 20,000
  *   2. LEADERBOARD point thresholds to spread evenly across a 6-month program
  *   3. Does NOT clear UserAchievement rows — existing unlocks are preserved
  *
@@ -19,7 +19,7 @@ const prisma = new PrismaClient();
 // New point thresholds for "total points earned" achievements.
 //
 // Thresholds below are legacy; live definitions sync from AchievementsService on boot.
-// Monthly earning caps use gamification.utils (10k+ per month by cohort length).
+// Monthly earning caps use gamification.utils (flat cap per fellow/month).
 //
 // Spread so one tier unlocks each month:
 //   Starter – Accumulator  : Month 1 (early dopamine hits)
@@ -49,14 +49,14 @@ const LEADERBOARD_UPDATES: Array<{
 async function main() {
   console.log('⚙️  Rebalancing gamification system...\n');
 
-  // 1. Raise monthly cap floor for users still on legacy low values (does not lower cohort-based caps ≥ 10k)
+  // 1. Raise monthly cap floor for users still on legacy low values
   const userUpdate = await prisma.user.updateMany({
     where: {
-      monthlyPointsCap: { gt: 0, lt: 10000 },
+      monthlyPointsCap: { gt: 0, lt: 20000 },
     },
-    data: { monthlyPointsCap: 10000 },
+    data: { monthlyPointsCap: 20000 },
   });
-  console.log(`✅ Raised monthlyPointsCap to 10,000 for ${userUpdate.count} user(s)`);
+  console.log(`✅ Raised monthlyPointsCap to 20,000 for ${userUpdate.count} user(s)`);
 
   // 2. Update leaderboard achievement thresholds
   let updated = 0;
@@ -94,8 +94,8 @@ async function main() {
   console.log('   Living Legend     25,000 → 18,000');
   console.log('   The GOAT          50,000 → 50,000 (unchanged)');
 
-  console.log('\n📊 Monthly cap: 1,000 → 2,500 pts/month');
-  console.log('   Max achievable over 6 months: ~24,000 pts');
+  console.log('\n📊 Monthly cap floor: raised to 20,000 pts/month where below');
+  console.log('   See MONTHLY_POINTS_CAP in gamification.utils.ts');
   console.log('   Living Legend reachable at program end for dedicated fellows.');
   console.log('   The GOAT is aspirational — achievable only across multiple cohorts.');
 }

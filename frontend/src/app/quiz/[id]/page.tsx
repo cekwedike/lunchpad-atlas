@@ -241,7 +241,7 @@ export default function QuizPage() {
                 {/* MEGA quiz: rank-based leaderboard reward */}
                 {isMega && quizResult.megaQuizRank && (
                   <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5">
-                    <h3 className="font-bold text-indigo-900 text-lg mb-4">Mega Quiz Results</h3>
+                    <h3 className="font-bold text-indigo-900 text-lg mb-4">Cohort mega quiz — your rank</h3>
 
                     {/* Rank banner */}
                     <div className="flex items-center justify-between rounded-lg bg-white border border-indigo-100 px-4 py-3 mb-3">

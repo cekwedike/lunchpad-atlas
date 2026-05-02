@@ -37,7 +37,7 @@ const STATUS_CONFIG: Record<QuizStatus, {
 const QUIZ_TYPE_CONFIG = {
   SESSION: { label: "Session",  icon: BookOpen,     bg: "bg-blue-50",    border: "border-blue-200",    accent: "from-blue-500 to-cyan-500",     iconColor: "text-blue-600" },
   GENERAL: { label: "General",  icon: FileQuestion, bg: "bg-emerald-50", border: "border-emerald-200", accent: "from-emerald-500 to-teal-500",  iconColor: "text-emerald-600" },
-  MEGA:    { label: "Mega",     icon: Zap,          bg: "bg-amber-50",   border: "border-amber-200",   accent: "from-amber-500 to-orange-500",  iconColor: "text-amber-600" },
+  MEGA:    { label: "Cohort mega", icon: Zap,          bg: "bg-amber-50",   border: "border-amber-200",   accent: "from-amber-500 to-orange-500",  iconColor: "text-amber-600" },
 };
 
 function getLeaderboardPoints(rank: number): number {

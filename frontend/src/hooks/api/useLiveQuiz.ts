@@ -6,6 +6,7 @@ import {
   JoinLiveQuizDto,
   SubmitAnswerDto,
   LiveQuizParticipant,
+  LiveQuizAnswerWithQuestion,
 } from '@/types/live-quiz';
 
 const LIVE_QUIZ_KEYS = {
@@ -146,14 +147,20 @@ export function useSubmitAnswer() {
   });
 }
 
-// Get participant's existing answers (used to resume after page refresh)
-export function useParticipantAnswers(participantId: string) {
+// Participant answer history (resume UI + facilitator breakdown)
+export function useParticipantAnswers(
+  participantId: string,
+  options?: { enabled?: boolean },
+) {
+  const enabled =
+    options?.enabled !== false && !!participantId;
   return useQuery({
     queryKey: LIVE_QUIZ_KEYS.participantAnswers(participantId),
-    queryFn: () => apiClient.get<{ questionId: string; selectedAnswer: number; isCorrect: boolean }[]>(
-      `/live-quiz/participant/${participantId}/answers`,
-    ),
-    enabled: !!participantId,
+    queryFn: () =>
+      apiClient.get<LiveQuizAnswerWithQuestion[]>(
+        `/live-quiz/participant/${participantId}/answers`,
+      ),
+    enabled,
     staleTime: 0,
   });
 }

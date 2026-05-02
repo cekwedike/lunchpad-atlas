@@ -355,7 +355,7 @@ export class AdminUserService {
    * Side-effects when the cohort actually changes:
    *   - Wipes all UserAchievement rows (per-cohort reset)
    *   - Resets currentMonthPoints to 0
-   *   - Sets monthlyPointsCap to the global 10k/month limit (same for all cohort lengths)
+   *   - Sets monthlyPointsCap to the global 20k/month limit (same for all cohort lengths)
    */
   async updateUserCohort(userId: string, cohortId: string | null) {
     const user = await this.prisma.user.findUnique({

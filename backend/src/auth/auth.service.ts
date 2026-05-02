@@ -53,7 +53,7 @@ export class AuthService {
           }
         }
 
-        // Fixed 10k/month cap for all cohorts (see getMonthlyCapForDuration).
+        // Fixed 20k/month cap for all cohorts (see getMonthlyCapForDuration).
         let monthlyPointsCap: number | undefined;
         let cohortForWelcome: { name: string; startDate: Date } | null = null;
         if (cohortId) {

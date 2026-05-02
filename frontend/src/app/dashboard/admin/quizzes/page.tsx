@@ -15,7 +15,7 @@ import {
   FileQuestion, Plus, Trash2, Clock, Award, Sparkles, Loader2,
   ChevronDown, ChevronUp, CheckCircle, BookOpen, Zap, CalendarClock,
   LockOpen, Lock, Edit2, RefreshCw, Bell, Play, Users, Trophy, X,
-  Square, Timer, ListChecks, BarChart3,
+  Square, Timer, ListChecks, BarChart3, ChevronRight,
 } from "lucide-react";
 import {
   useCohorts, useSessions, useCohortQuizzes, useCreateQuiz,
@@ -28,7 +28,9 @@ import {
   useCreateLiveQuiz, useDeleteLiveQuiz, useCohortLiveQuizzes,
   useStartLiveQuiz, useLiveQuiz, useLiveQuizLeaderboard,
   useCompleteQuiz,
+  useParticipantAnswers,
 } from "@/hooks/api/useLiveQuiz";
+import type { LiveQuizQuestion } from "@/types/live-quiz";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatCountdown, useSecondTick } from "@/lib/quiz-countdown";
@@ -49,6 +51,14 @@ const QUIZ_TYPE_COLORS: Record<string, string> = {
   GENERAL:  "bg-emerald-100 text-emerald-700",
   MEGA:     "bg-amber-100 text-amber-700",
 };
+
+/** API uses `MEGA`; UI label avoids clashing with live real-time sessions also called mega in the past. */
+function standardQuizTypeShortLabel(t: string): string {
+  if (t === "MEGA") return "Cohort mega";
+  if (t === "SESSION") return "Session";
+  if (t === "GENERAL") return "General";
+  return t;
+}
 
 // ─── 12H Time picker helpers ──────────────────────────────────────────────────
 
@@ -496,7 +506,7 @@ function StandardQuizCard({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge className={`text-xs ${QUIZ_TYPE_COLORS[quiz.quizType] || "bg-gray-100 text-gray-600"}`}>
-                {quiz.quizType || "SESSION"}
+                {standardQuizTypeShortLabel(quiz.quizType || "SESSION")}
               </Badge>
               {quiz.timeLimit > 0 && (
                 <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -765,6 +775,133 @@ function EditQuizDialog({ quiz, cohortId, open, onClose }: { quiz: any; cohortId
   );
 }
 
+function liveQuizOptionText(q: LiveQuizQuestion | undefined, index: number): string {
+  const o = q?.options?.[index];
+  if (o && typeof o === "object" && "text" in o) return String((o as { text: string }).text);
+  return "—";
+}
+
+function ParticipantAnswerBreakdownDialog({
+  open,
+  onClose,
+  participantId,
+  displayName,
+  questions,
+}: {
+  open: boolean;
+  onClose: () => void;
+  participantId: string | null;
+  displayName: string;
+  questions: LiveQuizQuestion[] | undefined;
+}) {
+  const { data: answers = [], isLoading } = useParticipantAnswers(participantId ?? "", {
+    enabled: open && !!participantId,
+  });
+
+  const byQuestionId = new Map(answers.map((a) => [a.questionId, a]));
+  const ordered = [...(questions ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
+
+  let correct = 0;
+  let wrong = 0;
+  let skipped = 0;
+  for (const q of ordered) {
+    const a = byQuestionId.get(q.id);
+    if (!a) skipped += 1;
+    else if (a.isCorrect) correct += 1;
+    else wrong += 1;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="h-5 w-5 text-amber-500 shrink-0" />
+            Answer breakdown — {displayName}
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-gray-100 animate-pulse" />)}</div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge className="bg-green-100 text-green-800">{correct} correct</Badge>
+              <Badge className="bg-red-100 text-red-800">{wrong} wrong</Badge>
+              <Badge className="bg-gray-100 text-gray-700">{skipped} skipped</Badge>
+            </div>
+            <p className="text-xs text-gray-500">
+              Points shown are per-question (speed bonus included). Total score may also include streak bonuses added separately.
+            </p>
+            <div className="space-y-3 pt-1">
+              {ordered.map((q, i) => {
+                const a = byQuestionId.get(q.id);
+                const status = !a ? "skipped" : a.isCorrect ? "correct" : "wrong";
+                return (
+                  <div
+                    key={q.id}
+                    className={`rounded-lg border p-3 text-sm ${
+                      status === "correct"
+                        ? "border-green-200 bg-green-50/60"
+                        : status === "wrong"
+                          ? "border-red-200 bg-red-50/60"
+                          : "border-gray-200 bg-gray-50/80"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className="font-medium text-gray-900">
+                        Q{i + 1}{" "}
+                        <span className="font-normal text-gray-600 line-clamp-2">{q.questionText}</span>
+                      </span>
+                      {!a ? (
+                        <Badge variant="outline" className="shrink-0 text-gray-600 border-gray-300">Skipped</Badge>
+                      ) : a.isCorrect ? (
+                        <Badge className="shrink-0 bg-green-600">Correct</Badge>
+                      ) : (
+                        <Badge className="shrink-0 bg-red-600">Wrong</Badge>
+                      )}
+                    </div>
+                    {a ? (
+                      <div className="grid gap-1 text-xs text-gray-600">
+                        <p>
+                          <span className="text-gray-500">Their answer:</span>{" "}
+                          <span className="font-medium text-gray-800">{liveQuizOptionText(q, a.selectedAnswer)}</span>
+                          {" · "}
+                          <span className="text-gray-500">{Math.round(a.timeToAnswer / 100) / 10}s</span>
+                          {" · "}
+                          <span className="font-mono text-amber-700">{a.pointsEarned} pts</span>
+                        </p>
+                        {!a.isCorrect && (
+                          <p>
+                            <span className="text-gray-500">Correct:</span>{" "}
+                            <span className="font-medium text-gray-800">{liveQuizOptionText(q, q.correctAnswer)}</span>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        <span className="text-gray-500">Correct was:</span>{" "}
+                        {typeof q.correctAnswer === "number" ? (
+                          <span className="font-medium text-gray-700">{liveQuizOptionText(q, q.correctAnswer)}</span>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Live Quiz Manage Panel ───────────────────────────────────────────────────
 function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: string; cohortId: string; open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -776,6 +913,7 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
   const notifyQuiz = useNotifyLiveQuiz();
   const completeQuiz = useCompleteQuiz();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [breakdownParticipant, setBreakdownParticipant] = useState<{ id: string; displayName: string } | null>(null);
 
   const fellows = members.filter((m: any) => m.role === 'FELLOW');
   const joinedIds = new Set((quiz?.participants ?? []).map((p: any) => p.userId));
@@ -791,6 +929,7 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
   const STATUS_COLOR: Record<string, string> = { PENDING: "bg-yellow-100 text-yellow-700", ACTIVE: "bg-green-100 text-green-700", COMPLETED: "bg-gray-100 text-gray-600", CANCELLED: "bg-red-100 text-red-600" };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -901,16 +1040,23 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
                 <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
                   <Trophy className="h-4 w-4 text-amber-500" /> Leaderboard
                 </h3>
+                <p className="text-xs text-gray-500 mb-2">Click a fellow to see each question: correct, wrong, or skipped.</p>
                 <div className="space-y-1.5">
                   {sortedLeaderboard.map((entry: any, idx: number) => (
-                    <div key={entry.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg ${idx === 0 ? "bg-amber-50 border border-amber-200" : idx === 1 ? "bg-gray-50 border border-gray-200" : "bg-white border border-gray-100"}`}>
-                      <span className={`text-sm font-bold w-6 text-center ${idx === 0 ? "text-amber-600" : idx === 1 ? "text-gray-500" : "text-gray-400"}`}>
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => setBreakdownParticipant({ id: entry.id, displayName: entry.displayName })}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors hover:ring-2 hover:ring-amber-200 ${idx === 0 ? "bg-amber-50 border border-amber-200" : idx === 1 ? "bg-gray-50 border border-gray-200" : "bg-white border border-gray-100"}`}
+                    >
+                      <span className={`text-sm font-bold w-6 text-center shrink-0 ${idx === 0 ? "text-amber-600" : idx === 1 ? "text-gray-500" : "text-gray-400"}`}>
                         {idx + 1}
                       </span>
                       <span className="flex-1 text-sm font-medium text-gray-800">{entry.displayName}</span>
-                      <span className="text-sm font-mono font-bold text-gray-700">{entry.totalScore}</span>
-                      <span className="text-xs text-gray-400">{entry.correctCount} correct</span>
-                    </div>
+                      <span className="text-sm font-mono font-bold text-gray-700 shrink-0">{entry.totalScore}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{entry.correctCount} correct</span>
+                      <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" aria-hidden />
+                    </button>
                   ))}
                 </div>
               </div>
@@ -921,6 +1067,15 @@ function LiveQuizManagePanel({ quizId, cohortId, open, onClose }: { quizId: stri
         )}
       </DialogContent>
     </Dialog>
+
+    <ParticipantAnswerBreakdownDialog
+      open={!!breakdownParticipant}
+      onClose={() => setBreakdownParticipant(null)}
+      participantId={breakdownParticipant?.id ?? null}
+      displayName={breakdownParticipant?.displayName ?? ""}
+      questions={quiz?.questions as LiveQuizQuestion[] | undefined}
+    />
+    </>
   );
 }
 
@@ -1125,14 +1280,14 @@ function CreateStandardQuizDialog({
                         : "bg-white text-gray-700 border-gray-200 hover:border-violet-300"
                     }`}
                   >
-                    {t === "SESSION" ? "Session" : t === "GENERAL" ? "General" : "Mega"}
+                    {standardQuizTypeShortLabel(t)}
                   </button>
                 ))}
               </div>
               <p className="text-xs text-gray-400">
                 {quizType === "SESSION" && "Linked to one or more sessions — one quiz covers all selected sessions"}
                 {quizType === "GENERAL" && "Cohort-wide quiz — optionally target selected sessions"}
-                {quizType === "MEGA" && "End-of-month mega quiz — select sessions or leave empty for all analysed cohort sessions"}
+                {quizType === "MEGA" && "Cohort mega (self-paced): fellows take it anytime — ranked vs other passers. Select sessions or leave empty for all analysed cohort sessions"}
               </p>
             </div>
 
@@ -1493,7 +1648,7 @@ function CreateLiveQuizDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            Create Live Quiz (Mega Quiz)
+            Create live quiz
           </DialogTitle>
         </DialogHeader>
 
@@ -1501,7 +1656,7 @@ function CreateLiveQuizDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1 sm:col-span-2">
               <Label className="text-sm font-medium">Title *</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. March End-of-Month Mega Quiz" />
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Module 1 — live session" />
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label className="text-sm font-medium">Description</Label>
@@ -1553,7 +1708,7 @@ function CreateLiveQuizDialog({
                 onChange={(e) => setDefaultPointValue(Number(e.target.value))}
               />
               <p className="text-xs text-gray-500">
-                Used for the live game scoreboard (speed + accuracy). Edit per question below. Self-paced mega quiz leaderboard bonuses use a separate rank-based rule.
+                Used for the live game scoreboard (speed + accuracy). Edit per question below. Monthly leaderboard bonuses for self-paced Cohort mega quizzes use a different rule than this live session.
               </p>
             </div>
           </div>
@@ -1780,7 +1935,7 @@ export default function QuizManagementPage() {
             <div className="flex gap-1 border-b border-gray-200">
               {([
                 { key: "standard", label: "Standard Quizzes", icon: BookOpen },
-                { key: "live",     label: "Live / Mega Quizzes", icon: Zap },
+                { key: "live",     label: "Live quizzes", icon: Zap },
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -1813,7 +1968,9 @@ export default function QuizManagementPage() {
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
-                        {t === "ALL" ? `All (${allStandard.length})` : `${t} (${allStandard.filter((q) => q.quizType === t).length})`}
+                        {t === "ALL"
+                          ? `All (${allStandard.length})`
+                          : `${standardQuizTypeShortLabel(t)} (${allStandard.filter((q) => q.quizType === t).length})`}
                       </button>
                     ))}
                   </div>
@@ -1854,7 +2011,7 @@ export default function QuizManagementPage() {
               </div>
             )}
 
-            {/* ── Live / Mega Quizzes Tab ── */}
+            {/* ── Live quizzes tab ── */}
             {activeTab === "live" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-end">
@@ -1876,7 +2033,7 @@ export default function QuizManagementPage() {
                     <CardContent className="flex flex-col items-center justify-center py-12 text-gray-400">
                       <Zap className="h-10 w-10 mb-2 text-gray-200" />
                       <p className="text-sm font-medium">No live quizzes yet</p>
-                      <p className="text-xs mt-1">Create a Mega Quiz to run a Kahoot-style live game</p>
+                      <p className="text-xs mt-1">Create a live quiz for a real-time, facilitator-led game (Kahoot-style)</p>
                     </CardContent>
                   </Card>
                 ) : (

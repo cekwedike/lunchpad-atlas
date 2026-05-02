@@ -3,7 +3,7 @@
  *
  * Shared utility functions for cohort-duration-aware gamification.
  *
- * Monthly earning cap: 10,000 points per fellow per calendar month for all cohorts.
+ * Monthly earning cap: 20,000 points per fellow per calendar month for all cohorts.
  *
  * Total-target scaling by cohort length (used for LEADERBOARD achievement thresholds only):
  *   Point Starter      ≈   400 pts  (first session)
@@ -19,7 +19,7 @@
  */
 
 /** Maximum points earnable per fellow per calendar month (same for every cohort length). */
-export const MONTHLY_POINTS_CAP = 10000;
+export const MONTHLY_POINTS_CAP = 20000;
 
 const TOTAL_TARGET_BY_MONTHS: Record<number, number> = {
   1: 10000,
@@ -44,7 +44,7 @@ export function getCohortDurationMonths(start: Date, end: Date): number {
 }
 
 /**
- * Monthly point-earning cap. Same for all cohort durations (10,000).
+ * Monthly point-earning cap. Same for all cohort durations (20,000).
  * @param _months retained for call-site compatibility; ignored.
  */
 export function getMonthlyCapForDuration(_months?: number): number {
