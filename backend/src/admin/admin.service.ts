@@ -1903,6 +1903,93 @@ export class AdminService {
     throw new BadGatewayException(`OpenRouter API error: ${finalMsg}`);
   }
 
+  /** First top-level `[` … matching `]` respecting JSON string escapes (avoids greedy-regex bugs). */
+  private extractFirstBalancedJsonArray(s: string): string | null {
+    const start = s.indexOf('[');
+    if (start < 0) return null;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < s.length; i++) {
+      const c = s[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (inString) {
+        if (c === '\\') escape = true;
+        else if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') {
+        inString = true;
+        continue;
+      }
+      if (c === '[') depth++;
+      else if (c === ']') {
+        depth--;
+        if (depth === 0) return s.slice(start, i + 1);
+      }
+    }
+    return null;
+  }
+
+  private parseAiQuizQuestionsPayload(raw: string): any[] {
+    const stripped = raw
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```\s*/gi, '')
+      .trim();
+
+    const coerceArray = (data: unknown): any[] | null => {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === 'object') {
+        const o = data as Record<string, unknown>;
+        if (Array.isArray(o.questions)) return o.questions;
+        if (Array.isArray(o.items)) return o.items;
+      }
+      return null;
+    };
+
+    if (stripped.startsWith('[') || stripped.startsWith('{')) {
+      try {
+        const data = JSON.parse(stripped);
+        const arr = coerceArray(data);
+        if (arr) return arr;
+      } catch {
+        /* fall through to balanced / fuzzy extraction */
+      }
+    }
+
+    const balanced = this.extractFirstBalancedJsonArray(stripped);
+    if (balanced) {
+      try {
+        const data = JSON.parse(balanced);
+        if (Array.isArray(data)) return data;
+      } catch {
+        this.logger.warn(
+          `AI quiz: balanced JSON array found but JSON.parse failed (len=${balanced.length})`,
+        );
+      }
+    }
+
+    const loose = stripped.match(/\[[\s\S]*\]/);
+    if (loose) {
+      try {
+        const data = JSON.parse(loose[0]);
+        if (Array.isArray(data)) return data;
+      } catch {
+        /* last resort failed */
+      }
+    }
+
+    this.logger.warn(
+      `AI quiz unparseable; prefix: ${stripped.slice(0, 360).replace(/\s+/g, ' ')}`,
+    );
+    throw new BadGatewayException(
+      'AI returned an unparseable response (invalid or truncated JSON). Try generating fewer questions at once, or ask an admin to set OPENROUTER_MAX_TOKENS to at least 2500 on the server.',
+    );
+  }
+
   async generateAIQuizQuestions(dto: GenerateAIQuestionsDto) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey)
@@ -1954,9 +2041,9 @@ export class AdminService {
     }
     const context = contextBlocks.join('\n\n---\n\n');
 
-    // Smaller batches keep each OpenRouter request within tight credit limits (402)
-    // and avoid huge completion payloads. Chunk size 8 keeps ~max_tokens under ~800 per call.
-    const CHUNK = 8;
+    // Small chunks + generous max_tokens per call — conversational MCQ JSON needs far more
+    // than ~70 tokens/question; undershooting truncates mid-array and breaks JSON.parse.
+    const CHUNK = 4;
     const chunkCounts: number[] = [];
     for (let left = dto.questionCount; left > 0; left -= Math.min(CHUNK, left)) {
       chunkCounts.push(Math.min(CHUNK, left));
@@ -1985,41 +2072,28 @@ Rules:
 - Each question must have exactly 4 options
 - correctAnswer must be one of the options verbatim
 - ${difficultyHint}
+- Keep each question and each option concise (roughly one short sentence each) so the JSON array is complete
 - Write standalone questions that could appear on a quiz without having attended the session: avoid framing like "during the session", "in the poll", "participants indicated" unless necessary for a concept question
 - Prefer principles, definitions, scenarios, and applications over trivia about session mechanics or icebreakers
 - Questions should be clear, unambiguous, and educational`;
 
-    const parseQuestionsJson = (raw: string): any[] => {
-      const stripped = raw
-        .replace(/```(?:json)?\s*/gi, '')
-        .replace(/```\s*/gi, '')
-        .trim();
-      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-      if (!jsonMatch)
-        throw new BadGatewayException(
-          'AI returned an unparseable response. Try again.',
-        );
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch {
-        throw new BadGatewayException(
-          'AI returned an unparseable response. Try again.',
-        );
-      }
-    };
+    const envMaxQuiz = Number(process.env.OPENROUTER_MAX_TOKENS || 2048);
 
     let generated: any[] = [];
     try {
       for (const n of chunkCounts) {
         const prompt = buildPrompt(n);
-        // ~70 output tokens per MCQ + small overhead; stay well under low credit ceilings
-        const completionBudget = n * 70 + 180;
+        // Each MCQ in JSON is often 150–400+ tokens when “conversational”; budget scales with chunk size.
+        const completionBudget = Math.min(
+          envMaxQuiz,
+          Math.max(720, n * 420 + 520),
+        );
         const raw = await this.runOpenRouterQuizWithFallbacks(
           apiKey,
           prompt,
           completionBudget,
         );
-        generated = generated.concat(parseQuestionsJson(raw));
+        generated = generated.concat(this.parseAiQuizQuestionsPayload(raw));
       }
     } catch (err: unknown) {
       if (err instanceof HttpException) throw err;
