@@ -462,6 +462,13 @@ export class LiveQuizService {
       throw new NotFoundException(`Live quiz with ID ${id} not found`);
     }
 
+    if (quiz.status === 'COMPLETED') {
+      return this.prisma.liveQuiz.findUnique({
+        where: { id },
+        include: { questions: { orderBy: { orderIndex: 'asc' } } },
+      });
+    }
+
     const current = quiz.currentQuestion ?? 0;
     const nextIdx = current + 1;
 
@@ -488,10 +495,37 @@ export class LiveQuizService {
   async completeQuiz(id: string, actorUserId: string) {
     await this.assertCanFacilitateLiveQuiz(actorUserId, id);
 
-    const quiz = await this.prisma.liveQuiz.findUnique({
+    const existing = await this.prisma.liveQuiz.findUnique({
       where: { id },
-      select: { title: true },
+      select: { status: true, title: true },
     });
+    if (!existing) {
+      throw new NotFoundException(`Live quiz with ID ${id} not found`);
+    }
+    if (existing.status === 'COMPLETED') {
+      return this.prisma.liveQuiz.findUnique({
+        where: { id },
+        include: {
+          participants: {
+            orderBy: { totalScore: 'desc' },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+    if (existing.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot complete a cancelled quiz');
+    }
+
+    const quiz = { title: existing.title };
 
     const participants = await this.prisma.liveQuizParticipant.findMany({
       where: { liveQuizId: id },
@@ -514,6 +548,8 @@ export class LiveQuizService {
             eventType: 'QUIZ_SUBMIT' as any,
             liveQuizId: id,
             description: `Live Quiz: ${quiz?.title ?? 'Unknown'} - Rank #${rank} (score: ${participant.totalScore} pts)`,
+            // Same as self-paced MEGA tiered awards — rank prize should not disappear behind monthly cap
+            bypassMonthlyCap: true,
           }),
         ]);
       }),
